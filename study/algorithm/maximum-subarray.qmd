@@ -1,0 +1,588 @@
+---
+title: "Maximum Subarray"
+date: 2026-03-27
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+---
+
+# Overview
+
+Maximum subarray problem은 다음과 같다.
+
+- 정수 배열 $A$가 주어졌을 때
+- 합이 최대가 되는 **contiguous subarray**를 찾는다.
+- 어떤 자료에서는 모든 정수가 음수일 때 답을 $0$으로 두는 버전도 사용한다.
+
+이 노트에서는 다음 네 가지 접근을 정리한다.
+
+- brute force $O(n^3)$
+- improved brute force $O(n^2)$
+- divide-and-conquer $O(n \log n)$
+- Kadane's algorithm $O(n)$
+
+또한 네가 질문했던 핵심 포인트인 다음도 포함한다.
+
+- 왜 crossed case에서 left maximum suffix와 right maximum prefix를 고르면 되는가
+- 왜 right-to-left scan과 left-to-right scan 한 번씩이면 충분한가
+- cut-and-paste 방식으로 correctness를 어떻게 증명하는가
+
+# Problem Setup
+
+배열 $A[1..n]$에 대해 가능한 contiguous range $[i, j]$의 개수는
+
+$$
+\frac{n(n+1)}{2}
+$$
+
+개다.
+
+왜냐하면
+
+- $i = 1$이면 $j = 1, 2, \dots, n$
+- $i = 2$이면 $j = 2, 3, \dots, n$
+- $\cdots$
+- $i = n$이면 $j = n$
+
+이므로 총합이
+
+$$
+n + (n-1) + \cdots + 1 = \frac{n(n+1)}{2}
+$$
+
+이기 때문이다.
+
+# Brute Force $O(n^3)$
+
+가장 직접적인 방법은 모든 $[i, j]$를 다 시도하고, 각 구간의 합을 다시 계산하는 것이다.
+
+```text
+FIND-MAXIMUM-SUBARRAY1(A)
+MaxSum = 0
+for i = 1 to n
+    for j = i to n
+        ThisSum = 0
+        for k = i to j
+            ThisSum = ThisSum + A[k]
+        if ThisSum > MaxSum
+            MaxSum = ThisSum
+return MaxSum
+```
+
+가능한 $[i, j]$가 $\Theta(n^2)$개이고, 각 구간합 계산에 최악 $\Theta(n)$이 걸리므로 전체는
+
+$$
+O(n^3)
+$$
+
+이다.
+
+## Why is it slow?
+
+가장 안쪽 loop가 같은 정보를 계속 다시 계산하기 때문이다.  
+예를 들어 $[i, j-1]$의 합을 이미 구했는데, $[i, j]$의 합을 구할 때 처음부터 다시 더한다.
+
+# Better Brute Force $O(n^2)$
+
+안쪽 loop를 없애는 아이디어는 다음 식이다.
+
+$$
+A[i] + \cdots + A[j] = (A[i] + \cdots + A[j-1]) + A[j]
+$$
+
+즉 이전 합을 재사용하면 된다.
+
+```text
+FIND-MAXIMUM-SUBARRAY2(A)
+MaxSum = 0
+for i = 1 to n
+    ThisSum = 0
+    for j = i to n
+        ThisSum = ThisSum + A[j]
+        if ThisSum > MaxSum
+            MaxSum = ThisSum
+return MaxSum
+```
+
+이제 $i$와 $j$ 두 loop만 있으므로 시간은
+
+$$
+O(n^2)
+$$
+
+이다.
+
+# Divide-and-Conquer Idea
+
+maximum subarray는 다음 셋 중 하나다.
+
+- entirely in the left half
+- entirely in the right half
+- crosses the midpoint
+
+즉 midpoint를 기준으로 보면, maximum subarray는 왼쪽에만 있거나, 오른쪽에만 있거나, midpoint를 가로지르는 경우밖에 없다.
+
+## Why is the crossed case necessary?
+
+최대 부분배열이 왼쪽에서 시작해서 오른쪽에서 끝날 수 있기 때문이다.  
+즉 left case와 right case만 보면 답을 놓칠 수 있다.
+
+# Computing the Crossed Case
+
+crossing subarray는 반드시 다음 꼴이다.
+
+$$
+A[i..j] \quad \text{with} \quad i \le \mathrm{mid} < j
+$$
+
+즉 구조적으로
+
+$$
+A[i..\mathrm{mid}] + A[\mathrm{mid}+1..j]
+$$
+
+로 쪼개진다.
+
+따라서 crossed case를 구하려면
+
+- 왼쪽에서는 $\mathrm{mid}$에서 끝나는 최대 suffix
+- 오른쪽에서는 $\mathrm{mid}+1$에서 시작하는 최대 prefix
+
+를 찾으면 된다.
+
+## Algorithm for the crossed case
+
+```text
+FIND-MAX-CROSSING-SUBARRAY(A, low, mid, high)
+leftSum = -∞
+sum = 0
+for i = mid downto low
+    sum = sum + A[i]
+    if sum > leftSum
+        leftSum = sum
+        maxLeft = i
+
+rightSum = -∞
+sum = 0
+for j = mid + 1 to high
+    sum = sum + A[j]
+    if sum > rightSum
+        rightSum = sum
+        maxRight = j
+
+return (maxLeft, maxRight, leftSum + rightSum)
+```
+
+# Why Right-to-Left / Left-to-Right Scan Is Enough
+
+## Left part
+
+crossing subarray의 왼쪽 부분은 반드시
+
+$$
+A[i..\mathrm{mid}]
+$$
+
+꼴이어야 한다.  
+즉 **$\mathrm{mid}$에서 끝나는 suffix**여야 한다.
+
+따라서 왼쪽에서 필요한 값은
+
+$$
+\max_{i \le \mathrm{mid}} \sum_{k=i}^{\mathrm{mid}} A[k]
+$$
+
+이다.
+
+이 값을 구하려면 $\mathrm{mid}$부터 왼쪽으로 가며 cumulative sum을 쌓아 보면 된다.
+
+- $A[\mathrm{mid}]$
+- $A[\mathrm{mid}-1] + A[\mathrm{mid}]$
+- $A[\mathrm{mid}-2] + A[\mathrm{mid}-1] + A[\mathrm{mid}]$
+- $\cdots$
+
+이 값들이 가능한 모든 왼쪽 후보를 정확히 한 번씩 나열한다.  
+그러므로 한 번의 scan이면 충분하다.
+
+## Right part
+
+마찬가지로 오른쪽 부분은 반드시
+
+$$
+A[\mathrm{mid}+1..j]
+$$
+
+꼴이어야 한다.  
+즉 **$\mathrm{mid}+1$에서 시작하는 prefix**다.
+
+필요한 값은
+
+$$
+\max_{j \ge \mathrm{mid}+1} \sum_{k=\mathrm{mid}+1}^{j} A[k]
+$$
+
+이므로, $\mathrm{mid}+1$부터 오른쪽으로 누적합을 구하면 모든 후보가 정확히 한 번씩 나타난다.
+
+# Cut-and-Paste Proof for the Crossed Case
+
+이제 핵심 질문을 정리하자.
+
+## Claim
+
+$\hat{i}$를 $\mathrm{mid}$에서 끝나는 부분배열들 중 최대합을 주는 시작점,  
+$\hat{j}$를 $\mathrm{mid}+1$에서 시작하는 부분배열들 중 최대합을 주는 끝점이라 하자.
+
+그러면
+
+$$
+A[\hat{i}..\hat{j}]
+$$
+
+는 모든 crossing subarray 중 최대합을 갖는다.
+
+## Intuition
+
+crossing subarray는 언제나
+
+- 왼쪽 조각 $A[i..\mathrm{mid}]$
+- 오른쪽 조각 $A[\mathrm{mid}+1..j]$
+
+을 붙인 형태다.
+
+따라서 어떤 crossing subarray가 있더라도
+
+- 왼쪽 조각을 left maximum suffix로 바꿔 붙이고
+- 오른쪽 조각을 right maximum prefix로 바꿔 붙이면
+
+합이 줄어들 수 없다.
+
+이게 cut-and-paste intuition이다.
+
+## Formal proof by contradiction
+
+알고리즘이 선택한 crossed candidate를
+
+$$
+A[\hat{i}..\hat{j}]
+$$
+
+라고 하자.
+
+반대로 이것이 crossing maximum subarray가 아니라고 가정하자.  
+그러면 어떤 다른 crossing subarray $A[i..j]$가 있어서
+
+$$
+\sum_{k=i}^{j} A[k] > \sum_{k=\hat{i}}^{\hat{j}} A[k]
+$$
+
+라고 해야 한다.
+
+그런데 $A[i..j]$는 crossing이므로
+
+$$
+\sum_{k=i}^{j} A[k]
+= \sum_{k=i}^{\mathrm{mid}} A[k] + \sum_{k=\mathrm{mid}+1}^{j} A[k]
+$$
+
+이다.
+
+또 $\hat{i}$의 정의에 의해
+
+$$
+\sum_{k=i}^{\mathrm{mid}} A[k] \le \sum_{k=\hat{i}}^{\mathrm{mid}} A[k]
+$$
+
+이고, $\hat{j}$의 정의에 의해
+
+$$
+\sum_{k=\mathrm{mid}+1}^{j} A[k] \le \sum_{k=\mathrm{mid}+1}^{\hat{j}} A[k]
+$$
+
+이다.
+
+따라서
+
+$$
+\sum_{k=i}^{j} A[k]
+\le \sum_{k=\hat{i}}^{\mathrm{mid}} A[k] + \sum_{k=\mathrm{mid}+1}^{\hat{j}} A[k]
+= \sum_{k=\hat{i}}^{\hat{j}} A[k]
+$$
+
+를 얻는다.
+
+하지만 처음에는 $A[i..j]$가 더 큰 합을 가진다고 가정했으므로 모순이다.  
+따라서 $A[\hat{i}..\hat{j}]$는 crossing maximum subarray이다.
+
+## Why this is a cut-and-paste proof
+
+임의의 crossing 해 $A[i..j]$를 생각했을 때,
+
+- 왼쪽 조각 $A[i..\mathrm{mid}]$를 잘라내고 left best suffix로 교체한다.
+- 오른쪽 조각 $A[\mathrm{mid}+1..j]$를 잘라내고 right best prefix로 교체한다.
+
+이 교체 과정에서 합은 감소하지 않는다.  
+그래서 어떤 crossing candidate도 $A[\hat{i}..\hat{j}]$보다 좋을 수 없다.
+
+# Full Divide-and-Conquer Algorithm
+
+```text
+FIND-MAXIMUM-SUBARRAY3(A, low, high)
+if high == low
+    return (low, high, A[low])
+else
+    mid = floor((low + high) / 2)
+    (leftLow, leftHigh, leftSum) =
+        FIND-MAXIMUM-SUBARRAY3(A, low, mid)
+    (rightLow, rightHigh, rightSum) =
+        FIND-MAXIMUM-SUBARRAY3(A, mid + 1, high)
+    (crossLow, crossHigh, crossSum) =
+        FIND-MAX-CROSSING-SUBARRAY(A, low, mid, high)
+
+    if leftSum >= rightSum and leftSum >= crossSum
+        return (leftLow, leftHigh, leftSum)
+    else if rightSum >= leftSum and rightSum >= crossSum
+        return (rightLow, rightHigh, rightSum)
+    else
+        return (crossLow, crossHigh, crossSum)
+```
+
+이 알고리즘은 left, right, crossed 세 경우를 모두 계산해서 최댓값을 반환한다.
+
+# Running Time of Divide-and-Conquer
+
+recurrence는
+
+$$
+T(1) = 1, \qquad T(n) = 2T(n/2) + n
+$$
+
+이다.
+
+이유는
+
+- 왼쪽 절반 recursive call 하나
+- 오른쪽 절반 recursive call 하나
+- crossed case 계산이 $O(n)$
+
+이기 때문이다.
+
+Master theorem에서
+
+- $a = 2$
+- $b = 2$
+- $f(n) = n$
+- $n^{\log_2 2} = n$
+
+이므로 Case 2다.  
+따라서
+
+$$
+T(n) = \Theta(n \log n)
+$$
+
+이다.
+
+# Kadane's Algorithm $O(n)$
+
+maximum subarray는 사실 divide-and-conquer보다 더 빠르게 풀 수 있다.  
+핵심 상태는 두 개다.
+
+- **ThisSum**: 현재 위치에서 끝나는 maximum subarray sum
+- **MaxSum**: 지금까지 본 전체 prefix에서의 maximum subarray sum
+
+## Intuition
+
+현재까지의 연속합이 음수가 되었다면, 그걸 다음 위치까지 끌고 가는 것은 손해다.  
+왜냐하면 음수 prefix를 안고 가는 것보다 다음 위치에서 새로 시작하는 편이 항상 낫기 때문이다.
+
+## Algorithm
+
+```text
+FIND-MAXIMUM-SUBARRAY4(A)
+MaxSum = 0
+ThisSum = 0
+for j = 1 to n
+    ThisSum = ThisSum + A[j]
+    if ThisSum > MaxSum
+        MaxSum = ThisSum
+    else if ThisSum < 0
+        ThisSum = 0
+return MaxSum
+```
+
+이 알고리즘은 배열을 한 번만 순회하므로
+
+$$
+O(n)
+$$
+
+이다.
+
+# All-Negative Case
+
+자료에 따라서는 모든 원소가 음수일 때 답을 $0$으로 두기도 하고,  
+반드시 non-empty subarray만 허용해서 가장 덜 음수인 원소 하나를 답으로 두기도 한다.
+
+즉 다음 두 버전이 모두 존재한다.
+
+- empty subarray를 허용해서 답을 $0$으로 두는 버전
+- non-empty subarray만 허용하는 버전
+
+시험이나 과제에서는 **문제 정의가 어느 쪽인지 반드시 확인**해야 한다.
+
+# Frequently Confused Points
+
+## Why can we optimize the two sides independently?
+
+crossing sum은 구조적으로
+
+$$
+\text{(left part)} + \text{(right part)}
+$$
+
+로 완전히 분리된다.  
+왼쪽 선택이 오른쪽의 후보 집합을 바꾸지 않는다.  
+그래서 왼쪽 최적과 오른쪽 최적을 독립적으로 고르면 전체도 최적이다.
+
+## Why is the left scan right-to-left?
+
+우리가 원하는 것은 “$\mathrm{mid}$에서 끝나는 suffix”들이기 때문이다.  
+이 후보들을 빠짐없이 생성하는 자연스러운 순서가 바로
+
+$$
+\mathrm{mid}, \mathrm{mid}-1, \mathrm{mid}-2, \dots
+$$
+
+방향이다.
+
+## Is divide-and-conquer always the best?
+
+아니다. maximum subarray는 Kadane's algorithm으로 $O(n)$에 풀린다.  
+따라서 asymptotically best한 것은 linear-time algorithm이다.  
+다만 divide-and-conquer는 recurrence와 correctness proof를 공부하기에 아주 좋은 예제다.
+
+::: {.callout-important title="Kadane 알고리즘의 Loop Invariant 증명"}
+
+## 알고리즘
+
+초기값은 다음과 같이 둔다.
+
+$$
+\begin{aligned}
+\text{ThisSum} &\leftarrow A[1] \\
+\text{MaxSum} &\leftarrow A[1]
+\end{aligned}
+$$
+
+그리고 $i=2,3,\dots,n$에 대해 반복한다.
+
+$$
+\begin{aligned}
+\text{ThisSum} &\leftarrow \max(A[i], \text{ThisSum} + A[i]) \\
+\text{MaxSum} &\leftarrow \max(\text{MaxSum}, \text{ThisSum})
+\end{aligned}
+$$
+
+마지막에 $\text{MaxSum}$을 반환한다.
+
+## Loop Invariant
+
+각 반복에서 index $i$까지 처리한 직후, 다음 두 조건이 성립한다.
+
+1. $\text{ThisSum}$은 **$A[i]$에서 끝나는** 모든 연속 부분배열 중 최대 합이다.
+2. $\text{MaxSum}$은 구간 $A[1..i]$ 전체에서 가능한 모든 연속 부분배열 중 최대 합이다.
+
+## Initialization
+
+루프 시작 전은 사실상 $i=1$까지 처리한 상태이다.
+
+$$
+\text{ThisSum} = A[1], \qquad \text{MaxSum} = A[1]
+$$
+
+이때
+
+- $A[1]$에서 끝나는 부분배열은 $[A[1]]$ 하나뿐이고,
+- $A[1..1]$ 전체에서 가능한 부분배열도 $[A[1]]$ 하나뿐이다.
+
+따라서 초기에는 loop invariant가 성립한다.
+
+## Maintenance
+
+$i-1$까지 처리한 직후 loop invariant가 성립한다고 가정하자.
+
+즉,
+
+- $\text{ThisSum}$은 $A[i-1]$에서 끝나는 최대 부분배열 합이고,
+- $\text{MaxSum}$은 $A[1..i-1]$ 전체의 최대 부분배열 합이다.
+
+이제 $A[i]$를 처리한다.
+
+### ThisSum 갱신
+
+$A[i]$에서 끝나는 부분배열은 두 종류뿐이다.
+
+- $A[i]$ 하나만으로 시작하는 경우
+- 어떤 $A[i-1]$에서 끝나는 부분배열 뒤에 $A[i]$를 붙이는 경우
+
+두 번째 경우에서 가장 좋은 선택은,  
+당연히 $A[i-1]$에서 끝나는 최대 부분배열을 붙이는 것이다.  
+그 값이 기존 $\text{ThisSum}$이므로, 새 값은
+
+$$
+\text{ThisSum} \leftarrow \max(A[i], \text{ThisSum} + A[i])
+$$
+
+가 된다.
+
+따라서 갱신 후의 $\text{ThisSum}$은 $A[i]$에서 끝나는 최대 부분배열 합이 된다.
+
+### MaxSum 갱신
+
+구간 $A[1..i]$ 전체에서 최대 부분배열은 두 경우 중 하나이다.
+
+- 이미 $A[1..i-1]$ 안에 있었던 경우: 기존 $\text{MaxSum}$
+- 새롭게 $A[i]$에서 끝나는 경우: 새 $\text{ThisSum}$
+
+따라서
+
+$$
+\text{MaxSum} \leftarrow \max(\text{MaxSum}, \text{ThisSum})
+$$
+
+로 갱신하면, $\text{MaxSum}$은 $A[1..i]$ 전체의 최대 부분배열 합이 된다.
+
+즉, loop invariant가 유지된다.
+
+## Termination
+
+루프가 끝나면 $i=n$까지 모두 처리한 상태이다.
+
+따라서 loop invariant에 의해 $\text{MaxSum}$은 $A[1..n]$ 전체에서 가능한 최대 부분배열 합이다.
+
+즉, 알고리즘은 올바르다.
+
+:::
+
+::: {.callout-tip title="핵심 직관"}
+Kadane 알고리즘의 핵심은, 현재 위치 $i$에서 끝나는 최적 부분배열은  
+오직 **새로 시작하는 경우**와 **이전 최적해를 연장하는 경우** 중 하나라는 점이다.
+따라서 모든 후보를 저장할 필요 없이, $\text{ThisSum}$과 $\text{MaxSum}$만 유지하면 된다.
+:::
+
+# Summary
+
+Maximum subarray problem은 같은 문제를 여러 관점에서 볼 수 있게 해 준다.
+
+- brute force는 중복 계산이 많아서 $O(n^3)$
+- partial sum 재사용으로 $O(n^2)$
+- divide-and-conquer로 $O(n \log n)$
+- incremental idea로 $O(n)$
+
+특히 divide-and-conquer에서 crossed case의 핵심은 다음 한 문장이다.
+
+> crossing maximum subarray는 $\mathrm{mid}$에서 끝나는 최대 suffix와 $\mathrm{mid}+1$에서 시작하는 최대 prefix를 붙인 것이다.
+
+그리고 이 사실은 cut-and-paste 방식의 모순 증명으로 깔끔하게 보일 수 있다.

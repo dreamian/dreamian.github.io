@@ -1,0 +1,412 @@
+---
+title: "Substitution Method"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+---
+
+# Overview
+
+이 노트는 recurrence를 푸는 여러 방법 중 **Substitution Method**를 중심으로 정리한 것이다.  
+핵심은 **정답의 형태를 추측한 뒤, induction으로 그 추측이 실제로 닫히는지 확인하는 것**이다.
+
+특히 다음 포인트가 중요하다.
+
+- guessed bound가 얼핏 맞아 보여도 induction step이 바로 닫히지 않을 수 있다.
+- 이때는 guessed bound 자체가 틀린 것이 아니라, induction hypothesis가 **not strong enough**인 경우가 많다.
+- lower-order term를 하나 보정한 **stronger hypothesis**로 바꾸면 증명이 닫히는 경우가 많다.
+
+# Asymptotic Notation
+
+점화식을 풀 때는 보통 다음처럼 구분해서 쓴다.
+
+- **upper bound**만 보일 때: $O(\cdot)$
+- **lower bound**만 보일 때: $\Omega(\cdot)$
+- upper/lower를 모두 맞춰 정확한 성장률을 보일 때: $\Theta(\cdot)$
+
+실전에서는 정확한 답을 알고 있거나, Master theorem 등으로 정확한 order를 판정할 수 있으면 $\Theta$ 표기를 더 선호한다.  
+반대로 substitution으로 먼저 upper bound만 잡는 과정에서는 $O(\cdot)$로 시작해도 괜찮다.
+
+# Basic Flow of the Substitution Method
+
+Substitution Method의 기본 흐름은 다음과 같다.
+
+- 먼저 $T(n)$의 asymptotic form을 추측한다.
+- base case를 확인한다.
+- induction hypothesis를 세운다.
+- recurrence에 hypothesis를 대입해서 원하는 bound가 다시 나오도록 만든다.
+
+핵심은 **내가 최종적으로 증명하고 싶은 식이 induction step에서 그대로 다시 나와야 한다**는 점이다.  
+계산이 “거의 맞는 것 같은데...” 수준이면 아직 증명이 끝난 것이 아니다.
+
+# Example: $T(n) = 2T(n/2) + 1$
+
+## Why the naive guess does not close
+
+다음 recurrence를 생각하자.
+
+$$
+T(n) = 2T(n/2) + 1
+$$
+
+직관적으로는 $T(n) = O(n)$일 것 같다.  
+그래서 다음을 증명하려고 시도해 보자.
+
+$$
+T(n) \le cn
+$$
+
+base case는 문제없다고 하자.  
+이제 induction hypothesis로 모든 $m < n$에 대해 $T(m) \le cm$라고 두면,
+
+$$
+T(n) = 2T(n/2) + 1 \le 2c(n/2) + 1 = cn + 1
+$$
+
+이 된다.
+
+그런데 여기서 $cn + 1 \le cn$은 성립하지 않는다.  
+즉, 이 induction은 닫히지 않는다.
+
+여기서 중요한 해석은 다음과 같다.
+
+- $O(n)$이라는 guessed order가 틀렸다는 뜻이 아니다.
+- **hypothesis가 너무 약하다**는 뜻이다.
+
+## Strengthening the hypothesis
+
+이런 경우 lower-order term를 하나 빼서 다음처럼 stronger hypothesis를 세운다.
+
+$$
+T(n) \le cn - b
+$$
+
+이제 induction hypothesis를 대입하면,
+
+$$
+T(n) = 2T(n/2) + 1
+$$
+
+$$
+\le 2\left(c\frac{n}{2} - b\right) + 1
+$$
+
+$$
+= cn - 2b + 1
+$$
+
+이다.
+
+만약 $b \ge 1$이면,
+
+$$
+cn - 2b + 1 \le cn - b
+$$
+
+가 성립하므로 induction step이 닫힌다.  
+따라서 $T(n) = O(n)$이다.
+
+## What we should learn from this example
+
+이 예제의 핵심은 다음이다.
+
+- 틀린 guess가 아니라 **약한 induction hypothesis**가 문제일 수 있다.
+- recurrence 안에 붙는 $+1$, $+\log n$, $+n$ 같은 항 때문에 induction이 안 닫히면 stronger hypothesis가 필요할 수 있다.
+- lower-order term 보정은 substitution method에서 매우 자주 쓰는 테크닉이다.
+
+# Pitfall: “Almost correct” is not a proof
+
+다음 recurrence에 대해 $T(n) \le cn$을 보이려 한다고 하자.
+
+$$
+T(n) = 2T(n/2) + n
+$$
+
+induction hypothesis를 대입하면,
+
+$$
+T(n) \le 2c(n/2) + n = cn + n
+$$
+
+이다.
+
+여기서 “그러므로 $T(n) \le cn$”라고 쓰면 틀린 증명이다.  
+왜냐하면 $cn + n \le cn$이 아니기 때문이다.
+
+즉, substitution proof에서는 마지막 줄이 반드시 **원하는 형태의 inequality**로 정확히 닫혀야 한다.
+
+# Changing Variables
+
+어떤 recurrence는 변수 치환을 하면 훨씬 익숙한 형태로 바뀐다.
+
+예를 들어,
+
+$$
+T(n) = 2T(\sqrt{n}) + \lg n
+$$
+
+을 생각하자.
+
+여기서
+
+$$
+m = \lg n
+$$
+
+이라고 두면 $n = 2^m$이다.  
+이제
+
+$$
+S(m) = T(2^m)
+$$
+
+이라고 두면,
+
+$$
+S(m) = 2S(m/2) + m
+$$
+
+이 된다.
+
+이제 훨씬 익숙한 divide-and-conquer recurrence가 되었고,
+
+$$
+S(m) = O(m \log m)
+$$
+
+을 얻는다.  
+따라서 원래 변수로 돌아가면
+
+$$
+T(n) = O(\lg n \cdot \lg \lg n)
+$$
+
+이다.
+
+## Meaning of changing variables
+
+Changing variables는 점화식의 “입력 크기 변화”를 더 친숙한 형태로 바꾸는 도구다.  
+특히 $\sqrt{n}$, $\log n$, $n^2$처럼 크기 변화가 비선형일 때 유용하다.
+
+# Recursion-tree Method
+
+수업 자료에서 함께 등장하는 다른 방법으로 recursion-tree method가 있다.
+
+예를 들어,
+
+$$
+T(n) = 3T(n/4) + cn^2
+$$
+
+를 생각해 보자.
+
+각 level의 cost를 보면,
+
+- root cost: $cn^2$
+- level 1 cost: $\frac{3}{16}cn^2$
+- level 2 cost: $\left(\frac{3}{16}\right)^2 cn^2$
+
+처럼 geometric series가 된다.
+
+따라서 전체 cost는 대략
+
+$$
+cn^2 \sum_{i=0}^{\log_4 n - 1}\left(\frac{3}{16}\right)^i + \Theta\left(n^{\log_4 3}\right)
+$$
+
+와 같은 형태가 되고, $\frac{3}{16} < 1$이므로 지배항은 $n^2$ 쪽이다.  
+결론은
+
+$$
+T(n) = O(n^2)
+$$
+
+이다.
+
+## Why recursion-tree is useful
+
+Substitution Method는 guessed bound를 잘 세워야 하지만, recursion-tree는 각 level의 cost가 어떻게 줄어드는지를 **시각적으로** 보여 준다.  
+그래서 어떤 항이 dominant한지 감을 잡기 좋다.
+
+# Master Method
+
+Master theorem은 다음 꼴 recurrence를 빠르게 판정하는 cookbook method다.
+
+$$
+T(n) = aT(n/b) + f(n)
+$$
+
+여기서 $a \ge 1$, $b > 1$은 상수이고, $f(n)$은 asymptotically positive function이다.  
+비교 기준은 항상
+
+$$
+n^{\log_b a}
+$$
+
+이다.
+
+## Case summary
+
+### Case 1
+
+만약
+
+$$
+f(n) = O\left(n^{\log_b a - \varepsilon}\right)
+$$
+
+이면
+
+$$
+T(n) = \Theta\left(n^{\log_b a}\right)
+$$
+
+이다.
+
+### Case 2
+
+만약
+
+$$
+f(n) = \Theta\left(n^{\log_b a}\right)
+$$
+
+이면
+
+$$
+T(n) = \Theta\left(n^{\log_b a}\log n\right)
+$$
+
+이다.
+
+### Case 3
+
+만약
+
+$$
+f(n) = \Omega\left(n^{\log_b a + \varepsilon}\right)
+$$
+
+이고 regularity condition
+
+$$
+a f(n/b) \le c f(n) \quad \text{for some } c < 1
+$$
+
+이 성립하면
+
+$$
+T(n) = \Theta(f(n))
+$$
+
+이다.
+
+# Master Method Examples
+
+## $T(n) = 9T(n/3) + n$
+
+여기서는
+
+- $a = 9$
+- $b = 3$
+- $f(n) = n$
+- $n^{\log_3 9} = n^2$
+
+이다.
+
+즉 $f(n)$은 $n^2$보다 polynomially smaller이므로 Case 1이다.  
+따라서
+
+$$
+T(n) = \Theta(n^2)
+$$
+
+이다.
+
+## $T(n) = T(2n/3) + 1$
+
+이 식은 $T(n) = aT(n/b) + f(n)$ 꼴로 보면
+
+- $a = 1$
+- $b = 3/2$
+- $f(n) = 1$
+
+이다.
+
+또
+
+$$
+n^{\log_{3/2} 1} = 1
+$$
+
+이므로 Case 2이고,
+
+$$
+T(n) = \Theta(\log n)
+$$
+
+이다.
+
+## $T(n) = 3T(n/4) + n\log n$
+
+여기서는
+
+- $a = 3$
+- $b = 4$
+- $n^{\log_4 3} \approx n^{0.793}$
+- $f(n) = n\log n$
+
+이다.
+
+즉 $f(n)$이 더 크고 regularity condition도 만족하므로 Case 3이다.  
+따라서
+
+$$
+T(n) = \Theta(n\log n)
+$$
+
+이다.
+
+# Frequently Confused Points
+
+## Big-O or Theta?
+
+보통 “점화식을 풀어라”라는 말은 가능한 한 **가장 정확한 asymptotic class**를 구하라는 의미로 쓰이는 경우가 많다.  
+그래서 최종 답은 $\Theta$로 쓰는 편이 자연스럽다.
+
+다만 substitution proof의 중간 단계에서는 upper bound만 먼저 보이기 위해 $O(\cdot)$로 시작하는 것도 충분히 가능하다.
+
+## Wrong guess vs weak hypothesis
+
+다음 둘은 구분해야 한다.
+
+- guessed order 자체가 틀림
+- guessed order는 맞지만 induction hypothesis가 약함
+
+예를 들어 $T(n) = 2T(n/2) + 1$에서 $O(n)$은 틀린 guess가 아니다.  
+맞는 guess이지만, $T(n) \le cn$만으로는 induction step이 안 닫힌다.
+
+# Study Checklist
+
+recurrence를 substitution으로 풀 때는 다음을 점검하면 좋다.
+
+- 내가 지금 보이려는 것이 $O$, $\Omega$, $\Theta$ 중 무엇인가?
+- guessed order는 무엇인가?
+- direct substitution이 실제로 닫히는가?
+- 안 닫히면 stronger hypothesis가 필요한가?
+- recursion-tree나 master theorem으로 cross-check할 수 있는가?
+
+# Summary
+
+이 topic의 핵심은 다음 한 문장으로 요약할 수 있다.
+
+> Substitution Method의 본질은 guessed bound 자체보다도, 그 guessed bound가 induction으로 정말 닫히는지를 확인하는 데 있다.
+
+즉 recurrence를 보면 항상 다음을 생각하면 된다.
+
+- guessed order는 무엇인가?
+- 그 guess가 direct substitution으로 닫히는가?
+- 안 닫히면 lower-order term 보정이 필요한가?
+- 다른 방법으로도 같은 결론이 나오는가?

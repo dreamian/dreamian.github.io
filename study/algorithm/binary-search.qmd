@@ -1,0 +1,289 @@
+---
+title: "Divide-and-Conquer with Binary Search"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+---
+
+# Overview
+
+이 노트는 divide-and-conquer의 대표 예시인 **Binary Search**를 정리한 것이다.  
+핵심은 정렬된 배열에서는 가운데 원소 하나만 비교해도 탐색 범위를 절반으로 줄일 수 있다는 점이다.
+
+이 구조 때문에 binary search의 recurrence는
+
+$$
+T(n) = T(n/2) + 1
+$$
+
+이 되고, 시간 복잡도는 $\Theta(\log n)$이 된다.
+
+# Static Searching
+
+문제는 다음과 같다.
+
+- 정수 $X$와 배열 $A$가 주어졌을 때
+- $X$가 배열 안에 있으면 그 위치를 반환하고
+- 없으면 `NOT_FOUND`를 반환한다.
+
+여기서 자주 나오는 문장이 다음이다.
+
+> If $X$ occurs more than once, return any occurrence.
+
+이 말은 배열 안에 $X$가 여러 번 있어도
+
+- 첫 번째 occurrence를 꼭 찾을 필요도 없고
+- 마지막 occurrence를 꼭 찾을 필요도 없고
+- 아무 위치 하나만 찾아도 정답
+
+이라는 뜻이다.
+
+즉 문제 specification이 느슨하기 때문에, binary search가 어떤 matching index를 반환해도 correct하다.
+
+# Sequential Search
+
+배열이 정렬되어 있지 않으면 보통 앞에서부터 차례대로 찾는다.
+
+## Unsuccessful search
+
+**unsuccessful search**는 찾는 값 $X$가 배열에 없는 경우를 뜻한다.  
+이 경우에는 끝까지 다 확인해야 하므로 최악 시간은 $O(n)$이다.
+
+## Successful search
+
+값이 실제로 배열 안에 있는 경우다.
+
+- worst case: 맨 끝에서 찾아서 $O(n)$
+- average case: 평균적으로 절반 정도를 보게 되므로 여전히 $\Theta(n)$
+
+즉 sequential search는 정렬 여부를 활용하지 못하므로 선형 시간이다.
+
+# Why Binary Search Works
+
+배열이 **sorted** 되어 있으면 가운데 원소 하나를 보고 나머지 절반을 버릴 수 있다.
+
+case distinction은 다음과 같다.
+
+- $X < A[\mathrm{mid}]$: 왼쪽 절반만 보면 된다.
+- $X > A[\mathrm{mid}]$: 오른쪽 절반만 보면 된다.
+- $X = A[\mathrm{mid}]$: **we have a match**이다.
+
+## Meaning of “we have a match”
+
+이 표현은 아주 단순하게,
+
+> 찾는 값 $X$와 가운데 원소가 같으므로 정답을 찾았다
+
+라는 뜻이다.
+
+즉 추가 탐색 없이 바로 그 index를 반환하면 된다.
+
+# Divide-and-Conquer View
+
+Binary Search는 divide-and-conquer의 전형적인 구조를 가진다.
+
+## Divide
+
+가운데 index $\mathrm{mid}$를 계산해 배열을 둘로 나눈다.
+
+## Conquer
+
+둘 다 푸는 것이 아니라, 비교 결과에 따라 **한쪽 절반만** 재귀적으로 탐색한다.
+
+## Combine
+
+combine은 거의 필요 없다.  
+재귀 호출이 돌려준 결과를 그대로 반환하면 된다.
+
+이 점이 merge sort와 다르다.  
+merge sort는 두 하위 문제를 모두 풀고 다시 합쳐야 하지만, binary search는 한쪽만 가면 된다.
+
+# Recursive Algorithm
+
+```text
+BINARY-SEARCH(A, low, high, X)
+if low > high
+    return NOT_FOUND
+if low == high
+    if A[low] == X
+        return low
+    else
+        return NOT_FOUND
+else
+    mid = floor((low + high) / 2)
+    if A[mid] == X
+        return mid
+    if A[mid] > X
+        return BINARY-SEARCH(A, low, mid - 1, X)
+    else
+        return BINARY-SEARCH(A, mid + 1, high, X)
+```
+
+# Correctness Intuition
+
+Binary search가 맞는 이유는 **정렬성** 때문이다.
+
+## Case: $X < A[\mathrm{mid}]$
+
+배열이 오름차순이면 mid의 오른쪽 원소들은 모두 $A[\mathrm{mid}]$ 이상이다.  
+따라서 $X$는 오른쪽 절반에 있을 수 없다.  
+왼쪽만 보면 충분하다.
+
+## Case: $X > A[\mathrm{mid}]$
+
+같은 논리로, 왼쪽 절반의 원소들은 모두 $A[\mathrm{mid}]$ 이하이므로 $X$는 왼쪽에 있을 수 없다.  
+오른쪽만 보면 된다.
+
+## Case: $X = A[\mathrm{mid}]$
+
+그 순간 바로 정답이다.
+
+# Base Cases
+
+binary search의 base case는 두 가지로 볼 수 있다.
+
+## Empty interval
+
+$$
+\mathrm{low} > \mathrm{high}
+$$
+
+이면 탐색할 원소가 하나도 없으므로 `NOT_FOUND`를 반환한다.
+
+## Single-element interval
+
+$$
+\mathrm{low} = \mathrm{high}
+$$
+
+이면 그 원소 하나만 $X$와 비교하면 된다.
+
+# Worst-case Recurrence
+
+각 단계에서 하는 일은 다음 정도뿐이다.
+
+- mid 계산
+- $A[\mathrm{mid}]$와 $X$ 비교
+- 한쪽 절반으로 recursive call
+
+따라서 worst-case recurrence는
+
+$$
+T(1) = 1, \qquad T(n) = T(n/2) + 1
+$$
+
+로 볼 수 있다.
+
+# Solving $T(n) = T(n/2) + 1$
+
+$n = 2^k$라고 두고 recurrence를 반복 전개해 보자.
+
+$$
+T(n) = T(n/2) + 1
+$$
+
+$$
+= T(n/2^2) + 2
+$$
+
+$$
+= T(n/2^3) + 3
+$$
+
+$$
+\vdots
+$$
+
+$$
+= T(n/2^k) + k
+$$
+
+재귀가 끝나는 시점은
+
+$$
+\frac{n}{2^k} = 1
+$$
+
+일 때이므로,
+
+$$
+n = 2^k \quad \Rightarrow \quad k = \lg n
+$$
+
+이다. 따라서
+
+$$
+T(n) = \Theta(\lg n)
+$$
+
+이다.
+
+## Intuition for the logarithm
+
+매 단계마다 탐색 범위가 절반이 되기 때문이다.
+
+- 처음 $n$
+- 다음 $n/2$
+- 다음 $n/4$
+- 다음 $n/8$
+
+이렇게 줄어들다가 크기 $1$이 되는 데 필요한 단계 수가 $\log_2 n$이다.
+
+# Iterative Version
+
+실제로는 iterative version도 많이 쓴다.
+
+```text
+BINARY-SEARCH-ITER(A, X)
+low = 1
+high = n
+while low <= high
+    mid = floor((low + high) / 2)
+    if A[mid] == X
+        return mid
+    else if A[mid] > X
+        high = mid - 1
+    else
+        low = mid + 1
+return NOT_FOUND
+```
+
+시간 복잡도는 동일하게 $\Theta(\log n)$이다.
+
+# Frequently Confused Points
+
+## Why must the array be sorted?
+
+정렬되어 있지 않으면 $A[\mathrm{mid}]$를 보고 왼쪽이나 오른쪽 어느 쪽을 버려도 되는지 판단할 근거가 없다.  
+즉 binary search의 핵심은 단순한 comparison이 아니라 **comparison + sorted order**다.
+
+## What if duplicates exist?
+
+문제에서 “return any occurrence”라고 했으므로, 아무 index나 반환해도 된다.  
+만약 “첫 번째 occurrence를 찾아라” 같은 문제라면 알고리즘을 약간 수정해야 한다.
+
+## What does unsuccessful search mean?
+
+이건 실패한 알고리즘이라는 뜻이 아니라, **탐색 대상이 실제로 배열에 존재하지 않는 search instance**를 뜻한다.
+
+# Binary Search as a Divide-and-Conquer Pattern
+
+Binary search는 divide-and-conquer를 가장 간단하게 보여 주는 예시다.
+
+- 문제를 둘로 나눈다.
+- 하지만 두 문제를 모두 풀지 않고 한쪽만 푼다.
+- combine cost는 사실상 없다.
+- 그래서 recurrence가 $2T(n/2)+f(n)$가 아니라 $T(n/2)+f(n)$이 된다.
+
+이 구조 때문에 merge sort의 $\Theta(n\log n)$보다 더 빠른 $\Theta(\log n)$이 나온다.
+
+# Summary
+
+이 topic의 핵심은 다음과 같다.
+
+- 정렬되지 않은 배열에서는 sequential search가 $O(n)$이다.
+- 정렬된 배열에서는 가운데 비교만으로 절반을 버릴 수 있다.
+- binary search의 recurrence는 $T(n) = T(n/2) + 1$이다.
+- 따라서 시간 복잡도는 $\Theta(\log n)$이다.
