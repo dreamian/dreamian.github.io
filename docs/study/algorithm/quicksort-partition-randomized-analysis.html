@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.35">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-03-30">
+<meta name="description" content="PARTITION의 loop invariant, maintenance, RANDOMIZED-QUICKSORT의 기대 비교 횟수 분석, 그리고 평균 시간복잡도 증명을 꼼꼼하게 정리한 노트">
+
+<title>Quicksort, Partition, and Randomized Analysis – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-46f66b053e56abd73bb6e954d61a315b.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-2c169b83e1fc2996b25bcc8774810429.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview"><span class="header-section-number">1</span> Overview</a></li>
+  <li><a href="#quicksort의-큰-그림" id="toc-quicksort의-큰-그림" class="nav-link" data-scroll-target="#quicksort의-큰-그림"><span class="header-section-number">2</span> Quicksort의 큰 그림</a></li>
+  <li><a href="#algorithm-textbook-버전의-partition" id="toc-algorithm-textbook-버전의-partition" class="nav-link" data-scroll-target="#algorithm-textbook-버전의-partition"><span class="header-section-number">3</span> Algorithm Textbook 버전의 PARTITION</a>
+  <ul class="collapse">
+  <li><a href="#직관적-의미" id="toc-직관적-의미" class="nav-link" data-scroll-target="#직관적-의미"><span class="header-section-number">3.1</span> 직관적 의미</a></li>
+  </ul></li>
+  <li><a href="#loop-invariant를-왜-이렇게-잡는가" id="toc-loop-invariant를-왜-이렇게-잡는가" class="nav-link" data-scroll-target="#loop-invariant를-왜-이렇게-잡는가"><span class="header-section-number">4</span> Loop Invariant를 왜 이렇게 잡는가</a>
+  <ul class="collapse">
+  <li><a href="#통상-loop-invariant를-설정하는-기준" id="toc-통상-loop-invariant를-설정하는-기준" class="nav-link" data-scroll-target="#통상-loop-invariant를-설정하는-기준"><span class="header-section-number">4.1</span> 통상 loop invariant를 설정하는 기준</a>
+  <ul class="collapse">
+  <li><a href="#처리-완료-구간이-무엇인지-보여야-한다" id="toc-처리-완료-구간이-무엇인지-보여야-한다" class="nav-link" data-scroll-target="#처리-완료-구간이-무엇인지-보여야-한다"><span class="header-section-number">4.1.1</span> 처리 완료 구간이 무엇인지 보여야 한다</a></li>
+  <li><a href="#경계-인덱스의-의미가-분명해야-한다" id="toc-경계-인덱스의-의미가-분명해야-한다" class="nav-link" data-scroll-target="#경계-인덱스의-의미가-분명해야-한다"><span class="header-section-number">4.1.2</span> 경계 인덱스의 의미가 분명해야 한다</a></li>
+  <li><a href="#초기화가-쉬워야-한다" id="toc-초기화가-쉬워야-한다" class="nav-link" data-scroll-target="#초기화가-쉬워야-한다"><span class="header-section-number">4.1.3</span> 초기화가 쉬워야 한다</a></li>
+  <li><a href="#종료-시-원하는-결론으로-바로-이어져야-한다" id="toc-종료-시-원하는-결론으로-바로-이어져야-한다" class="nav-link" data-scroll-target="#종료-시-원하는-결론으로-바로-이어져야-한다"><span class="header-section-number">4.1.4</span> 종료 시 원하는 결론으로 바로 이어져야 한다</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#correctness-proof-by-loop-invariant" id="toc-correctness-proof-by-loop-invariant" class="nav-link" data-scroll-target="#correctness-proof-by-loop-invariant"><span class="header-section-number">5</span> Correctness Proof by Loop Invariant</a>
+  <ul class="collapse">
+  <li><a href="#initialization" id="toc-initialization" class="nav-link" data-scroll-target="#initialization"><span class="header-section-number">5.1</span> Initialization</a></li>
+  <li><a href="#maintenance" id="toc-maintenance" class="nav-link" data-scroll-target="#maintenance"><span class="header-section-number">5.2</span> Maintenance</a>
+  <ul class="collapse">
+  <li><a href="#case-1-aj-le-x" id="toc-case-1-aj-le-x" class="nav-link" data-scroll-target="#case-1-aj-le-x"><span class="header-section-number">5.2.1</span> Case 1: <span class="math inline">\(A[j] \le x\)</span></a></li>
+  <li><a href="#case-2-aj-x" id="toc-case-2-aj-x" class="nav-link" data-scroll-target="#case-2-aj-x"><span class="header-section-number">5.2.2</span> Case 2: <span class="math inline">\(A[j] &gt; x\)</span></a></li>
+  <li><a href="#왜-강의자료가-other-entries-remain-unchanged-라고-강조하는가" id="toc-왜-강의자료가-other-entries-remain-unchanged-라고-강조하는가" class="nav-link" data-scroll-target="#왜-강의자료가-other-entries-remain-unchanged-라고-강조하는가"><span class="header-section-number">5.2.3</span> 왜 강의자료가 “other entries remain unchanged” 라고 강조하는가</a></li>
+  </ul></li>
+  <li><a href="#termination" id="toc-termination" class="nav-link" data-scroll-target="#termination"><span class="header-section-number">5.3</span> Termination</a></li>
+  </ul></li>
+  <li><a href="#randomized-partition과-randomized-quicksort" id="toc-randomized-partition과-randomized-quicksort" class="nav-link" data-scroll-target="#randomized-partition과-randomized-quicksort"><span class="header-section-number">6</span> RANDOMIZED-PARTITION과 RANDOMIZED-QUICKSORT</a></li>
+  <li><a href="#왜-partition-호출-횟수는-최대-n인가" id="toc-왜-partition-호출-횟수는-최대-n인가" class="nav-link" data-scroll-target="#왜-partition-호출-횟수는-최대-n인가"><span class="header-section-number">7</span> 왜 PARTITION 호출 횟수는 최대 <span class="math inline">\(n\)</span>인가</a>
+  <ul class="collapse">
+  <li><a href="#핵심-사실" id="toc-핵심-사실" class="nav-link" data-scroll-target="#핵심-사실"><span class="header-section-number">7.1</span> 핵심 사실</a></li>
+  <li><a href="#직관적-비유" id="toc-직관적-비유" class="nav-link" data-scroll-target="#직관적-비유"><span class="header-section-number">7.2</span> 직관적 비유</a></li>
+  </ul></li>
+  <li><a href="#quicksort-실행시간을-비교-횟수로-보는-이유" id="toc-quicksort-실행시간을-비교-횟수로-보는-이유" class="nav-link" data-scroll-target="#quicksort-실행시간을-비교-횟수로-보는-이유"><span class="header-section-number">8</span> Quicksort 실행시간을 비교 횟수로 보는 이유</a></li>
+  <li><a href="#order-statistic으로-원소-이름-바꾸기" id="toc-order-statistic으로-원소-이름-바꾸기" class="nav-link" data-scroll-target="#order-statistic으로-원소-이름-바꾸기"><span class="header-section-number">9</span> Order Statistic으로 원소 이름 바꾸기</a></li>
+  <li><a href="#두-원소가-비교되는-경우는-언제인가" id="toc-두-원소가-비교되는-경우는-언제인가" class="nav-link" data-scroll-target="#두-원소가-비교되는-경우는-언제인가"><span class="header-section-number">10</span> 두 원소가 비교되는 경우는 언제인가</a>
+  <ul class="collapse">
+  <li><a href="#각-원소쌍은-많아야-한-번만-비교된다" id="toc-각-원소쌍은-많아야-한-번만-비교된다" class="nav-link" data-scroll-target="#각-원소쌍은-많아야-한-번만-비교된다"><span class="header-section-number">10.1</span> 각 원소쌍은 많아야 한 번만 비교된다</a></li>
+  <li><a href="#z_ij-내부의-다른-원소가-먼저-pivot이-되면-둘은-절대-비교되지-않는다" id="toc-z_ij-내부의-다른-원소가-먼저-pivot이-되면-둘은-절대-비교되지-않는다" class="nav-link" data-scroll-target="#z_ij-내부의-다른-원소가-먼저-pivot이-되면-둘은-절대-비교되지-않는다"><span class="header-section-number">10.2</span> <span class="math inline">\(Z_{i,j}\)</span> 내부의 다른 원소가 먼저 pivot이 되면 둘은 절대 비교되지 않는다</a></li>
+  <li><a href="#따라서-비교되려면-z_ij-에서-가장-먼저-선택되는-pivot이-양-끝-원소여야-한다" id="toc-따라서-비교되려면-z_ij-에서-가장-먼저-선택되는-pivot이-양-끝-원소여야-한다" class="nav-link" data-scroll-target="#따라서-비교되려면-z_ij-에서-가장-먼저-선택되는-pivot이-양-끝-원소여야-한다"><span class="header-section-number">10.3</span> 따라서 비교되려면 <span class="math inline">\(Z_{i,j}\)</span> 에서 가장 먼저 선택되는 pivot이 양 끝 원소여야 한다</a></li>
+  </ul></li>
+  <li><a href="#기대-비교-횟수-계산" id="toc-기대-비교-횟수-계산" class="nav-link" data-scroll-target="#기대-비교-횟수-계산"><span class="header-section-number">11</span> 기대 비교 횟수 계산</a></li>
+  <li><a href="#왜-sum_k1n-frac2k1-olog-n-인가" id="toc-왜-sum_k1n-frac2k1-olog-n-인가" class="nav-link" data-scroll-target="#왜-sum_k1n-frac2k1-olog-n-인가"><span class="header-section-number">12</span> 왜 <span class="math inline">\(\sum_{k=1}^{n} \frac{2}{k+1} = O(\log n)\)</span> 인가</a>
+  <ul class="collapse">
+  <li><a href="#적분으로-보는-상한" id="toc-적분으로-보는-상한" class="nav-link" data-scroll-target="#적분으로-보는-상한"><span class="header-section-number">12.1</span> 적분으로 보는 상한</a></li>
+  <li><a href="#따라서-전체-기대-비교-횟수" id="toc-따라서-전체-기대-비교-횟수" class="nav-link" data-scroll-target="#따라서-전체-기대-비교-횟수"><span class="header-section-number">12.2</span> 따라서 전체 기대 비교 횟수</a></li>
+  </ul></li>
+  <li><a href="#평균-시간-점화식을-통한-대안적-증명" id="toc-평균-시간-점화식을-통한-대안적-증명" class="nav-link" data-scroll-target="#평균-시간-점화식을-통한-대안적-증명"><span class="header-section-number">13</span> 평균 시간 점화식을 통한 대안적 증명</a>
+  <ul class="collapse">
+  <li><a href="#귀납-가정" id="toc-귀납-가정" class="nav-link" data-scroll-target="#귀납-가정"><span class="header-section-number">13.1</span> 귀납 가정</a></li>
+  </ul></li>
+  <li><a href="#왜-sum_j2m-1-j-log-j-le-int_2m-x-log-x-dx-인가" id="toc-왜-sum_j2m-1-j-log-j-le-int_2m-x-log-x-dx-인가" class="nav-link" data-scroll-target="#왜-sum_j2m-1-j-log-j-le-int_2m-x-log-x-dx-인가"><span class="header-section-number">14</span> 왜 <span class="math inline">\(\sum_{j=2}^{m-1} j \log j \le \int_2^m x \log x \, dx\)</span> 인가</a></li>
+  <li><a href="#적분-계산" id="toc-적분-계산" class="nav-link" data-scroll-target="#적분-계산"><span class="header-section-number">15</span> 적분 계산</a></li>
+  <li><a href="#마지막-부등식이-왜-성립하는가" id="toc-마지막-부등식이-왜-성립하는가" class="nav-link" data-scroll-target="#마지막-부등식이-왜-성립하는가"><span class="header-section-number">16</span> 마지막 부등식이 왜 성립하는가</a></li>
+  <li><a href="#정리-이-장에서-꼭-기억할-핵심" id="toc-정리-이-장에서-꼭-기억할-핵심" class="nav-link" data-scroll-target="#정리-이-장에서-꼭-기억할-핵심"><span class="header-section-number">17</span> 정리: 이 장에서 꼭 기억할 핵심</a>
+  <ul class="collapse">
+  <li><a href="#partition-correctness" id="toc-partition-correctness" class="nav-link" data-scroll-target="#partition-correctness"><span class="header-section-number">17.1</span> PARTITION correctness</a></li>
+  <li><a href="#randomized-quicksort-analysis" id="toc-randomized-quicksort-analysis" class="nav-link" data-scroll-target="#randomized-quicksort-analysis"><span class="header-section-number">17.2</span> RANDOMIZED-QUICKSORT analysis</a></li>
+  </ul></li>
+  <li><a href="#시험-답안용-압축-정리" id="toc-시험-답안용-압축-정리" class="nav-link" data-scroll-target="#시험-답안용-압축-정리"><span class="header-section-number">18</span> 시험 답안용 압축 정리</a>
+  <ul class="collapse">
+  <li><a href="#왜-이런-loop-invariant를-잡는가" id="toc-왜-이런-loop-invariant를-잡는가" class="nav-link" data-scroll-target="#왜-이런-loop-invariant를-잡는가"><span class="header-section-number">18.1</span> 왜 이런 loop invariant를 잡는가</a></li>
+  <li><a href="#왜-두-원소가-비교될-확률이-2j-i1-인가" id="toc-왜-두-원소가-비교될-확률이-2j-i1-인가" class="nav-link" data-scroll-target="#왜-두-원소가-비교될-확률이-2j-i1-인가"><span class="header-section-number">18.2</span> 왜 두 원소가 비교될 확률이 <span class="math inline">\(2/(j-i+1)\)</span> 인가</a></li>
+  <li><a href="#왜-harmonic-sum-이-olog-n-인가" id="toc-왜-harmonic-sum-이-olog-n-인가" class="nav-link" data-scroll-target="#왜-harmonic-sum-이-olog-n-인가"><span class="header-section-number">18.3</span> 왜 harmonic sum 이 <span class="math inline">\(O(\log n)\)</span> 인가</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Quicksort, Partition, and Randomized Analysis</h1>
+</div>
+
+<div>
+  <div class="description">
+    PARTITION의 loop invariant, maintenance, RANDOMIZED-QUICKSORT의 기대 비교 횟수 분석, 그리고 평균 시간복잡도 증명을 꼼꼼하게 정리한 노트
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">March 30, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="overview" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Overview</h1>
+<p>이 문서는 Quicksort의 핵심 아이디어를 다음 순서로 정리한다.</p>
+<ol type="1">
+<li><code>PARTITION(A, p, r)</code>의 의미와 동작</li>
+<li>loop invariant를 왜 그렇게 잡는지</li>
+<li>initialization, maintenance, termination을 통한 correctness 증명</li>
+<li>특히 <code>A[j] &gt; x</code>인 경우 maintenance가 왜 성립하는지</li>
+<li>RANDOMIZED-PARTITION과 RANDOMIZED-QUICKSORT</li>
+<li>비교 횟수를 이용한 평균 시간복잡도 분석</li>
+<li>조화급수와 적분 상계를 이용한 <span class="math inline">\(O(n \log n)\)</span> 도출</li>
+<li>평균 시간 점화식을 이용한 대안적 증명</li>
+</ol>
+<p>본 정리는 강의자료의 Quicksort/Partition/Randomized Quicksort/Analysis of Quicksort 흐름을 바탕으로 하고, 이 채팅에서 추가로 질문했던 포인트들까지 반영해 꼼꼼하게 정리한 것이다.</p>
+</section>
+<section id="quicksort의-큰-그림" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Quicksort의 큰 그림</h1>
+<p>Quicksort는 divide-and-conquer 알고리즘이다.</p>
+<ul>
+<li><strong>Divide</strong>: pivot을 기준으로 배열을 두 부분으로 나눈다.</li>
+<li><strong>Conquer</strong>: pivot의 왼쪽 부분배열과 오른쪽 부분배열을 재귀적으로 정렬한다.</li>
+<li><strong>Combine</strong>: 별도의 병합 작업이 필요 없다.</li>
+</ul>
+<p>핵심은 pivot 하나를 기준으로 다음 조건을 만족하게 만드는 것이다.</p>
+<p><span class="math display">\[
+A[p..q-1] \le A[q] \le A[q+1..r]
+\]</span></p>
+<p>여기서 <span class="math inline">\(A[q]\)</span>는 partition이 끝난 뒤의 pivot 위치이다.</p>
+</section>
+<section id="algorithm-textbook-버전의-partition" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Algorithm Textbook 버전의 PARTITION</h1>
+<p>강의자료에서 다룬 알고리즘 교재 스타일의 pseudocode는 다음과 같다.</p>
+<pre class="text"><code>PARTITION(A, p, r)
+1.  x = A[r]
+2.  i = p - 1
+3.  for j = p to r - 1
+4.      if A[j] &lt;= x
+5.          i = i + 1
+6.          exchange A[i] with A[j]
+7.  exchange A[i + 1] with A[r]
+8.  return i + 1</code></pre>
+<p>여기서</p>
+<ul>
+<li><span class="math inline">\(x = A[r]\)</span> 는 pivot</li>
+<li><span class="math inline">\(j\)</span> 는 현재 검사 중인 원소의 인덱스</li>
+<li><span class="math inline">\(i\)</span> 는 지금까지 확인한 원소들 중에서 <code>pivot 이하</code> 구간의 마지막 인덱스</li>
+</ul>
+<p>이다.</p>
+<section id="직관적-의미" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="직관적-의미"><span class="header-section-number">3.1</span> 직관적 의미</h2>
+<p>반복문이 진행되는 동안 배열은 대략 다음과 같이 나뉜다.</p>
+<ul>
+<li><span class="math inline">\(A[p..i]\)</span>: 이미 본 원소들 중 <span class="math inline">\(\le x\)</span></li>
+<li><span class="math inline">\(A[i+1..j-1]\)</span>: 이미 본 원소들 중 <span class="math inline">\(&gt; x\)</span></li>
+<li><span class="math inline">\(A[j..r-1]\)</span>: 아직 검사하지 않은 구간</li>
+<li><span class="math inline">\(A[r]\)</span>: pivot <span class="math inline">\(x\)</span></li>
+</ul>
+<p>즉, 이 알고리즘은 배열을 한 번 왼쪽에서 오른쪽으로 훑으면서, 이미 처리한 구간을 pivot 기준으로 두 덩어리로 유지해 나간다.</p>
+</section>
+</section>
+<section id="loop-invariant를-왜-이렇게-잡는가" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Loop Invariant를 왜 이렇게 잡는가</h1>
+<p>강의자료의 loop invariant는 다음과 같다.</p>
+<p>반복문의 각 iteration 시작 시점에,</p>
+<ol type="1">
+<li><span class="math inline">\(p \le k \le i\)</span> 이면 <span class="math inline">\(A[k] \le x\)</span></li>
+<li><span class="math inline">\(i+1 \le k \le j-1\)</span> 이면 <span class="math inline">\(A[k] &gt; x\)</span></li>
+<li><span class="math inline">\(k = r\)</span> 이면 <span class="math inline">\(A[k] = x\)</span></li>
+</ol>
+<p>이를 구간 단위로 쓰면 더 직관적이다.</p>
+<p><span class="math display">\[
+A[p..i] \le x,
+\qquad
+A[i+1..j-1] &gt; x,
+\qquad
+A[r] = x
+\]</span></p>
+<section id="통상-loop-invariant를-설정하는-기준" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="통상-loop-invariant를-설정하는-기준"><span class="header-section-number">4.1</span> 통상 loop invariant를 설정하는 기준</h2>
+<p>보통 loop invariant는 다음 기준으로 잡는다.</p>
+<section id="처리-완료-구간이-무엇인지-보여야-한다" class="level3" data-number="4.1.1">
+<h3 data-number="4.1.1" class="anchored" data-anchor-id="처리-완료-구간이-무엇인지-보여야-한다"><span class="header-section-number">4.1.1</span> 처리 완료 구간이 무엇인지 보여야 한다</h3>
+<p>반복문이 지금까지 어디까지 일을 끝냈는지 드러나야 한다.</p>
+<p>이 알고리즘에서는 <span class="math inline">\(j-1\)</span>까지는 이미 검사한 원소들이다. 따라서 invariant는 <code>이미 검사한 구간</code>이 어떤 구조를 갖는지 말해야 한다.</p>
+</section>
+<section id="경계-인덱스의-의미가-분명해야-한다" class="level3" data-number="4.1.2">
+<h3 data-number="4.1.2" class="anchored" data-anchor-id="경계-인덱스의-의미가-분명해야-한다"><span class="header-section-number">4.1.2</span> 경계 인덱스의 의미가 분명해야 한다</h3>
+<p>이 코드에서</p>
+<ul>
+<li><span class="math inline">\(i\)</span>: <code>pivot 이하 구간</code>의 끝</li>
+<li><span class="math inline">\(j\)</span>: <code>지금 검사할 원소</code></li>
+</ul>
+<p>라는 경계 역할을 한다. 따라서 invariant는 자연스럽게 <span class="math inline">\(i\)</span>와 <span class="math inline">\(j\)</span>가 나누는 세 구간의 의미를 기술하게 된다.</p>
+</section>
+<section id="초기화가-쉬워야-한다" class="level3" data-number="4.1.3">
+<h3 data-number="4.1.3" class="anchored" data-anchor-id="초기화가-쉬워야-한다"><span class="header-section-number">4.1.3</span> 초기화가 쉬워야 한다</h3>
+<p>초기값 <span class="math inline">\(i = p-1\)</span>, <span class="math inline">\(j = p\)</span> 에서 invariant가 바로 성립해야 한다.</p>
+<p>이때</p>
+<ul>
+<li><span class="math inline">\(A[p..i] = A[p..p-1]\)</span>: 빈 구간</li>
+<li><span class="math inline">\(A[i+1..j-1] = A[p..p-1]\)</span>: 빈 구간</li>
+</ul>
+<p>이므로 두 조건은 vacuously true 이다. 또한 <span class="math inline">\(A[r]=x\)</span> 는 자명하다.</p>
+</section>
+<section id="종료-시-원하는-결론으로-바로-이어져야-한다" class="level3" data-number="4.1.4">
+<h3 data-number="4.1.4" class="anchored" data-anchor-id="종료-시-원하는-결론으로-바로-이어져야-한다"><span class="header-section-number">4.1.4</span> 종료 시 원하는 결론으로 바로 이어져야 한다</h3>
+<p>반복이 끝나면 <span class="math inline">\(j=r\)</span> 이고, 그 순간</p>
+<p><span class="math display">\[
+A[p..i] \le x,
+\qquad
+A[i+1..r-1] &gt; x,
+\qquad
+A[r] = x
+\]</span></p>
+<p>이다. 마지막으로 <span class="math inline">\(A[i+1]\)</span>와 <span class="math inline">\(A[r]\)</span>를 교환하면</p>
+<p><span class="math display">\[
+A[p..i] \le x,
+\qquad
+A[i+1] = x,
+\qquad
+A[i+2..r] &gt; x
+\]</span></p>
+<p>가 되어 partition이 완료된다.</p>
+</section>
+</section>
+</section>
+<section id="correctness-proof-by-loop-invariant" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Correctness Proof by Loop Invariant</h1>
+<section id="initialization" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="initialization"><span class="header-section-number">5.1</span> Initialization</h2>
+<p>반복문이 처음 시작될 때</p>
+<p><span class="math display">\[
+i = p - 1,
+\qquad
+j = p
+\]</span></p>
+<p>이다. 따라서</p>
+<ul>
+<li><span class="math inline">\(A[p..i]\)</span> 는 빈 구간</li>
+<li><span class="math inline">\(A[i+1..j-1]\)</span> 도 빈 구간</li>
+<li>pivot은 여전히 <span class="math inline">\(A[r] = x\)</span></li>
+</ul>
+<p>이므로 invariant는 성립한다.</p>
+</section>
+<section id="maintenance" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="maintenance"><span class="header-section-number">5.2</span> Maintenance</h2>
+<p>반복 시작 시 invariant가 성립한다고 가정하고, 한 번의 iteration 후에도 성립함을 보여야 한다.</p>
+<section id="case-1-aj-le-x" class="level3" data-number="5.2.1">
+<h3 data-number="5.2.1" class="anchored" data-anchor-id="case-1-aj-le-x"><span class="header-section-number">5.2.1</span> Case 1: <span class="math inline">\(A[j] \le x\)</span></h3>
+<p>이 경우 현재 검사한 원소는 <code>pivot 이하</code> 구간으로 들어가야 한다.</p>
+<p>코드는 다음을 수행한다.</p>
+<p><span class="math display">\[
+i = i + 1
+\]</span></p>
+<p>그리고 <span class="math inline">\(A[i]\)</span> 와 <span class="math inline">\(A[j]\)</span> 를 교환한다.</p>
+<p>이 조작의 의미는 다음과 같다.</p>
+<ul>
+<li>새로 발견된 <code>pivot 이하</code> 원소를 왼쪽 구간 맨 끝으로 보낸다.</li>
+<li>원래 <span class="math inline">\(A[i+1]\)</span> 자리에 있던 원소는 기존 invariant에 의해 <code>pivot 초과</code> 구간에 속해 있었다.</li>
+<li>그 원소가 <span class="math inline">\(A[j]\)</span> 위치로 가더라도 문제없다. 왜냐하면 이번 iteration이 끝나면 <span class="math inline">\(j\)</span>가 증가하고, 그 위치는 <code>이미 처리된 pivot 초과 구간</code>에 포함되기 때문이다.</li>
+</ul>
+<p>따라서 다음 iteration 시작 시에도</p>
+<p><span class="math display">\[
+A[p..i] \le x,
+\qquad
+A[i+1..j-1] &gt; x
+\]</span></p>
+<p>구조가 유지된다.</p>
+</section>
+<section id="case-2-aj-x" class="level3" data-number="5.2.2">
+<h3 data-number="5.2.2" class="anchored" data-anchor-id="case-2-aj-x"><span class="header-section-number">5.2.2</span> Case 2: <span class="math inline">\(A[j] &gt; x\)</span></h3>
+<p>이 경우 현재 원소는 원래부터 <code>pivot 초과</code> 구간에 들어가야 한다.</p>
+<p>코드는 아무 swap도 하지 않고 넘어간다. 본질적으로 달라지는 것은 <code>현재 검사한 원소 $A[j]$가 pivot 초과 구간으로 새롭게 편입되었다</code>는 사실뿐이다.</p>
+<p>현재 iteration 시작 시에는</p>
+<p><span class="math display">\[
+A[i+1..j-1] &gt; x
+\]</span></p>
+<p>였고, 이제 <span class="math inline">\(A[j] &gt; x\)</span> 라는 사실까지 확인했으므로 iteration이 끝난 직후에는</p>
+<p><span class="math display">\[
+A[i+1..j] &gt; x
+\]</span></p>
+<p>가 된다. 이후 for-loop에 의해 <span class="math inline">\(j\)</span>가 1 증가하면 다음 iteration 시작 시에는 다시</p>
+<p><span class="math display">\[
+A[i+1..j-1] &gt; x
+\]</span></p>
+<p>형태가 된다.</p>
+</section>
+<section id="왜-강의자료가-other-entries-remain-unchanged-라고-강조하는가" class="level3" data-number="5.2.3">
+<h3 data-number="5.2.3" class="anchored" data-anchor-id="왜-강의자료가-other-entries-remain-unchanged-라고-강조하는가"><span class="header-section-number">5.2.3</span> 왜 강의자료가 “other entries remain unchanged” 라고 강조하는가</h3>
+<p>이 채팅에서 질문했던 핵심 포인트다.</p>
+<p><span class="math inline">\(A[j] &gt; x\)</span> 인 경우에는</p>
+<ul>
+<li><span class="math inline">\(i\)</span> 가 변하지 않고</li>
+<li>swap도 일어나지 않으며</li>
+<li>pivot 위치도 변하지 않는다</li>
+</ul>
+<p>즉, 기존에 invariant를 만족하던 원소들은 그대로 있고, 오직 새로 검사한 원소 하나만 <code>pivot 초과 구간</code>에 합류한다. 그래서 maintenance가 아주 쉽게 성립한다.</p>
+<p>다르게 말하면, 이 case에서 필요한 것은</p>
+<p><span class="math display">\[
+A[j] &gt; x
+\]</span></p>
+<p>라는 새 사실 하나뿐이며, 나머지 구간 구조는 전혀 깨지지 않는다.</p>
+</section>
+</section>
+<section id="termination" class="level2" data-number="5.3">
+<h2 data-number="5.3" class="anchored" data-anchor-id="termination"><span class="header-section-number">5.3</span> Termination</h2>
+<p>반복문이 종료되면 <span class="math inline">\(j=r\)</span> 이다. 따라서 invariant로부터</p>
+<p><span class="math display">\[
+A[p..i] \le x,
+\qquad
+A[i+1..r-1] &gt; x,
+\qquad
+A[r] = x
+\]</span></p>
+<p>를 얻는다.</p>
+<p>마지막 줄에서 <span class="math inline">\(A[i+1]\)</span> 와 <span class="math inline">\(A[r]\)</span> 를 교환하면 pivot이 정확한 위치 <span class="math inline">\(i+1\)</span> 로 이동한다. 따라서 최종적으로</p>
+<p><span class="math display">\[
+A[p..i] \le A[i+1] \le A[i+2..r]
+\]</span></p>
+<p>가 된다. 즉 <code>PARTITION</code>은 올바르게 동작한다.</p>
+</section>
+</section>
+<section id="randomized-partition과-randomized-quicksort" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> RANDOMIZED-PARTITION과 RANDOMIZED-QUICKSORT</h1>
+<p>강의자료의 randomized 버전은 다음과 같다.</p>
+<pre class="text"><code>RANDOMIZED-PARTITION(A, p, r)
+1. i = RANDOM(p, r)
+2. exchange A[r] with A[i]
+3. return PARTITION(A, p, r)</code></pre>
+<pre class="text"><code>RANDOMIZED-QUICKSORT(A, p, r)
+1. if p &lt; r
+2.     q = RANDOMIZED-PARTITION(A, p, r)
+3.     RANDOMIZED-QUICKSORT(A, p, q - 1)
+4.     RANDOMIZED-QUICKSORT(A, q + 1, r)</code></pre>
+<p>의미는 간단하다.</p>
+<ul>
+<li><span class="math inline">\(p\)</span> 부터 <span class="math inline">\(r\)</span> 사이에서 pivot 인덱스를 무작위로 하나 고른다.</li>
+<li>그 원소를 마지막 위치로 보내고, 기존 <code>PARTITION</code>을 수행한다.</li>
+</ul>
+<p>즉 <code>마지막 원소를 pivot으로 사용하는 코드</code>는 유지하면서, 실제 pivot 선택만 랜덤화한 것이다.</p>
+</section>
+<section id="왜-partition-호출-횟수는-최대-n인가" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> 왜 PARTITION 호출 횟수는 최대 <span class="math inline">\(n\)</span>인가</h1>
+<p>이 부분도 이 채팅에서 질문했던 중요한 포인트다.</p>
+<p>직관적으로 재귀가 두 갈래로 계속 뻗으니 호출 수가 엄청 많아 보일 수 있다. 그러나 여기서 강의자료가 말하는 것은 <strong><code>PARTITION</code> 호출 수</strong>의 상한이다.</p>
+<section id="핵심-사실" class="level2" data-number="7.1">
+<h2 data-number="7.1" class="anchored" data-anchor-id="핵심-사실"><span class="header-section-number">7.1</span> 핵심 사실</h2>
+<p><code>PARTITION</code>이 한 번 호출될 때마다 pivot 하나가 자신의 <strong>최종 정렬 위치</strong>에 놓인다.</p>
+<p>partition이 끝난 뒤 pivot 위치를 <span class="math inline">\(q\)</span> 라고 하면, 재귀호출은</p>
+<p><span class="math display">\[
+\text{QUICKSORT}(A,p,q-1),
+\qquad
+\text{QUICKSORT}(A,q+1,r)
+\]</span></p>
+<p>에 대해서만 일어난다. 즉 pivot이 놓인 <span class="math inline">\(q\)</span> 는 이후 어느 재귀호출에도 포함되지 않는다.</p>
+<p>따라서</p>
+<ul>
+<li><code>PARTITION</code> 한 번당 원소 하나가 영구히 재귀 대상에서 제거된다.</li>
+<li>제거될 수 있는 원소는 총 <span class="math inline">\(n\)</span>개뿐이다.</li>
+</ul>
+<p>그래서 <code>PARTITION</code> 호출 수는 최대 <span class="math inline">\(n\)</span>번이다. 보통 더 정확히는 <span class="math inline">\(n-1\)</span> 이하라고 봐도 되지만, asymptotic upper bound 로는 <span class="math inline">\(n\)</span>이면 충분하다.</p>
+</section>
+<section id="직관적-비유" class="level2" data-number="7.2">
+<h2 data-number="7.2" class="anchored" data-anchor-id="직관적-비유"><span class="header-section-number">7.2</span> 직관적 비유</h2>
+<p>각 <code>PARTITION</code> 호출은 원소 하나를 “졸업”시키는 과정이라고 보면 된다. 졸업한 원소는 다시 분할 대상이 될 수 없으므로, 졸업 이벤트의 총 횟수는 원소 수를 넘을 수 없다.</p>
+</section>
+</section>
+<section id="quicksort-실행시간을-비교-횟수로-보는-이유" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> Quicksort 실행시간을 비교 횟수로 보는 이유</h1>
+<p>강의자료의 분석은 먼저 다음 보조정리를 둔다.</p>
+<ul>
+<li>전체 quicksort 수행 동안 <code>PARTITION</code> line 4, 즉 <code>if A[j] &lt;= x</code> 비교가 수행된 총 횟수를 <span class="math inline">\(X\)</span> 라 하자.</li>
+<li>그러면 quicksort의 전체 실행시간은 <span class="math inline">\(O(n + X)\)</span> 이다.</li>
+</ul>
+<p>왜냐하면</p>
+<ul>
+<li>각 <code>PARTITION</code> 호출에서 반복문 바깥의 작업은 상수 시간</li>
+<li><code>PARTITION</code> 호출 수는 최대 <span class="math inline">\(n\)</span></li>
+<li>반복적으로 큰 비용이 드는 부분은 line 4의 비교들</li>
+</ul>
+<p>이기 때문이다.</p>
+<p>따라서 평균 시간복잡도를 구하려면 <span class="math inline">\(E[X]\)</span> 를 분석하면 된다.</p>
+</section>
+<section id="order-statistic으로-원소-이름-바꾸기" class="level1" data-number="9">
+<h1 data-number="9"><span class="header-section-number">9</span> Order Statistic으로 원소 이름 바꾸기</h1>
+<p>배열의 원소들을 크기순으로 다시 이름 붙인다.</p>
+<p><span class="math display">\[
+z_1, z_2, \dots, z_n
+\]</span></p>
+<p>여기서 <span class="math inline">\(z_i\)</span> 는 전체 배열에서 <span class="math inline">\(i\)</span>번째로 작은 원소이다.</p>
+<p>예를 들어 배열이 <span class="math inline">\(\{3,5,1,9\}\)</span> 이면</p>
+<p><span class="math display">\[
+z_1 = 1,
+\qquad
+z_2 = 3,
+\qquad
+z_3 = 5,
+\qquad
+z_4 = 9
+\]</span></p>
+<p>이렇게 둔다.</p>
+<p>그리고</p>
+<p><span class="math display">\[
+Z_{i,j} = \{ z_i, z_{i+1}, \dots, z_j \}
+\]</span></p>
+<p>를 <span class="math inline">\(z_i\)</span> 와 <span class="math inline">\(z_j\)</span> 사이의 원소 집합이라고 하자.</p>
+<p>또,</p>
+<p><span class="math display">\[
+X_{i,j} = I\{ z_i \text{ is compared to } z_j \}
+\]</span></p>
+<p>를 indicator random variable 로 둔다. 즉</p>
+<ul>
+<li><span class="math inline">\(z_i\)</span> 와 <span class="math inline">\(z_j\)</span> 가 비교되면 <span class="math inline">\(X_{i,j}=1\)</span></li>
+<li>아니면 <span class="math inline">\(X_{i,j}=0\)</span></li>
+</ul>
+<p>이다.</p>
+<p>그러면 전체 비교 횟수는</p>
+<p><span class="math display">\[
+X = \sum_{i=1}^{n-1} \sum_{j=i+1}^{n} X_{i,j}
+\]</span></p>
+<p>이고, 기대값의 선형성에 의해</p>
+<p><span class="math display">\[
+E[X] = \sum_{i=1}^{n-1} \sum_{j=i+1}^{n} E[X_{i,j}]
+\]</span></p>
+<p>이다. 그런데 indicator variable의 기대값은 해당 사건의 확률과 같으므로</p>
+<p><span class="math display">\[
+E[X] = \sum_{i=1}^{n-1} \sum_{j=i+1}^{n} \Pr(z_i \text{ is compared to } z_j)
+\]</span></p>
+<p>가 된다.</p>
+<p>이제 문제는 두 원소가 비교될 확률만 구하면 된다.</p>
+</section>
+<section id="두-원소가-비교되는-경우는-언제인가" class="level1" data-number="10">
+<h1 data-number="10"><span class="header-section-number">10</span> 두 원소가 비교되는 경우는 언제인가</h1>
+<p>이 분석의 핵심 아이디어는 다음과 같다.</p>
+<section id="각-원소쌍은-많아야-한-번만-비교된다" class="level2" data-number="10.1">
+<h2 data-number="10.1" class="anchored" data-anchor-id="각-원소쌍은-많아야-한-번만-비교된다"><span class="header-section-number">10.1</span> 각 원소쌍은 많아야 한 번만 비교된다</h2>
+<p>Quicksort에서 원소는 직접 서로 비교되는 것이 아니라 항상 pivot과 비교된다. 따라서 어떤 두 원소 <span class="math inline">\(z_i, z_j\)</span> 가 직접 비교되는 경우는 둘 중 하나가 pivot으로 선택되어 다른 하나와 비교될 때뿐이다.</p>
+<p>한 번 partition으로 둘이 서로 다른 부분배열로 갈라지면 다시 만날 일이 없으므로, 같은 원소쌍이 두 번 비교되는 일은 없다.</p>
+</section>
+<section id="z_ij-내부의-다른-원소가-먼저-pivot이-되면-둘은-절대-비교되지-않는다" class="level2" data-number="10.2">
+<h2 data-number="10.2" class="anchored" data-anchor-id="z_ij-내부의-다른-원소가-먼저-pivot이-되면-둘은-절대-비교되지-않는다"><span class="header-section-number">10.2</span> <span class="math inline">\(Z_{i,j}\)</span> 내부의 다른 원소가 먼저 pivot이 되면 둘은 절대 비교되지 않는다</h2>
+<p>만약 <span class="math inline">\(z_i &lt; z_k &lt; z_j\)</span> 인 어떤 <span class="math inline">\(z_k\)</span> 가 먼저 pivot으로 선택되면, partition 이후</p>
+<ul>
+<li><span class="math inline">\(z_i\)</span> 는 왼쪽 부분배열</li>
+<li><span class="math inline">\(z_j\)</span> 는 오른쪽 부분배열</li>
+</ul>
+<p>로 나뉘어 들어가게 된다. 그 순간 둘은 영원히 다른 재귀호출에 속하므로 직접 비교될 수 없다.</p>
+</section>
+<section id="따라서-비교되려면-z_ij-에서-가장-먼저-선택되는-pivot이-양-끝-원소여야-한다" class="level2" data-number="10.3">
+<h2 data-number="10.3" class="anchored" data-anchor-id="따라서-비교되려면-z_ij-에서-가장-먼저-선택되는-pivot이-양-끝-원소여야-한다"><span class="header-section-number">10.3</span> 따라서 비교되려면 <span class="math inline">\(Z_{i,j}\)</span> 에서 가장 먼저 선택되는 pivot이 양 끝 원소여야 한다</h2>
+<p>즉,</p>
+<p><span class="math display">\[
+z_i \text{ 와 } z_j \text{ 가 비교된다}
+\iff
+Z_{i,j} \text{ 에서 처음 선택되는 pivot이 } z_i \text{ 또는 } z_j \text{ 이다}
+\]</span></p>
+<p>그런데 <span class="math inline">\(Z_{i,j}\)</span> 의 원소 수는</p>
+<p><span class="math display">\[
+j - i + 1
+\]</span></p>
+<p>개이고, 그 중 유리한 경우는 양 끝 두 개뿐이다. 따라서</p>
+<p><span class="math display">\[
+\Pr(z_i \text{ is compared to } z_j)
+= \frac{2}{j-i+1}
+\]</span></p>
+<p>이다.</p>
+</section>
+</section>
+<section id="기대-비교-횟수-계산" class="level1" data-number="11">
+<h1 data-number="11"><span class="header-section-number">11</span> 기대 비교 횟수 계산</h1>
+<p>위 확률을 대입하면</p>
+<p><span class="math display">\[
+E[X]
+= \sum_{i=1}^{n-1} \sum_{j=i+1}^{n} \frac{2}{j-i+1}
+\]</span></p>
+<p>이다.</p>
+<p>이중합을 다루기 위해 <span class="math inline">\(k = j-i\)</span> 라고 두면, 분모는 <span class="math inline">\(k+1\)</span> 이 된다. 따라서 대략적으로</p>
+<p><span class="math display">\[
+E[X]
+\le
+\sum_{i=1}^{n-1} \sum_{k=1}^{n} \frac{2}{k+1}
+\]</span></p>
+<p>와 같은 상한을 얻을 수 있다. 이제 핵심은 안쪽 합</p>
+<p><span class="math display">\[
+\sum_{k=1}^{n} \frac{2}{k+1}
+\]</span></p>
+<p>이 왜 <span class="math inline">\(O(\log n)\)</span> 인지를 이해하는 것이다.</p>
+</section>
+<section id="왜-sum_k1n-frac2k1-olog-n-인가" class="level1" data-number="12">
+<h1 data-number="12"><span class="header-section-number">12</span> 왜 <span class="math inline">\(\sum_{k=1}^{n} \frac{2}{k+1} = O(\log n)\)</span> 인가</h1>
+<p>이 채팅에서 따로 질문했던 포인트를 정리하면 다음과 같다.</p>
+<p>먼저</p>
+<p><span class="math display">\[
+\sum_{k=1}^{n} \frac{2}{k+1}
+= 2 \sum_{k=1}^{n} \frac{1}{k+1}
+= 2 \sum_{m=2}^{n+1} \frac{1}{m}
+\]</span></p>
+<p>이다. 이는 harmonic sum 과 상수배 차이밖에 나지 않는다.</p>
+<p>조화급수는 well-known result 로</p>
+<p><span class="math display">\[
+\sum_{m=1}^{n} \frac{1}{m} = \Theta(\log n)
+\]</span></p>
+<p>이므로,</p>
+<p><span class="math display">\[
+\sum_{k=1}^{n} \frac{2}{k+1} = O(\log n)
+\]</span></p>
+<p>이다.</p>
+<section id="적분으로-보는-상한" class="level2" data-number="12.1">
+<h2 data-number="12.1" class="anchored" data-anchor-id="적분으로-보는-상한"><span class="header-section-number">12.1</span> 적분으로 보는 상한</h2>
+<p>감소함수 <span class="math inline">\(1/x\)</span> 에 대해 적분 비교를 쓰면</p>
+<p><span class="math display">\[
+\sum_{m=2}^{n+1} \frac{1}{m}
+\le
+\int_{1}^{n+1} \frac{1}{x} \, dx
+= \log(n+1)
+\]</span></p>
+<p>이다. 따라서</p>
+<p><span class="math display">\[
+\sum_{k=1}^{n} \frac{2}{k+1}
+\le 2 \log(n+1)
+\]</span></p>
+<p>이므로 <span class="math inline">\(O(\log n)\)</span> 이다.</p>
+</section>
+<section id="따라서-전체-기대-비교-횟수" class="level2" data-number="12.2">
+<h2 data-number="12.2" class="anchored" data-anchor-id="따라서-전체-기대-비교-횟수"><span class="header-section-number">12.2</span> 따라서 전체 기대 비교 횟수</h2>
+<p>바깥 합은 <span class="math inline">\(i\)</span> 에 대해 대략 <span class="math inline">\(n\)</span>번 반복되므로</p>
+<p><span class="math display">\[
+E[X] = O(n \log n)
+\]</span></p>
+<p>이다. 그리고 전체 실행시간은 <span class="math inline">\(O(n + X)\)</span> 였으므로</p>
+<p><span class="math display">\[
+E[T(n)] = O(n \log n)
+\]</span></p>
+<p>을 얻는다.</p>
+</section>
+</section>
+<section id="평균-시간-점화식을-통한-대안적-증명" class="level1" data-number="13">
+<h1 data-number="13"><span class="header-section-number">13</span> 평균 시간 점화식을 통한 대안적 증명</h1>
+<p>강의자료의 마지막 부분은 비교 횟수 대신 기대 실행시간 자체에 대한 recurrence를 세워서도 같은 결과를 보인다.</p>
+<p>pivot이 정렬 순서상 <span class="math inline">\(j\)</span>번째 원소로 선택될 확률은 <span class="math inline">\(1/n\)</span> 이므로,</p>
+<p><span class="math display">\[
+T_{\mathrm{avg}}(n)
+\le
+cn + \frac{1}{n} \sum_{j=1}^{n}
+\left( T_{\mathrm{avg}}(j-1) + T_{\mathrm{avg}}(n-j) \right)
+\]</span></p>
+<p>이다. 대칭성을 이용하면</p>
+<p><span class="math display">\[
+T_{\mathrm{avg}}(n)
+\le
+cn + \frac{2}{n} \sum_{j=0}^{n-1} T_{\mathrm{avg}}(j)
+\]</span></p>
+<p>로 쓸 수 있다.</p>
+<p>이제 귀납적으로</p>
+<p><span class="math display">\[
+T_{\mathrm{avg}}(n) \le k n \log n
+\]</span></p>
+<p>형태를 보이고 싶다.</p>
+<section id="귀납-가정" class="level2" data-number="13.1">
+<h2 data-number="13.1" class="anchored" data-anchor-id="귀납-가정"><span class="header-section-number">13.1</span> 귀납 가정</h2>
+<p>어떤 <span class="math inline">\(m\)</span> 보다 작은 모든 <span class="math inline">\(n\)</span> 에 대해</p>
+<p><span class="math display">\[
+T_{\mathrm{avg}}(n) \le k n \log n
+\]</span></p>
+<p>이라고 가정하자.</p>
+<p>또한 작은 기저값들을 위해</p>
+<p><span class="math display">\[
+T_{\mathrm{avg}}(0) \le b,
+\qquad
+T_{\mathrm{avg}}(1) \le b
+\]</span></p>
+<p>라고 두자.</p>
+<p>그러면 강의자료의 전개처럼</p>
+<p><span class="math display">\[
+T_{\mathrm{avg}}(m)
+\le
+cm + \frac{4b}{m} + \frac{2k}{m} \sum_{j=2}^{m-1} j \log j
+\]</span></p>
+<p>를 얻는다.</p>
+</section>
+</section>
+<section id="왜-sum_j2m-1-j-log-j-le-int_2m-x-log-x-dx-인가" class="level1" data-number="14">
+<h1 data-number="14"><span class="header-section-number">14</span> 왜 <span class="math inline">\(\sum_{j=2}^{m-1} j \log j \le \int_2^m x \log x \, dx\)</span> 인가</h1>
+<p>이 채팅에서 질문했던 포인트다.</p>
+<p>함수</p>
+<p><span class="math display">\[
+f(x) = x \log x
+\]</span></p>
+<p>는 <span class="math inline">\(x \ge 2\)</span> 에서 증가함수이다. 따라서 각 정수 <span class="math inline">\(j\)</span> 에 대해</p>
+<p><span class="math display">\[
+f(j) \le \int_{j}^{j+1} f(x) \, dx
+\]</span></p>
+<p>가 성립한다. 구체적으로는 증가함수이므로 구간 <span class="math inline">\([j, j+1]\)</span> 에서 항상</p>
+<p><span class="math display">\[
+f(x) \ge f(j)
+\]</span></p>
+<p>이기 때문이다. 따라서</p>
+<p><span class="math display">\[
+\int_j^{j+1} x \log x \, dx \ge j \log j
+\]</span></p>
+<p>이고, 이를 <span class="math inline">\(j=2,3,\dots,m-1\)</span> 에 대해 모두 더하면</p>
+<p><span class="math display">\[
+\sum_{j=2}^{m-1} j \log j
+\le
+\int_2^m x \log x \, dx
+\]</span></p>
+<p>를 얻는다.</p>
+<p>여기서 합의 상한은 <span class="math inline">\(m-1\)</span> 인데 적분 상한이 왜 <span class="math inline">\(m\)</span> 인지도 자주 헷갈린다. 마지막 항 <span class="math inline">\((m-1)\log(m-1)\)</span> 는 구간 <span class="math inline">\([m-1,m]\)</span> 에 대응되는 직사각형으로 상계되므로, 적분은 <span class="math inline">\(m\)</span>까지 가야 한다.</p>
+</section>
+<section id="적분-계산" class="level1" data-number="15">
+<h1 data-number="15"><span class="header-section-number">15</span> 적분 계산</h1>
+<p>부분적분을 사용하면</p>
+<p><span class="math display">\[
+\int x \log x \, dx
+= \frac{x^2 \log x}{2} - \frac{x^2}{4} + C
+\]</span></p>
+<p>이다. 따라서</p>
+<p><span class="math display">\[
+\int_2^m x \log x \, dx
+= \left[ \frac{x^2 \log x}{2} - \frac{x^2}{4} \right]_2^m
+\]</span></p>
+<p>이고, 상수항은 upper bound 분석에서 흡수되므로 강의자료처럼 주요항만 남기면</p>
+<p><span class="math display">\[
+\int_2^m x \log x \, dx
+\le
+\frac{m^2 \log m}{2} - \frac{m^2}{4}
+\]</span></p>
+<p>형태로 다뤄도 충분하다.</p>
+</section>
+<section id="마지막-부등식이-왜-성립하는가" class="level1" data-number="16">
+<h1 data-number="16"><span class="header-section-number">16</span> 마지막 부등식이 왜 성립하는가</h1>
+<p>강의자료의 마지막 줄은 대략 다음과 같은 모양이다.</p>
+<p><span class="math display">\[
+cm + \frac{4b}{m} + k m \log m - \frac{k m}{2}
+\le
+k m \log m
+\]</span></p>
+<p>이 채팅에서 질문했던 것처럼, 이 부등식은 자동으로 참이 아니다. 양변에서 <span class="math inline">\(k m \log m\)</span> 를 빼면</p>
+<p><span class="math display">\[
+cm + \frac{4b}{m} - \frac{k m}{2} \le 0
+\]</span></p>
+<p>즉,</p>
+<p><span class="math display">\[
+cm + \frac{4b}{m} \le \frac{k m}{2}
+\]</span></p>
+<p>만 보이면 된다.</p>
+<p>그런데 <span class="math inline">\(m \ge 2\)</span> 이므로</p>
+<p><span class="math display">\[
+\frac{4b}{m} \le 2b \le bm
+\]</span></p>
+<p>이고 따라서</p>
+<p><span class="math display">\[
+cm + \frac{4b}{m}
+\le
+cm + bm
+=
+(c+b)m
+\]</span></p>
+<p>이다. 이제 <span class="math inline">\(k\)</span> 를 충분히 크게 잡아서</p>
+<p><span class="math display">\[
+k \ge 2(c+b)
+\]</span></p>
+<p>가 되게 하면</p>
+<p><span class="math display">\[
+(c+b)m \le \frac{k m}{2}
+\]</span></p>
+<p>이므로 원하는 부등식이 성립한다.</p>
+<p>즉 마지막 줄의 요지는 <strong>상수 <span class="math inline">\(k\)</span> 를 충분히 크게 선택하면 앞의 자잘한 선형항들을 음수 보정항 <span class="math inline">\(-km/2\)</span> 가 흡수할 수 있다</strong>는 것이다.</p>
+</section>
+<section id="정리-이-장에서-꼭-기억할-핵심" class="level1" data-number="17">
+<h1 data-number="17"><span class="header-section-number">17</span> 정리: 이 장에서 꼭 기억할 핵심</h1>
+<section id="partition-correctness" class="level2" data-number="17.1">
+<h2 data-number="17.1" class="anchored" data-anchor-id="partition-correctness"><span class="header-section-number">17.1</span> PARTITION correctness</h2>
+<ul>
+<li>invariant는 <code>이미 처리한 구간의 구조</code>를 표현한다.</li>
+<li>이 알고리즘에서는
+<ul>
+<li><span class="math inline">\(A[p..i] \le x\)</span></li>
+<li><span class="math inline">\(A[i+1..j-1] &gt; x\)</span></li>
+<li><span class="math inline">\(A[r]=x\)</span> 가 자연스러운 invariant 이다.</li>
+</ul></li>
+<li><code>A[j] &gt; x</code> 인 경우 maintenance가 쉬운 이유는 새 원소 하나가 <code>pivot 초과 구간</code>에 편입될 뿐, 나머지 구조는 전혀 바뀌지 않기 때문이다.</li>
+</ul>
+</section>
+<section id="randomized-quicksort-analysis" class="level2" data-number="17.2">
+<h2 data-number="17.2" class="anchored" data-anchor-id="randomized-quicksort-analysis"><span class="header-section-number">17.2</span> RANDOMIZED-QUICKSORT analysis</h2>
+<ul>
+<li><code>PARTITION</code> 한 번당 pivot 하나가 최종 위치에 확정된다.</li>
+<li>그래서 <code>PARTITION</code> 호출 수는 최대 <span class="math inline">\(n\)</span> 이다.</li>
+<li>전체 시간은 <span class="math inline">\(O(n+X)\)</span> 로 볼 수 있고, 여기서 <span class="math inline">\(X\)</span> 는 총 비교 횟수이다.</li>
+<li>두 원소 <span class="math inline">\(z_i, z_j\)</span> 가 비교될 확률은</li>
+</ul>
+<p><span class="math display">\[
+\Pr(z_i \text{ is compared to } z_j) = \frac{2}{j-i+1}
+\]</span></p>
+<p>이다.</p>
+<ul>
+<li>따라서</li>
+</ul>
+<p><span class="math display">\[
+E[X] = O(n \log n)
+\]</span></p>
+<p>이고, 결국 randomized quicksort의 기대 실행시간은</p>
+<p><span class="math display">\[
+E[T(n)] = O(n \log n)
+\]</span></p>
+<p>이다.</p>
+</section>
+</section>
+<section id="시험-답안용-압축-정리" class="level1" data-number="18">
+<h1 data-number="18"><span class="header-section-number">18</span> 시험 답안용 압축 정리</h1>
+<section id="왜-이런-loop-invariant를-잡는가" class="level2" data-number="18.1">
+<h2 data-number="18.1" class="anchored" data-anchor-id="왜-이런-loop-invariant를-잡는가"><span class="header-section-number">18.1</span> 왜 이런 loop invariant를 잡는가</h2>
+<p><code>PARTITION</code>의 반복문은 지금까지 본 원소들을 pivot 기준으로 두 구간으로 정리해 나가는 과정이다. 따라서 반복 시작 시점마다</p>
+<p><span class="math display">\[
+A[p..i] \le x,
+\qquad
+A[i+1..j-1] &gt; x,
+\qquad
+A[r]=x
+\]</span></p>
+<p>라고 두는 것이 자연스럽다. 초기에는 빈 구간이라 성립하고, <span class="math inline">\(A[j] \le x\)</span> 또는 <span class="math inline">\(A[j] &gt; x\)</span> 두 경우 모두에서 유지되며, 종료 후 마지막 swap으로 pivot의 최종 위치를 얻을 수 있다.</p>
+</section>
+<section id="왜-두-원소가-비교될-확률이-2j-i1-인가" class="level2" data-number="18.2">
+<h2 data-number="18.2" class="anchored" data-anchor-id="왜-두-원소가-비교될-확률이-2j-i1-인가"><span class="header-section-number">18.2</span> 왜 두 원소가 비교될 확률이 <span class="math inline">\(2/(j-i+1)\)</span> 인가</h2>
+<p><span class="math inline">\(z_i\)</span> 와 <span class="math inline">\(z_j\)</span> 가 비교되려면 <span class="math inline">\(Z_{i,j}\)</span> 내부에서 가장 먼저 선택되는 pivot이 <span class="math inline">\(z_i\)</span> 또는 <span class="math inline">\(z_j\)</span> 여야 한다. 내부의 다른 원소가 먼저 pivot이 되면 둘은 서로 다른 부분배열로 갈라져 다시 비교될 수 없다. <span class="math inline">\(Z_{i,j}\)</span> 의 원소 수는 <span class="math inline">\(j-i+1\)</span> 개이고 유리한 경우는 양 끝 두 개뿐이므로 확률은</p>
+<p><span class="math display">\[
+\frac{2}{j-i+1}
+\]</span></p>
+<p>이다.</p>
+</section>
+<section id="왜-harmonic-sum-이-olog-n-인가" class="level2" data-number="18.3">
+<h2 data-number="18.3" class="anchored" data-anchor-id="왜-harmonic-sum-이-olog-n-인가"><span class="header-section-number">18.3</span> 왜 harmonic sum 이 <span class="math inline">\(O(\log n)\)</span> 인가</h2>
+<p><span class="math display">\[
+\sum_{k=1}^{n} \frac{2}{k+1}
+= 2 \sum_{m=2}^{n+1} \frac{1}{m}
+\]</span></p>
+<p>이며, 조화급수는 <span class="math inline">\(\Theta(\log n)\)</span> 이므로 이 합은 <span class="math inline">\(O(\log n)\)</span> 이다.</p>
+<hr>
+<p>참고: 본 노트는 서울대 알고리즘 Chapter 7 Quicksort 강의자료의 PARTITION, RANDOMIZED-QUICKSORT, Analysis of Quicksort 흐름을 바탕으로 재구성하였다.</p>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

@@ -1,0 +1,812 @@
+---
+title: "Quicksort, Partition, and Randomized Analysis"
+date: 2026-03-30
+description: "PARTITION의 loop invariant, maintenance, RANDOMIZED-QUICKSORT의 기대 비교 횟수 분석, 그리고 평균 시간복잡도 증명을 꼼꼼하게 정리한 노트"
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    code-fold: false
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+# Overview
+
+이 문서는 Quicksort의 핵심 아이디어를 다음 순서로 정리한다.
+
+1. `PARTITION(A, p, r)`의 의미와 동작
+2. loop invariant를 왜 그렇게 잡는지
+3. initialization, maintenance, termination을 통한 correctness 증명
+4. 특히 `A[j] > x`인 경우 maintenance가 왜 성립하는지
+5. RANDOMIZED-PARTITION과 RANDOMIZED-QUICKSORT
+6. 비교 횟수를 이용한 평균 시간복잡도 분석
+7. 조화급수와 적분 상계를 이용한 $O(n \log n)$ 도출
+8. 평균 시간 점화식을 이용한 대안적 증명
+
+본 정리는 강의자료의 Quicksort/Partition/Randomized Quicksort/Analysis of Quicksort 흐름을 바탕으로 하고, 이 채팅에서 추가로 질문했던 포인트들까지 반영해 꼼꼼하게 정리한 것이다.
+
+# Quicksort의 큰 그림
+
+Quicksort는 divide-and-conquer 알고리즘이다.
+
+- **Divide**: pivot을 기준으로 배열을 두 부분으로 나눈다.
+- **Conquer**: pivot의 왼쪽 부분배열과 오른쪽 부분배열을 재귀적으로 정렬한다.
+- **Combine**: 별도의 병합 작업이 필요 없다.
+
+핵심은 pivot 하나를 기준으로 다음 조건을 만족하게 만드는 것이다.
+
+$$
+A[p..q-1] \le A[q] \le A[q+1..r]
+$$
+
+여기서 $A[q]$는 partition이 끝난 뒤의 pivot 위치이다.
+
+# Algorithm Textbook 버전의 PARTITION
+
+강의자료에서 다룬 알고리즘 교재 스타일의 pseudocode는 다음과 같다.
+
+```text
+PARTITION(A, p, r)
+1.  x = A[r]
+2.  i = p - 1
+3.  for j = p to r - 1
+4.      if A[j] <= x
+5.          i = i + 1
+6.          exchange A[i] with A[j]
+7.  exchange A[i + 1] with A[r]
+8.  return i + 1
+```
+
+여기서
+
+- $x = A[r]$ 는 pivot
+- $j$ 는 현재 검사 중인 원소의 인덱스
+- $i$ 는 지금까지 확인한 원소들 중에서 `pivot 이하` 구간의 마지막 인덱스
+
+이다.
+
+## 직관적 의미
+
+반복문이 진행되는 동안 배열은 대략 다음과 같이 나뉜다.
+
+- $A[p..i]$: 이미 본 원소들 중 $\le x$
+- $A[i+1..j-1]$: 이미 본 원소들 중 $> x$
+- $A[j..r-1]$: 아직 검사하지 않은 구간
+- $A[r]$: pivot $x$
+
+즉, 이 알고리즘은 배열을 한 번 왼쪽에서 오른쪽으로 훑으면서, 이미 처리한 구간을 pivot 기준으로 두 덩어리로 유지해 나간다.
+
+# Loop Invariant를 왜 이렇게 잡는가
+
+강의자료의 loop invariant는 다음과 같다.
+
+반복문의 각 iteration 시작 시점에,
+
+1. $p \le k \le i$ 이면 $A[k] \le x$
+2. $i+1 \le k \le j-1$ 이면 $A[k] > x$
+3. $k = r$ 이면 $A[k] = x$
+
+이를 구간 단위로 쓰면 더 직관적이다.
+
+$$
+A[p..i] \le x,
+\qquad
+A[i+1..j-1] > x,
+\qquad
+A[r] = x
+$$
+
+## 통상 loop invariant를 설정하는 기준
+
+보통 loop invariant는 다음 기준으로 잡는다.
+
+### 처리 완료 구간이 무엇인지 보여야 한다
+
+반복문이 지금까지 어디까지 일을 끝냈는지 드러나야 한다.
+
+이 알고리즘에서는 $j-1$까지는 이미 검사한 원소들이다. 따라서 invariant는 `이미 검사한 구간`이 어떤 구조를 갖는지 말해야 한다.
+
+### 경계 인덱스의 의미가 분명해야 한다
+
+이 코드에서
+
+- $i$: `pivot 이하 구간`의 끝
+- $j$: `지금 검사할 원소`
+
+라는 경계 역할을 한다. 따라서 invariant는 자연스럽게 $i$와 $j$가 나누는 세 구간의 의미를 기술하게 된다.
+
+### 초기화가 쉬워야 한다
+
+초기값 $i = p-1$, $j = p$ 에서 invariant가 바로 성립해야 한다.
+
+이때
+
+- $A[p..i] = A[p..p-1]$: 빈 구간
+- $A[i+1..j-1] = A[p..p-1]$: 빈 구간
+
+이므로 두 조건은 vacuously true 이다. 또한 $A[r]=x$ 는 자명하다.
+
+### 종료 시 원하는 결론으로 바로 이어져야 한다
+
+반복이 끝나면 $j=r$ 이고, 그 순간
+
+$$
+A[p..i] \le x,
+\qquad
+A[i+1..r-1] > x,
+\qquad
+A[r] = x
+$$
+
+이다. 마지막으로 $A[i+1]$와 $A[r]$를 교환하면
+
+$$
+A[p..i] \le x,
+\qquad
+A[i+1] = x,
+\qquad
+A[i+2..r] > x
+$$
+
+가 되어 partition이 완료된다.
+
+# Correctness Proof by Loop Invariant
+
+## Initialization
+
+반복문이 처음 시작될 때
+
+$$
+i = p - 1,
+\qquad
+j = p
+$$
+
+이다. 따라서
+
+- $A[p..i]$ 는 빈 구간
+- $A[i+1..j-1]$ 도 빈 구간
+- pivot은 여전히 $A[r] = x$
+
+이므로 invariant는 성립한다.
+
+## Maintenance
+
+반복 시작 시 invariant가 성립한다고 가정하고, 한 번의 iteration 후에도 성립함을 보여야 한다.
+
+### Case 1: $A[j] \le x$
+
+이 경우 현재 검사한 원소는 `pivot 이하` 구간으로 들어가야 한다.
+
+코드는 다음을 수행한다.
+
+$$
+i = i + 1
+$$
+
+그리고 $A[i]$ 와 $A[j]$ 를 교환한다.
+
+이 조작의 의미는 다음과 같다.
+
+- 새로 발견된 `pivot 이하` 원소를 왼쪽 구간 맨 끝으로 보낸다.
+- 원래 $A[i+1]$ 자리에 있던 원소는 기존 invariant에 의해 `pivot 초과` 구간에 속해 있었다.
+- 그 원소가 $A[j]$ 위치로 가더라도 문제없다. 왜냐하면 이번 iteration이 끝나면 $j$가 증가하고, 그 위치는 `이미 처리된 pivot 초과 구간`에 포함되기 때문이다.
+
+따라서 다음 iteration 시작 시에도
+
+$$
+A[p..i] \le x,
+\qquad
+A[i+1..j-1] > x
+$$
+
+구조가 유지된다.
+
+### Case 2: $A[j] > x$
+
+이 경우 현재 원소는 원래부터 `pivot 초과` 구간에 들어가야 한다.
+
+코드는 아무 swap도 하지 않고 넘어간다. 본질적으로 달라지는 것은 `현재 검사한 원소 $A[j]$가 pivot 초과 구간으로 새롭게 편입되었다`는 사실뿐이다.
+
+현재 iteration 시작 시에는
+
+$$
+A[i+1..j-1] > x
+$$
+
+였고, 이제 $A[j] > x$ 라는 사실까지 확인했으므로 iteration이 끝난 직후에는
+
+$$
+A[i+1..j] > x
+$$
+
+가 된다. 이후 for-loop에 의해 $j$가 1 증가하면 다음 iteration 시작 시에는 다시
+
+$$
+A[i+1..j-1] > x
+$$
+
+형태가 된다.
+
+### 왜 강의자료가 "other entries remain unchanged" 라고 강조하는가
+
+이 채팅에서 질문했던 핵심 포인트다.
+
+$A[j] > x$ 인 경우에는
+
+- $i$ 가 변하지 않고
+- swap도 일어나지 않으며
+- pivot 위치도 변하지 않는다
+
+즉, 기존에 invariant를 만족하던 원소들은 그대로 있고, 오직 새로 검사한 원소 하나만 `pivot 초과 구간`에 합류한다. 그래서 maintenance가 아주 쉽게 성립한다.
+
+다르게 말하면, 이 case에서 필요한 것은
+
+$$
+A[j] > x
+$$
+
+라는 새 사실 하나뿐이며, 나머지 구간 구조는 전혀 깨지지 않는다.
+
+## Termination
+
+반복문이 종료되면 $j=r$ 이다. 따라서 invariant로부터
+
+$$
+A[p..i] \le x,
+\qquad
+A[i+1..r-1] > x,
+\qquad
+A[r] = x
+$$
+
+를 얻는다.
+
+마지막 줄에서 $A[i+1]$ 와 $A[r]$ 를 교환하면 pivot이 정확한 위치 $i+1$ 로 이동한다. 따라서 최종적으로
+
+$$
+A[p..i] \le A[i+1] \le A[i+2..r]
+$$
+
+가 된다. 즉 `PARTITION`은 올바르게 동작한다.
+
+# RANDOMIZED-PARTITION과 RANDOMIZED-QUICKSORT
+
+강의자료의 randomized 버전은 다음과 같다.
+
+```text
+RANDOMIZED-PARTITION(A, p, r)
+1. i = RANDOM(p, r)
+2. exchange A[r] with A[i]
+3. return PARTITION(A, p, r)
+```
+
+```text
+RANDOMIZED-QUICKSORT(A, p, r)
+1. if p < r
+2.     q = RANDOMIZED-PARTITION(A, p, r)
+3.     RANDOMIZED-QUICKSORT(A, p, q - 1)
+4.     RANDOMIZED-QUICKSORT(A, q + 1, r)
+```
+
+의미는 간단하다.
+
+- $p$ 부터 $r$ 사이에서 pivot 인덱스를 무작위로 하나 고른다.
+- 그 원소를 마지막 위치로 보내고, 기존 `PARTITION`을 수행한다.
+
+즉 `마지막 원소를 pivot으로 사용하는 코드`는 유지하면서, 실제 pivot 선택만 랜덤화한 것이다.
+
+# 왜 PARTITION 호출 횟수는 최대 $n$인가
+
+이 부분도 이 채팅에서 질문했던 중요한 포인트다.
+
+직관적으로 재귀가 두 갈래로 계속 뻗으니 호출 수가 엄청 많아 보일 수 있다. 그러나 여기서 강의자료가 말하는 것은 **`PARTITION` 호출 수**의 상한이다.
+
+## 핵심 사실
+
+`PARTITION`이 한 번 호출될 때마다 pivot 하나가 자신의 **최종 정렬 위치**에 놓인다.
+
+partition이 끝난 뒤 pivot 위치를 $q$ 라고 하면, 재귀호출은
+
+$$
+\text{QUICKSORT}(A,p,q-1),
+\qquad
+\text{QUICKSORT}(A,q+1,r)
+$$
+
+에 대해서만 일어난다. 즉 pivot이 놓인 $q$ 는 이후 어느 재귀호출에도 포함되지 않는다.
+
+따라서
+
+- `PARTITION` 한 번당 원소 하나가 영구히 재귀 대상에서 제거된다.
+- 제거될 수 있는 원소는 총 $n$개뿐이다.
+
+그래서 `PARTITION` 호출 수는 최대 $n$번이다. 보통 더 정확히는 $n-1$ 이하라고 봐도 되지만, asymptotic upper bound 로는 $n$이면 충분하다.
+
+## 직관적 비유
+
+각 `PARTITION` 호출은 원소 하나를 "졸업"시키는 과정이라고 보면 된다. 졸업한 원소는 다시 분할 대상이 될 수 없으므로, 졸업 이벤트의 총 횟수는 원소 수를 넘을 수 없다.
+
+# Quicksort 실행시간을 비교 횟수로 보는 이유
+
+강의자료의 분석은 먼저 다음 보조정리를 둔다.
+
+- 전체 quicksort 수행 동안 `PARTITION` line 4, 즉 `if A[j] <= x` 비교가 수행된 총 횟수를 $X$ 라 하자.
+- 그러면 quicksort의 전체 실행시간은 $O(n + X)$ 이다.
+
+왜냐하면
+
+- 각 `PARTITION` 호출에서 반복문 바깥의 작업은 상수 시간
+- `PARTITION` 호출 수는 최대 $n$
+- 반복적으로 큰 비용이 드는 부분은 line 4의 비교들
+
+이기 때문이다.
+
+따라서 평균 시간복잡도를 구하려면 $E[X]$ 를 분석하면 된다.
+
+# Order Statistic으로 원소 이름 바꾸기
+
+배열의 원소들을 크기순으로 다시 이름 붙인다.
+
+$$
+z_1, z_2, \dots, z_n
+$$
+
+여기서 $z_i$ 는 전체 배열에서 $i$번째로 작은 원소이다.
+
+예를 들어 배열이 $\{3,5,1,9\}$ 이면
+
+$$
+z_1 = 1,
+\qquad
+z_2 = 3,
+\qquad
+z_3 = 5,
+\qquad
+z_4 = 9
+$$
+
+이렇게 둔다.
+
+그리고
+
+$$
+Z_{i,j} = \{ z_i, z_{i+1}, \dots, z_j \}
+$$
+
+를 $z_i$ 와 $z_j$ 사이의 원소 집합이라고 하자.
+
+또,
+
+$$
+X_{i,j} = I\{ z_i \text{ is compared to } z_j \}
+$$
+
+를 indicator random variable 로 둔다. 즉
+
+- $z_i$ 와 $z_j$ 가 비교되면 $X_{i,j}=1$
+- 아니면 $X_{i,j}=0$
+
+이다.
+
+그러면 전체 비교 횟수는
+
+$$
+X = \sum_{i=1}^{n-1} \sum_{j=i+1}^{n} X_{i,j}
+$$
+
+이고, 기대값의 선형성에 의해
+
+$$
+E[X] = \sum_{i=1}^{n-1} \sum_{j=i+1}^{n} E[X_{i,j}]
+$$
+
+이다. 그런데 indicator variable의 기대값은 해당 사건의 확률과 같으므로
+
+$$
+E[X] = \sum_{i=1}^{n-1} \sum_{j=i+1}^{n} \Pr(z_i \text{ is compared to } z_j)
+$$
+
+가 된다.
+
+이제 문제는 두 원소가 비교될 확률만 구하면 된다.
+
+# 두 원소가 비교되는 경우는 언제인가
+
+이 분석의 핵심 아이디어는 다음과 같다.
+
+## 각 원소쌍은 많아야 한 번만 비교된다
+
+Quicksort에서 원소는 직접 서로 비교되는 것이 아니라 항상 pivot과 비교된다. 따라서 어떤 두 원소 $z_i, z_j$ 가 직접 비교되는 경우는 둘 중 하나가 pivot으로 선택되어 다른 하나와 비교될 때뿐이다.
+
+한 번 partition으로 둘이 서로 다른 부분배열로 갈라지면 다시 만날 일이 없으므로, 같은 원소쌍이 두 번 비교되는 일은 없다.
+
+## $Z_{i,j}$ 내부의 다른 원소가 먼저 pivot이 되면 둘은 절대 비교되지 않는다
+
+만약 $z_i < z_k < z_j$ 인 어떤 $z_k$ 가 먼저 pivot으로 선택되면, partition 이후
+
+- $z_i$ 는 왼쪽 부분배열
+- $z_j$ 는 오른쪽 부분배열
+
+로 나뉘어 들어가게 된다. 그 순간 둘은 영원히 다른 재귀호출에 속하므로 직접 비교될 수 없다.
+
+## 따라서 비교되려면 $Z_{i,j}$ 에서 가장 먼저 선택되는 pivot이 양 끝 원소여야 한다
+
+즉,
+
+$$
+z_i \text{ 와 } z_j \text{ 가 비교된다}
+\iff
+Z_{i,j} \text{ 에서 처음 선택되는 pivot이 } z_i \text{ 또는 } z_j \text{ 이다}
+$$
+
+그런데 $Z_{i,j}$ 의 원소 수는
+
+$$
+j - i + 1
+$$
+
+개이고, 그 중 유리한 경우는 양 끝 두 개뿐이다. 따라서
+
+$$
+\Pr(z_i \text{ is compared to } z_j)
+= \frac{2}{j-i+1}
+$$
+
+이다.
+
+# 기대 비교 횟수 계산
+
+위 확률을 대입하면
+
+$$
+E[X]
+= \sum_{i=1}^{n-1} \sum_{j=i+1}^{n} \frac{2}{j-i+1}
+$$
+
+이다.
+
+이중합을 다루기 위해 $k = j-i$ 라고 두면, 분모는 $k+1$ 이 된다. 따라서 대략적으로
+
+$$
+E[X]
+\le
+\sum_{i=1}^{n-1} \sum_{k=1}^{n} \frac{2}{k+1}
+$$
+
+와 같은 상한을 얻을 수 있다. 이제 핵심은 안쪽 합
+
+$$
+\sum_{k=1}^{n} \frac{2}{k+1}
+$$
+
+이 왜 $O(\log n)$ 인지를 이해하는 것이다.
+
+# 왜 $\sum_{k=1}^{n} \frac{2}{k+1} = O(\log n)$ 인가
+
+이 채팅에서 따로 질문했던 포인트를 정리하면 다음과 같다.
+
+먼저
+
+$$
+\sum_{k=1}^{n} \frac{2}{k+1}
+= 2 \sum_{k=1}^{n} \frac{1}{k+1}
+= 2 \sum_{m=2}^{n+1} \frac{1}{m}
+$$
+
+이다. 이는 harmonic sum 과 상수배 차이밖에 나지 않는다.
+
+조화급수는 well-known result 로
+
+$$
+\sum_{m=1}^{n} \frac{1}{m} = \Theta(\log n)
+$$
+
+이므로,
+
+$$
+\sum_{k=1}^{n} \frac{2}{k+1} = O(\log n)
+$$
+
+이다.
+
+## 적분으로 보는 상한
+
+감소함수 $1/x$ 에 대해 적분 비교를 쓰면
+
+$$
+\sum_{m=2}^{n+1} \frac{1}{m}
+\le
+\int_{1}^{n+1} \frac{1}{x} \, dx
+= \log(n+1)
+$$
+
+이다. 따라서
+
+$$
+\sum_{k=1}^{n} \frac{2}{k+1}
+\le 2 \log(n+1)
+$$
+
+이므로 $O(\log n)$ 이다.
+
+## 따라서 전체 기대 비교 횟수
+
+바깥 합은 $i$ 에 대해 대략 $n$번 반복되므로
+
+$$
+E[X] = O(n \log n)
+$$
+
+이다. 그리고 전체 실행시간은 $O(n + X)$ 였으므로
+
+$$
+E[T(n)] = O(n \log n)
+$$
+
+을 얻는다.
+
+# 평균 시간 점화식을 통한 대안적 증명
+
+강의자료의 마지막 부분은 비교 횟수 대신 기대 실행시간 자체에 대한 recurrence를 세워서도 같은 결과를 보인다.
+
+pivot이 정렬 순서상 $j$번째 원소로 선택될 확률은 $1/n$ 이므로,
+
+$$
+T_{\mathrm{avg}}(n)
+\le
+cn + \frac{1}{n} \sum_{j=1}^{n}
+\left( T_{\mathrm{avg}}(j-1) + T_{\mathrm{avg}}(n-j) \right)
+$$
+
+이다. 대칭성을 이용하면
+
+$$
+T_{\mathrm{avg}}(n)
+\le
+cn + \frac{2}{n} \sum_{j=0}^{n-1} T_{\mathrm{avg}}(j)
+$$
+
+로 쓸 수 있다.
+
+이제 귀납적으로
+
+$$
+T_{\mathrm{avg}}(n) \le k n \log n
+$$
+
+형태를 보이고 싶다.
+
+## 귀납 가정
+
+어떤 $m$ 보다 작은 모든 $n$ 에 대해
+
+$$
+T_{\mathrm{avg}}(n) \le k n \log n
+$$
+
+이라고 가정하자.
+
+또한 작은 기저값들을 위해
+
+$$
+T_{\mathrm{avg}}(0) \le b,
+\qquad
+T_{\mathrm{avg}}(1) \le b
+$$
+
+라고 두자.
+
+그러면 강의자료의 전개처럼
+
+$$
+T_{\mathrm{avg}}(m)
+\le
+cm + \frac{4b}{m} + \frac{2k}{m} \sum_{j=2}^{m-1} j \log j
+$$
+
+를 얻는다.
+
+# 왜 $\sum_{j=2}^{m-1} j \log j \le \int_2^m x \log x \, dx$ 인가
+
+이 채팅에서 질문했던 포인트다.
+
+함수
+
+$$
+f(x) = x \log x
+$$
+
+는 $x \ge 2$ 에서 증가함수이다. 따라서 각 정수 $j$ 에 대해
+
+$$
+f(j) \le \int_{j}^{j+1} f(x) \, dx
+$$
+
+가 성립한다. 구체적으로는 증가함수이므로 구간 $[j, j+1]$ 에서 항상
+
+$$
+f(x) \ge f(j)
+$$
+
+이기 때문이다. 따라서
+
+$$
+\int_j^{j+1} x \log x \, dx \ge j \log j
+$$
+
+이고, 이를 $j=2,3,\dots,m-1$ 에 대해 모두 더하면
+
+$$
+\sum_{j=2}^{m-1} j \log j
+\le
+\int_2^m x \log x \, dx
+$$
+
+를 얻는다.
+
+여기서 합의 상한은 $m-1$ 인데 적분 상한이 왜 $m$ 인지도 자주 헷갈린다. 마지막 항 $(m-1)\log(m-1)$ 는 구간 $[m-1,m]$ 에 대응되는 직사각형으로 상계되므로, 적분은 $m$까지 가야 한다.
+
+# 적분 계산
+
+부분적분을 사용하면
+
+$$
+\int x \log x \, dx
+= \frac{x^2 \log x}{2} - \frac{x^2}{4} + C
+$$
+
+이다. 따라서
+
+$$
+\int_2^m x \log x \, dx
+= \left[ \frac{x^2 \log x}{2} - \frac{x^2}{4} \right]_2^m
+$$
+
+이고, 상수항은 upper bound 분석에서 흡수되므로 강의자료처럼 주요항만 남기면
+
+$$
+\int_2^m x \log x \, dx
+\le
+\frac{m^2 \log m}{2} - \frac{m^2}{4}
+$$
+
+형태로 다뤄도 충분하다.
+
+# 마지막 부등식이 왜 성립하는가
+
+강의자료의 마지막 줄은 대략 다음과 같은 모양이다.
+
+$$
+cm + \frac{4b}{m} + k m \log m - \frac{k m}{2}
+\le
+k m \log m
+$$
+
+이 채팅에서 질문했던 것처럼, 이 부등식은 자동으로 참이 아니다. 양변에서 $k m \log m$ 를 빼면
+
+$$
+cm + \frac{4b}{m} - \frac{k m}{2} \le 0
+$$
+
+즉,
+
+$$
+cm + \frac{4b}{m} \le \frac{k m}{2}
+$$
+
+만 보이면 된다.
+
+그런데 $m \ge 2$ 이므로
+
+$$
+\frac{4b}{m} \le 2b \le bm
+$$
+
+이고 따라서
+
+$$
+cm + \frac{4b}{m}
+\le
+cm + bm
+=
+(c+b)m
+$$
+
+이다. 이제 $k$ 를 충분히 크게 잡아서
+
+$$
+k \ge 2(c+b)
+$$
+
+가 되게 하면
+
+$$
+(c+b)m \le \frac{k m}{2}
+$$
+
+이므로 원하는 부등식이 성립한다.
+
+즉 마지막 줄의 요지는 **상수 $k$ 를 충분히 크게 선택하면 앞의 자잘한 선형항들을 음수 보정항 $-km/2$ 가 흡수할 수 있다**는 것이다.
+
+# 정리: 이 장에서 꼭 기억할 핵심
+
+## PARTITION correctness
+
+- invariant는 `이미 처리한 구간의 구조`를 표현한다.
+- 이 알고리즘에서는
+  - $A[p..i] \le x$
+  - $A[i+1..j-1] > x$
+  - $A[r]=x$
+  가 자연스러운 invariant 이다.
+- `A[j] > x` 인 경우 maintenance가 쉬운 이유는 새 원소 하나가 `pivot 초과 구간`에 편입될 뿐, 나머지 구조는 전혀 바뀌지 않기 때문이다.
+
+## RANDOMIZED-QUICKSORT analysis
+
+- `PARTITION` 한 번당 pivot 하나가 최종 위치에 확정된다.
+- 그래서 `PARTITION` 호출 수는 최대 $n$ 이다.
+- 전체 시간은 $O(n+X)$ 로 볼 수 있고, 여기서 $X$ 는 총 비교 횟수이다.
+- 두 원소 $z_i, z_j$ 가 비교될 확률은
+
+$$
+\Pr(z_i \text{ is compared to } z_j) = \frac{2}{j-i+1}
+$$
+
+이다.
+
+- 따라서
+
+$$
+E[X] = O(n \log n)
+$$
+
+이고, 결국 randomized quicksort의 기대 실행시간은
+
+$$
+E[T(n)] = O(n \log n)
+$$
+
+이다.
+
+# 시험 답안용 압축 정리
+
+## 왜 이런 loop invariant를 잡는가
+
+`PARTITION`의 반복문은 지금까지 본 원소들을 pivot 기준으로 두 구간으로 정리해 나가는 과정이다. 따라서 반복 시작 시점마다
+
+$$
+A[p..i] \le x,
+\qquad
+A[i+1..j-1] > x,
+\qquad
+A[r]=x
+$$
+
+라고 두는 것이 자연스럽다. 초기에는 빈 구간이라 성립하고, $A[j] \le x$ 또는 $A[j] > x$ 두 경우 모두에서 유지되며, 종료 후 마지막 swap으로 pivot의 최종 위치를 얻을 수 있다.
+
+## 왜 두 원소가 비교될 확률이 $2/(j-i+1)$ 인가
+
+$z_i$ 와 $z_j$ 가 비교되려면 $Z_{i,j}$ 내부에서 가장 먼저 선택되는 pivot이 $z_i$ 또는 $z_j$ 여야 한다. 내부의 다른 원소가 먼저 pivot이 되면 둘은 서로 다른 부분배열로 갈라져 다시 비교될 수 없다. $Z_{i,j}$ 의 원소 수는 $j-i+1$ 개이고 유리한 경우는 양 끝 두 개뿐이므로 확률은
+
+$$
+\frac{2}{j-i+1}
+$$
+
+이다.
+
+## 왜 harmonic sum 이 $O(\log n)$ 인가
+
+$$
+\sum_{k=1}^{n} \frac{2}{k+1}
+= 2 \sum_{m=2}^{n+1} \frac{1}{m}
+$$
+
+이며, 조화급수는 $\Theta(\log n)$ 이므로 이 합은 $O(\log n)$ 이다.
+
+---
+
+참고: 본 노트는 서울대 알고리즘 Chapter 7 Quicksort 강의자료의 PARTITION, RANDOMIZED-QUICKSORT, Analysis of Quicksort 흐름을 바탕으로 재구성하였다.
