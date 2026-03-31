@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <chrono>
 #include <iostream>
 #include <random>
@@ -44,7 +45,6 @@ int* mysort(int* arr, int n) {
 
     return sorted;
 }
-
 int* insertion_sort(int* arr, int n) {
     int* sorted = new int[n];
     for (size_t i = 0; i < n; i++) {
@@ -284,6 +284,7 @@ int* radix_sort(int* arr, int n) {
 }
 
 int main(void) {
+    freopen("hw2_sort.log", "w", stdout);
     system_clock::time_point begin;
     double duration;
     bool is_sorted;
@@ -296,24 +297,28 @@ int main(void) {
     print_arr(arr, 10);
     delete[] arr;
 
-    n = 100000000;
-    begin = system_clock::now();
-    arr = gen_data(n);
-    duration = duration_cast<milliseconds>(system_clock::now() - begin).count() / 1000.0;
-    cout << "Time for gen data: " << duration << "s" << endl;
+    int* (*sort_func[])(int*, int) = {insertion_sort, merge_sort, quick_sort_rand_piv, quick_sort_last_piv, heap_sort, radix_sort};
+    const char* sort_func_names[] = {"Insertion Sort", "Merge Sort", "Quick Sort (Random Pivot)", "Quick Sort (Last Pivot)", "Heap Sort", "Radix Sort"};
 
-    begin = system_clock::now();
-    int* sorted = mysort(arr, n);
-    duration = duration_cast<milliseconds>(system_clock::now() - begin).count() / 1000.0;
-    cout << "Time for sort: " << duration << "s" << endl;
+    for(int i = 0; i < 6; i++) {
+        for(int n = 100; n <= 100000000; n *= 10) {
+            for(int seed = 0; seed < 5; seed++) {
+                arr = gen_data(n, seed);
+                begin = system_clock::now();
+                int* sorted = sort_func[i](arr, n);
+                duration = duration_cast<milliseconds>(system_clock::now() - begin).count() / 1000.0;
 
-    is_sorted = check_sorted(sorted, n);
-    cout << "Sorted(1: true, 0:false): " << check_sorted(sorted, n) << endl;
-    if (!is_sorted) {
-        cout << "Try the implementation again" << endl;
+                printf("%d. %-40s (n = %-10d, seed = %d)  Time for sort: %3.6fs\n", i + 1, sort_func_names[i], n, seed, duration);
+
+                is_sorted = check_sorted(sorted, n);
+                if (!is_sorted) {
+                    cout << "Try the implementation again" << endl;
+                }
+                delete[] sorted;
+                delete[] arr;
+            }
+            printf("-----------------------------------------\n");
+        }
     }
-    delete[] sorted;
-
-    delete[] arr;
     return 0;
 }

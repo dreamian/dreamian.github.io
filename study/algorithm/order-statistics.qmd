@@ -1,0 +1,609 @@
+---
+title: "Median and Order Statistics: RANDOMIZED-SELECT와 Worst-case Linear SELECT 정리"
+description: "order statistic, randomized-select, median-of-medians를 한 번에 정리한 노트"
+date: 2026-03-31
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    code-fold: false
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+## Order statistic problem
+
+서로 다른 $n$개의 수가 주어졌을 때, **$i$번째로 작은 원소**를 찾는 문제를 selection problem이라고 한다.
+
+- 입력: 서로 다른 수들의 집합 $A$, 그리고 $1 \le i \le n$
+- 출력: 정확히 $i-1$개의 원소보다 큰 원소
+
+대표적인 예시는 다음과 같다.
+
+- $i=1$: minimum
+- $i=n$: maximum
+- $i=\lceil n/2 \rceil$: median
+
+가장 단순한 방법은 전체를 정렬한 뒤 $i$번째 원소를 읽는 것이다. 이 방법의 시간복잡도는
+
+$$
+O(n \log n)
+$$
+
+이다.
+
+## 기본 아이디어와 비교 대상
+
+selection을 다음 세 가지 관점에서 볼 수 있다.
+
+1. **정렬 기반 또는 단순 유지 방식**
+2. **힙 기반 방식**
+3. **분할정복 기반 방식**
+
+핵심 메시지는 다음과 같다.
+
+- 정렬하면 selection은 쉽게 풀리지만 $O(n \log n)$이다.
+- 힙을 쓰면 더 나아질 수 있다.
+- 분할정복 기반의 **RANDOMIZED-SELECT**는 기대 시간 $\Theta(n)$을 달성한다.
+- pivot을 더 정교하게 고르면 **worst case에서도 $O(n)$**을 달성할 수 있다.
+
+## Naive method와 heap method
+
+### 정렬 기반
+
+전체를 정렬한 뒤 $i$번째 원소를 읽는다.
+
+$$
+O(n \log n)
+$$
+
+### 크기 $i$의 배열 또는 힙 유지
+
+크기 $i$의 구조를 유지하면서 $i$번째 작은 원소를 추적하는 방식도 생각할 수 있다. 이를 max-heap으로 구현하면,
+
+- 처음 $i$개를 max-heap으로 만든다.
+- 이후 원소를 하나씩 보면서 heap의 최대값보다 작은 경우에만 갱신한다.
+- 마지막에 heap의 루트가 $i$번째 작은 원소가 된다.
+
+시간복잡도는 보통
+
+$$
+O(n \log i)
+$$
+
+로 볼 수 있다.
+
+이 방식은 실용적이지만, chapter의 핵심은 아니다. 이 장의 핵심은 **분할정복으로 selection을 더 직접적으로 해결**하는 것이다.
+
+## QUICK-SELECT / RANDOMIZED-SELECT의 기본 구조
+
+RANDOMIZED-SELECT는 quicksort를 본떠 만든 selection 알고리즘이다.
+
+핵심 아이디어는 다음과 같다.
+
+1. pivot을 하나 고른다.
+2. pivot 기준으로 partition한다.
+3. pivot의 최종 순위를 계산한다.
+4. 원하는 순서통계량이
+   - pivot이면 종료,
+   - 왼쪽에 있으면 왼쪽만 재귀,
+   - 오른쪽에 있으면 오른쪽만 재귀한다.
+
+즉, quicksort와 비슷하게 partition을 사용하지만, **양쪽을 다 재귀하지 않고 한쪽만 재귀**한다.
+
+### 의사코드
+
+```text
+RANDOMIZED-SELECT(A, p, r, i)
+1. if p == r
+2.     return A[p]
+3. q = RANDOMIZED-PARTITION(A, p, r)
+4. k = q - p + 1
+5. if i == k
+6.     return A[q]
+7. else if i < k
+8.     return RANDOMIZED-SELECT(A, p, q-1, i)
+9. else
+10.    return RANDOMIZED-SELECT(A, q+1, r, i-k)
+```
+
+여기서
+
+- $q$: partition 후 pivot의 위치
+- $k = q-p+1$: 현재 부분배열 안에서 pivot의 순위
+
+이다.
+
+## 왜 quicksort는 $\Theta(n \log n)$인데 randomized-select는 기대적으로 $\Theta(n)$인가
+
+quicksort는 partition 뒤에 **양쪽 부분배열을 모두 정렬**해야 하므로 대략
+
+$$
+T(n) = T(n_L) + T(n_R) + \Theta(n)
+$$
+
+꼴이다.
+
+반면 randomized-select는 selection만 하면 되므로 **정답이 있는 한쪽만 재귀**한다.
+
+$$
+T(n) = T(\text{one side}) + \Theta(n)
+$$
+
+이 차이 때문에 quicksort의 기대 시간은 $\Theta(n \log n)$이지만, randomized-select의 기대 시간은 $\Theta(n)$이 된다.
+
+## RANDOMIZED-SELECT의 분석
+
+### worst case는 왜 $\Theta(n^2)$인가
+
+pivot이 계속 최악으로 잡히면 매 단계마다 문제가 거의 $n-1$로만 줄어들 수 있다.
+
+즉,
+
+$$
+T(n) = T(n-1) + \Theta(n)
+$$
+
+이 가능하므로 worst case는
+
+$$
+\Theta(n^2)
+$$
+
+이다.
+
+### 기대 시간 분석의 출발점
+
+입력 크기가 $n$일 때의 실행시간을 확률변수 $T(n)$으로 둔다.
+
+pivot이 전체에서 $k$번째 작은 원소가 될 확률은 각 $k \in \{1,2,\dots,n\}$에 대해 동일하게
+
+$$
+\Pr[\text{pivot rank}=k] = \frac{1}{n}
+$$
+
+이다.
+
+이를 위해 indicator random variable $X_k$를 정의한다.
+
+$$
+X_k = I\{\text{pivot이 }k\text{-th smallest}\}
+$$
+
+그러면 정확히 하나의 $k$에 대해서만 $X_k=1$이고, 나머지는 모두 $0$이다.
+
+또,
+
+$$
+E[X_k] = \frac{1}{n}
+$$
+
+이다.
+
+### 왜 $\max(k-1, n-k)$가 나오나
+
+pivot이 $k$번째 작은 원소라면 partition 뒤 부분배열 크기는
+
+- 왼쪽: $k-1$
+- 오른쪽: $n-k$
+
+이다.
+
+그런데 상한을 구할 때는, 실제로 어느 쪽으로 가는지 모르므로 **항상 더 큰 쪽으로 재귀한다고 가정**한다. 따라서
+
+$$
+T(n) \le \sum_{k=1}^{n} X_k \left( T(\max(k-1, n-k)) + O(n) \right)
+$$
+
+가 된다.
+
+여기서 $O(n)$은 partition 비용이다.
+
+### 기대값을 취하면
+
+기대값을 취하면
+
+$$
+E[T(n)] \le \sum_{k=1}^{n} E\!\left[X_k\right] E\!\left[T(\max(k-1, n-k))\right] + O(n)
+$$
+
+이고, $E[X_k]=1/n$이므로
+
+$$
+E[T(n)] \le \frac{1}{n}\sum_{k=1}^{n} E\!\left[T(\max(k-1, n-k))\right] + O(n)
+$$
+
+이다.
+
+### 왜 같은 항이 두 번씩 나타나나
+
+$$
+\max(k-1, n-k)
+$$
+
+를 보면 대칭성이 있다.
+
+- $k$가 작으면 $n-k$가 크다.
+- $k$가 크면 $k-1$이 크다.
+
+예를 들어 $n=10$이면
+
+$$
+\max(k-1, 10-k) = 9,8,7,6,5,5,6,7,8,9
+$$
+
+가 된다.
+
+즉 $T(5), T(6), \dots, T(9)$가 각각 두 번씩 나타난다. 이로부터
+
+$$
+E[T(n)] \le \frac{2}{n} \sum_{k=\lceil n/2 \rceil}^{n-1} E[T(k)] + O(n)
+$$
+
+라는 상한을 얻는다.
+
+## Substitution method로 $E[T(n)] = O(n)$ 보이기
+
+이제 귀납 가정으로 충분히 큰 모든 $k<n$에 대해
+
+$$
+E[T(k)] \le ck
+$$
+
+라고 하자. 그러면
+
+$$
+E[T(n)] \le \frac{2}{n} \sum_{k=\lceil n/2 \rceil}^{n-1} ck + an
+$$
+
+이다. 여기서 $an$은 partition 비용을 상수까지 드러내어 쓴 것이다.
+
+합을 정리하면 본질적으로
+
+$$
+E[T(n)] \le cn - \left(\frac{cn}{4} - \frac{c}{2} - an\right)
+$$
+
+형태가 된다.
+
+따라서
+
+$$
+\frac{cn}{4} - \frac{c}{2} - an \ge 0
+$$
+
+이면 곧바로
+
+$$
+E[T(n)] \le cn
+$$
+
+을 얻는다.
+
+이 부등식을 정리하면
+
+$$
+n\left(\frac{c}{4} - a\right) \ge \frac{c}{2}
+$$
+
+이고, $c > 4a$가 되도록 $c$를 잡으면 충분히 큰 $n$에 대해 성립한다. 따라서
+
+$$
+E[T(n)] = O(n)
+$$
+
+이다.
+
+### 부호를 볼 때 주의할 점
+
+중간 정리 과정에서는 부호가 헷갈릴 수 있다. 논리의 핵심은 다음 한 줄이다.
+
+$$
+E[T(n)] \le cn - (\text{nonnegative quantity})
+$$
+
+이면 $E[T(n)] \le cn$이므로 귀납이 닫힌다.
+
+## RANDOMIZED-SELECT 슬라이드에서 자주 헷갈리는 포인트
+
+### `It works on only one side of the partition`
+
+이 문장은 partition 후 **한쪽 부분배열만 재귀적으로 탐색한다**는 뜻이다.
+
+### `a priori`
+
+pivot을 고른 직후에는
+
+- 지금 답을 찾고 끝날지,
+- 왼쪽으로 갈지,
+- 오른쪽으로 갈지
+
+를 **미리** 알 수 없다는 뜻이다.
+
+### 왜 pivot이 최종 위치로 이동하나
+
+partition이 끝나면 pivot은 자기보다 작은 원소 개수에 맞는 **최종 순위 위치**로 이동한다.
+
+예를 들어 pivot이 $4$이고, $4$보다 작은 원소가 정확히 $3$개라면 partition 후 pivot은 전체에서 4번째 위치로 가야 한다.
+
+즉, median-of-medians로 pivot을 **선택**하는 과정과, 그 pivot을 기준으로 배열을 **partition**하는 과정은 별개의 단계다.
+
+## Worst-case linear-time SELECT의 아이디어
+
+RANDOMIZED-SELECT는 기대적으로는 선형시간이지만 worst case는 $\Theta(n^2)$이다. 이를 피하려면 partition이 항상 너무 나쁘게 쪼개지지 않도록 해야 한다.
+
+핵심 아이디어:
+
+1. pivot을 아무렇게나 고르지 않는다.
+2. 항상 **충분히 괜찮은 pivot**을 deterministic하게 고른다.
+3. 그러면 한쪽 부분문제 크기가 항상 일정 비율 이하로 제한된다.
+
+이것이 **median of medians** 알고리즘이다.
+
+## SELECT (median of medians) 알고리즘
+
+### 알고리즘 절차
+
+입력 원소를 5개씩 그룹으로 나눈다.
+
+1. $\lceil n/5 \rceil$개의 그룹으로 나눈다.
+2. 각 그룹을 정렬해서 median을 찾는다.
+3. 그 median들만 모아서 다시 median을 찾는다.
+4. 이 값을 $x$라 하자. 이것이 **median of medians**다.
+5. 원래 배열을 $x$ 기준으로 partition한다.
+6. $x$의 순위를 $k$라고 하면,
+   - $i=k$이면 $x$ 반환
+   - $i<k$이면 왼쪽 재귀
+   - $i>k$이면 오른쪽에서 $(i-k)$번째를 재귀적으로 찾는다.
+
+### 의사코드 수준 설명
+
+```text
+SELECT(A, i)
+1. divide A into groups of 5
+2. find the median of each group
+3. recursively find x = median of the medians
+4. partition A around x
+5. let k = rank of x in A
+6. if i == k, return x
+7. if i < k, recurse on left side
+8. else recurse on right side with rank i-k
+```
+
+## 왜 하필 5개씩 묶나
+
+핵심은 **group size가 너무 작으면 좋은 pivot 보장이 약해진다**는 점이다.
+
+5개 그룹에서는 각 full group의 median이 가운데, 즉 세 번째 원소다. 따라서 그룹 median이 어떤 값 $x$ 이상이면 그 그룹에서 적어도 3개 원소가 $x$ 이상임을 바로 알 수 있다. 반대쪽도 동일하다.
+
+이 성질이 바로 $7n/10$ bound를 만든다.
+
+## median of medians가 좋은 pivot인 이유
+
+### 그림 해석
+
+그 동그라미 그림은 다음을 뜻한다.
+
+- 원 하나 = 원소 하나
+- 세로 한 줄 = 5개짜리 그룹 하나
+- 하얗게 칠한 원 = 각 그룹의 median
+- $x$ = medians의 median
+- 화살표는 큰 원소에서 작은 원소로 향한다.
+
+이 그림에서 보려는 핵심은 다음이다.
+
+- $x$의 오른쪽에 있는 median group들은 group median이 $x$ 이상이다.
+- 5개짜리 정렬 그룹에서 median이 $x$ 이상이면, 그 median과 그 위의 두 원소까지 합쳐 적어도 3개가 $x$ 이상이다.
+- 대칭적으로 $x$의 왼쪽 그룹들에서는 적어도 3개가 $x$ 이하이다.
+
+즉, $x$보다 크거나 같은 원소와 $x$보다 작거나 같은 원소가 각각 꽤 많이 존재함이 보장된다.
+
+### 왜 적어도 $3n/10 - O(1)$개가 보장되나
+
+전체 그룹 수는 대략 $n/5$개다. 그중 medians의 절반은 $x$ 이상이다. 즉 대략
+
+$$
+\frac{1}{2} \cdot \frac{n}{5} = \frac{n}{10}
+$$
+
+개의 그룹은 median이 $x$ 이상이다.
+
+그런데 각 such group에서는 적어도 3개 원소가 $x$ 이상이므로, 대략
+
+$$
+3 \cdot \frac{n}{10} = \frac{3n}{10}
+$$
+
+개의 원소가 $x$ 이상이다.
+
+정확한 증명에서는 마지막 불완전 그룹과 $x$를 포함한 그룹을 제외해 보정항이 붙어서
+
+$$
+\frac{3n}{10} - 6
+$$
+
+같은 형태가 나온다. 대칭적으로 $x$ 이하인 원소 수도 같은 하한을 갖는다.
+
+따라서 partition 후 큰 쪽 부분문제의 크기는 최악이어도
+
+$$
+\frac{7n}{10} + 6
+$$
+
+이하가 된다.
+
+## SELECT의 점화식과 worst-case $O(n)$ 증명
+
+한 번의 SELECT 호출에서 드는 비용은 다음과 같다.
+
+1. 5개씩 그룹 나누기: $O(n)$
+2. 각 그룹 정렬해서 median 찾기: $O(n)$
+3. medians의 median 찾기: $T(\lceil n/5 \rceil)$
+4. partition: $O(n)$
+5. 큰 쪽 재귀: $T(7n/10 + 6)$
+
+따라서 점화식은
+
+$$
+T(n) \le T(\lceil n/5 \rceil) + T(7n/10 + 6) + O(n)
+$$
+
+이다.
+
+이제 substitution으로 $T(n) \le cn$을 가정하면
+
+$$
+T(n) \le c\left(\frac{n}{5}\right) + c\left(\frac{7n}{10} + 6\right) + an
+$$
+
+즉
+
+$$
+T(n) \le \frac{9cn}{10} + 6c + an
+$$
+
+이다. $c$를 충분히 크게 잡으면 이 값은 결국 $cn$ 이하가 되므로
+
+$$
+T(n) = O(n)
+$$
+
+이 성립한다.
+
+핵심 직관은 재귀 부분문제 크기의 합이
+
+$$
+\frac{n}{5} + \frac{7n}{10} = \frac{9n}{10} < n
+$$
+
+이라는 점이다. 즉 재귀가 한 레벨 내려갈 때 문제 총량이 확실히 줄어든다.
+
+## 예제 배열로 보는 SELECT의 동작
+
+예제:
+
+$$
+[3, 2, 1, 6, 13, 5, 12, 15, 11, 10, 4, 9], \quad i=8
+$$
+
+### 1단계: 5개 그룹으로 나누기
+
+대략 다음처럼 나눌 수 있다.
+
+- $(3,2,1,6,13)$
+- $(5,12,15,11,10)$
+- $(4,9)$
+
+각 그룹을 정렬하면 medians는 예를 들어
+
+- 첫 그룹 median: $3$
+- 둘째 그룹 median: $11$
+- 마지막 그룹 representative: $4$
+
+가 된다.
+
+이들의 median이 $4$이므로 median of medians는 $4$다.
+
+### 2단계: 왜 pivot이 4번째 위치로 가나
+
+pivot $4$보다 작은 원소는
+
+$$
+3,2,1
+$$
+
+세 개뿐이다. 따라서 partition이 끝나면 $4$는 전체에서 정확히 **4번째 위치**에 있어야 한다.
+
+즉, 그림에서 $4$가 앞으로 이동해 보이는 것은 median-of-medians 단계 때문이 아니라, **partition 결과 pivot의 최종 순위 위치가 확정된 것**이다.
+
+### 3단계: 왜 이후 $i$가 바뀌나
+
+pivot의 현재 순위를 $k$라고 하자.
+
+- $i=k$이면 바로 종료
+- $i>k$이면 오른쪽 부분배열로 가면서 새 rank는 $i-k$
+- $i<k$이면 왼쪽 부분배열에서 그대로 $i$
+
+예를 들어 왼쪽에 3개가 있어 pivot이 4번째라면, 전체에서 8번째를 찾는 문제는 오른쪽 부분배열에서 **4번째**를 찾는 문제로 바뀐다.
+
+## 그림 해석 요약
+
+### `pivot` 그림
+
+pivot은 현재 선택된 분할 기준 원소를 가리킨다.
+
+### `partition` 그림
+
+partition이 끝나면
+
+- pivot 왼쪽에는 pivot보다 작은 원소들,
+- pivot 오른쪽에는 pivot보다 큰 원소들
+
+이 오게 된다. 내부 순서는 정렬될 필요가 없다.
+
+### 동그라미와 음영 그림
+
+이 그림은 median of medians가 왜 좋은 pivot인지 보여준다.
+
+- 오른쪽 절반 median group들에서 적어도 3개씩 $x$ 이상
+- 왼쪽 절반 median group들에서 적어도 3개씩 $x$ 이하
+
+이므로 $x$는 너무 왼쪽이나 너무 오른쪽으로 치우친 pivot이 될 수 없다.
+
+## QUICK-SELECT, RANDOMIZED-SELECT, SELECT 비교
+
+| 알고리즘 | pivot 선택 | 보장되는 시간복잡도 |
+|---|---|---|
+| 정렬 후 indexing | 없음 | $O(n \log n)$ |
+| heap 기반 | heap top 유지 | $O(n \log i)$ |
+| QUICK-SELECT | 임의 pivot 또는 고정 pivot | average 좋지만 worst case 나쁠 수 있음 |
+| RANDOMIZED-SELECT | random pivot | 기대 $\Theta(n)$, worst case $\Theta(n^2)$ |
+| SELECT (median of medians) | deterministic good pivot | worst case $O(n)$ |
+
+## 시험 답안용 핵심 포인트
+
+### RANDOMIZED-SELECT 기대시간 분석에서 꼭 써야 하는 문장
+
+- pivot rank는 $1$부터 $n$까지 균등확률이다.
+- pivot이 $k$번째 원소이면 재귀 부분문제 크기는 $k-1$ 또는 $n-k$다.
+- 상한 분석을 위해 더 큰 쪽 $\max(k-1,n-k)$만 본다.
+- 따라서
+  $$
+  E[T(n)] \le \frac{1}{n} \sum_{k=1}^{n} E[T(\max(k-1,n-k))] + O(n)
+  $$
+- 대칭성을 이용하면
+  $$
+  E[T(n)] \le \frac{2}{n} \sum_{k=\lceil n/2 \rceil}^{n-1} E[T(k)] + O(n)
+  $$
+- substitution으로 $E[T(n)] = O(n)$.
+
+### SELECT worst-case 선형시간 증명에서 꼭 써야 하는 문장
+
+- 5개 그룹의 median들의 median을 pivot으로 쓴다.
+- 적어도 절반의 group median이 $x$ 이상이다.
+- 그러한 각 full group마다 적어도 3개가 $x$ 이상이다.
+- 따라서 적어도 $3n/10 - O(1)$개가 $x$ 이상이고, 대칭적으로 같은 수가 $x$ 이하이다.
+- 그러므로 partition 후 재귀 부분문제 크기는 최대 $7n/10 + O(1)$이다.
+- 점화식
+  $$
+  T(n) \le T(n/5) + T(7n/10 + O(1)) + O(n)
+  $$
+  으로부터 $T(n)=O(n)$.
+
+## 마무리
+
+이 장의 핵심은 다음 두 문장으로 요약된다.
+
+1. **RANDOMIZED-SELECT**는 quicksort와 비슷하게 partition을 사용하지만 한쪽만 재귀하므로 기대적으로 선형시간이다.
+2. **SELECT (median of medians)**는 pivot을 더 정교하게 골라서, 기대가 아니라 **worst case에서도 선형시간**을 보장한다.
+
+즉, selection 문제는
+
+- 단순 정렬보다 더 빠르게,
+- 그리고 필요하다면 worst case까지 보장하면서
+
+풀 수 있다.
