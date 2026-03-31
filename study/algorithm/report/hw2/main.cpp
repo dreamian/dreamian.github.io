@@ -44,6 +44,18 @@ int* mysort(int* arr, int n) {
 
     return sorted;
 }
+int* insertion_sort(int* arr, int n) {
+    for(int j = 1; j < n; j++) {
+        int key = arr[j];
+        int i = j - 1;
+        while(i >= 0 && arr[i] > key) {
+            arr[i + 1] = arr[i];
+            i = i - 1;
+        }
+        arr[i + 1] = key;
+    }
+    return arr;
+}
 int* merge_sort(int* arr, int n) {
     // implement your algorithm
 }
@@ -73,14 +85,14 @@ int main(void) {
     print_arr(arr, 10);
     delete[] arr;
 
-    n = 100000000;
+    n = 10000;
     begin = system_clock::now();
     arr = gen_data(n);
     duration = duration_cast<milliseconds>(system_clock::now() - begin).count() / 1000.0;
     cout << "Time for gen data: " << duration << "s" << endl;
 
     begin = system_clock::now();
-    int* sorted = mysort(arr, n);
+    int* sorted = insertion_sort(arr, n);
     duration = duration_cast<milliseconds>(system_clock::now() - begin).count() / 1000.0;
     cout << "Time for sort: " << duration << "s" << endl;
 

@@ -1,0 +1,651 @@
+---
+title: "Sorting in Linear Time: Lower Bounds, Counting Sort, Radix Sort, Bucket Sort"
+date: 2026-03-31
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: false
+    theme: cosmo
+    df-print: paged
+execute:
+  echo: false
+jupyter: python3
+---
+
+# Overview
+- comparison sort의 한계: 왜 모든 비교 기반 정렬은 최악의 경우 $\Omega(n \log n)$ 비교가 필요한가?
+- counting sort: 왜 comparison sort가 아니며, 왜 stable한가?
+- radix sort: 왜 자릿수별 stable sort를 반복하면 전체 정렬이 되는가?
+- bucket sort: 왜 평균적으로 $\Theta(n)$ 시간이 되는가?
+
+# Comparison Sort와 Lower Bound
+
+## Comparison sort의 의미
+
+comparison sort는 원소들 사이의 **비교**만으로 상대적 순서를 알아내는 정렬 알고리즘이다.
+
+예를 들면 다음과 같은 정렬들이 comparison sort에 속한다.
+
+- insertion sort
+- merge sort
+- heap sort
+- quicksort
+
+이 경우 알고리즘이 얻는 핵심 정보는 항상 “두 원소 중 누가 더 작은가?”이다.
+
+## Our Assumption
+
+1. 모든 입력 원소는 서로 다르다.
+2. 따라서 $a_i < a_j$, $a_i \le a_j$, $a_i > a_j$, $a_i \ge a_j$는 본질적으로 같은 상대 순서 정보를 준다.
+3. 그래서 모든 비교를 대표적으로
+   $$
+   a_i \le a_j
+   $$
+   꼴의 yes/no 질문으로 생각할 수 있다.
+
+이 가정의 목적은 분석을 단순화하는 데 있다. 같은 값이 없으면 equality case를 따로 다루지 않아도 되므로, decision tree를 깔끔한 이진 트리로 모델링할 수 있다.
+
+## Decision Tree Model
+
+comparison sort는 decision tree로 표현할 수 있다.
+
+- **내부 노드**: 한 번의 비교
+- **간선**: 비교 결과
+- **리프 노드**: 최종적으로 결정된 순열
+
+즉 정렬 알고리즘의 실행은 루트에서 시작해서 어떤 리프에 도달하는 과정과 같다.
+
+### 왜 permutation마다 reachable leaf가 필요할까?
+
+$n$개의 서로 다른 원소가 있으면 가능한 입력 순열은 총
+$$
+ n!
+$$
+개이다.
+
+정렬 알고리즘이 올바르려면 이 모든 경우를 구별할 수 있어야 하므로, 각 순열은 decision tree의 어떤 reachable leaf에 대응되어야 한다.
+
+따라서 reachable leaf의 수를 $l$이라고 하면
+$$
+ n! \le l
+$$
+이다.
+
+## Worst-case와 tree height의 관계
+
+decision tree에서 루트에서 리프까지의 경로 길이는 해당 입력에 대해 수행한 비교 횟수이다.
+
+따라서
+
+- 가장 긴 경로 길이 = tree height $h$
+- worst-case number of comparisons = $h$
+
+가 된다.
+
+## Binary tree leaf bound
+
+높이가 $h$인 이진 트리의 리프 수는 최대
+$$
+2^h
+$$
+개이다.
+
+따라서 decision tree에 대해
+$$
+ n! \le l \le 2^h
+$$
+이고, 결과적으로
+$$
+ h \ge \log (n!)
+$$
+를 얻는다.
+
+## 왜 $\log(n!) = \Omega(n \log n)$ 인가?
+
+다음과 같이 전개한다.
+
+$$
+\log(n!) = \log n + \log(n-1) + \cdots + \log 1
+$$
+
+이 합에서 뒤 절반이 아닌 **앞 절반의 큰 항들만** 사용해도 충분하다.
+
+$$
+\log(n!)
+\ge \log n + \log(n-1) + \cdots + \log\left(\frac{n}{2}\right)
+$$
+
+이때 위 합에는 적어도 $n/2$개의 항이 있고, 각 항은 최소
+$$
+\log\left(\frac{n}{2}\right)
+$$
+이므로
+
+$$
+\log(n!) \ge \frac{n}{2}\log\left(\frac{n}{2}\right) = \Omega(n\log n)
+$$
+
+이다.
+
+## 결론: comparison sort lower bound
+
+따라서 모든 comparison sort는 worst case에서 적어도
+$$
+\Omega(n \log n)
+$$
+번의 비교가 필요하다.
+
+즉 merge sort와 heap sort의 $O(n \log n)$ upper bound는 asymptotically optimal하다.
+
+## 직관 요약
+
+정렬은 결국 입력이 어떤 순열인지 식별하는 과정이다. 가능한 경우가 $n!$개이고, 비교 한 번으로 얻는 정보는 본질적으로 두 갈래 분기뿐이므로, 필요한 비교 횟수는 대략
+$$
+\log_2(n!)
+$$
+수준보다 작아질 수 없다.
+
+# Counting Sort
+
+## Counting sort의 핵심 아이디어
+
+counting sort는 원소들끼리 직접 비교하지 않는다. 대신 값의 범위를 이용해 각 값이 몇 번 등장했는지를 센다.
+
+입력이 $1$부터 $k$ 사이의 정수라고 하면 다음 배열을 사용한다.
+
+- $A[1..n]$: 입력 배열
+- $B[1..n]$: 출력 배열
+- $C[1..k]$: count 및 cumulative count 저장 배열
+
+알고리즘의 큰 흐름은 다음과 같다.
+
+1. 각 값의 등장 횟수를 센다.
+2. 누적합을 만들어 각 값이 출력 배열의 어디까지 차지하는지 계산한다.
+3. 입력 배열을 뒤에서부터 보며 출력 배열에 배치한다.
+
+## 왜 comparison sort가 아닌가?
+
+counting sort에서는
+$$
+A[i] < A[j]
+$$
+같은 비교가 등장하지 않는다.
+
+대신 값 자체를 인덱스로 사용하여
+$$
+C[A[j]]
+$$
+를 갱신한다.
+
+따라서 counting sort는 comparison sort model 밖에 있다. 그래서 comparison sort에 대한 lower bound인
+$$
+\Omega(n \log n)
+$$
+이 그대로 적용되지 않는다.
+
+## Counting sort의 시간복잡도
+
+각 단계는 다음 시간이 걸린다.
+
+- count 배열 초기화: $\Theta(k)$
+- 입력 스캔하며 빈도 계산: $\Theta(n)$
+- 누적합 계산: $\Theta(k)$
+- 출력 배열에 배치: $\Theta(n)$
+
+따라서 전체 시간은
+$$
+\Theta(n+k)
+$$
+이다.
+
+특히 $k = O(n)$이면
+$$
+\Theta(n)
+$$
+시간이 된다.
+
+## Stability가 중요한 이유
+
+counting sort의 중요한 성질 중 하나는 **stable sort**라는 점이다.
+
+stable하다는 것은 같은 key를 가진 원소들의 상대적 순서가 정렬 후에도 유지된다는 뜻이다.
+
+예를 들어 입력이
+$$
+[(2, A), (1, B), (2, C), (1, D)]
+$$
+라면, key만 기준으로 정렬한 stable 결과는
+$$
+[(1, B), (1, D), (2, A), (2, C)]
+$$
+가 된다.
+
+여기서 $B$와 $D$, $A$와 $C$의 상대적 순서가 그대로 유지된다.
+
+### satellite data
+
+실제로는 key만 정렬하는 것이 아니라, key에 붙은 다른 정보도 함께 움직이는 경우가 많다.
+
+예:
+
+- `(학점, 학생이름)`
+- `(부서번호, 직원레코드)`
+- `(우선순위, 작업설명)`
+
+이때 뒤에 붙은 정보를 흔히 satellite data라고 부른다. stable sort는 같은 key 안에서 satellite data의 입력 순서를 보존해 준다.
+
+## 왜 뒤에서부터 배치해야 stable한가?
+
+counting sort 구현에서 마지막 루프를
+
+```text
+for j = A.length down to 1
+```
+
+처럼 **뒤에서 앞으로** 도는 이유는 stability 때문이다.
+
+누적합 배열 $C[x]$는 값 $x$가 최종적으로 차지할 구간의 **맨 마지막 위치**를 알려 준다. 따라서 같은 값을 가진 원소들 중 뒤에 나온 원소를 먼저 뒤쪽에 넣어야, 앞에 나온 원소가 더 앞쪽 자리에 배치되어 입력 순서가 유지된다.
+
+즉, “뒤에서부터 순회 + 누적합 기반 placement”가 counting sort의 stability를 만든다.
+
+# Radix Sort
+
+## Radix sort의 아이디어
+
+counting sort는 값의 범위가 작을 때만 유리하다. 큰 정수를 그대로 counting sort 하려면 count 배열이 너무 커질 수 있다.
+
+radix sort는 이 문제를 해결하기 위해 숫자 전체를 한 번에 정렬하지 않고, **자릿수별로 나누어 정렬**한다.
+
+## LSD 방식
+
+이 장에서 설명하는 radix sort는 보통 LSD(least significant digit) 방식이다. 즉,
+
+1. 가장 낮은 자릿수부터 정렬하고
+2. 점점 높은 자릿수로 올라간다.
+
+예를 들어 10진수라면
+
+- 1의 자리
+- 10의 자리
+- 100의 자리
+
+순서로 stable sort를 반복한다.
+
+## 왜 stable sort가 반드시 필요한가?
+
+핵심은 다음 문장으로 요약된다.
+
+> 높은 자릿수를 기준으로 다시 정렬할 때, 같은 높은 자릿수를 가진 원소들 사이에서는 이미 정렬되어 있던 낮은 자릿수 순서가 유지되어야 한다.
+
+예를 들어 입력이
+$$
+21, 23, 11, 13
+$$
+라고 하자.
+
+### 1단계: 1의 자리 기준 stable sort
+
+1의 자리는 각각
+$$
+1, 3, 1, 3
+$$
+이므로 stable sort 결과는
+$$
+21, 11, 23, 13
+$$
+가 된다.
+
+### 2단계: 10의 자리 기준 stable sort
+
+이제 10의 자리로 stable sort 하면
+$$
+11, 13, 21, 23
+$$
+가 된다.
+
+이때 10의 자리가 같은 원소들 사이에서 이전 단계에서 맞춰 둔 1의 자리 순서가 보존되기 때문에 전체 정렬이 완성된다.
+
+stable하지 않다면 같은 10의 자리 안에서 11과 13, 21과 23의 순서가 뒤바뀌어 최종 정렬이 깨질 수 있다.
+
+## Radix sort의 일반 시간복잡도
+
+각 숫자가 $d$개의 digit를 가지고, 각 digit가 가질 수 있는 값의 수가 $k$개이며, 각 pass에 사용하는 stable sort가
+$$
+\Theta(n+k)
+$$
+시간이면 radix sort 전체 시간은
+$$
+\Theta(d(n+k))
+$$
+이다.
+
+왜냐하면 digit마다 한 번씩 총 $d$번 stable sort를 수행하기 때문이다.
+
+## $b$-bit 정수와 $r$-bit digit로 보는 분석
+
+각 key가 $b$-bit 정수라고 하고, 한 번에 $r$비트씩 묶어서 본다고 하자.
+
+그러면
+
+- digit 수는 대략
+  $$
+  d = \left\lceil \frac{b}{r} \right\rceil
+  $$
+- 각 digit의 값 범위는
+  $$
+  0 \le \text{digit} \le 2^r - 1
+  $$
+
+이 된다.
+
+따라서 각 pass는 counting sort로
+$$
+\Theta(n + 2^r)
+$$
+시간에 수행할 수 있다.
+
+pass 수가 대략 $b/r$개이므로 전체 시간은
+$$
+\Theta\left(\frac{b}{r}(n+2^r)\right)
+$$
+이 된다.
+
+## 이 식의 의미
+
+이 식에는 trade-off가 들어 있다.
+
+- $r$를 크게 잡으면 pass 수는 줄어든다.
+- 하지만 $2^r$가 커져서 각 pass의 cost가 커진다.
+
+반대로
+
+- $r$를 작게 잡으면 각 pass는 싸진다.
+- 하지만 pass 수가 많아진다.
+
+즉 radix sort의 성능은 “몇 비트씩 끊어서 처리하느냐”에 따라 달라진다.
+
+## 예시: 32-bit word, $r=8$
+
+32비트 정수를 8비트씩 나누면
+$$
+ d = 32/8 = 4
+$$
+이고, 각 digit는
+$$
+0 \sim 255
+$$
+범위를 가진다.
+
+각 pass는
+$$
+\Theta(n+256)
+$$
+이고 총 4번 수행하므로 전체 시간은
+$$
+\Theta(4(n+256))
+$$
+이다.
+
+32비트 환경에서는 256이 상수이므로 실질적으로 매우 효율적이다.
+
+# Bucket Sort
+
+## Bucket sort의 가정
+
+bucket sort는 입력이 다음 조건을 만족한다고 가정한다.
+
+- 입력 $n$개가 $[0,1)$ 구간에 있다.
+- 값들이 균등분포로 독립적으로 생성된다.
+
+이 가정 아래에서 bucket sort의 평균 시간은 선형이 된다.
+
+## 알고리즘 개요
+
+1. $[0,1)$ 구간을 $n$개의 equal-sized bucket으로 나눈다.
+2. 각 원소 $A[i]$를 bucket
+   $$
+   B[\lfloor nA[i] \rfloor]
+   $$
+   에 넣는다.
+3. 각 bucket 내부를 정렬한다.
+4. bucket을 순서대로 이어 붙인다.
+
+bucket 내부 정렬에는 보통 insertion sort를 사용한다.
+
+## 왜 평균 시간 분석을 하는가?
+
+bucket sort는 입력이 고르게 퍼지면 매우 빠르지만, 모든 원소가 한 bucket에 몰리면 느려진다.
+
+따라서
+
+- **worst case**: $O(n^2)$
+- **expected time**: $\Theta(n)$
+
+으로 이해해야 한다.
+
+## running time 분해
+
+bucket $i$에 들어간 원소 수를 확률변수 $n_i$라고 하자. 그러면 전체 실행시간은
+$$
+T(n) = \Theta(n) + \sum_{i=0}^{n-1} O(n_i^2)
+$$
+로 쓸 수 있다.
+
+이 식의 의미는 다음과 같다.
+
+- 원소를 bucket에 distribute하고, 마지막에 concatenate하는 비용은 선형이다.
+- bucket $i$ 내부를 insertion sort로 정렬하는 비용은 $O(n_i^2)$이다.
+
+## 기대값 취하기
+
+양변에 기대값을 취하면
+$$
+E[T(n)]
+= E\left[\Theta(n) + \sum_{i=0}^{n-1} O(n_i^2)\right]
+= \Theta(n) + \sum_{i=0}^{n-1} O(E[n_i^2])
+$$
+가 된다.
+
+따라서 핵심은 각 bucket에 대해
+$$
+E[n_i^2]
+$$
+를 구하는 것이다.
+
+## Indicator random variable 정의
+
+다음 지시변수를 정의하자.
+
+$$
+X_{ij} = I\{A[j] \text{ falls in bucket } i\}
+$$
+
+즉,
+
+$$
+X_{ij} =
+\begin{cases}
+1 & \text{if } A[j] \text{가 bucket } i \text{에 들어가면}, \\
+0 & \text{otherwise.}
+\end{cases}
+$$
+
+그러면 bucket $i$의 원소 수는
+$$
+ n_i = \sum_{j=0}^{n-1} X_{ij}
+$$
+이다.
+
+## $E[n_i^2]$ 계산
+
+먼저
+$$
+ n_i^2 = \left(\sum_{j=0}^{n-1} X_{ij}\right)^2
+$$
+이므로
+$$
+E[n_i^2]
+= E\left[\sum_{j=0}^{n-1}\sum_{k=0}^{n-1} X_{ij}X_{ik}\right]
+= \sum_{j=0}^{n-1}\sum_{k=0}^{n-1} E[X_{ij}X_{ik}]
+$$
+이다.
+
+이제 두 경우로 나눈다.
+
+### 경우 1: $j=k$
+
+indicator variable은 $0$ 또는 $1$만 가지므로
+$$
+X_{ij}^2 = X_{ij}
+$$
+이다.
+
+또한 한 원소가 bucket $i$에 들어갈 확률은 $1/n$이므로
+$$
+E[X_{ij}^2] = E[X_{ij}] = \frac{1}{n}
+$$
+이다.
+
+이런 항이 총 $n$개 있으므로 이 부분의 합은
+$$
+ n \cdot \frac{1}{n} = 1
+$$
+이다.
+
+### 경우 2: $j \ne k$
+
+입력 원소들이 독립이고, 각각 bucket $i$에 들어갈 확률이 $1/n$이므로
+$$
+E[X_{ij}X_{ik}] = E[X_{ij}]E[X_{ik}] = \frac{1}{n^2}
+$$
+이다.
+
+서로 다른 ordered pair $(j,k)$의 개수는
+$$
+ n(n-1)
+$$
+개이므로 이 부분의 합은
+$$
+ n(n-1) \cdot \frac{1}{n^2} = \frac{n-1}{n}
+$$
+이다.
+
+### 합치면
+
+따라서
+$$
+E[n_i^2] = 1 + \frac{n-1}{n} = 2 - \frac{1}{n}
+$$
+이다.
+
+## Expected running time 결론
+
+모든 bucket에 대해 동일하게
+$$
+E[n_i^2] = 2 - \frac{1}{n} = O(1)
+$$
+이므로
+$$
+E[T(n)]
+= \Theta(n) + \sum_{i=0}^{n-1} O(E[n_i^2])
+= \Theta(n) + n \cdot O(1)
+= \Theta(n)
+$$
+이다.
+
+즉 bucket sort는 균등분포 가정 아래에서 average-case running time이
+$$
+\Theta(n)
+$$
+이다.
+
+## 직관 요약
+
+각 원소가 랜덤하게 $n$개 bucket 중 하나로 들어가므로, 평균적으로 bucket 하나당 원소 수는 매우 작다. 그래서 각 bucket 내부 정렬 비용의 총합이 전체적으로 커지지 않고, 평균적으로 선형 시간이 유지된다.
+
+# 핵심 비교 정리
+
+## Comparison sort vs non-comparison sort
+
+| 분류 | 대표 알고리즘 | 핵심 아이디어 | 대표 시간복잡도 |
+|---|---|---|---|
+| Comparison sort | Merge sort, Heapsort, Quicksort | 비교를 통해 순서 정보 획득 | lower bound: $\Omega(n\log n)$ |
+| Non-comparison sort | Counting sort, Radix sort, Bucket sort | 값 범위, 자릿수, 분포 가정을 활용 | 특정 조건에서 선형 시간 가능 |
+
+## 각 알고리즘의 핵심 포인트
+
+### Counting sort
+
+- comparison sort가 아니다.
+- $\Theta(n+k)$
+- stable하다.
+- key 범위가 작아야 유리하다.
+
+### Radix sort
+
+- digit별 stable sort를 반복한다.
+- LSD 방식에서는 낮은 자리부터 높은 자리로 간다.
+- stable sort가 필수이다.
+- 일반적으로 $\Theta(d(n+k))$
+- $b$-bit, $r$-bit digit 기준으로는
+  $$
+  \Theta\left(\frac{b}{r}(n+2^r)\right)
+  $$
+
+### Bucket sort
+
+- 입력이 $[0,1)$에서 균등분포라고 가정한다.
+- bucket에 분배한 뒤 각 bucket을 따로 정렬한다.
+- worst case는 $O(n^2)$일 수 있다.
+- expected running time은 $\Theta(n)$이다.
+
+# Takeaways
+
+## 1. 왜 comparison sort는 $\Omega(n\log n)$보다 빨라질 수 없는가?
+
+comparison sort는 decision tree로 모델링할 수 있다. $n$개의 distinct input에는 $n!$개의 가능한 순열이 있으므로 decision tree는 최소 $n!$개의 reachable leaf를 가져야 한다. 높이가 $h$인 이진 트리의 리프 수는 최대 $2^h$개이므로
+$$
+ n! \le 2^h
+$$
+이고,
+$$
+ h \ge \log(n!) = \Omega(n\log n)
+$$
+이다. 따라서 any comparison sort requires $\Omega(n\log n)$ comparisons in the worst case.
+
+## 2. 왜 counting sort는 이 lower bound를 피하는가?
+
+counting sort는 입력 원소들 사이의 비교를 사용하지 않고, key의 값 범위를 직접 이용해 빈도를 계산한다. 따라서 comparison sort model 밖에 있으므로 comparison sort lower bound가 적용되지 않는다.
+
+## 3. 왜 radix sort에서 stable sort가 필요한가?
+
+낮은 자릿수부터 높은 자릿수로 정렬할 때, 높은 자릿수가 같은 원소들 사이에서는 이전 단계에서 정렬된 낮은 자릿수 순서가 유지되어야 전체 정렬이 완성된다. 이 순서 보존을 보장하는 것이 stability이다.
+
+## 4. 왜 bucket sort의 평균 시간이 $\Theta(n)$인가?
+
+bucket $i$의 원소 수를 $n_i$라 하면
+$$
+T(n)=\Theta(n)+\sum_{i=0}^{n-1} O(n_i^2)
+$$
+이다. 균등분포 가정 아래에서 각 bucket에 대해
+$$
+E[n_i^2]=2-\frac{1}{n}=O(1)
+$$
+이므로
+$$
+E[T(n)] = \Theta(n) + n\cdot O(1) = \Theta(n)
+$$
+이다.
+
+# 마무리
+
+Chapter 8의 핵심은 “정렬의 속도는 알고리즘이 어떤 정보를 이용하느냐에 달려 있다”는 점이다.
+
+- 비교만 사용하면 $\Omega(n\log n)$ lower bound를 피할 수 없다.
+- 하지만 값의 범위, digit 구조, 입력 분포 같은 추가 정보를 이용하면 특정 조건 아래에서 선형 시간 정렬이 가능하다.
+
+즉,
+
+- **comparison sort의 세계**에서는 $n\log n$이 본질적인 한계이고,
+- **non-comparison sort의 세계**에서는 문제의 구조를 더 적극적으로 활용해 그 한계를 벗어날 수 있다.
