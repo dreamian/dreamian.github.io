@@ -1,5 +1,61 @@
 [
   {
+    "objectID": "study/problem-solving/inversion-of-permutation-by-dp.html",
+    "href": "study/problem-solving/inversion-of-permutation-by-dp.html",
+    "title": "순열의 역위 개수를 K로 나눈 나머지별 개수 구하기",
+    "section": "",
+    "text": "길이 \\(N\\)인 순열에서 역위(inversion)의 수를 \\(K\\)로 나눈 나머지가 \\(m\\)인 순열의 개수를 구하는 문제이다. 결과는 \\(1{,}000{,}000{,}007\\)로 나눈 나머지로 출력하며, \\(1 \\leq N \\leq 10^6\\), \\(1 \\leq K \\leq 10^2\\) 조건이 주어진다."
+  },
+  {
+    "objectID": "study/problem-solving/inversion-of-permutation-by-dp.html#역위inversion란",
+    "href": "study/problem-solving/inversion-of-permutation-by-dp.html#역위inversion란",
+    "title": "순열의 역위 개수를 K로 나눈 나머지별 개수 구하기",
+    "section": "1 역위(Inversion)란?",
+    "text": "1 역위(Inversion)란?\n순열 \\(A_1, A_2, \\ldots, A_N\\)에서 \\(i &lt; j\\)이고 \\(A_i &gt; A_j\\)인 쌍 \\((i, j)\\)의 수를 역위 개수라 한다.\n예시: \\([3, 1, 2]\\)의 역위 = \\(\\{(3,1),\\,(3,2)\\}\\) → 2개\n최대 역위 수는 완전 역순 배열 \\([N, N-1, \\ldots, 1]\\)일 때이며:\n\\[\\text{최대 역위 수} = \\frac{N(N-1)}{2}\\]"
+  },
+  {
+    "objectID": "study/problem-solving/inversion-of-permutation-by-dp.html#q-factorial과-생성함수",
+    "href": "study/problem-solving/inversion-of-permutation-by-dp.html#q-factorial과-생성함수",
+    "title": "순열의 역위 개수를 K로 나눈 나머지별 개수 구하기",
+    "section": "2 Q-Factorial과 생성함수",
+    "text": "2 Q-Factorial과 생성함수\n역위 개수의 생성함수는 q-factorial로 표현된다.\n\\[F_N(q) = \\prod_{k=1}^{N}(1 + q + q^2 + \\cdots + q^{k-1})\\]\n여기서 \\(q^j\\)의 계수는 역위가 정확히 \\(j\\)개인 길이 \\(N\\) 순열의 수이다.\n\n\n\n\n\n\nNote직관\n\n\n\n원소 \\(k\\)를 기존 \\(k-1\\)개 원소 사이에 삽입할 때, 삽입 위치에 따라 새로 생기는 역위 수가 \\(p \\in \\{0, 1, \\ldots, k-1\\}\\)로 결정된다. 이것이 \\(q^p\\) 기여로 나타나며, 각 단계가 독립적이므로 전체 생성함수는 곱으로 표현된다.\n\n\n\n2.1 N = 3 예시\n\\[F_3(q) = 1 \\cdot (1+q) \\cdot (1+q+q^2) = 1 + 2q + 2q^2 + q^3\\]\n\n\n\n역위 수\n순열\n개수\n\n\n\n\n0\n[1,2,3]\n1\n\n\n1\n[1,3,2], [2,1,3]\n2\n\n\n2\n[2,3,1], [3,1,2]\n2\n\n\n3\n[3,2,1]\n1\n\n\n\n합계 = \\(1+2+2+1 = 3! = 6\\) ✓"
+  },
+  {
+    "objectID": "study/problem-solving/inversion-of-permutation-by-dp.html#dp-설계",
+    "href": "study/problem-solving/inversion-of-permutation-by-dp.html#dp-설계",
+    "title": "순열의 역위 개수를 K로 나눈 나머지별 개수 구하기",
+    "section": "3 DP 설계",
+    "text": "3 DP 설계\n\n3.1 상태 정의\n\\[dp_k[r] = \\text{1부터 } k \\text{까지의 수로 만든 순열 중 역위 수} \\equiv r \\pmod{K} \\text{인 것의 수}\\]\n배열 크기가 항상 \\(K \\leq 100\\)으로 고정되므로, \\(N\\)이 \\(10^6\\)이어도 메모리 문제가 없다.\n\n\n3.2 점화식\n\\[dp_k[r] = \\sum_{p=0}^{\\min(k,\\,K)-1} dp_{k-1}[(r - p + K) \\bmod K]\\]\n\n\\(p\\): 원소 \\(k\\) 삽입 시 새로 생기는 역위 수\n\\(k \\geq K\\)이면 윈도우 크기를 \\(K\\)로 고정 (mod 특성상 모든 나머지를 커버)\n\n\n\n\n\n\n\nImportant경계 조건\n\n\n\n\\(p\\)의 범위는 \\(r\\)과 무관하게 항상 \\(\\{0, 1, \\ldots, \\min(k,K)-1\\}\\)이다. \\((r-p)\\)가 음수가 되는 경우는 mod \\(K\\) 연산으로 자동 처리된다.\n\n\n\n\n3.3 초기 조건\n\\[dp_1[0] = 1, \\quad dp_1[r] = 0 \\; (r \\neq 0)\\]\n\n\n3.4 DP 추적: N = 3, K = 3\nstep = 2 (\\(p \\in \\{0, 1\\}\\)):\n\n\n\n\\(r\\)\n계산\n결과\n\n\n\n\n0\n\\(dp_1[0] + dp_1[2]\\)\n1\n\n\n1\n\\(dp_1[1] + dp_1[0]\\)\n1\n\n\n2\n\\(dp_1[2] + dp_1[1]\\)\n0\n\n\n\nstep = 3 (\\(p \\in \\{0, 1, 2\\}\\)):\n\n\n\n\\(r\\)\n계산\n결과\n\n\n\n\n0\n\\(dp_2[0] + dp_2[2] + dp_2[1]\\)\n2\n\n\n1\n\\(dp_2[1] + dp_2[0] + dp_2[2]\\)\n2\n\n\n2\n\\(dp_2[2] + dp_2[1] + dp_2[0]\\)\n2\n\n\n\n→ 균등: \\([2, 2, 2]\\) = \\(3!/3 = 2\\) ✓"
+  },
+  {
+    "objectID": "study/problem-solving/inversion-of-permutation-by-dp.html#n-k일-때-균등성",
+    "href": "study/problem-solving/inversion-of-permutation-by-dp.html#n-k일-때-균등성",
+    "title": "순열의 역위 개수를 K로 나눈 나머지별 개수 구하기",
+    "section": "4 N ≥ K일 때 균등성",
+    "text": "4 N ≥ K일 때 균등성\n\\(k = K\\) 단계에서 \\(p \\in \\{0, \\ldots, K-1\\}\\)이 모든 나머지를 정확히 한 번씩 커버하므로:\n\\[dp_K[r] = \\sum_{j=0}^{K-1} dp_{K-1}[j] = (K-1)! \\quad \\text{(모든 } r \\text{에 대해 동일)}\\]\n\n\n\n\n\n\nTip핵심 아이디어\n\n\n\nstep \\(K\\) 이후 단계는 균등 상태를 유지하므로, \\(\\min(N, K)\\)단계만 DP를 실행하고 나머지는 팩토리얼 곱셈으로 일괄 처리한다.\n\\[\\text{최종값} = dp_{\\min(N,K)}[r] \\times \\frac{N!}{\\,(\\min(N,K))!\\,}\\]\n\n\n\n경우\nsteps\n곱하는 값\n결과\n\n\n\n\n\\(N &lt; K\\)\n\\(N\\)\n\\(N!/N! = 1\\)\n\\(dp[r]\\) 그대로\n\n\n\\(N \\geq K\\)\n\\(K\\)\n\\(N!/K!\\)\n\\(N!/K\\)"
+  },
+  {
+    "objectID": "study/problem-solving/inversion-of-permutation-by-dp.html#복잡도-분석",
+    "href": "study/problem-solving/inversion-of-permutation-by-dp.html#복잡도-분석",
+    "title": "순열의 역위 개수를 K로 나눈 나머지별 개수 구하기",
+    "section": "5 복잡도 분석",
+    "text": "5 복잡도 분석\n\n\n\n항목\n값\n\n\n\n\nDP 배열 크기\n\\(O(K) \\leq 100\\)\n\n\n루프 단계 수\n\\(\\min(N, K) \\leq 100\\)\n\n\n단계당 연산\n\\(O(K^2)\\)\n\n\n전체 DP 복잡도\n\\(O(K^2)\\) (N에 무관)\n\n\n팩토리얼 전처리\n\\(O(N)\\)"
+  },
+  {
+    "objectID": "study/problem-solving/inversion-of-permutation-by-dp.html#예제-검증",
+    "href": "study/problem-solving/inversion-of-permutation-by-dp.html#예제-검증",
+    "title": "순열의 역위 개수를 K로 나눈 나머지별 개수 구하기",
+    "section": "6 예제 검증",
+    "text": "6 예제 검증\n입력:\n5\n2 3\n4 7\n5 7\n6 7\n1000 1\n출력:\n1 1 0\n1 3 5 6 5 3 1\n16 13 13 16 20 22 20\n107 107 104 100 98 100 104\n641419708"
+  },
+  {
+    "objectID": "study/problem-solving/inversion-of-permutation-by-dp.html#codes",
+    "href": "study/problem-solving/inversion-of-permutation-by-dp.html#codes",
+    "title": "순열의 역위 개수를 K로 나눈 나머지별 개수 구하기",
+    "section": "7 Codes",
+    "text": "7 Codes\n#include &lt;stdio.h&gt;\nusing ull = unsigned long long int;\nconst ull MOD = 1'000'000'007;\n\null prev_DP[100];\null curr_DP[100];\null fact[1'000'001];\n\null power(ull b, ull e, ull m) {\n    ull r = 1;\n    b %= m;\n    for (; e &gt; 0; e &gt;&gt;= 1) {\n        if (e & 1) { r = r * b % m; }\n        b = b * b % m;\n    }\n    return r;\n}\n\nint main(void)\n{\n    fact[0] = 1;\n    for (int i = 1; i &lt;= 1'000'000; ++i) {\n        fact[i] = fact[i-1] * i % MOD;\n    }\n\n    int t;\n    scanf(\"%d\", &t);\n    while (t--) {\n        ull n, k;\n        scanf(\"%llu %llu\", &n, &k);\n\n        for (int i = 0; i &lt; k; ++i) {\n            prev_DP[i] = curr_DP[i] = 0;\n        }\n        prev_DP[0] = 1;\n\n        ull steps = (n &lt; k) ? n : k;\n        for (ull step = 2; step &lt;= steps; ++step) {\n            for (int i = 0; i &lt; k; ++i) {\n                curr_DP[i] = 0;\n            }\n            int wsize = (int)step;  // step &lt;= k 보장\n            for (int r = 0; r &lt; k; ++r) {\n                for (int p = 0; p &lt; wsize; ++p) {\n                    int idx = ((r - p) % (int)k + (int)k) % (int)k;\n                    curr_DP[r] = (curr_DP[r] + prev_DP[idx]) % MOD;\n                }\n            }\n            for (int i = 0; i &lt; k; ++i) {\n                prev_DP[i] = curr_DP[i];\n            }\n        }\n\n        // 나머지 단계 (steps+1 ~ N) 일괄 처리\n        ull mult = fact[n] * power(fact[steps], MOD - 2, MOD) % MOD;\n        for (int i = 0; i &lt; k; ++i) {\n            printf(\"%llu \", prev_DP[i] * mult % MOD);\n        }\n        printf(\"\\n\");\n    }\n}"
+  },
+  {
     "objectID": "study/math/index.html",
     "href": "study/math/index.html",
     "title": "Math",
@@ -11,7 +67,7 @@
     "href": "study/index.html",
     "title": "Study Notes",
     "section": "",
-    "text": "Study Notes\n수학, 신호처리, 머신러닝 공부 내용을 정리한다.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nAlgorithms\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nAsymptotic Notation and Recurrences\n\n\n\n\n\n\n\n\nMar 27, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nCalculus 1\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nDive into Divide-and-Conquer: Merge Sort\n\n\nDivide-and-Conquer는 큰 문제를 작은 문제로 나누어 해결하는 알고리즘 설계 패러다임이다. Merge Sort는 이 방식을 대표하는 정렬 알고리즘으로, 배열을 절반으로 나누고 각 부분을 재귀적으로 정렬한 뒤, 정렬된 두 부분을 병합하여 최종 정렬 결과를 만든다. 이 글에서는 Merge Sort의 의사코드, 핵심 아이디어, loop invariant 증명, 시간 복잡도 분석 등을 자세히 설명한다.\n\n\n\n\n\nMar 23, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nDivide-and-Conquer with Binary Search\n\n\n\n\n\n\n\n\nMar 27, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nFour Problem-Solving Paradigms: Divide-and-Conquer, Incremental, Dynamic Programming, and Greedy\n\n\n알고리즘 문제 해결에서 divide-and-conquer, incremental approach, dynamic programming, greedy의 핵심 property와 차이를 간단히 비교 정리한 노트\n\n\n\n\n\nMar 31, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nHeap and Heapsort Summary\n\n\n\n\n\n\n\n\nMar 29, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nInsertion Sort를 Incremental Algorithm 관점에서 이해하기\n\n\nInsertion Sort는 incremental algorithm의 대표적인 예시로, 각 단계에서 이미 정렬된 부분배열에 새 원소를 삽입하여 점진적으로 전체 배열을 정렬하는 방식으로 동작한다. Loop invariant를 통해 알고리즘의 correctness를 증명할 수 있으며, 입력 배열의 초기 상태에 따라 시간 복잡도가 달라진다. 이러한 특성 때문에 Insertion Sort는 작은 배열이나 거의 정렬된 배열에 대해 효율적이며, incremental algorithm의 개념을 이해하는 데 좋은 사례가 된다.\n\n\n\n\n\nMar 15, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nLoop Invariants and the Correctness Proof\n\n\nLoop invariant는 알고리즘의 반복문이 올바르게 작동하는지를 증명하는 데 사용되는 중요한 도구이다. Loop invariant는 반복문이 시작될 때, 반복 중간에, 그리고 반복이 끝날 때 특정 조건이 항상 참임을 보장한다. 이를 통해 알고리즘의 correctness를 단계별로 증명할 수 있다. Insertion Sort와 같은 알고리즘에서 loop invariant를 활용하여 각 단계에서 정렬된 부분배열의 상태를 유지하는 방법을 설명할 수 있다.\n\n\n\n\n\nMar 20, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nMath\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nMaximum Subarray\n\n\n\n\n\n\n\n\nMar 27, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nMedian and Order Statistics: RANDOMIZED-SELECT와 Worst-case Linear SELECT 정리\n\n\norder statistic, randomized-select, median-of-medians를 한 번에 정리한 노트\n\n\n\n\n\nMar 31, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nQuicksort, Partition, and Randomized Analysis\n\n\nPARTITION의 loop invariant, maintenance, RANDOMIZED-QUICKSORT의 기대 비교 횟수 분석, 그리고 평균 시간복잡도 증명을 꼼꼼하게 정리한 노트\n\n\n\n\n\nMar 30, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nSorting in Linear Time: Lower Bounds, Counting Sort, Radix Sort, Bucket Sort\n\n\n\n\n\n\n\n\nMar 31, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nSubstitution Method\n\n\n\n\n\n\n\n\nMar 27, 2026\n\n\n\n\n\nNo matching items"
+    "text": "Study Notes\n수학, 신호처리, 머신러닝 공부 내용을 정리한다.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nAlgorithms\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nAsymptotic Notation and Recurrences\n\n\n\n\n\n\n\n\nMar 27, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nCalculus 1\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nDive into Divide-and-Conquer: Merge Sort\n\n\nDivide-and-Conquer는 큰 문제를 작은 문제로 나누어 해결하는 알고리즘 설계 패러다임이다. Merge Sort는 이 방식을 대표하는 정렬 알고리즘으로, 배열을 절반으로 나누고 각 부분을 재귀적으로 정렬한 뒤, 정렬된 두 부분을 병합하여 최종 정렬 결과를 만든다. 이 글에서는 Merge Sort의 의사코드, 핵심 아이디어, loop invariant 증명, 시간 복잡도 분석 등을 자세히 설명한다.\n\n\n\n\n\nMar 23, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nDivide-and-Conquer with Binary Search\n\n\n\n\n\n\n\n\nMar 27, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nFour Problem-Solving Paradigms: Divide-and-Conquer, Incremental, Dynamic Programming, and Greedy\n\n\n알고리즘 문제 해결에서 divide-and-conquer, incremental approach, dynamic programming, greedy의 핵심 property와 차이를 간단히 비교 정리한 노트\n\n\n\n\n\nMar 31, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nHeap and Heapsort Summary\n\n\n\n\n\n\n\n\nMar 29, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nInsertion Sort를 Incremental Algorithm 관점에서 이해하기\n\n\nInsertion Sort는 incremental algorithm의 대표적인 예시로, 각 단계에서 이미 정렬된 부분배열에 새 원소를 삽입하여 점진적으로 전체 배열을 정렬하는 방식으로 동작한다. Loop invariant를 통해 알고리즘의 correctness를 증명할 수 있으며, 입력 배열의 초기 상태에 따라 시간 복잡도가 달라진다. 이러한 특성 때문에 Insertion Sort는 작은 배열이나 거의 정렬된 배열에 대해 효율적이며, incremental algorithm의 개념을 이해하는 데 좋은 사례가 된다.\n\n\n\n\n\nMar 15, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nLoop Invariants and the Correctness Proof\n\n\nLoop invariant는 알고리즘의 반복문이 올바르게 작동하는지를 증명하는 데 사용되는 중요한 도구이다. Loop invariant는 반복문이 시작될 때, 반복 중간에, 그리고 반복이 끝날 때 특정 조건이 항상 참임을 보장한다. 이를 통해 알고리즘의 correctness를 단계별로 증명할 수 있다. Insertion Sort와 같은 알고리즘에서 loop invariant를 활용하여 각 단계에서 정렬된 부분배열의 상태를 유지하는 방법을 설명할 수 있다.\n\n\n\n\n\nMar 20, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nMath\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nMaximum Subarray\n\n\n\n\n\n\n\n\nMar 27, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nMedian and Order Statistics: RANDOMIZED-SELECT와 Worst-case Linear SELECT 정리\n\n\norder statistic, randomized-select, median-of-medians를 한 번에 정리한 노트\n\n\n\n\n\nMar 31, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nProblem Solving\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nQuicksort, Partition, and Randomized Analysis\n\n\nPARTITION의 loop invariant, maintenance, RANDOMIZED-QUICKSORT의 기대 비교 횟수 분석, 그리고 평균 시간복잡도 증명을 꼼꼼하게 정리한 노트\n\n\n\n\n\nMar 30, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nSorting in Linear Time: Lower Bounds, Counting Sort, Radix Sort, Bucket Sort\n\n\n\n\n\n\n\n\nMar 31, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nSubstitution Method\n\n\n\n\n\n\n\n\nMar 27, 2026\n\n\n\n\n\n\n\n\n\n\n\n\n순열의 역위 개수를 K로 나눈 나머지별 개수 구하기\n\n\n길이 N인 순열의 역위 개수를 K로 나눈 나머지별 순열 개수를 DP와 q-factorial로 구하는 문제. 핵심은 mod K DP로 배열 크기를 O(K)로 줄이는 아이디어이다.\n\n\n\n\n\nApr 3, 2026\n\n\n\n\n\nNo matching items"
   },
   {
     "objectID": "study/algorithm/sorting-in-linear-time.html",
@@ -1510,5 +1566,12 @@
     "title": "Calculus 1",
     "section": "",
     "text": "Study Notes\n수학, 신호처리, 머신러닝 공부 내용을 정리한다.\n\n\n\n\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "study/problem-solving/index.html",
+    "href": "study/problem-solving/index.html",
+    "title": "Problem Solving",
+    "section": "",
+    "text": "Date\n\n\n\nTitle\n\n\n\nDescription\n\n\n\n\n\n\n\n\nApr 3, 2026\n\n\n순열의 역위 개수를 K로 나눈 나머지별 개수 구하기\n\n\n길이 N인 순열의 역위 개수를 K로 나눈 나머지별 순열 개수를 DP와 q-factorial로 구하는 문제. 핵심은 mod K DP로 배열 크기를 O(K)로 줄이는 아이디어이다.\n\n\n\n\n\n\nNo matching items"
   }
 ]
