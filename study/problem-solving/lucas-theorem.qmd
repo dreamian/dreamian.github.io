@@ -1,0 +1,238 @@
+---
+title: "Lucas' Theorem & 짝수 이항계수 개수"
+author: "PS Study Notes"
+date: 2026-04-04
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    highlight-style: github
+    theme: cosmo
+  pdf:
+    toc: true
+    number-sections: true
+execute:
+  echo: true
+---
+
+## 문제 정의
+
+음이 아닌 정수 $N$이 주어질 때, $N+1$개의 이항계수
+
+$$\binom{N}{0},\ \binom{N}{1},\ \cdots,\ \binom{N}{N}$$
+
+중에서 **짝수인 것의 개수**를 구하라.
+
+- $0 \le N \le 10^{18}$
+- 테스트케이스 최대 100,000개
+
+---
+
+## 핵심 이론: Lucas' Theorem
+
+### Statement
+
+소수 $p$에 대해, $N$과 $k$를 $p$진법으로 표현하면:
+
+$$\binom{N}{k} \equiv \prod_{i} \binom{n_i}{k_i} \pmod{p}$$
+
+여기서 $N = \sum n_i p^i$, $k = \sum k_i p^i$.
+
+### p = 2인 경우 (이 문제)
+
+각 이진 자릿수 비교에서 $\binom{0}{1} = 0$이므로:
+
+> $\binom{N}{k}$가 홀수 $\iff$ $k$의 모든 비트가 $N$의 비트에 포함된다 $\iff$ **$k$가 $N$의 binary submask**
+
+### Submask란?
+
+`(k & N) == k`가 성립하면 $k$는 $N$의 submask다.  
+즉, $k$의 이진 표현에서 1인 비트가 $N$에서도 전부 1인 경우.
+
+```
+N = 1010₂   k = 0010₂  →  (k & N) = 0010 = k  →  submask ✓  →  홀수
+N = 1010₂   k = 0001₂  →  (k & N) = 0000 ≠ k  →  not submask  →  짝수
+```
+
+### 증명의 핵심 아이디어 (GF(2))
+
+$\text{GF}(2)$ 위의 다항식 환에서 Freshman's dream:
+
+$$(1+x)^{2^i} \equiv 1 + x^{2^i} \pmod{2}$$
+
+$N = \sum_{i} n_i \cdot 2^i$ 로 분해하면:
+
+$$(1+x)^N = \prod_{i:\ n_i=1} (1+x)^{2^i} \equiv \prod_{i:\ n_i=1} (1 + x^{2^i}) \pmod{2}$$
+
+$x^k$의 계수는 각 인수에서 독립적으로 $x^{2^i}$를 선택하거나 말거나 하는 조합 → 정확히 submask 조건과 일치.
+
+---
+
+## 최종 공식
+
+$$\text{홀수 이항계수 수} = 2^{\text{popcount}(N)}$$
+
+$$\boxed{\text{짝수 이항계수 수} = (N+1) - 2^{\text{popcount}(N)}}$$
+
+여기서 $\text{popcount}(N)$은 $N$의 이진 표현에서 1의 개수.
+
+### 검증
+
+| $N$ | $N$ (이진) | popcount | 홀수 $(2^p)$ | 전체 $(N+1)$ | 짝수 |
+|-----|-----------|---------|------------|------------|------|
+| 0   | 0         | 0       | 1          | 1          | 0    |
+| 1   | 1         | 1       | 2          | 2          | 0    |
+| 4   | 100       | 1       | 2          | 5          | 3    |
+| 10  | 1010      | 2       | 4          | 11         | 7    |
+| 100 | 1100100   | 3       | 8          | 101        | 93   |
+
+---
+
+## 구현
+
+### 최종 정답 코드
+
+```cpp
+#include <stdio.h>
+using ull = unsigned long long int;
+
+// 소프트웨어 popcount (Hamming Weight 알고리즘)
+ull popcount_sw(ull x) {
+    x = x - ((x >> 1) & 0x5555555555555555ULL); // 2비트 단위로 합산
+    x = (x & 0x3333333333333333ULL)
+      + ((x >> 2) & 0x3333333333333333ULL);      // 4비트 단위로 합산
+    x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0FULL; // 8비트 단위로 합산
+    return (x * 0x0101010101010101ULL) >> 56;    // 바이트 합을 최상위로
+}
+
+int main(void)
+{
+    int t; scanf("%d", &t);
+    for (int tc = 1; tc <= t; ++tc)
+    {
+        ull n; scanf("%llu", &n);
+
+        ull p       = popcount_sw(n);  // N의 켜진 비트 수
+        ull odd_cnt = 1ULL << p;       // 홀수 이항계수 수 = 2^p
+        ull ans     = (n + 1ULL) - odd_cnt;
+
+        printf("#%d %llu\n", tc, ans);
+    }
+}
+```
+
+### 시간 복잡도
+
+| 접근법 | 시간복잡도 | 비고 |
+|--------|-----------|------|
+| 브루트포스 (k=0~N 순회) | $O(N)$ per query | $N \le 10^{18}$ → 불가 |
+| Lucas 공식 + popcount | $O(1)$ per query | 하드웨어 POPCNT = 1 클럭 |
+
+---
+
+## Popcount 내부 알고리즘
+
+### 하드웨어 경로 (x86-64 POPCNT)
+
+`__builtin_popcountll` 또는 직접 구현 모두, 컴파일러가 POPCNT 지원 환경에서
+단 하나의 CPU 명령어로 번역한다.
+
+```asm
+POPCNT rax, rdi    ; 1 클럭, 진짜 O(1)
+```
+
+### 소프트웨어 폴백 (Hamming Weight)
+
+POPCNT가 없을 때 사용하는 bit-parallel 알고리즘. 단계 수가 $\log_2 W = 6$ (64비트 기준)으로 고정되어 상수 시간이다.
+
+```
+원본:    1 0 1 1 0 1 0 0   (예: 8비트)
+         ↓
+단계 1:  01 10 01 00       (2비트 단위 합산)
+         ↓
+단계 2:  0011 0001         (4비트 단위 합산)
+         ↓
+단계 3:  00000100          (최종: 1의 개수 = 4)
+```
+
+각 단계는 비트마스크와 시프트 연산만 사용. 64비트 전체를 병렬로 처리.
+
+### O(1) 여부 정리
+
+| 상황 | 복잡도 | 실제 클럭 |
+|------|--------|---------|
+| 하드웨어 POPCNT | $O(1)$ | 1 클럭 |
+| 소프트웨어 Hamming Weight | $O(\log W) = O(1)$ | ~6단계 고정 |
+| 단순 루프 구현 | $O(W)$ | 64번 순회 |
+
+$W = 64$는 고정 상수이므로 $O(\log W)$도 $O(1)$로 취급.
+
+---
+
+## 흔한 실수 모음
+
+### 실수 1: popcount를 바로 답으로 쓰기
+
+```cpp
+// 오답: popcount 자체가 답이 아님
+ull ans = popcount_sw(n);
+printf("#%d %llu\n", tc, n + 1 - ans);   // ← 틀림
+
+// 정답: 2^popcount 가 홀수 이항계수 수
+ull odd_cnt = 1ULL << popcount_sw(n);
+ull ans     = (n + 1ULL) - odd_cnt;       // ← 맞음
+```
+
+### 실수 2: 정수 오버플로
+
+```cpp
+// 오답: 1 << p 에서 p >= 32이면 int 오버플로
+ull odd_cnt = 1 << p;
+
+// 정답: 반드시 1ULL
+ull odd_cnt = 1ULL << p;
+```
+
+### 실수 3: 출력 포맷
+
+```cpp
+// 오답: ans가 ull인데 %d 사용
+printf("#%d %d\n", tc, ans);
+
+// 정답
+printf("#%d %llu\n", tc, ans);
+```
+
+### 실수 4: n <= 1 예외처리 불필요
+
+```cpp
+// 불필요한 예외처리 (공식이 자동 처리)
+if (n <= 1) { printf("#%d 0\n", tc); continue; }
+// n=0: 2^0=1, ans=1-1=0 ✓
+// n=1: 2^1=2, ans=2-2=0 ✓
+```
+
+---
+
+## 관련 이론 확장
+
+### Kummer's Theorem
+
+$\binom{m+n}{m}$에서 소수 $p$의 지수 = $p$진법 덧셈 $m+n$에서 발생하는 올림(carry)의 횟수.
+
+Lucas는 Kummer의 특수 케이스(홀짝 판별)로 볼 수 있다.
+
+### 일반 소수 p로 확장
+
+$p$진법으로 표현했을 때, 어느 자리라도 $k_i > n_i$이면:
+
+$$\binom{N}{k} \equiv 0 \pmod{p}$$
+
+알고리즘적으로 $O(\log_p N)$ per query.
+
+### 심화 추천 문제
+
+- **BOJ 11401** — 이항계수 mod $p$ (페르마 소정리 + 모듈러 역원)
+- **BOJ 16977** — 이항계수와 소인수분해
+- Lucas + CRT 조합 문제들
