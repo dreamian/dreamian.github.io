@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.36">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-04-04">
+<meta name="description" content="Train/Validation/Test 분할, Generalization, ML vs DL, Double Descent, AGI/ASI, Embedding/Manifold/Latent Space/Epoch를 포함한다.">
+
+<title>Introduction to DL – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-845c23b38eaddc0f92fda52bfe77a8c8.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-da17d83626a3727898eb25bb9d1cdf08.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<!-- Privacy-friendly analytics by Plausible -->
+<script async="" src="https://plausible.io/js/pa-q1uQ7QEv5o9DOQFiYigvC.js"></script>
+<script>
+  window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+  plausible.init()
+</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#개요" id="toc-개요" class="nav-link active" data-scroll-target="#개요"><span class="header-section-number">1</span> 개요</a></li>
+  <li><a href="#ai-ml-deep-learning의-관계" id="toc-ai-ml-deep-learning의-관계" class="nav-link" data-scroll-target="#ai-ml-deep-learning의-관계"><span class="header-section-number">2</span> AI / ML / Deep Learning의 관계</a>
+  <ul class="collapse">
+  <li><a href="#계층-구조" id="toc-계층-구조" class="nav-link" data-scroll-target="#계층-구조"><span class="header-section-number">2.1</span> 계층 구조</a></li>
+  <li><a href="#머신러닝의-핵심-아이디어" id="toc-머신러닝의-핵심-아이디어" class="nav-link" data-scroll-target="#머신러닝의-핵심-아이디어"><span class="header-section-number">2.2</span> 머신러닝의 핵심 아이디어</a></li>
+  <li><a href="#ml-문제의-두-가지-분류-축" id="toc-ml-문제의-두-가지-분류-축" class="nav-link" data-scroll-target="#ml-문제의-두-가지-분류-축"><span class="header-section-number">2.3</span> ML 문제의 두 가지 분류 축</a>
+  <ul class="collapse">
+  <li><a href="#classification-of-ml-problems-출력-유형-기준" id="toc-classification-of-ml-problems-출력-유형-기준" class="nav-link" data-scroll-target="#classification-of-ml-problems-출력-유형-기준"><span class="header-section-number">2.3.1</span> Classification of ML problems — 출력 유형 기준</a></li>
+  <li><a href="#categorization-of-ml-problems-학습-방식-기준" id="toc-categorization-of-ml-problems-학습-방식-기준" class="nav-link" data-scroll-target="#categorization-of-ml-problems-학습-방식-기준"><span class="header-section-number">2.3.2</span> Categorization of ML problems — 학습 방식 기준</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#핵심-개념-embedding-manifold-latent-space-epoch" id="toc-핵심-개념-embedding-manifold-latent-space-epoch" class="nav-link" data-scroll-target="#핵심-개념-embedding-manifold-latent-space-epoch"><span class="header-section-number">3</span> 핵심 개념: Embedding, Manifold, Latent Space, Epoch</a>
+  <ul class="collapse">
+  <li><a href="#sec-embedding" id="toc-sec-embedding" class="nav-link" data-scroll-target="#sec-embedding"><span class="header-section-number">3.1</span> Embedding (임베딩)</a>
+  <ul class="collapse">
+  <li><a href="#수학적-정의" id="toc-수학적-정의" class="nav-link" data-scroll-target="#수학적-정의"><span class="header-section-number">3.1.1</span> 수학적 정의</a></li>
+  <li><a href="#임베딩의-종류" id="toc-임베딩의-종류" class="nav-link" data-scroll-target="#임베딩의-종류"><span class="header-section-number">3.1.2</span> 임베딩의 종류</a></li>
+  </ul></li>
+  <li><a href="#sec-manifold" id="toc-sec-manifold" class="nav-link" data-scroll-target="#sec-manifold"><span class="header-section-number">3.2</span> Manifold (매니폴드)</a>
+  <ul class="collapse">
+  <li><a href="#수학적-정의-1" id="toc-수학적-정의-1" class="nav-link" data-scroll-target="#수학적-정의-1"><span class="header-section-number">3.2.1</span> 수학적 정의</a></li>
+  <li><a href="#manifold-hypothesis" id="toc-manifold-hypothesis" class="nav-link" data-scroll-target="#manifold-hypothesis"><span class="header-section-number">3.2.2</span> Manifold Hypothesis</a></li>
+  <li><a href="#차원의-저주와의-관계" id="toc-차원의-저주와의-관계" class="nav-link" data-scroll-target="#차원의-저주와의-관계"><span class="header-section-number">3.2.3</span> 차원의 저주와의 관계</a></li>
+  </ul></li>
+  <li><a href="#sec-latent" id="toc-sec-latent" class="nav-link" data-scroll-target="#sec-latent"><span class="header-section-number">3.3</span> Latent Space (잠재 공간)</a>
+  <ul class="collapse">
+  <li><a href="#직관" id="toc-직관" class="nav-link" data-scroll-target="#직관"><span class="header-section-number">3.3.1</span> 직관</a></li>
+  <li><a href="#수학적-정의-2" id="toc-수학적-정의-2" class="nav-link" data-scroll-target="#수학적-정의-2"><span class="header-section-number">3.3.2</span> 수학적 정의</a></li>
+  <li><a href="#subspace-vs-latent-space" id="toc-subspace-vs-latent-space" class="nav-link" data-scroll-target="#subspace-vs-latent-space"><span class="header-section-number">3.3.3</span> Subspace vs Latent Space</a></li>
+  </ul></li>
+  <li><a href="#sec-epoch" id="toc-sec-epoch" class="nav-link" data-scroll-target="#sec-epoch"><span class="header-section-number">3.4</span> Epoch (에폭)</a>
+  <ul class="collapse">
+  <li><a href="#정의" id="toc-정의" class="nav-link" data-scroll-target="#정의"><span class="header-section-number">3.4.1</span> 정의</a></li>
+  <li><a href="#epoch-수와-학습-상태" id="toc-epoch-수와-학습-상태" class="nav-link" data-scroll-target="#epoch-수와-학습-상태"><span class="header-section-number">3.4.2</span> Epoch 수와 학습 상태</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#sec-data-split" id="toc-sec-data-split" class="nav-link" data-scroll-target="#sec-data-split"><span class="header-section-number">4</span> 데이터 분할: Train / Validation / Test</a>
+  <ul class="collapse">
+  <li><a href="#세-집합의-역할" id="toc-세-집합의-역할" class="nav-link" data-scroll-target="#세-집합의-역할"><span class="header-section-number">4.1</span> 세 집합의 역할</a></li>
+  <li><a href="#파라미터-vs-하이퍼파라미터" id="toc-파라미터-vs-하이퍼파라미터" class="nav-link" data-scroll-target="#파라미터-vs-하이퍼파라미터"><span class="header-section-number">4.2</span> 파라미터 vs 하이퍼파라미터</a></li>
+  <li><a href="#왜-validation-set이-필요한가" id="toc-왜-validation-set이-필요한가" class="nav-link" data-scroll-target="#왜-validation-set이-필요한가"><span class="header-section-number">4.3</span> 왜 Validation Set이 필요한가?</a></li>
+  <li><a href="#하이퍼파라미터-자동화-hpo" id="toc-하이퍼파라미터-자동화-hpo" class="nav-link" data-scroll-target="#하이퍼파라미터-자동화-hpo"><span class="header-section-number">4.4</span> 하이퍼파라미터 자동화: HPO</a>
+  <ul class="collapse">
+  <li><a href="#k-fold-cross-validation" id="toc-k-fold-cross-validation" class="nav-link" data-scroll-target="#k-fold-cross-validation"><span class="header-section-number">4.4.1</span> K-Fold Cross-Validation</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#sec-generalization" id="toc-sec-generalization" class="nav-link" data-scroll-target="#sec-generalization"><span class="header-section-number">5</span> Generalization과 LLM</a>
+  <ul class="collapse">
+  <li><a href="#머신러닝의-궁극적-목표" id="toc-머신러닝의-궁극적-목표" class="nav-link" data-scroll-target="#머신러닝의-궁극적-목표"><span class="header-section-number">5.1</span> 머신러닝의 궁극적 목표</a></li>
+  <li><a href="#llm은-generalization을-달성했는가" id="toc-llm은-generalization을-달성했는가" class="nav-link" data-scroll-target="#llm은-generalization을-달성했는가"><span class="header-section-number">5.2</span> LLM은 Generalization을 달성했는가?</a>
+  <ul class="collapse">
+  <li><a href="#고전-이론과의-충돌" id="toc-고전-이론과의-충돌" class="nav-link" data-scroll-target="#고전-이론과의-충돌"><span class="header-section-number">5.2.1</span> 고전 이론과의 충돌</a></li>
+  <li><a href="#llm의-한계" id="toc-llm의-한계" class="nav-link" data-scroll-target="#llm의-한계"><span class="header-section-number">5.2.2</span> LLM의 한계</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#sec-ml-vs-dl" id="toc-sec-ml-vs-dl" class="nav-link" data-scroll-target="#sec-ml-vs-dl"><span class="header-section-number">6</span> ML vs Deep Learning</a>
+  <ul class="collapse">
+  <li><a href="#핵심-차이-feature-engineering" id="toc-핵심-차이-feature-engineering" class="nav-link" data-scroll-target="#핵심-차이-feature-engineering"><span class="header-section-number">6.1</span> 핵심 차이: Feature Engineering</a></li>
+  <li><a href="#딥러닝의-계층적-표현-학습" id="toc-딥러닝의-계층적-표현-학습" class="nav-link" data-scroll-target="#딥러닝의-계층적-표현-학습"><span class="header-section-number">6.2</span> 딥러닝의 계층적 표현 학습</a></li>
+  <li><a href="#전통적-ml이-실패하는-이유-local-smoothness-가정" id="toc-전통적-ml이-실패하는-이유-local-smoothness-가정" class="nav-link" data-scroll-target="#전통적-ml이-실패하는-이유-local-smoothness-가정"><span class="header-section-number">6.3</span> 전통적 ML이 실패하는 이유: Local Smoothness 가정</a></li>
+  </ul></li>
+  <li><a href="#sec-double-descent" id="toc-sec-double-descent" class="nav-link" data-scroll-target="#sec-double-descent"><span class="header-section-number">7</span> Double Descent</a>
+  <ul class="collapse">
+  <li><a href="#고전-이론-bias-variance-tradeoff" id="toc-고전-이론-bias-variance-tradeoff" class="nav-link" data-scroll-target="#고전-이론-bias-variance-tradeoff"><span class="header-section-number">7.1</span> 고전 이론: Bias-Variance Tradeoff</a></li>
+  <li><a href="#double-descent의-발견" id="toc-double-descent의-발견" class="nav-link" data-scroll-target="#double-descent의-발견"><span class="header-section-number">7.2</span> Double Descent의 발견</a></li>
+  <li><a href="#세-개의-regime" id="toc-세-개의-regime" class="nav-link" data-scroll-target="#세-개의-regime"><span class="header-section-number">7.3</span> 세 개의 Regime</a></li>
+  <li><a href="#modern-regime에서-일반화가-되는-이유" id="toc-modern-regime에서-일반화가-되는-이유" class="nav-link" data-scroll-target="#modern-regime에서-일반화가-되는-이유"><span class="header-section-number">7.4</span> Modern Regime에서 일반화가 되는 이유</a>
+  <ul class="collapse">
+  <li><a href="#implicit-regularization-of-sgd" id="toc-implicit-regularization-of-sgd" class="nav-link" data-scroll-target="#implicit-regularization-of-sgd"><span class="header-section-number">7.4.1</span> Implicit Regularization of SGD</a></li>
+  <li><a href="#부드러운-보간-smooth-interpolation" id="toc-부드러운-보간-smooth-interpolation" class="nav-link" data-scroll-target="#부드러운-보간-smooth-interpolation"><span class="header-section-number">7.4.2</span> 부드러운 보간 (Smooth Interpolation)</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#sec-agi-asi" id="toc-sec-agi-asi" class="nav-link" data-scroll-target="#sec-agi-asi"><span class="header-section-number">8</span> AGI와 ASI</a>
+  <ul class="collapse">
+  <li><a href="#ai의-세-수준" id="toc-ai의-세-수준" class="nav-link" data-scroll-target="#ai의-세-수준"><span class="header-section-number">8.1</span> AI의 세 수준</a></li>
+  <li><a href="#agi의-핵심-특성" id="toc-agi의-핵심-특성" class="nav-link" data-scroll-target="#agi의-핵심-특성"><span class="header-section-number">8.2</span> AGI의 핵심 특성</a></li>
+  <li><a href="#asi와-intelligence-explosion" id="toc-asi와-intelligence-explosion" class="nav-link" data-scroll-target="#asi와-intelligence-explosion"><span class="header-section-number">8.3</span> ASI와 Intelligence Explosion</a></li>
+  <li><a href="#agi-vs-asi-핵심-비교" id="toc-agi-vs-asi-핵심-비교" class="nav-link" data-scroll-target="#agi-vs-asi-핵심-비교"><span class="header-section-number">8.4</span> AGI vs ASI 핵심 비교</a></li>
+  </ul></li>
+  <li><a href="#딥러닝의-트렌드와-하드웨어" id="toc-딥러닝의-트렌드와-하드웨어" class="nav-link" data-scroll-target="#딥러닝의-트렌드와-하드웨어"><span class="header-section-number">9</span> 딥러닝의 트렌드와 하드웨어</a>
+  <ul class="collapse">
+  <li><a href="#두-가지-핵심-트렌드" id="toc-두-가지-핵심-트렌드" class="nav-link" data-scroll-target="#두-가지-핵심-트렌드"><span class="header-section-number">9.1</span> 두 가지 핵심 트렌드</a></li>
+  <li><a href="#xpu-종류" id="toc-xpu-종류" class="nav-link" data-scroll-target="#xpu-종류"><span class="header-section-number">9.2</span> xPU 종류</a></li>
+  </ul></li>
+  <li><a href="#핵심-정리" id="toc-핵심-정리" class="nav-link" data-scroll-target="#핵심-정리"><span class="header-section-number">10</span> 핵심 정리</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Introduction to DL</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">deep-learning</div>
+    <div class="quarto-category">machine-learning</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    <p>Train/Validation/Test 분할, Generalization, ML vs DL, Double Descent, AGI/ASI, Embedding/Manifold/Latent Space/Epoch를 포함한다.</p>
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">April 4, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="개요" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 개요</h1>
+<p>주요 참고 자료는 다음과 같다.</p>
+<ul>
+<li>Ian Goodfellow et al., <em>Deep Learning</em>, MIT Press, 2016 (Ch. 1, 5)</li>
+<li>Aston Zhang et al., <em>Dive into Deep Learning</em> — <a href="https://d2l.ai" class="uri">https://d2l.ai</a></li>
+<li>G. Thomas, <em>Mathematics for Machine Learning</em> — <a href="https://gwthomas.github.io/docs/math4ml.pdf" class="uri">https://gwthomas.github.io/docs/math4ml.pdf</a></li>
+</ul>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>이 노트의 구성
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>AI / ML / DL 관계 및 ML 문제 분류</li>
+<li>핵심 개념: Embedding, Manifold, Latent Space, Epoch</li>
+<li>데이터 분할: Train / Validation / Test의 역할</li>
+<li>Generalization과 LLM</li>
+<li>ML vs Deep Learning</li>
+<li>Double Descent</li>
+<li>AGI와 ASI</li>
+</ol>
+</div>
+</div>
+<hr>
+</section>
+<section id="ai-ml-deep-learning의-관계" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> AI / ML / Deep Learning의 관계</h1>
+<section id="계층-구조" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="계층-구조"><span class="header-section-number">2.1</span> 계층 구조</h2>
+<pre><code>인공지능 (AI)
+ └─ 머신러닝 (Machine Learning)
+      └─ 딥러닝 (Deep Learning)  ← 이 강의의 주제</code></pre>
+<p>Goodfellow 교재 Fig 1.4에 따르면, 딥러닝은 <strong>표현 학습(Representation Learning)</strong> 의 한 종류이고, 표현 학습은 머신러닝의 한 종류이며, 머신러닝은 AI에 접근하는 여러 방법 중 하나이다. 지식 기반 시스템(Knowledge Base) 같은 비ML 방식도 AI에 포함된다.</p>
+</section>
+<section id="머신러닝의-핵심-아이디어" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="머신러닝의-핵심-아이디어"><span class="header-section-number">2.2</span> 머신러닝의 핵심 아이디어</h2>
+<p>전통적 프로그래밍과 머신러닝의 구조적 차이:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>패러다임</th>
+<th>입력</th>
+<th>출력</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>전통 프로그래밍</strong></td>
+<td>Data + Program</td>
+<td>Output</td>
+</tr>
+<tr class="even">
+<td><strong>머신러닝</strong></td>
+<td>Data + Output(레이블)</td>
+<td><strong>Program</strong>(모델)</td>
+</tr>
+</tbody>
+</table>
+<p>수학적으로, 데이터 쌍 <span class="math inline">\(\{(x_i, y_i)\}_{i=1}^N\)</span>으로부터 미지의 입력 <span class="math inline">\(x^*\)</span>에 대해 <span class="math inline">\(y^*\)</span>를 예측하는 함수 <span class="math inline">\(f\)</span>를 찾는 것이다.</p>
+<p><span class="math display">\[f: \mathcal{X} \to \mathcal{Y}\]</span></p>
+</section>
+<section id="ml-문제의-두-가지-분류-축" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="ml-문제의-두-가지-분류-축"><span class="header-section-number">2.3</span> ML 문제의 두 가지 분류 축</h2>
+<p><span class="math display">\[\text{Classification of ML problems} \neq \text{Categorization of ML problems}\]</span></p>
+<p>두 용어가 모두 “분류”로 번역되어 혼동될 수 있으나, <strong>기준 축이 다르다</strong>.</p>
+<section id="classification-of-ml-problems-출력-유형-기준" class="level3" data-number="2.3.1">
+<h3 data-number="2.3.1" class="anchored" data-anchor-id="classification-of-ml-problems-출력-유형-기준"><span class="header-section-number">2.3.1</span> Classification of ML problems — 출력 유형 기준</h3>
+<p>“모델이 <strong>무엇을</strong> 예측하는가?”라는 질문에 따른 분류이다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>태스크</th>
+<th>출력</th>
+<th>주요 학습 방식</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Classification</strong></td>
+<td>이산 레이블 <span class="math inline">\(y \in \{1,\ldots,K\}\)</span></td>
+<td>Usually supervised</td>
+</tr>
+<tr class="even">
+<td><strong>Regression</strong></td>
+<td>연속값 <span class="math inline">\(y \in \mathbb{R}\)</span></td>
+<td>Usually supervised</td>
+</tr>
+<tr class="odd">
+<td><strong>Similarity</strong></td>
+<td>유사/비유사 쌍</td>
+<td>Usually supervised</td>
+</tr>
+<tr class="even">
+<td><strong>Clustering</strong></td>
+<td>군집 구조</td>
+<td>Usually unsupervised</td>
+</tr>
+<tr class="odd">
+<td><strong>Embedding</strong></td>
+<td>벡터 <span class="math inline">\(z \in \mathbb{R}^d\)</span></td>
+<td>Usually unsupervised</td>
+</tr>
+<tr class="even">
+<td><strong>Reinforcement Learning</strong></td>
+<td>행동 정책 <span class="math inline">\(\pi\)</span></td>
+<td>RL</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="categorization-of-ml-problems-학습-방식-기준" class="level3" data-number="2.3.2">
+<h3 data-number="2.3.2" class="anchored" data-anchor-id="categorization-of-ml-problems-학습-방식-기준"><span class="header-section-number">2.3.2</span> Categorization of ML problems — 학습 방식 기준</h3>
+<p>“모델이 <strong>어떻게</strong> 학습하는가?”라는 질문에 따른 분류이다.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>방식</th>
+<th>레이블 사용</th>
+<th>특징</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Supervised</strong></td>
+<td>전부 사용</td>
+<td>정확, 레이블 비용 高</td>
+</tr>
+<tr class="even">
+<td><strong>Unsupervised</strong></td>
+<td>없음</td>
+<td>저렴, 구조 발견</td>
+</tr>
+<tr class="odd">
+<td><strong>Semi-supervised</strong></td>
+<td>일부 사용</td>
+<td>실용적 절충</td>
+</tr>
+<tr class="even">
+<td><strong>Active learning</strong></td>
+<td>선택적 사용</td>
+<td>효율적 레이블링</td>
+</tr>
+<tr class="odd">
+<td><strong>Reinforcement</strong></td>
+<td>간접적 사용</td>
+<td>에이전트 행동 최적화</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심 구분
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>두 분류는 <strong>독립된 두 축</strong>이다. 같은 Classification 태스크라도 supervised / unsupervised / semi-supervised 모두로 학습할 수 있다. 또한 “Classification of ML problems”에서 “Classification”은 메타 레벨의 분류 행위를 의미하고, 그 결과물 중 하나가 “Classification 태스크”이므로 동어 반복처럼 보이는 순환 구조가 있다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+</section>
+<section id="핵심-개념-embedding-manifold-latent-space-epoch" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> 핵심 개념: Embedding, Manifold, Latent Space, Epoch</h1>
+<p>딥러닝의 핵심 개념 네 가지이다. 이 개념들은 독립적이지 않고 아래와 같이 연결된다.</p>
+<pre><code>고차원 Raw Data  →  Embedding  →  Manifold 위의 구조 발견
+                                          ↓
+                                  Latent Space (저차원 표현)
+                                          ↓
+                              Epoch 반복으로 점점 정교해짐</code></pre>
+<section id="sec-embedding" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="sec-embedding"><span class="header-section-number">3.1</span> Embedding (임베딩)</h2>
+<section id="수학적-정의" class="level3" data-number="3.1.1">
+<h3 data-number="3.1.1" class="anchored" data-anchor-id="수학적-정의"><span class="header-section-number">3.1.1</span> 수학적 정의</h3>
+<p>“Object <span class="math inline">\(X\)</span>가 <span class="math inline">\(Y\)</span>에 embedding될 때, embedding은 <strong>단사(injective)</strong> 이고 <strong>구조 보존(structure-preserving)</strong> 인 함수 <span class="math inline">\(f: X \to Y\)</span>로 주어진다.”</p>
+<p>딥러닝에서는 다음과 같이 구체화한다.</p>
+<p><span class="math display">\[f_\theta: \mathbb{R}^D \to \mathbb{R}^d, \quad d \ll D\]</span></p>
+<p>두 가지 조건이 중요하다.</p>
+<p><strong>① Injective (단사):</strong></p>
+<p><span class="math display">\[x_1 \neq x_2 \implies f(x_1) \neq f(x_2)\]</span></p>
+<p>정보의 구분 가능성(discriminability)이 보존된다.</p>
+<p><strong>② Structure-preserving (구조 보존):</strong></p>
+<p><span class="math display">\[d_{\text{원공간}}(x_1, x_2) \approx d_{\text{임베딩}}(f(x_1), f(x_2))\]</span></p>
+<p>원래 공간의 관계가 임베딩 공간에서도 유지된다. 대표적인 예로 Word2Vec의 관계 보존이 있다.</p>
+<p><span class="math display">\[\vec{\text{king}} - \vec{\text{man}} + \vec{\text{woman}} \approx \vec{\text{queen}}\]</span></p>
+</section>
+<section id="임베딩의-종류" class="level3" data-number="3.1.2">
+<h3 data-number="3.1.2" class="anchored" data-anchor-id="임베딩의-종류"><span class="header-section-number">3.1.2</span> 임베딩의 종류</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>종류</th>
+<th>입력</th>
+<th>임베딩 공간</th>
+<th>예시</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Word Embedding</td>
+<td><span class="math inline">\(\mathbb{R}^{|V|}\)</span> (one-hot)</td>
+<td><span class="math inline">\(\mathbb{R}^{300}\)</span></td>
+<td>Word2Vec</td>
+</tr>
+<tr class="even">
+<td>Image Embedding</td>
+<td><span class="math inline">\(\mathbb{R}^{H \times W \times 3}\)</span></td>
+<td><span class="math inline">\(\mathbb{R}^{512}\)</span></td>
+<td>CNN feature</td>
+</tr>
+<tr class="odd">
+<td>Neural Network</td>
+<td>입력층</td>
+<td>각 은닉층</td>
+<td>모든 딥러닝</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>무선네트워크 관점
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>CSI(Channel State Information) 피드백에서 고차원 채널 행렬 <span class="math inline">\(\mathbf{H} \in \mathbb{C}^{N_r \times N_t}\)</span>를 저차원 코드워드로 압축하는 것이 정확히 임베딩이다. CsiNet 같은 딥러닝 기반 CSI 압축이 이 원리를 활용한다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="sec-manifold" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="sec-manifold"><span class="header-section-number">3.2</span> Manifold (매니폴드)</h2>
+<section id="수학적-정의-1" class="level3" data-number="3.2.1">
+<h3 data-number="3.2.1" class="anchored" data-anchor-id="수학적-정의-1"><span class="header-section-number">3.2.1</span> 수학적 정의</h3>
+<p>“수학에서 <span class="math inline">\(n\)</span>-차원 매니폴드는 각 점의 근방이 <span class="math inline">\(n\)</span>-차원 유클리드 공간 <span class="math inline">\(\mathbb{R}^n\)</span>과 <strong>위상동형(homeomorphic)</strong> 인 위상 공간이다.”</p>
+<p>쉽게 말하면, <strong>어느 한 점을 충분히 가까이서 보면(locally), 평평한 유클리드 공간처럼 보이는 공간</strong>이다.</p>
+<p>슬라이드의 <strong>지구 위에 서있는 사람</strong> 이미지가 이 직관을 잘 전달한다. 지구는 3차원 공간에 존재하는 구이지만, 그 표면은 2차원이다. 위도/경도 2개의 좌표만으로 지구 표면의 위치를 완전히 기술할 수 있다.</p>
+<pre><code>전체적으로(Globally):  구부러진 표면  (지구)
+가까이서(Locally):     평평한 평면  (내 발 앞 땅)</code></pre>
+</section>
+<section id="manifold-hypothesis" class="level3" data-number="3.2.2">
+<h3 data-number="3.2.2" class="anchored" data-anchor-id="manifold-hypothesis"><span class="header-section-number">3.2.2</span> Manifold Hypothesis</h3>
+<p>딥러닝이 작동하는 이론적 근거 중 하나이다.</p>
+<blockquote class="blockquote">
+<p>실제 데이터는 고차원 공간에 균등하게 분포하는 것이 아니라, 훨씬 낮은 차원의 매니폴드 위에 집중되어 있다.</p>
+</blockquote>
+<p>수학적으로:</p>
+<p><span class="math display">\[p_{\text{data}}(x) \text{ is concentrated near a manifold } \mathcal{M} \subset \mathbb{R}^D\]</span></p>
+<p><span class="math display">\[\dim(\mathcal{M}) = d \ll D\]</span></p>
+<p>예시: 28×28 = 784차원 이미지 공간에서 “자연스러운 손글씨 이미지”는 이 784차원 공간의 극히 일부(저차원 매니폴드)에만 존재한다.</p>
+</section>
+<section id="차원의-저주와의-관계" class="level3" data-number="3.2.3">
+<h3 data-number="3.2.3" class="anchored" data-anchor-id="차원의-저주와의-관계"><span class="header-section-number">3.2.3</span> 차원의 저주와의 관계</h3>
+<p>Goodfellow Ch. 5.11에서 다루는 <strong>차원의 저주(Curse of Dimensionality)</strong> 가 매니폴드 가설로 극복된다.</p>
+<p>입력 차원 <span class="math inline">\(d\)</span>, 각 축에서 <span class="math inline">\(v\)</span>개의 값을 구분한다면 필요한 영역의 수는 <span class="math inline">\(O(v^d)\)</span>로 차원에 지수적으로 증가한다. 딥러닝은 Manifold Hypothesis를 활용하여 실제 데이터가 고차원 공간 안의 저차원 매니폴드 위에 집중되어 있다는 사실을 학습한다.</p>
+<p>Autoencoder는 이 매니폴드를 학습하는 대표적 모델이다.</p>
+<p><span class="math display">\[\text{Encoder: } \mathbb{R}^D \xrightarrow{f_\phi} \mathbb{R}^d, \quad
+\text{Decoder: } \mathbb{R}^d \xrightarrow{g_\theta} \mathbb{R}^D\]</span></p>
+<p><span class="math display">\[\min_{\phi, \theta} \mathbb{E}_{x \sim p_{\text{data}}} \|x - g_\theta(f_\phi(x))\|^2\]</span></p>
+</section>
+</section>
+<section id="sec-latent" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="sec-latent"><span class="header-section-number">3.3</span> Latent Space (잠재 공간)</h2>
+<section id="직관" class="level3" data-number="3.3.1">
+<h3 data-number="3.3.1" class="anchored" data-anchor-id="직관"><span class="header-section-number">3.3.1</span> 직관</h3>
+<p>인형사가 몇 개의 실만으로 인형의 복잡한 움직임 전체를 제어한다. 보이는 것(인형 움직임, 고차원)은 보이지 않는 것(실의 당김, 저차원)에 의해 결정된다. 보이지 않는 실들의 공간이 바로 Latent Space이다.</p>
+</section>
+<section id="수학적-정의-2" class="level3" data-number="3.3.2">
+<h3 data-number="3.3.2" class="anchored" data-anchor-id="수학적-정의-2"><span class="header-section-number">3.3.2</span> 수학적 정의</h3>
+<p><span class="math display">\[\underbrace{x}_{\text{관측 가능}} = g(\underbrace{z}_{\text{잠재 변수}}) + \epsilon\]</span></p>
+<p><span class="math inline">\(z \in \mathbb{R}^d\)</span>는 데이터를 생성하는 숨겨진 원인들이고, <span class="math inline">\(g: \mathbb{R}^d \to \mathbb{R}^D\)</span>는 이를 관측 가능한 형태로 변환한다.</p>
+</section>
+<section id="subspace-vs-latent-space" class="level3" data-number="3.3.3">
+<h3 data-number="3.3.3" class="anchored" data-anchor-id="subspace-vs-latent-space"><span class="header-section-number">3.3.3</span> Subspace vs Latent Space</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>Subspace</th>
+<th>Latent Space</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>기원</td>
+<td>선형대수학</td>
+<td>확률론 / 생성 모델</td>
+</tr>
+<tr class="even">
+<td>구조</td>
+<td>선형</td>
+<td>비선형도 허용</td>
+</tr>
+<tr class="odd">
+<td>예시</td>
+<td>PCA의 주성분 공간</td>
+<td>VAE의 <span class="math inline">\(z\)</span> 공간</td>
+</tr>
+</tbody>
+</table>
+<p><strong>PCA (선형 서브스페이스):</strong></p>
+<p><span class="math display">\[z = W^\top x, \quad W \in \mathbb{R}^{D \times d} \text{ (직교 기저)}\]</span></p>
+<p><strong>VAE (비선형 잠재 공간):</strong></p>
+<p><span class="math display">\[q_\phi(z \mid x) \approx \mathcal{N}(\mu_\phi(x),\, \sigma^2_\phi(x))\]</span></p>
+<p>잘 학습된 Latent Space에서 두 점 <span class="math inline">\(z_1\)</span>, <span class="math inline">\(z_2\)</span> 사이를 선형 보간하면 의미 있는 중간 데이터가 생성된다(continuity).</p>
+</section>
+</section>
+<section id="sec-epoch" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="sec-epoch"><span class="header-section-number">3.4</span> Epoch (에폭)</h2>
+<section id="정의" class="level3" data-number="3.4.1">
+<h3 data-number="3.4.1" class="anchored" data-anchor-id="정의"><span class="header-section-number">3.4.1</span> 정의</h3>
+<p><strong>지질 시대 층위 그림</strong>이 직관을 준다. 각 지질 시대가 명확한 시작과 끝이 있는 완결된 시간 단위이듯, 훈련 Epoch도 전체 데이터셋을 한 번 완전히 통과하는 완결된 단위이다.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>용어</th>
+<th>정의</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(N\)</span></td>
+<td>전체 훈련 데이터 수</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(b\)</span></td>
+<td>배치 크기</td>
+</tr>
+<tr class="odd">
+<td><strong>Iteration</strong></td>
+<td>1번의 파라미터 업데이트</td>
+</tr>
+<tr class="even">
+<td><strong>Epoch</strong></td>
+<td><span class="math inline">\(\lceil N/b \rceil\)</span>번 Iteration = 전체 데이터 1회 순환</td>
+</tr>
+</tbody>
+</table>
+<p>SGD 업데이트 규칙:</p>
+<p><span class="math display">\[\theta \leftarrow \theta - \eta \cdot \nabla_\theta \mathcal{L}(\theta;\, B_t)\]</span></p>
+<p>1 Epoch = 위 업데이트를 <span class="math inline">\(N/b\)</span>번 수행하는 것이다.</p>
+</section>
+<section id="epoch-수와-학습-상태" class="level3" data-number="3.4.2">
+<h3 data-number="3.4.2" class="anchored" data-anchor-id="epoch-수와-학습-상태"><span class="header-section-number">3.4.2</span> Epoch 수와 학습 상태</h3>
+<pre><code>너무 적은 Epoch  →  Underfitting  (학습 부족)
+적당한 Epoch    →  Generalization (목표 상태)
+너무 많은 Epoch  →  Overfitting   (훈련 데이터 암기)
+                          ↑
+                   Early Stopping으로 방지</code></pre>
+<hr>
+</section>
+</section>
+</section>
+<section id="sec-data-split" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> 데이터 분할: Train / Validation / Test</h1>
+<section id="세-집합의-역할" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="세-집합의-역할"><span class="header-section-number">4.1</span> 세 집합의 역할</h2>
+<pre><code>전체 데이터셋
+  ├── Training Set    →  파라미터 θ 학습 (역전파)
+  ├── Validation Set  →  하이퍼파라미터 λ 튜닝
+  └── Test Set        →  최종 성능 단 한 번 측정</code></pre>
+</section>
+<section id="파라미터-vs-하이퍼파라미터" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="파라미터-vs-하이퍼파라미터"><span class="header-section-number">4.2</span> 파라미터 vs 하이퍼파라미터</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>구분</th>
+<th>정의</th>
+<th>예시</th>
+<th>최적화 방법</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Parameter</strong></td>
+<td>데이터로부터 학습</td>
+<td>가중치 <span class="math inline">\(W\)</span>, 편향 <span class="math inline">\(b\)</span></td>
+<td>Gradient Descent</td>
+</tr>
+<tr class="even">
+<td><strong>Hyperparameter</strong></td>
+<td>학습 알고리즘 제어</td>
+<td>학습률 <span class="math inline">\(\eta\)</span>, 레이어 수</td>
+<td><strong>Validation Set으로 탐색</strong></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="왜-validation-set이-필요한가" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="왜-validation-set이-필요한가"><span class="header-section-number">4.3</span> 왜 Validation Set이 필요한가?</h2>
+<p>Goodfellow Ch. 5.3에서 핵심을 명시한다. 모델의 용량(capacity)을 제어하는 하이퍼파라미터를 훈련 데이터로 학습하면, 알고리즘은 항상 <strong>최대 가능 용량</strong>을 선택하게 되고 이는 과적합(Overfitting)으로 직결된다.</p>
+<p><span class="math display">\[\lambda^* = \arg\min_{\lambda \in \Lambda}\, \mathcal{L}_{\text{val}}\bigl(\theta^*(\lambda)\bigr)\]</span></p>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>Test Set 오염 금지
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Validation을 통한 하이퍼파라미터 튜닝 과정에서 Test Set을 반복적으로 보면, Test Set이 사실상 두 번째 Validation Set이 되어버린다. 최종 성능 추정치가 낙관적으로 편향(optimistic bias)된다. “It’s a crime!” — 강의 슬라이드</p>
+</div>
+</div>
+</section>
+<section id="하이퍼파라미터-자동화-hpo" class="level2" data-number="4.4">
+<h2 data-number="4.4" class="anchored" data-anchor-id="하이퍼파라미터-자동화-hpo"><span class="header-section-number">4.4</span> 하이퍼파라미터 자동화: HPO</h2>
+<p>Validation Set을 통한 하이퍼파라미터 튜닝은 <strong>완전히 자동화 가능</strong>하며, 실제로 대부분의 현대 ML 파이프라인에서 자동화되어 있다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>방법</th>
+<th>원리</th>
+<th>특징</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Grid Search</strong></td>
+<td>격자 탐색</td>
+<td>조합 폭발 문제</td>
+</tr>
+<tr class="even">
+<td><strong>Random Search</strong></td>
+<td>무작위 샘플링</td>
+<td>Grid보다 효율적 (Bergstra &amp; Bengio, 2012)</td>
+</tr>
+<tr class="odd">
+<td><strong>Bayesian Optimization</strong></td>
+<td>Surrogate model + EI</td>
+<td>현재 가장 널리 사용</td>
+</tr>
+<tr class="even">
+<td><strong>Gradient-based (DARTS)</strong></td>
+<td>Implicit differentiation</td>
+<td>아키텍처 탐색에 사용</td>
+</tr>
+</tbody>
+</table>
+<p>Bayesian Optimization의 핵심:</p>
+<p><span class="math display">\[\lambda_{\text{next}} = \arg\max_\lambda \text{EI}(\lambda), \quad
+\text{EI}(\lambda) = \mathbb{E}\!\left[\max(0,\, f(\lambda) - f(\lambda^+))\right]\]</span></p>
+<section id="k-fold-cross-validation" class="level3" data-number="4.4.1">
+<h3 data-number="4.4.1" class="anchored" data-anchor-id="k-fold-cross-validation"><span class="header-section-number">4.4.1</span> K-Fold Cross-Validation</h3>
+<p>데이터가 부족할 때 사용하는 방법이다.</p>
+<p><span class="math display">\[E_{\text{CV}} = \frac{1}{K} \sum_{k=1}^K E_k\]</span></p>
+<p>데이터를 <span class="math inline">\(K\)</span>등분하여 매번 1개는 validation, 나머지 <span class="math inline">\(K-1\)</span>개는 training으로 사용한다.</p>
+<hr>
+</section>
+</section>
+</section>
+<section id="sec-generalization" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Generalization과 LLM</h1>
+<section id="머신러닝의-궁극적-목표" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="머신러닝의-궁극적-목표"><span class="header-section-number">5.1</span> 머신러닝의 궁극적 목표</h2>
+<blockquote class="blockquote">
+<p>훈련 데이터로부터 학습하여, 한 번도 본 적 없는 입력에 대해 올바른 출력을 예측하는 능력</p>
+</blockquote>
+<p><span class="math display">\[\text{목표: } E_{\text{train}} \approx E_{\text{test}}\]</span></p>
+<p>“모든 것을 암기하지만 추론 못하는 학생”보다 “조금 암기하지만 많이 추론하는 학생”이 더 현명하다.</p>
+</section>
+<section id="llm은-generalization을-달성했는가" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="llm은-generalization을-달성했는가"><span class="header-section-number">5.2</span> LLM은 Generalization을 달성했는가?</h2>
+<p>결론: <strong>부분적으로 Yes, 하지만 기존 이론으로는 설명이 불완전하다.</strong></p>
+<section id="고전-이론과의-충돌" class="level3" data-number="5.2.1">
+<h3 data-number="5.2.1" class="anchored" data-anchor-id="고전-이론과의-충돌"><span class="header-section-number">5.2.1</span> 고전 이론과의 충돌</h3>
+<p>통계학습 이론의 일반화 오차 bound:</p>
+<p><span class="math display">\[E_{\text{test}} \leq E_{\text{train}} + O\!\left(\sqrt{\frac{\text{model complexity}}{N}}\right)\]</span></p>
+<p>이에 따르면 모델이 클수록 일반화가 나빠져야 한다. 그러나 GPT-4(수천억 파라미터)는 뛰어난 일반화를 보인다. → <strong>Double Descent 현상</strong></p>
+</section>
+<section id="llm의-한계" class="level3" data-number="5.2.2">
+<h3 data-number="5.2.2" class="anchored" data-anchor-id="llm의-한계"><span class="header-section-number">5.2.2</span> LLM의 한계</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>한계</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Hallucination</td>
+<td>훈련 분포 밖에서 틀린 정보를 자신 있게 생성</td>
+</tr>
+<tr class="even">
+<td>Distribution Shift</td>
+<td>훈련 시점 이후 정보에 적응 불가</td>
+</tr>
+<tr class="odd">
+<td>Reasoning 한계</td>
+<td>복잡한 수학적 추론에서 체계적 실패</td>
+</tr>
+<tr class="even">
+<td>Shortcut Learning</td>
+<td>진짜 개념이 아닌 통계적 패턴 학습</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+</section>
+<section id="sec-ml-vs-dl" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> ML vs Deep Learning</h1>
+<section id="핵심-차이-feature-engineering" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="핵심-차이-feature-engineering"><span class="header-section-number">6.1</span> 핵심 차이: Feature Engineering</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>전통적 ML</th>
+<th>딥러닝</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>특징 추출</td>
+<td>인간이 직접 설계</td>
+<td>데이터로부터 자동 학습</td>
+</tr>
+<tr class="even">
+<td>데이터 요구량</td>
+<td>비교적 적어도 됨</td>
+<td>대량 데이터 필요</td>
+</tr>
+<tr class="odd">
+<td>해석 가능성</td>
+<td>비교적 높음</td>
+<td>낮음 (Black box)</td>
+</tr>
+<tr class="even">
+<td>고차원 데이터</td>
+<td>차원의 저주</td>
+<td>효과적으로 처리</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="딥러닝의-계층적-표현-학습" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="딥러닝의-계층적-표현-학습"><span class="header-section-number">6.2</span> 딥러닝의 계층적 표현 학습</h2>
+<p>Goodfellow Ch. 1에 따르면, 딥러닝은 <strong>단순한 표현들의 조합으로 복잡한 표현을 구성</strong>한다.</p>
+<p><span class="math display">\[\text{Raw Data} \xrightarrow{\text{Layer 1: edges}}
+\xrightarrow{\text{Layer 2: contours}}
+\xrightarrow{\text{Layer 3: parts}}
+\xrightarrow{\text{Layer 4: objects}} \text{Output}\]</span></p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Representation Learning (표현 학습)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>전통적 ML은 인간이 직접 feature를 설계(hand-crafted feature)한다.</p>
+<p><span class="math display">\[\text{Raw Data} \xrightarrow{\text{인간이 설계}} \text{벡터} \xrightarrow{\text{ML}} \text{출력}\]</span></p>
+<p>딥러닝은 이 과정을 데이터로부터 자동으로 학습한다.</p>
+<p><span class="math display">\[\text{Raw Data} \xrightarrow{\text{Layer 1}} \xrightarrow{\text{Layer 2}} \cdots \xrightarrow{\text{Layer }L} \text{출력}\]</span></p>
+</div>
+</div>
+</section>
+<section id="전통적-ml이-실패하는-이유-local-smoothness-가정" class="level2" data-number="6.3">
+<h2 data-number="6.3" class="anchored" data-anchor-id="전통적-ml이-실패하는-이유-local-smoothness-가정"><span class="header-section-number">6.3</span> 전통적 ML이 실패하는 이유: Local Smoothness 가정</h2>
+<p>Goodfellow Ch. 5.11에 따르면, 전통적 ML은 <strong>국소 평활성(Local Smoothness) 가정</strong>에 의존한다. 새로운 입력의 출력을 가장 가까운 훈련 포인트의 출력으로 추정하는 것이다.</p>
+<p>고차원 공간에서는 “가까운” 훈련 데이터가 충분히 존재하지 않아(차원의 저주) 이 가정이 깨진다. 딥러닝은 <strong>계층적 표현 학습</strong>으로 이를 극복한다.</p>
+<hr>
+</section>
+</section>
+<section id="sec-double-descent" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> Double Descent</h1>
+<section id="고전-이론-bias-variance-tradeoff" class="level2" data-number="7.1">
+<h2 data-number="7.1" class="anchored" data-anchor-id="고전-이론-bias-variance-tradeoff"><span class="header-section-number">7.1</span> 고전 이론: Bias-Variance Tradeoff</h2>
+<p>Goodfellow Ch. 5.4에서 다루는 핵심 공식:</p>
+<p><span class="math display">\[\text{MSE}(\hat{\theta}) = \text{Bias}(\hat{\theta})^2 + \text{Var}(\hat{\theta})\]</span></p>
+<p>모델 복잡도(capacity)가 증가할 때 Bias는 감소하고 Variance는 증가하여, Test Error는 U자 곡선을 그린다고 고전 이론은 예측한다.</p>
+</section>
+<section id="double-descent의-발견" class="level2" data-number="7.2">
+<h2 data-number="7.2" class="anchored" data-anchor-id="double-descent의-발견"><span class="header-section-number">7.2</span> Double Descent의 발견</h2>
+<p>2019년 Belkin et al.이 발표한 현상. 모델을 훈련 데이터를 완벽히 맞출 수 있는 수준(<strong>Interpolation Threshold</strong>)을 넘어서까지 키우면 Test Error가 <strong>다시 감소</strong>한다.</p>
+<pre><code>Test Error
+  │╲
+  │ ╲                    ← Double Descent
+  │  ╲      /╲          /
+  │   ╲    /  ╲        /  (두 번째 감소)
+  │    ╲  /    ╲______/
+  │     \/
+  │  Classical  Modern
+  │  Optimal    Optimal
+  └────┬──────────────── 모델 복잡도 N
+       ↑
+  Interpolation Threshold
+  (Train Error → 0이 되는 지점)</code></pre>
+</section>
+<section id="세-개의-regime" class="level2" data-number="7.3">
+<h2 data-number="7.3" class="anchored" data-anchor-id="세-개의-regime"><span class="header-section-number">7.3</span> 세 개의 Regime</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Regime</th>
+<th>조건</th>
+<th>특성</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>① Classical</td>
+<td><span class="math inline">\(N_{\text{params}} \ll N_{\text{data}}\)</span></td>
+<td>Bias 지배, 전통적 U자 곡선</td>
+</tr>
+<tr class="even">
+<td>② Critical</td>
+<td><span class="math inline">\(N_{\text{params}} \approx N_{\text{data}}\)</span></td>
+<td>Test Error 최대 (위험 구간)</td>
+</tr>
+<tr class="odd">
+<td>③ Modern</td>
+<td><span class="math inline">\(N_{\text{params}} \gg N_{\text{data}}\)</span></td>
+<td>Train Error = 0, Test Error 재감소</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="modern-regime에서-일반화가-되는-이유" class="level2" data-number="7.4">
+<h2 data-number="7.4" class="anchored" data-anchor-id="modern-regime에서-일반화가-되는-이유"><span class="header-section-number">7.4</span> Modern Regime에서 일반화가 되는 이유</h2>
+<section id="implicit-regularization-of-sgd" class="level3" data-number="7.4.1">
+<h3 data-number="7.4.1" class="anchored" data-anchor-id="implicit-regularization-of-sgd"><span class="header-section-number">7.4.1</span> Implicit Regularization of SGD</h3>
+<p>SGD는 훈련 데이터를 만족하는 무한히 많은 해 중에서 <strong>최소 놈(minimum norm) 해</strong>를 암묵적으로 선호한다.</p>
+<p>선형 모델에서 훈련 데이터를 만족하는 해의 집합:</p>
+<p><span class="math display">\[\{\theta : X\theta = y\}\]</span></p>
+<p>SGD(Gradient Flow)는 이 집합 중 <span class="math inline">\(\|\theta\|_2\)</span>가 최소인 해, 즉 <strong>Moore-Penrose pseudoinverse 해</strong>로 수렴하는 경향이 있다.</p>
+<p><span class="math display">\[\theta^* = X^\top(XX^\top)^{-1}y\]</span></p>
+</section>
+<section id="부드러운-보간-smooth-interpolation" class="level3" data-number="7.4.2">
+<h3 data-number="7.4.2" class="anchored" data-anchor-id="부드러운-보간-smooth-interpolation"><span class="header-section-number">7.4.2</span> 부드러운 보간 (Smooth Interpolation)</h3>
+<p>파라미터가 훨씬 많으면 훈련 포인트들 사이를 <strong>부드럽게</strong> 통과하는 함수를 찾을 수 있다. Critical Zone에서는 함수가 날카롭게 구부러져야 하지만, Modern Regime에서는 여유 자유도가 부드러운 해를 유도한다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Epoch-wise Double Descent
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>같은 모델을 오래 훈련할수록 나타나는 현상도 있다. 초기에는 유용한 패턴을 학습(1차 하강), 이후 노이즈를 암기(상승), 충분히 오래 훈련하면 다시 의미 있는 패턴으로 수렴(2차 하강). <strong>Early Stopping이 항상 최선이 아닌 이유</strong>이기도 하다.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>무선네트워크 관점
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>이는 채널 추정에서 훈련된 모델이 SNR 범위를 벗어나면 성능이 급격히 떨어지는 distribution shift 문제와 같은 맥락이다. 또한 Compressed Sensing에서 <span class="math inline">\(M &lt; N\)</span>인 underdetermined system을 <span class="math inline">\(\ell_1\)</span> norm 최소화로 sparse한 해를 찾는 것처럼, SGD도 암묵적 sparsity를 유도한다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+</section>
+<section id="sec-agi-asi" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> AGI와 ASI</h1>
+<section id="ai의-세-수준" class="level2" data-number="8.1">
+<h2 data-number="8.1" class="anchored" data-anchor-id="ai의-세-수준"><span class="header-section-number">8.1</span> AI의 세 수준</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>수준</th>
+<th>정의</th>
+<th>현재 상태</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>ANI</strong> (Narrow AI)</td>
+<td>특정 태스크에서만 뛰어남</td>
+<td>✅ 실재 (GPT-5, AlphaGo 등)</td>
+</tr>
+<tr class="even">
+<td><strong>AGI</strong> (General AI)</td>
+<td>인간 수준의 범용 지능</td>
+<td>❌ 아직 미달성</td>
+</tr>
+<tr class="odd">
+<td><strong>ASI</strong> (Super AI)</td>
+<td>인간을 모든 면에서 초월</td>
+<td>❌ 이론적 개념</td>
+</tr>
+</tbody>
+</table>
+<pre><code>지능 수준 축
+────────────────────────────────────────────────►
+      ANI                AGI               ASI
+ [현재 우리 위치]      [미달성]           [이론적]
+  특정 태스크만         인간 수준의        인간을 모든
+  잘 하는 AI           범용 지능          면에서 초월</code></pre>
+</section>
+<section id="agi의-핵심-특성" class="level2" data-number="8.2">
+<h2 data-number="8.2" class="anchored" data-anchor-id="agi의-핵심-특성"><span class="header-section-number">8.2</span> AGI의 핵심 특성</h2>
+<p><strong>① 도메인 전이 학습:</strong> 서로 다른 분포 <span class="math inline">\(p_1(x,y)\)</span>, <span class="math inline">\(p_2(x,y)\)</span> 간 표현 공유</p>
+<p><span class="math display">\[f_{\text{AGI}}: \mathcal{X}_{\text{any}} \to \mathcal{Y}_{\text{any}}\]</span></p>
+<p><strong>② 자율적 목표 설정:</strong> 스스로 하위 목표를 정의하고 추구</p>
+<p><strong>③ Few-shot / Zero-shot 일반화:</strong> 본 적 없는 태스크를 몇 가지 예시만으로 수행</p>
+<p><strong>④ 지속적 학습:</strong> Catastrophic Forgetting 없이 새 지식 습득</p>
+<p><strong>⑤ 메타인지:</strong> “내가 무엇을 모르는지” 인식</p>
+</section>
+<section id="asi와-intelligence-explosion" class="level2" data-number="8.3">
+<h2 data-number="8.3" class="anchored" data-anchor-id="asi와-intelligence-explosion"><span class="header-section-number">8.3</span> ASI와 Intelligence Explosion</h2>
+<p>ASI의 핵심 시나리오는 <strong>재귀적 자기개선(Recursive Self-improvement)</strong> 이다.</p>
+<pre><code>AGI 달성
+    ↓
+AI가 자기 자신을 개선하는 코드 작성
+    ↓
+더 똑똑해진 AI가 또 자기 자신을 개선
+    ↓  (기하급수적 폭발)
+인간의 이해를 완전히 초월한 수준</code></pre>
+<p>지능 향상 속도가 현재 지능에 비례하면:</p>
+<p><span class="math display">\[\frac{dI}{dt} \propto I(t) \implies I(t) = I_0 e^{\alpha t}\]</span></p>
+<p>이를 <strong>Intelligence Singularity</strong> 또는 <strong>기술적 특이점</strong>이라 부른다.</p>
+</section>
+<section id="agi-vs-asi-핵심-비교" class="level2" data-number="8.4">
+<h2 data-number="8.4" class="anchored" data-anchor-id="agi-vs-asi-핵심-비교"><span class="header-section-number">8.4</span> AGI vs ASI 핵심 비교</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>AGI</th>
+<th>ASI</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>기준선</td>
+<td>인간과 동등 (Human-level)</td>
+<td>인간을 압도적으로 초월</td>
+</tr>
+<tr class="even">
+<td>자기개선</td>
+<td>제한적</td>
+<td>재귀적 자기개선 가능</td>
+</tr>
+<tr class="odd">
+<td>현재 상태</td>
+<td>미달성</td>
+<td>순전히 이론적</td>
+</tr>
+<tr class="even">
+<td>핵심 위험</td>
+<td>통제 문제</td>
+<td>존재론적 위험</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>현재 LLM의 위치
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>GPT-5, Claude 등 현재 LLM은 모두 ANI이다. 다만 ANI들 중에서 <strong>가장 넓은 범위의 태스크</strong>를 커버하는 것이다. 2026년 기준, 어떤 시스템도 진정한 AGI를 달성하지 못했다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="딥러닝의-트렌드와-하드웨어" class="level1" data-number="9">
+<h1 data-number="9"><span class="header-section-number">9</span> 딥러닝의 트렌드와 하드웨어</h1>
+<section id="두-가지-핵심-트렌드" class="level2" data-number="9.1">
+<h2 data-number="9.1" class="anchored" data-anchor-id="두-가지-핵심-트렌드"><span class="header-section-number">9.1</span> 두 가지 핵심 트렌드</h2>
+<ol type="1">
+<li><strong>데이터셋이 점점 커지고 있다</strong> (Dataset Scale ↑)</li>
+<li><strong>모델이 점점 커지고 있다</strong> (Model Scale ↑)</li>
+</ol>
+<p>이 트렌드가 GPT-4, Sora, Gen-4 같은 Foundation Model의 등장 배경이며, 여기에는 <strong>GPU 연산 능력</strong>이 필수이다.</p>
+</section>
+<section id="xpu-종류" class="level2" data-number="9.2">
+<h2 data-number="9.2" class="anchored" data-anchor-id="xpu-종류"><span class="header-section-number">9.2</span> xPU 종류</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>종류</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>CPU</td>
+<td>범용 연산</td>
+</tr>
+<tr class="even">
+<td>GPU</td>
+<td>행렬 연산 특화, 딥러닝 학습의 핵심</td>
+</tr>
+<tr class="odd">
+<td>TPU</td>
+<td>Google의 신경망 학습/추론 특화</td>
+</tr>
+<tr class="even">
+<td>NPU</td>
+<td>신경망 추론 특화 (모바일/엣지)</td>
+</tr>
+<tr class="odd">
+<td>LPU</td>
+<td>언어 추론 특화, 빠른 토큰 생성 (Groq)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="핵심-정리" class="level1" data-number="10">
+<h1 data-number="10"><span class="header-section-number">10</span> 핵심 정리</h1>
+<ul>
+<li>딥러닝은 <strong>깊은 신경망을 사용하는 머신러닝 방법론</strong>이다.</li>
+<li>ML의 궁극적 목표는 <strong>Generalization</strong> — 새로운 데이터에 대한 예측 능력이다.</li>
+<li>데이터는 Train / Validation / Test로 분리하며, 각 역할이 엄격히 구분된다.</li>
+<li>하이퍼파라미터 튜닝은 Validation Set을 통해 <strong>자동화 가능</strong>하다.</li>
+<li>Double Descent는 고전 Bias-Variance 이론을 넘어서는 현대적 현상이다.</li>
+<li>현재 AI는 모두 ANI이며, AGI/ASI는 아직 달성되지 않았다.</li>
+</ul>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

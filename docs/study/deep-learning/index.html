@@ -6,9 +6,8 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-03-27">
 
-<title>Divide-and-Conquer with Binary Search – Rokei Notes</title>
+<title>Deep Learning – Rokei Notes</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -34,6 +33,8 @@ ul.task-list li input[type="checkbox"] {
 <script src="../../site_libs/quarto-search/fuse.min.js"></script>
 <script src="../../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-listing/list.min.js"></script>
+<script src="../../site_libs/quarto-listing/quarto-listing.js"></script>
 <script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="../../site_libs/quarto-html/popper.min.js"></script>
@@ -71,6 +72,35 @@ ul.task-list li input[type="checkbox"] {
     "search-label": "Search"
   }
 }</script>
+<script>
+
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    const listingTargetEl = window.document.querySelector('#listing-listing .list');
+    if (!listingTargetEl) {
+      // No listing discovered, do not attach.
+      return; 
+    }
+
+    const options = {
+      valueNames: ['listing-date','listing-title','listing-description',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-title-sort'] }],
+      
+      searchColumns: ["listing-date","listing-title","listing-author"],
+    };
+
+    window['quarto-listings'] = window['quarto-listings'] || {};
+    window['quarto-listings']['listing-listing'] = new List('listing-listing', options);
+
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  });
+
+  window.addEventListener('hashchange',() => {
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  })
+  </script>
 <!-- Privacy-friendly analytics by Plausible -->
 <script async="" src="https://plausible.io/js/pa-q1uQ7QEv5o9DOQFiYigvC.js"></script>
 <script>
@@ -177,79 +207,25 @@ window.Quarto = {
     </nav>
 </header>
 <!-- content -->
-<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-full page-navbar">
 <!-- sidebar -->
 <!-- margin-sidebar -->
-    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        <nav id="TOC" role="doc-toc" class="toc-active">
-    <h2 id="toc-title">On this page</h2>
-   
-  <ul>
-  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview"><span class="header-section-number">1</span> Overview</a></li>
-  <li><a href="#static-searching" id="toc-static-searching" class="nav-link" data-scroll-target="#static-searching"><span class="header-section-number">2</span> Static Searching</a></li>
-  <li><a href="#sequential-search" id="toc-sequential-search" class="nav-link" data-scroll-target="#sequential-search"><span class="header-section-number">3</span> Sequential Search</a>
-  <ul class="collapse">
-  <li><a href="#unsuccessful-search" id="toc-unsuccessful-search" class="nav-link" data-scroll-target="#unsuccessful-search"><span class="header-section-number">3.1</span> Unsuccessful search</a></li>
-  <li><a href="#successful-search" id="toc-successful-search" class="nav-link" data-scroll-target="#successful-search"><span class="header-section-number">3.2</span> Successful search</a></li>
-  </ul></li>
-  <li><a href="#why-binary-search-works" id="toc-why-binary-search-works" class="nav-link" data-scroll-target="#why-binary-search-works"><span class="header-section-number">4</span> Why Binary Search Works</a>
-  <ul class="collapse">
-  <li><a href="#meaning-of-we-have-a-match" id="toc-meaning-of-we-have-a-match" class="nav-link" data-scroll-target="#meaning-of-we-have-a-match"><span class="header-section-number">4.1</span> Meaning of “we have a match”</a></li>
-  </ul></li>
-  <li><a href="#divide-and-conquer-view" id="toc-divide-and-conquer-view" class="nav-link" data-scroll-target="#divide-and-conquer-view"><span class="header-section-number">5</span> Divide-and-Conquer View</a>
-  <ul class="collapse">
-  <li><a href="#divide" id="toc-divide" class="nav-link" data-scroll-target="#divide"><span class="header-section-number">5.1</span> Divide</a></li>
-  <li><a href="#conquer" id="toc-conquer" class="nav-link" data-scroll-target="#conquer"><span class="header-section-number">5.2</span> Conquer</a></li>
-  <li><a href="#combine" id="toc-combine" class="nav-link" data-scroll-target="#combine"><span class="header-section-number">5.3</span> Combine</a></li>
-  </ul></li>
-  <li><a href="#recursive-algorithm" id="toc-recursive-algorithm" class="nav-link" data-scroll-target="#recursive-algorithm"><span class="header-section-number">6</span> Recursive Algorithm</a></li>
-  <li><a href="#correctness-intuition" id="toc-correctness-intuition" class="nav-link" data-scroll-target="#correctness-intuition"><span class="header-section-number">7</span> Correctness Intuition</a>
-  <ul class="collapse">
-  <li><a href="#case-x-amathrmmid" id="toc-case-x-amathrmmid" class="nav-link" data-scroll-target="#case-x-amathrmmid"><span class="header-section-number">7.1</span> Case: <span class="math inline">\(X &lt; A[\mathrm{mid}]\)</span></a></li>
-  <li><a href="#case-x-amathrmmid-1" id="toc-case-x-amathrmmid-1" class="nav-link" data-scroll-target="#case-x-amathrmmid-1"><span class="header-section-number">7.2</span> Case: <span class="math inline">\(X &gt; A[\mathrm{mid}]\)</span></a></li>
-  <li><a href="#case-x-amathrmmid-2" id="toc-case-x-amathrmmid-2" class="nav-link" data-scroll-target="#case-x-amathrmmid-2"><span class="header-section-number">7.3</span> Case: <span class="math inline">\(X = A[\mathrm{mid}]\)</span></a></li>
-  </ul></li>
-  <li><a href="#base-cases" id="toc-base-cases" class="nav-link" data-scroll-target="#base-cases"><span class="header-section-number">8</span> Base Cases</a>
-  <ul class="collapse">
-  <li><a href="#empty-interval" id="toc-empty-interval" class="nav-link" data-scroll-target="#empty-interval"><span class="header-section-number">8.1</span> Empty interval</a></li>
-  <li><a href="#single-element-interval" id="toc-single-element-interval" class="nav-link" data-scroll-target="#single-element-interval"><span class="header-section-number">8.2</span> Single-element interval</a></li>
-  </ul></li>
-  <li><a href="#worst-case-recurrence" id="toc-worst-case-recurrence" class="nav-link" data-scroll-target="#worst-case-recurrence"><span class="header-section-number">9</span> Worst-case Recurrence</a></li>
-  <li><a href="#solving-tn-tn2-1" id="toc-solving-tn-tn2-1" class="nav-link" data-scroll-target="#solving-tn-tn2-1"><span class="header-section-number">10</span> Solving <span class="math inline">\(T(n) = T(n/2) + 1\)</span></a>
-  <ul class="collapse">
-  <li><a href="#intuition-for-the-logarithm" id="toc-intuition-for-the-logarithm" class="nav-link" data-scroll-target="#intuition-for-the-logarithm"><span class="header-section-number">10.1</span> Intuition for the logarithm</a></li>
-  </ul></li>
-  <li><a href="#iterative-version" id="toc-iterative-version" class="nav-link" data-scroll-target="#iterative-version"><span class="header-section-number">11</span> Iterative Version</a></li>
-  <li><a href="#frequently-confused-points" id="toc-frequently-confused-points" class="nav-link" data-scroll-target="#frequently-confused-points"><span class="header-section-number">12</span> Frequently Confused Points</a>
-  <ul class="collapse">
-  <li><a href="#why-must-the-array-be-sorted" id="toc-why-must-the-array-be-sorted" class="nav-link" data-scroll-target="#why-must-the-array-be-sorted"><span class="header-section-number">12.1</span> Why must the array be sorted?</a></li>
-  <li><a href="#what-if-duplicates-exist" id="toc-what-if-duplicates-exist" class="nav-link" data-scroll-target="#what-if-duplicates-exist"><span class="header-section-number">12.2</span> What if duplicates exist?</a></li>
-  <li><a href="#what-does-unsuccessful-search-mean" id="toc-what-does-unsuccessful-search-mean" class="nav-link" data-scroll-target="#what-does-unsuccessful-search-mean"><span class="header-section-number">12.3</span> What does unsuccessful search mean?</a></li>
-  </ul></li>
-  <li><a href="#binary-search-as-a-divide-and-conquer-pattern" id="toc-binary-search-as-a-divide-and-conquer-pattern" class="nav-link" data-scroll-target="#binary-search-as-a-divide-and-conquer-pattern"><span class="header-section-number">13</span> Binary Search as a Divide-and-Conquer Pattern</a></li>
-  <li><a href="#summary" id="toc-summary" class="nav-link" data-scroll-target="#summary"><span class="header-section-number">14</span> Summary</a></li>
-  </ul>
-</nav>
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+        
     </div>
 <!-- main -->
-<main class="content" id="quarto-document-content">
+<main class="content column-page" id="quarto-document-content">
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Divide-and-Conquer with Binary Search</h1>
+<h1 class="title">Deep Learning</h1>
 </div>
 
 
 
-<div class="quarto-title-meta">
+<div class="quarto-title-meta column-page">
 
     
-    <div>
-    <div class="quarto-title-meta-heading">Published</div>
-    <div class="quarto-title-meta-contents">
-      <p class="date">March 27, 2026</p>
-    </div>
-  </div>
   
     
   </div>
@@ -259,265 +235,48 @@ window.Quarto = {
 </header>
 
 
-<section id="overview" class="level1" data-number="1">
-<h1 data-number="1"><span class="header-section-number">1</span> Overview</h1>
-<p>이 노트는 divide-and-conquer의 대표 예시인 <strong>Binary Search</strong>를 정리한 것이다.<br>
-핵심은 정렬된 배열에서는 가운데 원소 하나만 비교해도 탐색 범위를 절반으로 줄일 수 있다는 점이다.</p>
-<p>이 구조 때문에 binary search의 recurrence는</p>
-<p><span class="math display">\[
-T(n) = T(n/2) + 1
-\]</span></p>
-<p>이 되고, 시간 복잡도는 <span class="math inline">\(\Theta(\log n)\)</span>이 된다.</p>
-</section>
-<section id="static-searching" class="level1" data-number="2">
-<h1 data-number="2"><span class="header-section-number">2</span> Static Searching</h1>
-<p>문제는 다음과 같다.</p>
-<ul>
-<li>정수 <span class="math inline">\(X\)</span>와 배열 <span class="math inline">\(A\)</span>가 주어졌을 때</li>
-<li><span class="math inline">\(X\)</span>가 배열 안에 있으면 그 위치를 반환하고</li>
-<li>없으면 <code>NOT_FOUND</code>를 반환한다.</li>
-</ul>
-<p>여기서 자주 나오는 문장이 다음이다.</p>
-<blockquote class="blockquote">
-<p>If <span class="math inline">\(X\)</span> occurs more than once, return any occurrence.</p>
-</blockquote>
-<p>이 말은 배열 안에 <span class="math inline">\(X\)</span>가 여러 번 있어도</p>
-<ul>
-<li>첫 번째 occurrence를 꼭 찾을 필요도 없고</li>
-<li>마지막 occurrence를 꼭 찾을 필요도 없고</li>
-<li>아무 위치 하나만 찾아도 정답</li>
-</ul>
-<p>이라는 뜻이다.</p>
-<p>즉 문제 specification이 느슨하기 때문에, binary search가 어떤 matching index를 반환해도 correct하다.</p>
-</section>
-<section id="sequential-search" class="level1" data-number="3">
-<h1 data-number="3"><span class="header-section-number">3</span> Sequential Search</h1>
-<p>배열이 정렬되어 있지 않으면 보통 앞에서부터 차례대로 찾는다.</p>
-<section id="unsuccessful-search" class="level2" data-number="3.1">
-<h2 data-number="3.1" class="anchored" data-anchor-id="unsuccessful-search"><span class="header-section-number">3.1</span> Unsuccessful search</h2>
-<p><strong>unsuccessful search</strong>는 찾는 값 <span class="math inline">\(X\)</span>가 배열에 없는 경우를 뜻한다.<br>
-이 경우에는 끝까지 다 확인해야 하므로 최악 시간은 <span class="math inline">\(O(n)\)</span>이다.</p>
-</section>
-<section id="successful-search" class="level2" data-number="3.2">
-<h2 data-number="3.2" class="anchored" data-anchor-id="successful-search"><span class="header-section-number">3.2</span> Successful search</h2>
-<p>값이 실제로 배열 안에 있는 경우다.</p>
-<ul>
-<li>worst case: 맨 끝에서 찾아서 <span class="math inline">\(O(n)\)</span></li>
-<li>average case: 평균적으로 절반 정도를 보게 되므로 여전히 <span class="math inline">\(\Theta(n)\)</span></li>
-</ul>
-<p>즉 sequential search는 정렬 여부를 활용하지 못하므로 선형 시간이다.</p>
-</section>
-</section>
-<section id="why-binary-search-works" class="level1" data-number="4">
-<h1 data-number="4"><span class="header-section-number">4</span> Why Binary Search Works</h1>
-<p>배열이 <strong>sorted</strong> 되어 있으면 가운데 원소 하나를 보고 나머지 절반을 버릴 수 있다.</p>
-<p>case distinction은 다음과 같다.</p>
-<ul>
-<li><span class="math inline">\(X &lt; A[\mathrm{mid}]\)</span>: 왼쪽 절반만 보면 된다.</li>
-<li><span class="math inline">\(X &gt; A[\mathrm{mid}]\)</span>: 오른쪽 절반만 보면 된다.</li>
-<li><span class="math inline">\(X = A[\mathrm{mid}]\)</span>: <strong>we have a match</strong>이다.</li>
-</ul>
-<section id="meaning-of-we-have-a-match" class="level2" data-number="4.1">
-<h2 data-number="4.1" class="anchored" data-anchor-id="meaning-of-we-have-a-match"><span class="header-section-number">4.1</span> Meaning of “we have a match”</h2>
-<p>이 표현은 아주 단순하게,</p>
-<blockquote class="blockquote">
-<p>찾는 값 <span class="math inline">\(X\)</span>와 가운데 원소가 같으므로 정답을 찾았다</p>
-</blockquote>
-<p>라는 뜻이다.</p>
-<p>즉 추가 탐색 없이 바로 그 index를 반환하면 된다.</p>
-</section>
-</section>
-<section id="divide-and-conquer-view" class="level1" data-number="5">
-<h1 data-number="5"><span class="header-section-number">5</span> Divide-and-Conquer View</h1>
-<p>Binary Search는 divide-and-conquer의 전형적인 구조를 가진다.</p>
-<section id="divide" class="level2" data-number="5.1">
-<h2 data-number="5.1" class="anchored" data-anchor-id="divide"><span class="header-section-number">5.1</span> Divide</h2>
-<p>가운데 index <span class="math inline">\(\mathrm{mid}\)</span>를 계산해 배열을 둘로 나눈다.</p>
-</section>
-<section id="conquer" class="level2" data-number="5.2">
-<h2 data-number="5.2" class="anchored" data-anchor-id="conquer"><span class="header-section-number">5.2</span> Conquer</h2>
-<p>둘 다 푸는 것이 아니라, 비교 결과에 따라 <strong>한쪽 절반만</strong> 재귀적으로 탐색한다.</p>
-</section>
-<section id="combine" class="level2" data-number="5.3">
-<h2 data-number="5.3" class="anchored" data-anchor-id="combine"><span class="header-section-number">5.3</span> Combine</h2>
-<p>combine은 거의 필요 없다.<br>
-재귀 호출이 돌려준 결과를 그대로 반환하면 된다.</p>
-<p>이 점이 merge sort와 다르다.<br>
-merge sort는 두 하위 문제를 모두 풀고 다시 합쳐야 하지만, binary search는 한쪽만 가면 된다.</p>
-</section>
-</section>
-<section id="recursive-algorithm" class="level1" data-number="6">
-<h1 data-number="6"><span class="header-section-number">6</span> Recursive Algorithm</h1>
-<pre class="text"><code>BINARY-SEARCH(A, low, high, X)
-if low &gt; high
-    return NOT_FOUND
-if low == high
-    if A[low] == X
-        return low
-    else
-        return NOT_FOUND
-else
-    mid = floor((low + high) / 2)
-    if A[mid] == X
-        return mid
-    if A[mid] &gt; X
-        return BINARY-SEARCH(A, low, mid - 1, X)
-    else
-        return BINARY-SEARCH(A, mid + 1, high, X)</code></pre>
-</section>
-<section id="correctness-intuition" class="level1" data-number="7">
-<h1 data-number="7"><span class="header-section-number">7</span> Correctness Intuition</h1>
-<p>Binary search가 맞는 이유는 <strong>정렬성</strong> 때문이다.</p>
-<section id="case-x-amathrmmid" class="level2" data-number="7.1">
-<h2 data-number="7.1" class="anchored" data-anchor-id="case-x-amathrmmid"><span class="header-section-number">7.1</span> Case: <span class="math inline">\(X &lt; A[\mathrm{mid}]\)</span></h2>
-<p>배열이 오름차순이면 mid의 오른쪽 원소들은 모두 <span class="math inline">\(A[\mathrm{mid}]\)</span> 이상이다.<br>
-따라서 <span class="math inline">\(X\)</span>는 오른쪽 절반에 있을 수 없다.<br>
-왼쪽만 보면 충분하다.</p>
-</section>
-<section id="case-x-amathrmmid-1" class="level2" data-number="7.2">
-<h2 data-number="7.2" class="anchored" data-anchor-id="case-x-amathrmmid-1"><span class="header-section-number">7.2</span> Case: <span class="math inline">\(X &gt; A[\mathrm{mid}]\)</span></h2>
-<p>같은 논리로, 왼쪽 절반의 원소들은 모두 <span class="math inline">\(A[\mathrm{mid}]\)</span> 이하이므로 <span class="math inline">\(X\)</span>는 왼쪽에 있을 수 없다.<br>
-오른쪽만 보면 된다.</p>
-</section>
-<section id="case-x-amathrmmid-2" class="level2" data-number="7.3">
-<h2 data-number="7.3" class="anchored" data-anchor-id="case-x-amathrmmid-2"><span class="header-section-number">7.3</span> Case: <span class="math inline">\(X = A[\mathrm{mid}]\)</span></h2>
-<p>그 순간 바로 정답이다.</p>
-</section>
-</section>
-<section id="base-cases" class="level1" data-number="8">
-<h1 data-number="8"><span class="header-section-number">8</span> Base Cases</h1>
-<p>binary search의 base case는 두 가지로 볼 수 있다.</p>
-<section id="empty-interval" class="level2" data-number="8.1">
-<h2 data-number="8.1" class="anchored" data-anchor-id="empty-interval"><span class="header-section-number">8.1</span> Empty interval</h2>
-<p><span class="math display">\[
-\mathrm{low} &gt; \mathrm{high}
-\]</span></p>
-<p>이면 탐색할 원소가 하나도 없으므로 <code>NOT_FOUND</code>를 반환한다.</p>
-</section>
-<section id="single-element-interval" class="level2" data-number="8.2">
-<h2 data-number="8.2" class="anchored" data-anchor-id="single-element-interval"><span class="header-section-number">8.2</span> Single-element interval</h2>
-<p><span class="math display">\[
-\mathrm{low} = \mathrm{high}
-\]</span></p>
-<p>이면 그 원소 하나만 <span class="math inline">\(X\)</span>와 비교하면 된다.</p>
-</section>
-</section>
-<section id="worst-case-recurrence" class="level1" data-number="9">
-<h1 data-number="9"><span class="header-section-number">9</span> Worst-case Recurrence</h1>
-<p>각 단계에서 하는 일은 다음 정도뿐이다.</p>
-<ul>
-<li>mid 계산</li>
-<li><span class="math inline">\(A[\mathrm{mid}]\)</span>와 <span class="math inline">\(X\)</span> 비교</li>
-<li>한쪽 절반으로 recursive call</li>
-</ul>
-<p>따라서 worst-case recurrence는</p>
-<p><span class="math display">\[
-T(1) = 1, \qquad T(n) = T(n/2) + 1
-\]</span></p>
-<p>로 볼 수 있다.</p>
-</section>
-<section id="solving-tn-tn2-1" class="level1" data-number="10">
-<h1 data-number="10"><span class="header-section-number">10</span> Solving <span class="math inline">\(T(n) = T(n/2) + 1\)</span></h1>
-<p><span class="math inline">\(n = 2^k\)</span>라고 두고 recurrence를 반복 전개해 보자.</p>
-<p><span class="math display">\[
-T(n) = T(n/2) + 1
-\]</span></p>
-<p><span class="math display">\[
-= T(n/2^2) + 2
-\]</span></p>
-<p><span class="math display">\[
-= T(n/2^3) + 3
-\]</span></p>
-<p><span class="math display">\[
-\vdots
-\]</span></p>
-<p><span class="math display">\[
-= T(n/2^k) + k
-\]</span></p>
-<p>재귀가 끝나는 시점은</p>
-<p><span class="math display">\[
-\frac{n}{2^k} = 1
-\]</span></p>
-<p>일 때이므로,</p>
-<p><span class="math display">\[
-n = 2^k \quad \Rightarrow \quad k = \lg n
-\]</span></p>
-<p>이다. 따라서</p>
-<p><span class="math display">\[
-T(n) = \Theta(\lg n)
-\]</span></p>
-<p>이다.</p>
-<section id="intuition-for-the-logarithm" class="level2" data-number="10.1">
-<h2 data-number="10.1" class="anchored" data-anchor-id="intuition-for-the-logarithm"><span class="header-section-number">10.1</span> Intuition for the logarithm</h2>
-<p>매 단계마다 탐색 범위가 절반이 되기 때문이다.</p>
-<ul>
-<li>처음 <span class="math inline">\(n\)</span></li>
-<li>다음 <span class="math inline">\(n/2\)</span></li>
-<li>다음 <span class="math inline">\(n/4\)</span></li>
-<li>다음 <span class="math inline">\(n/8\)</span></li>
-</ul>
-<p>이렇게 줄어들다가 크기 <span class="math inline">\(1\)</span>이 되는 데 필요한 단계 수가 <span class="math inline">\(\log_2 n\)</span>이다.</p>
-</section>
-</section>
-<section id="iterative-version" class="level1" data-number="11">
-<h1 data-number="11"><span class="header-section-number">11</span> Iterative Version</h1>
-<p>실제로는 iterative version도 많이 쓴다.</p>
-<pre class="text"><code>BINARY-SEARCH-ITER(A, X)
-low = 1
-high = n
-while low &lt;= high
-    mid = floor((low + high) / 2)
-    if A[mid] == X
-        return mid
-    else if A[mid] &gt; X
-        high = mid - 1
-    else
-        low = mid + 1
-return NOT_FOUND</code></pre>
-<p>시간 복잡도는 동일하게 <span class="math inline">\(\Theta(\log n)\)</span>이다.</p>
-</section>
-<section id="frequently-confused-points" class="level1" data-number="12">
-<h1 data-number="12"><span class="header-section-number">12</span> Frequently Confused Points</h1>
-<section id="why-must-the-array-be-sorted" class="level2" data-number="12.1">
-<h2 data-number="12.1" class="anchored" data-anchor-id="why-must-the-array-be-sorted"><span class="header-section-number">12.1</span> Why must the array be sorted?</h2>
-<p>정렬되어 있지 않으면 <span class="math inline">\(A[\mathrm{mid}]\)</span>를 보고 왼쪽이나 오른쪽 어느 쪽을 버려도 되는지 판단할 근거가 없다.<br>
-즉 binary search의 핵심은 단순한 comparison이 아니라 <strong>comparison + sorted order</strong>다.</p>
-</section>
-<section id="what-if-duplicates-exist" class="level2" data-number="12.2">
-<h2 data-number="12.2" class="anchored" data-anchor-id="what-if-duplicates-exist"><span class="header-section-number">12.2</span> What if duplicates exist?</h2>
-<p>문제에서 “return any occurrence”라고 했으므로, 아무 index나 반환해도 된다.<br>
-만약 “첫 번째 occurrence를 찾아라” 같은 문제라면 알고리즘을 약간 수정해야 한다.</p>
-</section>
-<section id="what-does-unsuccessful-search-mean" class="level2" data-number="12.3">
-<h2 data-number="12.3" class="anchored" data-anchor-id="what-does-unsuccessful-search-mean"><span class="header-section-number">12.3</span> What does unsuccessful search mean?</h2>
-<p>이건 실패한 알고리즘이라는 뜻이 아니라, <strong>탐색 대상이 실제로 배열에 존재하지 않는 search instance</strong>를 뜻한다.</p>
-</section>
-</section>
-<section id="binary-search-as-a-divide-and-conquer-pattern" class="level1" data-number="13">
-<h1 data-number="13"><span class="header-section-number">13</span> Binary Search as a Divide-and-Conquer Pattern</h1>
-<p>Binary search는 divide-and-conquer를 가장 간단하게 보여 주는 예시다.</p>
-<ul>
-<li>문제를 둘로 나눈다.</li>
-<li>하지만 두 문제를 모두 풀지 않고 한쪽만 푼다.</li>
-<li>combine cost는 사실상 없다.</li>
-<li>그래서 recurrence가 <span class="math inline">\(2T(n/2)+f(n)\)</span>가 아니라 <span class="math inline">\(T(n/2)+f(n)\)</span>이 된다.</li>
-</ul>
-<p>이 구조 때문에 merge sort의 <span class="math inline">\(\Theta(n\log n)\)</span>보다 더 빠른 <span class="math inline">\(\Theta(\log n)\)</span>이 나온다.</p>
-</section>
-<section id="summary" class="level1" data-number="14">
-<h1 data-number="14"><span class="header-section-number">14</span> Summary</h1>
-<p>이 topic의 핵심은 다음과 같다.</p>
-<ul>
-<li>정렬되지 않은 배열에서는 sequential search가 <span class="math inline">\(O(n)\)</span>이다.</li>
-<li>정렬된 배열에서는 가운데 비교만으로 절반을 버릴 수 있다.</li>
-<li>binary search의 recurrence는 <span class="math inline">\(T(n) = T(n/2) + 1\)</span>이다.</li>
-<li>따라서 시간 복잡도는 <span class="math inline">\(\Theta(\log n)\)</span>이다.</li>
-</ul>
 
 
-</section>
 
-</main> <!-- /main -->
+
+<div class="quarto-listing quarto-listing-container-table" id="listing-listing">
+<table class="quarto-listing-table table">
+<thead>
+<tr>
+
+<th>
+Date
+</th>
+
+<th>
+Title
+</th>
+
+<th>
+Description
+</th>
+
+</tr>
+</thead>
+<tbody class="list">
+
+<tr data-index="0" data-categories="ZGVlcC1sZWFybmluZyUyQ21hY2hpbmUtbGVhcm5pbmc=" data-listing-date-sort="1775228400000" data-listing-file-modified-sort="1775246965192" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="13" data-listing-word-count-sort="2519" data-listing-title-sort="Introduction to DL">
+<td>
+<span class="listing-date">Apr 4, 2026</span>
+</td>
+<td>
+<a href="../../study/deep-learning/introduction.html" class="title listing-title">Introduction to DL</a>
+</td>
+<td>
+<span class="listing-description">Train/Validation/Test 분할, Generalization, ML vs DL, Double Descent, AGI/ASI, Embedding/Manifold/Latent Space/Epoch를…</span>
+</td>
+
+</tr>
+
+</tbody>
+</table>
+<div class="listing-no-matching d-none">No matching items</div>
+</div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
     const icon = "";
