@@ -1,0 +1,314 @@
+---
+title: "수 색칠하기"
+subtitle: "3-Color DP + 열거를 활용한 최적 풀이 분석"
+author: "PS 풀이 정리"
+date: 2025-04-05
+format:
+  html:
+    code-fold: false
+    code-tools: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    highlight-style: github
+    theme: cosmo
+---
+
+## 문제 정의
+
+### 문제 설명
+
+$N$개의 수 $A_1, A_2, \ldots, A_N$이 일렬로 놓여 있다.
+각 수에 색을 칠하되, 특정 색 $c$로 칠해진 수들 $A_{i_1}, A_{i_2}, \ldots, A_{i_k}$의 비용은
+$\max(A_{i_1}, A_{i_2}, \ldots, A_{i_k})$이다.
+
+모든 색에 대한 비용의 총합이 전체 비용이다.
+
+**제약 조건:** 인접한 두 수 $A_{i-1}$과 $A_i$는 같은 색으로 칠할 수 없다.
+
+**목표:** 전체 비용의 최솟값을 구하라.
+
+### 입력 제약
+
+- $1 \le N \le 1000$
+- $1 \le A_i \le 10^6$
+
+### 예제
+
+| 입력 | 정답 | 설명 |
+|---|---|---|
+| `[1, 2, 1, 2]` | 3 | Even $\{1,1\}$→1, Odd $\{2,2\}$→2 |
+| `[1, 6, 1, 1, 6]` | 8 | $\{6,6\}$→6, $\{1,1\}$→1, $\{1\}$→1 |
+| `[5, 4, 3, 2, 1]` | 9 | $\{5,3,1\}$→5, $\{4,2\}$→4 |
+
+## 핵심 관찰
+
+### 문제의 그래프 해석
+
+인접한 수가 같은 색이 될 수 없으므로, 위치를 정점, 인접 관계를 간선으로 보면 **경로 그래프(path graph)**의 **proper coloring** 문제가 된다.
+
+```
+pos:  0 ── 1 ── 2 ── 3 ── 4 ── ...
+```
+
+### 3색이면 충분한 이유 {#sec-3color}
+
+경로 그래프의 **최대 차수(max degree)** = 2이다.
+어떤 정점 $i$를 칠할 때, 이웃은 최대 $i-1$과 $i+1$ 두 개뿐이므로
+이웃이 2가지 색을 사용하더라도 **3번째 색은 항상 사용 가능**하다.
+
+따라서:
+
+- **3색 → 항상 유효한 배정이 존재**
+- **4색 이상 → 그룹 수만 늘어나 max 비용 추가, 이득 없음**
+
+::: {.callout-important}
+## 3색 충분성 정리
+경로 그래프에서 max degree = $\Delta$이면, $\Delta + 1$색으로 항상 proper coloring이 가능하다.
+이 문제에서는 $\Delta = 2$이므로 **3색이면 최적해에 충분**하다.
+:::
+
+### 2색으로는 부족한 이유
+
+2색이면 경로 그래프가 bipartite이므로 **even/odd 파티션으로 강제**된다.
+
+`[1, 6, 1, 1, 6]`에서:
+
+| 방법 | 그룹 구성 | 비용 |
+|---|---|---|
+| **2색** (강제) | Even $\{1,1,6\}$→6, Odd $\{6,1\}$→6 | **12** |
+| **3색** (자유) | $\{6,6\}$→6, $\{1,1\}$→1, $\{1\}$→1 | **8** |
+
+3색의 자유도 덕분에 **큰 값들을 한 그룹에 몰아넣어 max를 한 번만 지불**할 수 있다.
+
+## 알고리즘: 3-Color DP + 열거
+
+### 비용 분해
+
+전역 최댓값 $mx = \max(A_1, \ldots, A_N)$은 어떤 그룹에 넣든 반드시 비용으로 지불해야 한다.
+따라서 이를 **고정 비용**으로 분리하고, 나머지 2개 그룹의 비용만 최소화한다.
+
+$$
+\text{총 비용} = \underbrace{mx}_{\text{고정}} + \underbrace{A_k}_{\text{열거}} + \underbrace{D_{\min}}_{\text{DP}}
+$$
+
+### 3개 그룹의 역할
+
+| 그룹 | enum | 비용 | 역할 |
+|---|---|---|---|
+| mx 그룹 | `MAX_GRP` | $mx$ (고정) | 전역 최댓값을 포함하는 그룹 |
+| cap 그룹 | `CAP` | $A_k$ (열거) | 값 $\le A_k$인 원소만 수용 |
+| rest 그룹 | `RESIDUAL` | $D_{\min}$ (DP) | 나머지, max를 DP로 추적 |
+
+### cap 상한 열거의 완전성
+
+최적해에서 cap 그룹의 비용 = 그룹 내 최댓값 = **배열의 어떤 원소값 $A_k$**.
+따라서 $A_0, A_1, \ldots, A_{n-1}$을 모두 시도하면 최적해를 반드시 포함한다.
+
+$A_n = 0$으로 설정하면 어떤 원소도 cap에 넣을 수 없으므로,
+**2-coloring(mx + rest만 사용)** 케이스도 자동으로 탐색된다.
+
+### DP 상태 정의
+
+$$
+D[j][g] = \text{``}j\text{번째 원소를 그룹 }g\text{에 배정했을 때, RESIDUAL 그룹의 최소 가능한 max값''}
+$$
+
+여기서 $g \in \{\texttt{MAX\_GRP},\; \texttt{CAP},\; \texttt{RESIDUAL}\}$.
+
+### DP 전이
+
+인접한 두 원소는 다른 그룹이어야 하므로:
+
+$$
+\begin{aligned}
+D[j][\texttt{MAX\_GRP}] &= \min\bigl(D[j-1][\texttt{CAP}],\; D[j-1][\texttt{RESIDUAL}]\bigr) \\[6pt]
+D[j][\texttt{CAP}] &= \begin{cases}
+\min\bigl(D[j-1][\texttt{MAX\_GRP}],\; D[j-1][\texttt{RESIDUAL}]\bigr) & \text{if } A_j \le A_k \\
+\infty & \text{otherwise}
+\end{cases} \\[6pt]
+D[j][\texttt{RESIDUAL}] &= \max\Bigl(\min\bigl(D[j-1][\texttt{MAX\_GRP}],\; D[j-1][\texttt{CAP}]\bigr),\; A_j\Bigr)
+\end{aligned}
+$$
+
+**전이의 의미:**
+
+- **MAX_GRP으로:** 이전이 CAP 또는 RESIDUAL이어야 함. mx 그룹은 비용이 이미 고정이므로 rest max 변동 없음.
+- **CAP으로:** 이전이 MAX_GRP 또는 RESIDUAL이어야 함. $A_j > A_k$이면 cap 상한 초과로 불가능.
+- **RESIDUAL로:** 이전이 MAX_GRP 또는 CAP이어야 함. rest 그룹의 max가 $A_j$를 포함하도록 갱신.
+
+### 최종 답
+
+모든 원소를 처리한 후:
+
+$$
+ans = \min_{k=0}^{n}\Bigl(mx + A_k + \min_{g}\bigl(D[n-1][g]\bigr)\Bigr)
+$$
+
+## 시뮬레이션: `[10, 9, 1, 1]`
+
+$mx = 10$, $k = 1$ ($\text{cap\_val} = 9$)일 때:
+
+### DP 초기화 ($j = 0$, $A_0 = 10$)
+
+| 그룹 | 계산 | 값 | 이유 |
+|---|---|---|---|
+| `MAX_GRP` | — | 0 | mx 그룹에 넣으면 rest max 불변 |
+| `CAP` | $10 > 9$? | $\infty$ | cap 상한 초과! |
+| `RESIDUAL` | $\max(0, 10)$ | 10 | rest에 넣으면 rest max = 10 |
+
+### DP 전이 ($j = 1$, $A_1 = 9$)
+
+| 그룹 | 계산 | 값 |
+|---|---|---|
+| `MAX_GRP` | $\min(\infty, 10) = 10$ | 10 |
+| `CAP` | $9 \le 9$ → $\min(0, 10) = 0$ | 0 |
+| `RESIDUAL` | $\max(\min(0, \infty), 9) = 9$ | 9 |
+
+### DP 전이 ($j = 2$, $A_2 = 1$)
+
+| 그룹 | 계산 | 값 |
+|---|---|---|
+| `MAX_GRP` | $\min(0, 9) = 0$ | 0 |
+| `CAP` | $1 \le 9$ → $\min(10, 9) = 9$ | 9 |
+| `RESIDUAL` | $\max(\min(10, 0), 1) = 1$ | 1 |
+
+### DP 전이 ($j = 3$, $A_3 = 1$)
+
+| 그룹 | 계산 | 값 |
+|---|---|---|
+| `MAX_GRP` | $\min(9, 1) = 1$ | 1 |
+| `CAP` | $1 \le 9$ → $\min(0, 1) = 0$ | 0 |
+| `RESIDUAL` | $\max(\min(0, 9), 1) = 1$ | 1 |
+
+### 최종
+
+$$
+\text{비용} = mx + A_k + \min(D[3]) = 10 + 9 + \min(1, 0, 1) = \mathbf{19}
+$$
+
+최적 배정: `pos 0,2` → MAX_GRP, `pos 1,3` → CAP, RESIDUAL 비어있음.
+
+## 복잡도 분석
+
+| 항목 | 값 |
+|---|---|
+| $k$ 열거 | $O(N)$가지 |
+| 각 $k$마다 DP | $O(N)$ |
+| **총 시간** | $O(N^2)$ |
+| **공간** | $O(N)$ (1차원 배열로 압축 가능) |
+
+$N \le 1000$이므로 $10^6$ 연산, 충분히 빠르다.
+
+## AC 코드
+
+```{.cpp filename="solution.cpp"}
+#include <stdio.h>
+
+using eGroup = enum {
+    MAX_GRP = 0,
+    CAP,
+    RESIDUAL,
+    MAX_VAL,
+};
+
+template <typename T>
+auto _MIN(T a, T b)
+{
+    return (a < b) ? a : b;
+}
+
+template <typename T>
+auto _MAX(T a, T b)
+{
+    return (a > b) ? a : b;
+}
+
+int main(void)
+{
+    int t;
+    scanf("%d", &t);
+    for(int tc = 1; tc <= t; ++tc)
+    {
+        int n;
+        int a[1'001];
+        int max_v = -1;
+        scanf("%d", &n);
+
+        for(int i = 0; i < n; ++i)
+        {
+            scanf("%d", &a[i]);
+            max_v = _MAX(max_v, a[i]);
+        }
+        a[n] = 0;
+
+        int ans = 987654321;
+        int cap_val = -1;
+        int D[1'001][MAX_VAL] = {0, 0, 0};
+        for(int i = 0; i <= n; ++i)
+        {
+            cap_val = a[i];
+
+            D[0][MAX_GRP] = 0;
+            if(a[0] <= cap_val)
+            {
+                D[0][CAP] = 0;
+            }
+            else
+            {
+                D[0][CAP] = 987654321;
+            }
+            D[0][RESIDUAL] = a[0];
+            for(int j = 1; j < n; ++j)
+            {
+                D[j][MAX_GRP] = _MIN(D[j - 1][CAP], D[j - 1][RESIDUAL]);
+                if(a[j] <= cap_val)
+                {
+                    D[j][CAP] = _MIN(D[j - 1][MAX_GRP], D[j - 1][RESIDUAL]);
+                }
+                else
+                {
+                    D[j][CAP] = 987654321;
+                }
+                D[j][RESIDUAL] = _MIN(D[j - 1][MAX_GRP], D[j - 1][CAP]);
+                D[j][RESIDUAL] = _MAX(D[j][RESIDUAL], a[j]);
+            }
+
+            ans = _MIN(ans, max_v + cap_val + D[n - 1][MAX_GRP]);
+            ans = _MIN(ans, max_v + cap_val + D[n - 1][CAP]);
+            ans = _MIN(ans, max_v + cap_val + D[n - 1][RESIDUAL]);
+        }
+
+        printf("#%d %d\n", tc, ans);
+    }
+}
+```
+
+## 틀린 접근과 교훈
+
+### ChatGPT 풀이 (인접 쌍 매칭 DP) — 오답
+
+인접 쌍을 매칭하여 $\min(A_{i-1}, A_i)$만큼 절약하는 모델.
+
+**실패 원인:** 그룹에 3개 이상 원소가 들어가는 경우를 고려하지 못함.
+예제 `[1,2,1,2]`에서 ChatGPT=4, 정답=3.
+
+### Greedy (내림차순 배정) — 오답
+
+값이 큰 원소부터 처리하여 기존 그룹에 넣을 수 있으면 넣고, 아니면 새 그룹 생성.
+
+**실패 원인:** 지역적 결정이 전역적 bipartite 구조를 무시.
+예제 `[10,9,1,1]`에서 Greedy=20, 정답=19.
+
+::: {.callout-tip}
+## PS 교훈
+
+1. **Greedy는 정당성 증명(exchange argument) 없이 제출하지 말 것.**
+   이 문제에서 교환논증이 실제로 성립하지 않았다.
+2. **그래프 색칠 문제에서 "몇 색이 최적인가"를 먼저 분석할 것.**
+   max degree = $\Delta$ → $\Delta + 1$색이면 항상 충분.
+3. **DP 상태를 "마지막 배정 그룹"으로 잡는 테크닉을 기억할 것.**
+   색칠/파티션 문제에서 매우 강력한 패턴이다.
+4. **항상 stress test로 검증할 것.**
+   예제만 맞고 랜덤에서 틀리는 건 가장 위험한 상황이다.
+:::
