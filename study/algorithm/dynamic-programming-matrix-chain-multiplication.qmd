@@ -1,0 +1,450 @@
+---
+title: "DP: Matrix Chain Multiplication"
+description: "Optimal parenthesization, dynamic programming recurrence, overlapping subproblems, and time complexity analysis."
+date: 2026-04-01
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: false
+    theme: cosmo
+---
+
+## 문제 설정
+
+행렬 연쇄 곱셈(matrix chain multiplication) 문제는 다음과 같다.
+
+행렬 체인
+
+$$
+A_1 A_2 \cdots A_n
+$$
+
+이 주어져 있고, 각 행렬의 크기는 다음과 같이 주어진다.
+
+$$
+A_i \in \mathbb{R}^{p_{i-1} \times p_i}
+$$
+
+목표는 전체 곱
+
+$$
+A_1A_2\cdots A_n
+$$
+
+의 **곱셈 순서(괄호 묶기)** 를 정해서, 전체 scalar multiplication 횟수를 최소화하는 것이다.
+
+핵심은 다음 두 문장을 구분하는 데 있다.
+
+- **최종 결과 행렬**은 결합법칙 때문에 괄호를 어떻게 치더라도 같다.
+- **계산 비용**은 괄호를 어디에 치느냐에 따라 크게 달라질 수 있다.
+
+예를 들어, 세 행렬의 크기가 다음과 같다고 하자.
+
+$$
+A_1 \in \mathbb{R}^{10 \times 100}, \qquad
+A_2 \in \mathbb{R}^{100 \times 5}, \qquad
+A_3 \in \mathbb{R}^{5 \times 50}
+$$
+
+이때
+
+$$
+((A_1A_2)A_3)
+$$
+
+의 계산 비용은
+
+$$
+10 \cdot 100 \cdot 5 + 10 \cdot 5 \cdot 50
+= 5000 + 2500
+= 7500
+$$
+
+이고,
+
+$$
+(A_1(A_2A_3))
+$$
+
+의 계산 비용은
+
+$$
+100 \cdot 5 \cdot 50 + 10 \cdot 100 \cdot 50
+= 25000 + 50000
+= 75000
+$$
+
+이다.
+
+즉, **같은 행렬곱이라도 계산 순서에 따라 비용이 매우 크게 달라질 수 있다.**
+
+## Fully Parenthesized Product
+
+행렬곱이 **fully parenthesized** 되었다는 것은 다음 둘 중 하나라는 뜻이다.
+
+1. 행렬 하나만 있는 경우
+2. 두 개의 fully parenthesized 된 부분곱을 다시 괄호로 묶어 곱한 경우
+
+예를 들어
+
+$$
+A_1A_2A_3A_4
+$$
+
+는 fully parenthesized 되어 있지 않지만,
+
+$$
+(A_1(A_2(A_3A_4))), \qquad
+((A_1A_2)(A_3A_4)), \qquad
+(((A_1A_2)A_3)A_4)
+$$
+
+는 fully parenthesized expression이다.
+
+행렬이 4개일 때 가능한 괄호 묶기 수는 총 5가지이며, 일반적으로 행렬이 $n$개일 때 가능한 괄호 묶기 수는 Catalan number $C_{n-1}$와 연결된다.
+
+## Search Space가 큰 이유
+
+가능한 괄호 묶기 수를 $P(n)$이라 하면,
+
+$$
+P(1)=1
+$$
+
+이고,
+
+$$
+P(n)=\sum_{k=1}^{n-1} P(k)P(n-k) \qquad (n \ge 2)
+$$
+
+를 만족한다.
+
+이 recurrence의 해는 Catalan number와 같아서 대략
+
+$$
+P(n)=\Omega\!\left(\frac{4^n}{n^{3/2}}\right)
+$$
+
+수준으로 증가한다.
+
+즉, 가능한 모든 parenthesization을 전부 시도하는 brute force 방식은 사실상 지수적 탐색이 된다. 이처럼 search space가 매우 빠르게 커지기 때문에, 이 문제는 동적 계획법으로 다루는 것이 자연스럽다.
+
+## 왜 이 문제가 DP 문제인가
+
+이 문제가 전형적인 dynamic programming 문제로 분류되는 이유는 크게 두 가지다.
+
+### Optimal Substructure
+
+부분문제의 최적해가 전체 최적해 안에 포함된다.
+
+$A_iA_{i+1}\cdots A_j$를 최적으로 괄호 묶었더니 마지막 split이 $k$에서 일어났다고 하자. 그러면 전체 구조는
+
+$$
+(A_i\cdots A_k)(A_{k+1}\cdots A_j)
+$$
+
+꼴이다.
+
+이때 왼쪽 부분체인 $A_i\cdots A_k$를 계산하는 방식이 최적이 아니라고 가정하면, 그 부분만 더 싼 방식으로 바꿔 끼워 전체 비용을 더 줄일 수 있다. 이는 원래 전체해가 최적이었다는 가정과 모순이다. 오른쪽 부분체인에 대해서도 같은 논리가 성립한다.
+
+즉,
+
+- 전체 최적해의 왼쪽 부분은 왼쪽 부분문제의 최적해다.
+- 전체 최적해의 오른쪽 부분은 오른쪽 부분문제의 최적해다.
+
+따라서 **optimal substructure**가 성립한다. 이 논리는 전형적인 **cut-and-paste argument**로 이해할 수 있다.
+
+### Overlapping Subproblems
+
+재귀적으로 생각하면 같은 부분문제들이 반복해서 등장한다.
+
+예를 들어 $A_1\cdots A_6$를 계산할 때, 여러 split을 시도하다 보면
+
+- $m[2,4]$
+- $m[3,5]$
+- $m[1,3]$
+
+같은 부분문제를 여러 경로에서 다시 참조하게 된다.
+
+즉, 이 문제는 divide-and-conquer처럼 하위 문제가 완전히 독립적인 것이 아니라, **같은 subchain $A_i\cdots A_j$에 대한 최소 비용 계산이 반복된다.** 이런 성질이 바로 **overlapping subproblems**이다.
+
+따라서 이미 계산한 $m[i,j]$를 저장해두고 재사용하면 중복 계산을 없앨 수 있다. 이 점이 이 문제를 DP 문제로 분류하는 핵심이다.
+
+## 부분문제 정의
+
+부분문제는 다음처럼 정의한다.
+
+$$
+m[i,j] = \text{the minimum number of scalar multiplications needed to compute } A_iA_{i+1}\cdots A_j
+$$
+
+즉, $m[i,j]$는 부분체인 $A_i\cdots A_j$를 계산하는 최소 비용이다.
+
+특히 전체 문제의 해는
+
+$$
+m[1,n]
+$$
+
+이다.
+
+## DP Recurrence 유도
+
+### Base Case
+
+행렬 하나만 있는 경우에는 실제 곱셈이 일어나지 않으므로 비용이 0이다.
+
+$$
+m[i,i]=0
+$$
+
+### 일반 항
+
+$i<j$일 때, 마지막 곱셈은 반드시 어떤 $k$에 대해
+
+$$
+(A_i\cdots A_k)(A_{k+1}\cdots A_j)
+$$
+
+형태로 나뉜다.
+
+그러면 비용은 세 부분으로 분해된다.
+
+1. 왼쪽 부분체인 $A_i\cdots A_k$를 계산하는 비용: $m[i,k]$
+2. 오른쪽 부분체인 $A_{k+1}\cdots A_j$를 계산하는 비용: $m[k+1,j]$
+3. 마지막에 두 결과 행렬을 곱하는 비용
+
+왼쪽 결과 행렬의 크기는 $p_{i-1} \times p_k$이고, 오른쪽 결과 행렬의 크기는 $p_k \times p_j$이므로 마지막 곱셈 비용은
+
+$$
+p_{i-1}p_kp_j
+$$
+
+이다.
+
+따라서 split이 $k$일 때의 전체 비용은
+
+$$
+m[i,k] + m[k+1,j] + p_{i-1}p_kp_j
+$$
+
+가 된다.
+
+가능한 모든 $k \in \{i, i+1, \dots, j-1\}$를 다 시험해 최소를 취하면, 최종 recurrence는 다음과 같다.
+
+$$
+m[i,j] =
+\begin{cases}
+0 & \text{if } i=j, \\
+\min_{i \le k < j} \left\{ m[i,k] + m[k+1,j] + p_{i-1}p_kp_j \right\} & \text{if } i<j.
+\end{cases}
+$$
+
+이 식이 matrix chain multiplication의 핵심 DP recurrence이다.
+
+## 최적 괄호 묶기 복원
+
+최소 비용만 구하면 끝이 아니라, 실제로 어디서 split했는지도 알아야 최적 parenthesization을 복원할 수 있다.
+
+이를 위해
+
+$$
+s[i,j] = \text{an optimal split point } k
+$$
+
+를 저장한다.
+
+즉, $m[i,j]$가 최소가 되게 한 $k$를 $s[i,j]$에 기록해 두면 재귀적으로 괄호를 다시 출력할 수 있다.
+
+예를 들어,
+
+```text
+PRINT-OPTIMAL-PARENS(s, i, j)
+  if i == j
+      print A_i
+  else
+      print "("
+      PRINT-OPTIMAL-PARENS(s, i, s[i,j])
+      PRINT-OPTIMAL-PARENS(s, s[i,j]+1, j)
+      print ")"
+```
+
+처럼 구현할 수 있다.
+
+## Bottom-up DP Table 채우기
+
+교안의 알고리즘은 부분체인의 길이 $l$을 2부터 $n$까지 늘려 가며 테이블을 채운다.
+
+```text
+MATRIX-CHAIN-ORDER(p)
+1  n = p.length - 1
+2  for i = 1 to n
+3      m[i,i] = 0
+4  for l = 2 to n              // subchain length
+5      for i = 1 to n-l+1
+6          j = i + l - 1
+7          m[i,j] = ∞
+8          for k = i to j-1
+9              q = m[i,k] + m[k+1,j] + p[i-1]p[k]p[j]
+10             if q < m[i,j]
+11                 m[i,j] = q
+12                 s[i,j] = k
+13 return m, s
+```
+
+이 순서가 중요한 이유는 $m[i,j]$를 계산하려면 항상 더 짧은 길이의 subchain 값들인 $m[i,k]$, $m[k+1,j]$가 먼저 계산되어 있어야 하기 때문이다.
+
+즉,
+
+- 길이 1 체인: 이미 $m[i,i]=0$
+- 길이 2 체인 계산
+- 길이 3 체인 계산
+- ...
+- 길이 $n$ 체인 계산
+
+순으로 진행하면 recurrence가 요구하는 값들이 항상 준비되어 있다.
+
+## 왜 최종 DP 알고리즘이 $O(n^3)$인가
+
+이 부분이 특히 중요하다.
+
+알고리즘의 중첩 반복문을 그대로 세면 된다.
+
+### 첫 번째 반복문: chain length $l$
+
+$$
+l = 2,3,\dots,n
+$$
+
+이므로 총 $n-1 = O(n)$번 돈다.
+
+### 두 번째 반복문: 시작 인덱스 $i$
+
+각 $l$에 대해,
+
+$$
+i = 1,2,\dots,n-l+1
+$$
+
+이므로 최대 $O(n)$번 돈다.
+
+### 세 번째 반복문: split point $k$
+
+각 $(i,j)$ 쌍에 대해,
+
+$$
+k = i, i+1, \dots, j-1
+$$
+
+을 모두 시도한다.
+
+그런데 $j=i+l-1$이므로 가능한 $k$의 수는
+
+$$
+j-i = l-1
+$$
+
+개다. 최악의 경우 이는 $O(n)$이다.
+
+따라서 전체 시간은
+
+$$
+O(n) \times O(n) \times O(n) = O(n^3)
+$$
+
+이다.
+
+## 더 정확한 합으로 보는 $O(n^3)$
+
+더 엄밀히 쓰면, 총 연산 수는
+
+$$
+\sum_{l=2}^{n} \sum_{i=1}^{n-l+1} \sum_{k=i}^{j-1} 1
+$$
+
+로 볼 수 있다.
+
+여기서 $j=i+l-1$이므로 내부 합의 길이는 $l-1$이다. 따라서
+
+$$
+\sum_{l=2}^{n} \sum_{i=1}^{n-l+1} (l-1)
+= \sum_{l=2}^{n} (n-l+1)(l-1)
+$$
+
+이다.
+
+치환 $t=l-1$을 쓰면
+
+$$
+\sum_{t=1}^{n-1} (n-t)t
+= n\sum_{t=1}^{n-1} t - \sum_{t=1}^{n-1} t^2
+$$
+
+이고,
+
+$$
+\sum_{t=1}^{n-1} t = \frac{(n-1)n}{2},
+\qquad
+\sum_{t=1}^{n-1} t^2 = \frac{(n-1)n(2n-1)}{6}
+$$
+
+이므로 전체는 $\Theta(n^3)$가 된다.
+
+즉, matrix-chain DP의 시간복잡도는 정확히
+
+$$
+\Theta(n^3)
+$$
+
+라고 볼 수 있다.
+
+## 공간복잡도
+
+$m$ 테이블과 $s$ 테이블은 각각 $n \times n$ 크기의 2차원 배열이다.
+
+실제로는 $i \le j$인 위삼각 부분만 사용하지만, 보통 구현은 전체 배열로 잡으므로 공간복잡도는
+
+$$
+O(n^2)
+$$
+
+이다.
+
+## 왜 Divide-and-Conquer가 아니라 DP로 보는가
+
+겉보기에는 “마지막 split을 하나 정하고 왼쪽과 오른쪽으로 쪼개는 구조”라서 divide-and-conquer처럼 보일 수 있다.
+
+하지만 핵심 차이는 다음과 같다.
+
+- **Divide-and-conquer**: 서로 다른 재귀 호출들이 보통 독립적인 하위 문제를 다룬다.
+- **Dynamic programming**: 같은 하위 문제가 여러 번 반복 등장한다.
+
+matrix chain multiplication은 두 번째에 해당한다. 예를 들어 상위 문제 여러 개가 같은 $m[2,4]$를 참조할 수 있으므로, 단순 재귀는 같은 subproblem을 반복 계산한다. 따라서 memoization 또는 bottom-up tabulation을 써서 저장·재사용하는 것이 본질이다.
+
+## 정리
+
+matrix chain multiplication은 다음 이유로 전형적인 DP 문제다.
+
+1. **Optimal substructure**가 있다. 전체 최적 괄호 묶기 안의 좌우 부분체인 역시 각각 최적이어야 한다.
+2. **Overlapping subproblems**가 있다. 같은 $m[i,j]$가 여러 재귀 경로에서 반복 등장한다.
+3. 따라서 부분문제의 답을 저장해 재사용하면 큰 중복을 제거할 수 있다.
+
+최종 recurrence는
+
+$$
+m[i,j] =
+\begin{cases}
+0 & (i=j), \\
+\min_{i \le k < j} \left\{ m[i,k] + m[k+1,j] + p_{i-1}p_kp_j \right\} & (i<j)
+\end{cases}
+$$
+
+이고, bottom-up DP로 계산하면
+
+- 시간복잡도: $\Theta(n^3)$
+- 공간복잡도: $O(n^2)$
+
+를 얻는다.
+
+브루트포스 search space가 Catalan number 수준으로 커지는 것과 비교하면, 이 DP는 중복 계산을 제거함으로써 매우 큰 개선을 제공한다.

@@ -1,0 +1,509 @@
+---
+title: "DP: Rod Cutting"
+description: "DP의 기본 아이디어부터 rod cutting의 점화식, 시간복잡도, subproblem graph, 해 복원까지 정리한 글"
+date: 2026-04-01
+categories: [algorithm, dynamic-programming]
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    code-copy: true
+    code-overflow: wrap
+    df-print: paged
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+## 들어가며
+
+다이나믹 프로그래밍(Dynamic Programming, DP)은 알고리즘 설계에서 가장 자주 등장하는 핵심 패러다임 중 하나다. 특히 **최적화 문제**에서 매우 강력하며, 같은 부분문제를 반복해서 계산하는 낭비를 제거한다는 점이 본질이다. 업로드된 자료에서는 DP의 기본 성질, rod cutting 문제, top-down memoization, bottom-up tabulation, subproblem graph, 그리고 해 복원 과정까지 순서대로 다룬다. fileciteturn0file0L2-L6 fileciteturn0file1L29-L39
+
+이 글에서는 그 흐름을 그대로 따라가되, 중간에 헷갈리기 쉬운 포인트들을 함께 정리한다.
+
+::: {.callout-note}
+## 이 글에서 볼 것
+
+- DP가 divide-and-conquer와 어떻게 다른지
+- optimal solution과 optimal value의 차이
+- rod cutting의 두 가지 점화식 관점
+- naive recursion이 왜 느린지
+- memoization / bottom-up이 왜 \(\Theta(n^2)\)인지
+- subproblem graph를 어떻게 읽어야 하는지
+- 실제 최적 분해를 어떻게 복원하는지
+:::
+
+## Dynamic Programming이란?
+
+DP는 **부분문제들이 겹치는 상황**에서 유용한 알고리즘 설계 기법이다. 핵심은 각 부분문제를 **딱 한 번만 계산하고**, 그 결과를 저장한 뒤 필요할 때 재사용하는 것이다. 자료에서도 DP는 overlapping subproblems가 있을 때 적용 가능하며, 각 부분문제를 한 번만 풀고 테이블에 저장한다고 설명한다. fileciteturn0file0L2-L6
+
+반면 divide-and-conquer는 보통 **서로 독립적인 부분문제**로 나누는 쪽에 가깝다. 즉,
+
+- divide-and-conquer: 부분문제들이 대체로 disjoint
+- dynamic programming: 부분문제들이 서로 같은 더 작은 문제를 공유
+
+이 차이가 성능 차이로 이어진다.
+
+::: {.callout-important}
+## DP가 빛나는 순간
+
+같은 부분문제가 여러 경로에서 반복해서 등장하면, 재귀만으로는 같은 계산을 계속 하게 된다. DP는 그 중복 계산을 제거하는 방식이다.
+:::
+
+## DP는 왜 보통 최적화 문제와 함께 나오나?
+
+자료에서는 DP가 전형적으로 **optimization problem**에 적용된다고 설명한다. 가능한 해가 여러 개 있고, 각 해마다 값이 있으며, 그중 최적인 값을 찾는 것이 목표다. 또한 최적값을 달성하는 해는 여러 개일 수 있으므로, 이를 **the optimal solution**이 아니라 **an optimal solution**이라고 부르는 것이 더 정확하다고 말한다. fileciteturn0file0L5-L6
+
+여기서 구분할 용어는 다음과 같다.
+
+- **solution**: 가능한 해 하나
+- **value**: 그 해의 점수 혹은 수익
+- **optimal value**: 가능한 값들 중 최댓값 또는 최솟값
+- **optimal solution**: optimal value를 달성하는 해
+
+::: {.callout-tip}
+## 헷갈리기 쉬운 표현
+
+최적해는 꼭 유일할 필요가 없다. 
+
+즉,
+
+- 최적값은 하나일 수 있어도
+- 그 값을 만드는 해는 여러 개일 수 있다.
+
+그래서 **an optimal solution**이라는 표현이 자연스럽다.
+:::
+
+## DP를 설계하는 전형적인 흐름
+
+자료에서는 DP를 다음 네 단계로 정리한다. fileciteturn0file0L6-L6
+
+1. 최적해의 구조를 파악한다.
+2. 최적값을 재귀적으로 정의한다.
+3. 그 값을 bottom-up 방식으로 계산한다.
+4. 필요하다면 계산 정보를 이용해 실제 해를 복원한다.
+
+rod cutting은 이 네 단계를 거의 교과서적으로 보여주는 예제다.
+
+## Rod Cutting 문제
+
+길이 \(n\)인 막대가 있고, 길이 \(i\)인 조각의 가격이 \(p_i\)로 주어진다고 하자. 막대를 여러 조각으로 잘라 팔 수 있으며, **절단 비용은 없다**. 목표는 총 수익을 최대화하는 것이다. 자료에서도 rod cutting 문제를 정확히 이렇게 소개한다. fileciteturn0file0L8-L9
+
+### 예시 가격표
+
+| Length \(i\) | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Price \(p_i\) | 1 | 5 | 8 | 9 | 10 | 17 | 17 | 20 | 24 |
+
+이 가격표에서는 예를 들어 길이 4짜리 막대를
+
+- 그냥 4로 팔 수도 있고,
+- \(1+3\), \(3+1\), \(2+2\), \(1+1+2\), \(1+2+1\), \(2+1+1\), \(1+1+1+1\)
+
+처럼 나눌 수도 있다. 자료에서도 길이 4의 경우 가능한 분해가 8개라고 예시를 보여준다. fileciteturn0file0L10-L12
+
+### 가능한 분해 수는 몇 개인가?
+
+길이 \(n\)의 막대에서 자를지 말지를 결정할 수 있는 위치는 총 \(n-1\)개다. 각 위치마다
+
+- 자른다
+- 자르지 않는다
+
+의 두 선택이 독립적으로 가능하므로, 전체 분해 방법의 수는
+
+$$
+2^{n-1}
+$$
+
+이다. 자료에서도 정확히 이 수를 제시한다. fileciteturn0file0L11-L12
+
+::: {.callout-note}
+## 직관
+
+길이 4의 막대라면 내부 절단 가능 위치는 3군데다. 각 위치마다 cut / no cut 두 선택이 있으므로 \(2^3 = 8\)가지가 나온다.
+:::
+
+## 최적 부분 구조(Optimal Substructure)
+
+자료에서는 rod cutting이 **optimal substructure**를 가진다고 설명한다. 큰 문제의 최적해 안에는 관련된 작은 부분문제들의 최적해가 포함된다는 뜻이다. fileciteturn0file1L15-L16
+
+예를 들어 길이 \(n\)의 막대를 최적으로 잘랐는데 첫 절단이 길이 \(i\)를 떼어내는 방식이었다고 하자. 그렇다면 남은 길이 \(n-i\) 부분은 반드시 그 자체로도 최적이어야 한다. 만약 남은 부분이 최적이 아니었다면, 그 부분만 더 좋은 해로 바꿔서 전체 수익을 더 올릴 수 있기 때문이다.
+
+## Rod Cutting 점화식: 두 조각 관점
+
+자료 초반부에서는 먼저 다음 형태를 제시한다. fileciteturn0file1L15-L16
+
+$$
+r_n = \max\left(p_n, \max_{1 \le i < n}(r_i + r_{n-i})\right)
+$$
+
+이 식의 의미는 다음과 같다.
+
+- \(p_n\): 아예 자르지 않고 통째로 파는 경우
+- \(r_i + r_{n-i}\): 처음에 \(i\)와 \(n-i\)로 나눈 뒤, 양쪽을 각각 최적으로 처리한 경우
+
+이 식만 봐도 optimal substructure가 드러난다.
+
+## Rod Cutting 점화식: 첫 조각 관점
+
+자료 뒤쪽에서는 더 단순한 재귀 구조로 다음 식을 제시한다. fileciteturn0file1L20-L20
+
+$$
+r_n = \max_{1 \le i \le n}(p_i + r_{n-i}), \qquad r_0 = 0
+$$
+
+이 식은 막대를
+
+- 첫 번째 조각 하나
+- 나머지 길이 \(n-i\)
+
+로 보는 관점이다.
+
+### 왜 이 표현이 더 편한가?
+
+두 조각 관점에서는 \(r_i\)와 \(r_{n-i}\) 두 부분문제가 등장한다. 반면 첫 조각 관점에서는
+
+- 첫 조각은 그냥 길이 \(i\)인 조각 하나로 처리하고
+- 나머지 \(n-i\)만 다시 문제로 남긴다.
+
+즉, 재귀적으로 내려가는 부분문제가 하나만 남는다.
+
+::: {.callout-tip}
+## 자르지 않는 경우는 어디 있나?
+
+\(i=n\)을 선택하면
+
+$$
+p_n + r_0 = p_n
+$$
+
+이므로, **아예 자르지 않는 경우도 같은 점화식 안에 자연스럽게 들어간다.**
+:::
+
+## 예시: 길이 4의 최적 수익
+
+위 가격표에서
+
+$$
+r_1 = 1, \qquad r_2 = 5, \qquad r_3 = 8
+$$
+
+라고 하면,
+
+$$
+r_4 = \max(p_1+r_3,\; p_2+r_2,\; p_3+r_1,\; p_4+r_0)
+$$
+
+즉,
+
+$$
+r_4 = \max(1+8,\; 5+5,\; 8+1,\; 9+0) = 10
+$$
+
+이다. 따라서 길이 4의 최적 수익은 10이고, 한 optimal solution은
+
+$$
+4 = 2 + 2
+$$
+
+이다. 자료의 예시 최적해 목록에서도 길이 4의 최적 수익이 10이며 해가 \(2+2\)라고 정리되어 있다. fileciteturn0file0L14-L15
+
+## Naive Recursive Algorithm
+
+점화식을 재귀로 그대로 옮기면 다음과 같다. 자료의 top-down recursive implementation도 같은 구조다. fileciteturn0file1L21-L23
+
+```{.text}
+CUT-ROD(p, n)
+1. if n == 0
+2.     return 0
+3. q = -∞
+4. for i = 1 to n
+5.     q = max(q, p[i] + CUT-ROD(p, n - i))
+6. return q
+```
+
+이 구현은 자연스럽지만, 같은 부분문제를 반복해서 푼다는 문제가 있다.
+
+## Naive Recursion의 시간복잡도
+
+자료에서는 top-down 재귀 구조를 강조하는 단순화된 형태로
+
+$$
+T(n) = 1 + \sum_{j=0}^{n-1} T(j)
+$$
+
+를 사용한다. fileciteturn0file1L23-L26
+
+이 전개를 따라가면
+
+$$
+T(n) = 2^n
+$$
+
+이 된다. 자료에서도 naive recursion의 시간이 exponential이며, 가능한 절단 방법 수 \(2^{n-1}\)와 연결해서 설명한다. fileciteturn0file1L26-L28
+
+::: {.callout-warning}
+## 이 글에서 점화식 표기
+
+채팅에서 정리한 것처럼, rod cutting의 naive recursion 시간복잡도는 여기서
+
+$$
+T(n) = 1 + \sum_{j=0}^{n-1} T(j)
+$$
+
+형태로 적는다. 이는 재귀 호출 구조를 강조한 단순화된 표현으로 보면 된다.
+:::
+
+## 왜 느린가? Overlapping Subproblems
+
+자료에서는 CUT-ROD가 같은 매개변수 값으로 스스로를 계속 다시 호출한다고 설명한다. 즉, 같은 부분문제를 반복해서 푼다. fileciteturn0file1L27-L29
+
+예를 들어 \(r_4\)를 계산할 때
+
+- \(r_3\), \(r_2\), \(r_1\), \(r_0\)를 호출하고,
+- \(r_3\)를 계산할 때 다시 \(r_2\), \(r_1\), \(r_0\)를 호출한다.
+
+그래서 \(r_2\), \(r_1\), \(r_0\)가 여러 번 다시 계산된다.
+
+이게 바로 **overlapping subproblems**다.
+
+## Top-down with Memoization
+
+DP의 첫 번째 구현 방식은 memoization이다. 자료에서도 같은 구조를 제시한다. fileciteturn0file1L30-L35
+
+```{.text}
+MEMOIZED-CUT-ROD(p, n)
+1. let r[0…n] be a new array
+2. for i = 0 to n
+3.     r[i] = -∞
+4. return MEMOIZED-CUT-ROD-AUX(p, n, r)
+
+MEMOIZED-CUT-ROD-AUX(p, n, r)
+1. if r[n] ≥ 0
+2.     return r[n]
+3. if n == 0
+4.     q = 0
+5. else
+6.     q = -∞
+7.     for i = 1 to n
+8.         q = max(q, p[i] + MEMOIZED-CUT-ROD-AUX(p, n-i, r))
+9. r[n] = q
+10. return q
+```
+
+핵심은 두 가지다.
+
+1. 이미 구한 값이면 즉시 return
+2. 처음 계산한 값은 저장
+
+이제 각 부분문제는 **최대 한 번만 실제 계산**된다.
+
+## Bottom-up Tabulation
+
+두 번째 구현 방식은 bottom-up이다. 작은 문제부터 차례대로 채운다. 자료에서도 이 버전과 그 시간복잡도 \(\Theta(n^2)\)를 직접 제시한다. fileciteturn0file1L31-L35
+
+```{.text}
+BOTTOM-UP-CUT-ROD(p, n)
+1. let r[0…n] be a new array
+2. r[0] = 0
+3. for j = 1 to n
+4.     q = -∞
+5.     for i = 1 to j
+6.         q = max(q, p[i] + r[j-i])
+7.     r[j] = q
+8. return r[n]
+```
+
+이 방식에서는 \(r_0\), \(r_1\), \(r_2\), \(\dots\), \(r_n\)을 차례대로 계산하므로, \(r_j\)를 구할 때 필요한 더 작은 값들은 이미 테이블에 들어 있다.
+
+::: {.callout-note}
+## Top-down vs Bottom-up
+
+Top-down은 문제 정의와 가깝고 자연스럽다. 
+Bottom-up은 재귀 호출 오버헤드가 없어서 상수 계수가 더 좋은 경우가 많다. 
+자료에서도 두 방식은 보통 같은 점근적 시간복잡도를 가진다고 설명한다. fileciteturn0file1L31-L32
+:::
+
+## Subproblem Graph란 무엇인가?
+
+자료에서는 subproblem graph를 다음처럼 정의한다. fileciteturn0file1L36-L39
+
+- 정점 하나는 하나의 **distinct subproblem**에 대응한다.
+- 간선 \(x \to y\)는, \(x\)를 풀 때 \(y\)의 최적해를 **직접 고려**함을 뜻한다.
+
+rod cutting에서 \(n=4\)라면 정점은
+
+$$
+4, 3, 2, 1, 0
+$$
+
+이고, 간선은
+
+- \(4 \to 3,2,1,0\)
+- \(3 \to 2,1,0\)
+- \(2 \to 1,0\)
+- \(1 \to 0\)
+
+처럼 생긴다.
+
+### Recursion Tree와 Subproblem Graph의 관계
+
+자료에서는 subproblem graph를 recursion tree를 **collapsed**한 버전이라고 표현한다. fileciteturn0file1L36-L38
+
+그 뜻은 이렇다.
+
+- recursion tree: 같은 부분문제가 여러 번 나타남
+- subproblem graph: 같은 부분문제를 하나의 정점으로 합침
+
+즉, recursion tree는 실제 호출 로그이고, subproblem graph는 중복 제거된 의존관계 지도다.
+
+## DP 시간복잡도를 왜 정점 수와 간선 수로 보나?
+
+자료에서는 DP의 실행시간이 subproblem graph의 정점 수와 간선 수에 선형적이라고 설명한다. fileciteturn0file1L39-L39
+
+이를 이해하려면 **재계산**과 **참조**를 구분해야 한다.
+
+### 재계산은 사라진다
+
+memoization이 있으면 정점 2에 대응하는 문제 \(r_2\)는 한 번만 실제 계산된다.
+
+### 하지만 참조는 남는다
+
+예를 들어 여러 부모 정점이 \(r_2\)를 필요로 하면, 그 부모들은 각각 \(r_2\) 값을 한 번씩 읽어야 한다. 즉,
+
+- 정점 2 자체를 여러 번 다시 풀지는 않지만
+- 정점 2를 참조하는 간선은 여러 개 존재할 수 있다.
+
+그래서 DP의 총 시간은 대략
+
+$$
+O(|V| + |E|)
+$$
+
+처럼 볼 수 있다.
+
+::: {.callout-important}
+## 핵심 구분
+
+- **memoization이 제거하는 것**: 같은 부분문제의 재계산
+- **사라지지 않는 것**: 각 부모 상태가 그 값을 참고하는 lookup 비용
+
+따라서 간선 수를 세는 관점이 여전히 중요하다.
+:::
+
+## Rod Cutting이 왜 \(\Theta(n^2)\)인가?
+
+bottom-up에서 상태 \(r_j\)를 계산할 때는 가능한 첫 조각 길이 \(1,2,\dots,j\)를 모두 확인해야 한다. 따라서 전체 연산 수는
+
+$$
+\sum_{j=1}^{n} j = \frac{n(n+1)}{2} = \Theta(n^2)
+$$
+
+이다. 자료에서도 이중 반복문의 산술급수 때문에 \(\Theta(n^2)\)라고 설명한다. fileciteturn0file1L34-L35
+
+subproblem graph 관점에서도 같은 결론이 나온다.
+
+- 정점 수: \(n+1 = \Theta(n)\)
+- 간선 수: \(1+2+\cdots+n = \Theta(n^2)\)
+
+따라서 전체 시간은
+
+$$
+\Theta(|V|+|E|) = \Theta(n^2)
+$$
+
+이다.
+
+## 실제 해 복원하기
+
+자료에서는 최적값만 구하는 것을 넘어, 실제 조각 길이 분해를 복원하는 방법까지 보여준다. 핵심은 \(s[j]\) 배열에 **길이 \(j\)를 풀 때 최적이었던 첫 조각 길이**를 저장하는 것이다. fileciteturn0file1L40-L42
+
+```{.text}
+EXTENDED-BOTTOM-UP-CUT-ROD(p, n)
+1. let r[0…n] and s[0…n] be new arrays
+2. r[0] = 0
+3. for j = 1 to n
+4.     q = -∞
+5.     for i = 1 to j
+6.         if q < p[i] + r[j-i]
+7.             q = p[i] + r[j-i]
+8.             s[j] = i
+9.     r[j] = q
+10. return r and s
+```
+
+이후에는 다음처럼 \(s[n]\)을 따라가면 된다. 자료에서도 이 복원 절차를 예시와 함께 보여준다. fileciteturn0file1L42-L43
+
+```{.text}
+PRINT-CUT-ROD-SOLUTION(p, n)
+1. (r, s) = EXTENDED-BOTTOM-UP-CUT-ROD(p, n)
+2. while n > 0
+3.     print s[n]
+4.     n = n - s[n]
+```
+
+예를 들어 자료의 가격표에서는 \(n=9\)에 대해
+
+$$
+r_9 = 25
+$$
+
+이고, 한 optimal solution은
+
+$$
+9 = 3 + 6
+$$
+
+이다. 자료의 출력 예시도 3, 6을 순서대로 출력한다. fileciteturn0file1L69-L79
+
+## rod cutting으로 보는 DP의 핵심 체크리스트
+
+::: {.callout-tip}
+## 이 문제를 만나면 바로 확인할 것
+
+1. **상태는 무엇인가?**  
+   \(r_n\): 길이 \(n\)의 최대 수익
+
+2. **점화식은 무엇인가?**  
+   $$r_n = \max_{1 \le i \le n}(p_i + r_{n-i})$$
+
+3. **기저조건은 무엇인가?**  
+   $$r_0 = 0$$
+
+4. **왜 DP가 필요한가?**  
+   같은 \(r_k\)가 여러 번 호출되기 때문
+
+5. **시간복잡도는 얼마인가?**  
+   $$\Theta(n^2)$$
+
+6. **실제 해는 어떻게 복원하는가?**  
+   첫 조각 선택을 저장하는 배열 \(s\)를 둔다.
+:::
+
+## 마무리
+
+rod cutting은 DP를 처음 배울 때 반드시 거치는 대표 예제다. 이 문제 하나 안에
+
+- optimization problem,
+- optimal substructure,
+- overlapping subproblems,
+- memoization,
+- bottom-up tabulation,
+- subproblem graph,
+- 시간복잡도 분석,
+- 해 복원
+
+이 전부 들어 있다.
+
+특히 이번 정리에서 중요한 포인트는 다음 두 가지다.
+
+1. **최적해는 여러 개일 수 있다.**  
+   따라서 optimal solution은 꼭 유일하지 않다.
+
+2. **DP가 없애는 것은 재계산이지, 참조 자체는 아니다.**  
+   그래서 subproblem graph에서 간선 수를 세는 관점이 의미가 있다.
+
+rod cutting을 제대로 이해하면 이후의 LCS, knapsack, matrix-chain multiplication 같은 DP 문제도 훨씬 수월하게 볼 수 있다.
