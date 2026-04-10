@@ -1,0 +1,709 @@
+---
+title: "Machine Learning Basics Part II"
+subtitle: "Linear Regression, Logistic Regression, SVM, KNN, Decision Tree"
+description: |
+  Linear regression의 OLS와 Normal Equation 유도, MLE와의 연결을 다루고,
+  Logistic regression의 sigmoid function, MCLE 철학, gradient ascent 최적화를 정리한다.
+  SVM의 margin 최대화 원리, KNN의 lazy learning, Decision Tree와 Random Forest까지
+  supervised learning의 주요 알고리즘 패러다임을 수학적 유도와 직관으로 정리한다.
+date: "2026-04-10"
+categories: [Deep Learning, Machine Learning, Linear Regression, Logistic Regression, SVM, KNN, Decision Tree]
+number-sections: true
+toc: true
+toc-depth: 3
+---
+
+## Linear Regression {#sec-linear-regression}
+
+### 핵심 아이디어
+
+Linear regression의 목표는 입력 $\mathbf{x}$에서 연속값 타겟 $t(\mathbf{x})$로의 매핑을 학습하는 것이다.
+핵심 구조는 **basis function의 가중합**이다:
+
+$$
+\hat{f}(\mathbf{x}) = \sum_{i=1}^{K} w_i h_i(\mathbf{x})
+$$
+
+여기서 $H = \{h_1, \dots, h_K\}$는 미리 정해진 basis function 집합이고,
+$\mathbf{w} = \{w_1, \dots, w_K\}$가 학습할 파라미터이다.
+
+::: {.callout-important}
+## "Linear"의 의미
+
+$h_i(x) = x^2$ 같은 비선형 basis function을 사용해도 이것은 여전히 **linear regression**이다.
+왜냐하면 "linear"는 **입력 $x$에 대한 선형성이 아니라, 계수(coefficient/parameter) $w$에 대한 선형성**을 의미하기 때문이다.
+
+$$
+\hat{y} = w_0 + w_1 x + w_2 x^2
+$$
+
+$x^2$이라는 비선형 변환이 있지만, **$w_0, w_1, w_2$에 대해서는 1차식**이므로 linear regression이다.
+:::
+
+### Basis Function과 Hypothesis Space {#sec-basis-hypothesis}
+
+#### Hypothesis Space
+
+Hypothesis space $\mathcal{H}$는 "정답이 이 안에 있을 것이다"라고 가정하는 **모든 가능한 함수들의 집합**이다.
+Linear regression에서:
+
+$$
+\mathcal{H} = \left\{ f(\mathbf{x}) = \sum_{i=1}^{K} w_i h_i(\mathbf{x}) \;\middle|\; w_i \in \mathbb{R} \right\}
+$$
+
+Basis function $\{h_1, \dots, h_K\}$가 고정되면, 가능한 모든 weight 조합이 hypothesis space를 형성한다.
+Basis function은 hypothesis space의 **"좌표축"**을 정의하고, weight는 그 좌표계에서의 **좌표값**이다.
+
+#### Inductive Bias와의 관계
+
+Basis function의 **선택 자체가 inductive bias**이다:
+
+| Basis function 선택 | Inductive bias |
+|---|---|
+| $\{h_1(x) = x,\; h_2(x) = 1\}$ | "정답은 직선일 것이다" |
+| $\{h_1(x) = x^2,\; h_2(x) = x,\; h_3(x) = 1\}$ | "정답은 2차 곡선일 것이다" |
+| $\{\sin(nx),\; \cos(nx)\}$ | "정답은 주기 함수일 것이다" |
+
+::: {.callout-tip}
+## 무선 통신 관점
+
+채널 추정 시 delay spread 기반 basis를 쓸지, Fourier basis를 쓸지, polynomial basis를 쓸지 선택하는 것이 이 inductive bias에 해당한다.
+Basis function의 선택이 곧 "우리가 세상을 어떤 구조로 바라보는가"를 결정하며,
+이것이 학습 **이전에** 사람이 주입하는 사전 지식이다.
+
+딥러닝이 혁신적인 이유는 basis function 자체를 데이터로부터 학습한다는 점이다.
+이것은 MLP(Multi-layer Perceptron)에서 다루게 된다.
+:::
+
+### Ordinary Least Squares (OLS)
+
+잔차의 제곱합을 최소화한다:
+
+$$
+\text{total error} = \sum_i (y_i - \hat{y}_i)^2 = \sum_i \left( y_i - \sum_k w_k f_k(x_i) \right)^2
+$$
+
+각 데이터 포인트에서의 **residual** (잔차) $e_i = y_i - \hat{y}_i$를 제곱하여 합산한 것이다.
+제곱을 사용하는 이유는 양수/음수 잔차가 상쇄되는 것을 방지하고, 큰 오차에 더 큰 페널티를 부여하기 위함이다.
+
+### 행렬 표현과 Design Matrix {#sec-design-matrix}
+
+#### Design Matrix의 구조
+
+Design matrix $\mathbf{H}$는 $N \times K$ 행렬이며, 원소는:
+
+$$
+H_{ji} = h_i(\mathbf{x}^j)
+$$
+
+::: {.callout-warning}
+## Design Matrix의 각 행은 서로 다른 값을 갖는다
+
+Basis function의 **정의** $h_i(\cdot)$는 고정되어 있지만(함수의 형태는 $i$에만 의존),
+그 함수에 **대입하는 입력값**이 $\mathbf{x}^j$마다 다르므로 출력값은 $(i, j)$ 모두에 의존한다.
+
+예: 1D 입력, parabola basis $\{h_1(x) = x^2,\; h_2(x) = x,\; h_3(x) = 1\}$, 데이터 $x^1=2, x^2=3, x^3=5$이면:
+
+$$
+\mathbf{H} = \begin{bmatrix} h_1(x^1) & h_2(x^1) & h_3(x^1) \\ h_1(x^2) & h_2(x^2) & h_3(x^2) \\ h_1(x^3) & h_2(x^3) & h_3(x^3) \end{bmatrix} = \begin{bmatrix} 4 & 2 & 1 \\ 9 & 3 & 1 \\ 25 & 5 & 1 \end{bmatrix}
+$$
+
+OFDM에서 $H_{ji}$가 $j$번째 부반송파에서 $i$번째 tap의 기여도인 것처럼,
+여기서 $H_{ji}$는 $j$번째 데이터에서 $i$번째 basis function의 기여도이다.
+:::
+
+#### 행렬 형태의 최적화 문제
+
+Weight vector $\mathbf{w}$ ($K \times 1$), target vector $\mathbf{t}$ ($N \times 1$)를 정의하면:
+
+$$
+\mathbf{w}^* = \arg\min_{\mathbf{w}} (\mathbf{Hw} - \mathbf{t})^T(\mathbf{Hw} - \mathbf{t})
+$$
+
+$(\mathbf{Hw} - \mathbf{t})$가 잔차 벡터이고, 자기 자신과의 내적이 잔차 제곱합이 된다.
+
+### Normal Equation 유도 (상세) {#sec-normal-equation}
+
+#### Step 0: 목적함수 정의
+
+$$
+F(\mathbf{w}) = (\mathbf{Hw} - \mathbf{t})^T(\mathbf{Hw} - \mathbf{t})
+$$
+
+#### Step 1: 전개
+
+전치의 분배법칙 $(A - B)^T = A^T - B^T$를 적용한다:
+
+$$
+F(\mathbf{w}) = (\mathbf{w}^T\mathbf{H}^T - \mathbf{t}^T)(\mathbf{Hw} - \mathbf{t})
+$$
+
+분배법칙으로 4개 항을 만든다:
+
+$$
+= \mathbf{w}^T\mathbf{H}^T\mathbf{H}\mathbf{w} - \mathbf{w}^T\mathbf{H}^T\mathbf{t} - \mathbf{t}^T\mathbf{H}\mathbf{w} + \mathbf{t}^T\mathbf{t}
+$$
+
+::: {.callout-note}
+## 스칼라의 전치 성질
+
+$\mathbf{w}^T\mathbf{H}^T\mathbf{t}$와 $\mathbf{t}^T\mathbf{H}\mathbf{w}$는 둘 다 **스칼라**이고,
+스칼라의 전치는 자기 자신이므로:
+
+$$\mathbf{w}^T\mathbf{H}^T\mathbf{t} = (\mathbf{t}^T\mathbf{H}\mathbf{w})^T = \mathbf{t}^T\mathbf{H}\mathbf{w}$$
+
+따라서 두 항을 합칠 수 있다.
+:::
+
+$$
+F(\mathbf{w}) = \mathbf{w}^T\mathbf{H}^T\mathbf{H}\mathbf{w} - 2\mathbf{t}^T\mathbf{H}\mathbf{w} + \mathbf{t}^T\mathbf{t}
+$$
+
+#### Step 2: 벡터 미분 규칙
+
+필요한 행렬 미분 공식 두 가지:
+
+**규칙 1** (스칼라 버전: $\frac{d}{dw}(aw) = a$ 의 벡터 확장):
+
+$$
+\frac{\partial}{\partial \mathbf{w}}(\mathbf{a}^T\mathbf{w}) = \mathbf{a}
+$$
+
+**규칙 2** (스칼라 버전: $\frac{d}{dw}(aw^2) = 2aw$ 의 벡터 확장, $\mathbf{A}$가 대칭일 때):
+
+$$
+\frac{\partial}{\partial \mathbf{w}}(\mathbf{w}^T\mathbf{A}\mathbf{w}) = 2\mathbf{A}\mathbf{w}
+$$
+
+여기서 $\mathbf{H}^T\mathbf{H}$는 항상 대칭이다: $(\mathbf{H}^T\mathbf{H})^T = \mathbf{H}^T(\mathbf{H}^T)^T = \mathbf{H}^T\mathbf{H}$
+
+#### Step 3: 미분 적용
+
+$$
+\nabla_{\mathbf{w}} F(\mathbf{w}) = 2\mathbf{H}^T\mathbf{H}\mathbf{w} - 2\mathbf{H}^T\mathbf{t} + \mathbf{0}
+$$
+
+$\mathbf{t}^T\mathbf{t}$는 $\mathbf{w}$와 무관한 상수이므로 미분하면 0이다.
+
+#### Step 4: 0으로 놓고 풀기
+
+$$
+2\mathbf{H}^T\mathbf{H}\mathbf{w} - 2\mathbf{H}^T\mathbf{t} = \mathbf{0}
+$$
+
+$$
+\mathbf{H}^T\mathbf{H}\mathbf{w} = \mathbf{H}^T\mathbf{t}
+$$
+
+$$
+\boxed{\mathbf{w}^* = (\mathbf{H}^T\mathbf{H})^{-1}\mathbf{H}^T\mathbf{t}}
+$$
+
+::: {.callout-important}
+## 역행렬 존재 조건
+
+$(\mathbf{H}^T\mathbf{H})^{-1}$이 존재하려면 $\mathbf{H}^T\mathbf{H}$가 invertible해야 한다.
+이것은 $\mathbf{H}$의 column들이 linearly independent할 때, 즉 basis function들이 서로 독립일 때 성립한다.
+$N < K$ (데이터 수 < basis function 수)이면 invertible하지 않아서 해가 유일하지 않다.
+이것이 **regularization**이 필요한 이유 중 하나이다.
+:::
+
+::: {.callout-tip}
+## MIMO ZF 수신기와의 연결
+
+이 Normal Equation은 MIMO 시스템의 Zero-Forcing 수신기와 정확히 같은 구조이다:
+
+$$
+\hat{\mathbf{x}} = (\mathbf{H}^H\mathbf{H})^{-1}\mathbf{H}^H\mathbf{y}
+$$
+
+복소수 채널에서는 전치($T$) 대신 Hermitian 전치($H$)를 사용한다는 차이만 있다.
+:::
+
+### Least-Squares와 MLE의 연결 {#sec-mle-connection}
+
+#### 확률 모형 설정
+
+관측 모델을 다음과 같이 가정한다:
+
+$$
+t(\mathbf{x}) = \sum_i w_i h_i(\mathbf{x}) + e, \quad e \sim \mathcal{N}(0, \sigma^2)
+$$
+
+이 가정 하에 단일 관측의 likelihood는:
+
+$$
+P(t \mid \mathbf{x}, \mathbf{w}, \sigma) = \frac{1}{\sigma\sqrt{2\pi}} \exp\left( -\frac{[t - \sum_i w_i h_i(\mathbf{x})]^2}{2\sigma^2} \right)
+$$
+
+#### Log-Likelihood 최대화
+
+i.i.d. 가정 하에서 전체 데이터의 log-likelihood는:
+
+$$
+\ln P(\mathcal{D} \mid \mathbf{w}, \sigma) = \ln\left(\frac{1}{\sigma\sqrt{2\pi}}\right)^N + \sum_{j=1}^{N} \frac{-[t_j - \sum_i w_i h_i(x_j)]^2}{2\sigma^2}
+$$
+
+$\mathbf{w}$에 대해 maximize하면, 첫 번째 항은 $\mathbf{w}$-independent 상수이므로:
+
+$$
+\arg\max_{\mathbf{w}} \ln P(\mathcal{D} \mid \mathbf{w}, \sigma) = \arg\max_{\mathbf{w}} \sum_{j=1}^{N} \frac{-[t_j - \sum_i w_i h_i(x_j)]^2}{2\sigma^2}
+$$
+
+분자의 음의 부호와 max를 min으로 변환하고, $2\sigma^2$ 상수를 제거하면:
+
+$$
+= \arg\min_{\mathbf{w}} \sum_{j=1}^{N} [t_j - \sum_i w_i h_i(x_j)]^2
+$$
+
+::: {.callout-important}
+## Least-Squares = Gaussian Noise MLE
+
+**Gaussian noise 가정 하에서 least-squares linear regression은 MLE와 동치이다.**
+
+noise 분포가 바뀌면 대응하는 loss function도 바뀐다:
+
+- Gaussian noise → L2 loss (MSE)
+- Laplace noise → L1 loss (MAE) → robust regression
+:::
+
+---
+
+## Logistic Regression {#sec-logistic-regression}
+
+### 분류를 위한 회귀
+
+Logistic regression은 이름에 "regression"이 있지만 **분류(classification)** 모델이다.
+핵심 아이디어: 회귀 출력값을 logistic function(sigmoid)에 통과시켜 확률로 변환한다.
+
+### Logistic Function과 Sigmoid {#sec-sigmoid}
+
+일반적인 logistic function:
+
+$$
+f(x) = \frac{L}{1 + e^{-k(x - x_0)}}
+$$
+
+- $x_0$: 중간점 (mid-point)
+- $L$: 곡선의 최댓값 (height)
+- $k$: 곡선의 기울기 (steepness)
+
+표준 sigmoid ($L=1, k=1, x_0=0$):
+
+$$
+\sigma(x) = \frac{1}{1 + e^{-x}}
+$$
+
+::: {.callout-note}
+## $\sigma$ 표기법 주의
+
+ML/DL 분야에서는 관례적으로 sigmoid function을 $\sigma(\cdot)$로 표기한다.
+Gaussian 분포의 표준편차 $\sigma$와 전혀 다른 의미이다.
+
+- $\sigma(\cdot)$: sigmoid function
+- $\sigma^2$: Gaussian noise의 분산 (linear regression MLE에서)
+
+문맥으로 구분해야 하는 표기상의 overloading이다.
+:::
+
+#### Sigmoid의 유리한 특성
+
+1. **출력이 $[0, 1]$ 구간** → 확률로 해석 가능
+2. **Smooth & continuous** → 미분 가능 (gradient-based 최적화에 적합)
+3. **Mirror symmetric** → $\sigma(-x) = 1 - \sigma(x)$
+4. **도함수가 저렴**: $\sigma'(x) = \sigma(x)(1 - \sigma(x))$ — 출력값만으로 미분 계산 가능
+
+### Generative Model vs. Discriminative Model {#sec-gen-vs-disc}
+
+#### Generative Model
+
+**Joint distribution $P(X, Y)$를 학습**한다. Bayes rule로 분해하면:
+
+$$
+P(X, Y) = P(X|Y) \cdot P(Y)
+$$
+
+각 클래스 $Y$에 대해 두 가지를 모델링한다:
+
+- $P(X|Y)$ (likelihood): "이 클래스의 데이터는 어떻게 생겼는가"
+- $P(Y)$ (prior): "이 클래스가 얼마나 자주 나타나는가"
+
+분류 시에는 Bayes rule을 적용한다:
+
+$$
+P(Y|X) = \frac{P(X|Y) \cdot P(Y)}{P(X)}
+$$
+
+예: Gaussian Naive Bayes, HMM, GMM
+
+#### Discriminative Model
+
+**$P(Y|X)$를 직접 학습**한다. $P(X|Y)$나 $P(X)$를 모델링하지 않는다.
+
+예: Logistic Regression, SVM, Neural Network
+
+#### 핵심 비교
+
+| | Generative | Discriminative |
+|---|---|---|
+| 학습 대상 | $P(X,Y)$ 또는 $P(X|Y), P(Y)$ | $P(Y|X)$ 직접 |
+| 데이터 생성 가능? | 가능 (이름의 유래) | 불가능 |
+| 파라미터 수 | 많음 (입력 분포까지 기술) | 적음 |
+| 분류 정확도 | 데이터 많으면 discriminative에 밀림 | 보통 더 높음 |
+| 장점 | missing data 처리, outlier 탐지 | 분류에 집중, 효율적 |
+
+::: {.callout-tip}
+## 무선 통신 비유
+
+- **Generative**: 각 전송 심볼 $s_k$에 대해 수신 신호 분포 $P(\mathbf{y}|s_k)$를 채널 모델로 완전히 기술하고, MAP/ML detection을 수행
+- **Discriminative**: 채널 모델 없이, 수신 신호 → 전송 심볼 매핑을 데이터로부터 직접 학습 (learned MIMO detector)
+:::
+
+### Logistic Regression의 확률 모델
+
+Logistic regression은 discriminative model로서, $P(Y|\mathbf{X})$를 직접 학습한다.
+Binary classification ($y \in \{0, 1\}$)에서:
+
+$$
+P(Y=1 \mid \mathbf{x}, \mathbf{w}) = \sigma(\mathbf{w}^T \mathbf{x}) = \frac{1}{1 + e^{-\mathbf{w}^T\mathbf{x}}}
+$$
+
+### MCLE: Maximum Conditional Likelihood Estimation {#sec-mcle}
+
+#### 문제 상황
+
+전통적 MLE는 joint likelihood를 최대화하려 한다:
+
+$$
+\hat{\mathbf{w}}_{MLE} = \arg\max_{\mathbf{w}} \prod_{j=1}^{n} P(x^j, y^j | \mathbf{w})
+$$
+
+그런데 logistic regression은 discriminative model이므로 $P(X, Y | \mathbf{w})$를 모르고,
+$P(Y|X, \mathbf{w})$만 모델링했다. 즉, **쓸 수 있는 도구가 없다.**
+
+#### Data Likelihood의 분해
+
+Joint probability의 product rule:
+
+$$
+P(x^j, y^j | \mathbf{w}) = P(x^j | y^j, \mathbf{w}) \cdot P(y^j | \mathbf{w})
+$$
+
+이것은 조건부 확률의 정의 $P(A,B|C) = P(A|B,C) \cdot P(B|C)$에서 나온다.
+Log를 취하고 모든 데이터에 대해 합산하면:
+
+$$
+\ln P(\mathcal{D}|\mathbf{w}) = \underbrace{\sum_j \ln P(x^j | y^j, \mathbf{w})}_{\text{(A): 입력 분포 모델링}} + \underbrace{\sum_j \ln P(y^j | \mathbf{w})}_{\text{(B): 클래스 prior}}
+$$
+
+::: {.callout-note}
+## i.i.d. 가정
+
+위 분해에서 joint likelihood를 product으로 분해하려면 데이터 쌍 $\{(x^j, y^j)\}_{j=1}^N$이 **i.i.d.** 가정이 필요하다.
+독립 가정에 의해 $P(y^1, \dots, y^N | x^1, \dots, x^N, \mathbf{w}) = \prod_j P(y^j | x^j, \mathbf{w})$으로 분해되고,
+log를 취하면 곱이 합으로 바뀐다.
+:::
+
+#### MCLE의 해법
+
+우리가 가진 것만으로 likelihood를 정의한다.
+**Conditional data likelihood**를 목적함수로 사용:
+
+$$
+\hat{\mathbf{w}}_{MCLE} = \arg\max_{\mathbf{w}} \prod_{j=1}^{N} P(y^j | x^j, \mathbf{w})
+$$
+
+Log를 취하면:
+
+$$
+l(\mathbf{w}) = \sum_{j=1}^{N} \ln P(y^j | x^j, \mathbf{w})
+$$
+
+$P(y|x, \mathbf{w}) = \sigma(\mathbf{w}^T\mathbf{x})^y \cdot (1 - \sigma(\mathbf{w}^T\mathbf{x}))^{1-y}$이므로:
+
+$$
+l(\mathbf{w}) = \sum_j \left[ y^j \ln \sigma(\mathbf{w}^T\mathbf{x}^j) + (1-y^j) \ln(1 - \sigma(\mathbf{w}^T\mathbf{x}^j)) \right]
+$$
+
+이것이 **binary cross-entropy loss**의 원형이다.
+
+#### MCLE의 철학: $P(Y|X)$만 추정하면 뭐가 좋은가
+
+**효율성**: 입력 $X$의 분포 $P(X)$는 보통 매우 고차원이고 복잡하다.
+이미지 분류에서 $P(X)$는 "자연 이미지의 분포"인데, 이것을 정확히 모델링하는 것은 엄청나게 어렵다.
+분류에는 이 정보가 **필요 없다**.
+고양이인지 개인지 구분하는 데, "자연 이미지가 어떤 분포를 따르는지"를 알 필요는 없다.
+
+**정확도**: 학습 자원이 한정되어 있을 때, 분류에 불필요한 $P(X|Y)$를 모델링하는 데 파라미터를 낭비하지 않고
+$P(Y|X)$에 집중하므로, 같은 데이터양에서 **분류 성능이 더 좋은 경향**이 있다.
+
+#### MCLE가 MLE를 대신하는 것의 정당성
+
+위의 data log-likelihood 분해에서:
+
+- **(A)** $P(X|Y, \mathbf{w})$: logistic regression에서 $\mathbf{w}$는 decision boundary의 파라미터이다.
+  입력 데이터 $X$의 분포는 $\mathbf{w}$에 **의존하지 않는 경우가 대부분**이므로,
+  $\mathbf{w}$ 최적화에 기여하지 않는 항이다.
+
+- **(B)** $P(Y|\mathbf{w})$: 클래스의 사전 확률도 보통 $\mathbf{w}$에 독립적이거나,
+  이미 데이터에서의 비율로 주어져 있다.
+
+따라서 (A)와 (B)는 $\mathbf{w}$에 대한 최적화에서 **상수항**으로 작용하고:
+
+$$
+\arg\max_{\mathbf{w}} \ln P(\mathcal{D}|\mathbf{w}) \approx \arg\max_{\mathbf{w}} \sum_j \ln P(y^j | x^j, \mathbf{w})
+$$
+
+Generative MLE가 이론적으로 더 좋을 수 있지만,
+$P(X|Y)$를 **잘못 모델링하면** 오히려 성능이 나빠진다 (model misspecification).
+Discriminative approach는 이런 위험을 피한다.
+
+### Gradient Ascent 최적화 {#sec-gradient-ascent}
+
+$l(\mathbf{w})$의 최적화에 대해:
+
+- $l(\mathbf{w})$는 $\mathbf{w}$에 대해 **concave function** → globally optimal solution 존재
+- **Closed-form solution이 없음** (linear regression과의 핵심 차이!)
+- Concave function은 gradient ascent로 비교적 쉽게 최적화 가능
+
+Gradient와 update rule:
+
+$$
+\nabla_{\mathbf{w}} l(\mathbf{w}) = \left[ \frac{\partial l}{\partial w_0}, \frac{\partial l}{\partial w_1}, \dots, \frac{\partial l}{\partial w_n} \right]
+$$
+
+$$
+w_i^{(t+1)} \leftarrow w_i^{(t)} + \eta \frac{\partial l(\mathbf{w})}{\partial w_i}
+$$
+
+::: {.callout-note}
+## Ascent vs. Descent
+
+- 목적함수를 **maximize** → gradient **ascent** (부호 $+$)
+- Loss를 **minimize** → gradient **descent** (부호 $-$)
+
+둘은 부호만 다를 뿐 본질적으로 같은 알고리즘이다.
+:::
+
+---
+
+## Support Vector Machine (SVM) {#sec-svm}
+
+### 기하학적 직관
+
+Binary classification에서 linear classifier는 초평면(hyperplane)으로 공간을 나눈다:
+
+$$
+\mathbf{w} \cdot \mathbf{x} + w_0 = 0
+$$
+
+$\mathbf{w}$는 초평면의 **법선 벡터**, $w_0$는 bias이다.
+레이블은 $y^j \in \{+1, -1\}$이다.
+
+### 점에서 초평면까지의 거리
+
+데이터 포인트 $\mathbf{x}^j$에서 초평면까지의 부호 있는 거리:
+
+$$
+d^j = \frac{\mathbf{w} \cdot \mathbf{x}^j + w_0}{\|\mathbf{w}\|_2}
+$$
+
+$y^j$를 곱하면 올바르게 분류된 점은 항상 양수가 된다:
+
+$$
+y^j \cdot \frac{\mathbf{w} \cdot \mathbf{x}^j + w_0}{\|\mathbf{w}\|_2} > 0
+$$
+
+### Margin 정의와 최대화
+
+**Margin** = 초평면에서 가장 가까운 데이터 포인트까지의 거리:
+
+$$
+\text{margin} = \min_j \frac{y^j(\mathbf{w} \cdot \mathbf{x}^j + w_0)}{\|\mathbf{w}\|_2}
+$$
+
+SVM은 이 margin을 최대화한다.
+**스케일링 자유도**를 이용해 $\min_j y^j(\mathbf{w} \cdot \mathbf{x}^j + w_0) = \gamma$로 고정하면,
+margin은 $\frac{\gamma}{\|\mathbf{w}\|_2}$가 되고,
+margin 최대화 $\Leftrightarrow$ $\|\mathbf{w}\|_2$ 최소화이다.
+
+### 최종 최적화 문제
+
+$$
+\min_{\mathbf{w}, w_0} \frac{1}{2}\|\mathbf{w}\|_2^2
+$$
+$$
+\text{s.t.} \quad \forall j, \quad y^j(\mathbf{w} \cdot \mathbf{x}^j + w_0) > \gamma
+$$
+
+각 요소의 의미:
+
+| 요소 | 의미 |
+|---|---|
+| $\frac{1}{2}\|\mathbf{w}\|_2^2$ | $\mathbf{w}$ 크기 최소화 → margin 최대화. $\frac{1}{2}$은 미분 편의, 제곱은 convexity 확보 |
+| $y^j(\mathbf{w} \cdot \mathbf{x}^j + w_0)$ | **Functional margin**. $y^j$의 곱으로 올바른 분류 시 양수 |
+| $> \gamma$ | 단순 분류($>0$)가 아닌, 최소 $\gamma$만큼의 여유를 요구 |
+
+관례적으로 $\gamma = 1$로 놓으면 표준형이다:
+
+$$
+\min_{\mathbf{w}, w_0} \frac{1}{2}\|\mathbf{w}\|_2^2 \quad \text{s.t.} \quad \forall j, \; y^j(\mathbf{w} \cdot \mathbf{x}^j + w_0) \geq 1
+$$
+
+### Support Vector
+
+제약 조건에서 등호가 성립하는 점들, 즉 $y^j(\mathbf{w} \cdot \mathbf{x}^j + w_0) = \gamma$인 데이터 포인트가
+**support vector**이다. 이 점들만이 초평면의 위치를 결정하고, 나머지 점은 결과에 영향을 주지 않는다.
+
+### Lagrangian/KKT와의 연결
+
+이 문제는 **quadratic objective + linear constraints**이므로 QP(Quadratic Programming) 문제이다.
+Lagrangian:
+
+$$
+\mathcal{L}(\mathbf{w}, w_0, \boldsymbol{\alpha}) = \frac{1}{2}\|\mathbf{w}\|^2 - \sum_j \alpha_j \left[ y^j(\mathbf{w} \cdot \mathbf{x}^j + w_0) - \gamma \right]
+$$
+
+KKT 조건에 의해 $\alpha_j > 0$인 점들만이 support vector이고, 나머지는 $\alpha_j = 0$이다.
+
+::: {.callout-tip}
+## 무선 통신 비유: Constellation Design
+
+SVM의 margin 최대화는 통신에서 **최소 거리 최대화**와 같은 철학이다.
+QAM constellation design에서 심볼 간 최소 유클리드 거리를 최대화하면 BER이 최소화되듯,
+SVM은 클래스 간 최소 거리를 최대화하여 misclassification을 줄인다.
+:::
+
+---
+
+## K-Nearest Neighbor (KNN) Classifier {#sec-knn}
+
+### 알고리즘
+
+1. 새로운 데이터 포인트가 주어지면, 훈련 데이터에서 가장 가까운 $K$개의 이웃을 찾음
+2. 다수결 투표(majority voting)로 클래스를 결정
+3. **별도의 파라미터 학습 단계가 없음** (lazy learning)
+
+"가까움"의 정의는 distance metric에 의존한다 (Euclidean, Manhattan 등).
+
+### Training Phase가 없다?
+
+"Training이 없다"는 것은 **파라미터 최적화 과정이 없다**는 뜻이다:
+
+- **"학습" 단계**: 훈련 데이터를 저장한다. 끝.
+- **예측 단계**: 새로운 $\mathbf{x}$가 들어오면, 저장된 모든 훈련 데이터와의 거리를 계산하고,
+  가장 가까운 $K$개를 찾아 다수결 투표
+
+scikit-learn에서 `fit()`을 호출하는 것은 내부적으로 데이터를 저장하고
+효율적 검색을 위한 인덱스 구조(KD-tree, Ball-tree 등)를 구축하는 것이다.
+파라미터 학습이 아니다.
+
+| 특성 | 값 |
+|---|---|
+| 학습 시간 | $O(1)$ — 그냥 저장 |
+| 예측 시간 | $O(N \cdot d)$ — 데이터 수에 비례, 느림 |
+| Hyperparameter | $K$ 값 또는 ball radius (validation으로 튜닝) |
+
+::: {.callout-tip}
+## 무선 통신 관점
+
+RF fingerprinting 기반 위치 추정에서 KNN이 활발히 사용된다.
+수신 신호 패턴이 유사한 위치에서는 비슷한 좌표를 가질 것이라는 가정이 자연스럽다.
+:::
+
+---
+
+## Decision Tree와 Random Forest {#sec-decision-tree}
+
+### Decision Tree
+
+데이터를 feature 조건에 따라 재귀적으로 분할하는 방법이다.
+각 내부 노드에서 하나의 feature에 대한 조건을 검사하고, leaf 노드에서 최종 결정을 내린다.
+
+### Decision Tree의 한계
+
+- 훈련 데이터에 쉽게 **overfitting**
+- 데이터가 조금만 바뀌어도 트리 구조가 크게 달라지는 **높은 variance** 문제
+
+### Random Forest
+
+여러 개의 decision tree를 만들어서 **앙상블(ensemble)**한다.
+핵심은 각 트리를 **의도적으로 다르게** 만드는 두 가지 랜덤성이다:
+
+**Bagging (Bootstrap Aggregating)**: 원본 데이터에서 복원 추출(bootstrap sampling)로
+각 트리마다 다른 훈련 세트를 만든다.
+$N$개 데이터에서 $N$개를 복원 추출하면, 평균적으로 약 63.2%의 고유 데이터만 포함된다.
+
+**Feature randomness**: 각 노드에서 split할 때, 전체 $d$개 feature가 아닌
+랜덤하게 선택된 $\sqrt{d}$개(분류) 또는 $d/3$개(회귀) feature 중에서만 최적 분할을 찾는다.
+
+### 예측 방법
+
+- **분류**: 모든 트리의 예측을 다수결 투표
+- **회귀**: 모든 트리의 예측을 평균
+
+### 왜 잘 되는가
+
+개별 트리는 high variance / low bias이다.
+서로 다른 랜덤성으로 만든 트리들을 평균내면 **variance가 줄어들고** bias는 유지된다.
+
+::: {.callout-tip}
+## 무선 통신 비유: Diversity Combining
+
+독립적인 fading 채널을 여러 개 결합하면 전체 신뢰도가 올라가는 것처럼,
+독립적인 트리를 결합하면 예측 안정성이 올라간다.
+:::
+
+---
+
+## 전체 구조: 왜 이 알고리즘들을 함께 다루는가 {#sec-overview}
+
+이들은 모두 **supervised learning의 대표적 알고리즘 패러다임**이고,
+서로 대비되는 특성을 통해 ML의 핵심 축을 보여준다.
+
+### 공통점
+
+- 모두 **supervised learning** (labeled data로 학습)
+- 모두 입력 $\mathbf{x}$에서 출력 $y$로의 매핑을 학습
+
+### 대비 축 1: Parametric vs. Non-parametric
+
+| Parametric | Non-parametric |
+|---|---|
+| Linear/Logistic Regression, SVM | KNN, Decision Tree |
+| 학습 후 데이터를 버려도 $\mathbf{w}$만 있으면 예측 가능 | 데이터 자체가 모델의 일부 |
+
+### 대비 축 2: 학습 방식의 스펙트럼
+
+| 알고리즘 | 학습 방식 |
+|---|---|
+| Linear Regression | Closed-form solution (Normal Equation) |
+| Logistic Regression | Iterative optimization (Gradient Ascent) |
+| SVM | Constrained optimization (QP) |
+| KNN | 학습 없음 (Lazy Learning) |
+| Decision Tree | Greedy recursive partitioning |
+
+### 대비 축 3: Regression → Classification 확장
+
+Linear regression에서 시작해서,
+sigmoid를 씌워 logistic regression으로,
+margin 개념을 도입해 SVM으로 확장되는 흐름이 있다.
+이 계보가 곧 **neural network의 기초**이다.
+
+::: {.callout-important}
+## 다음 단계와의 연결
+
+Linear regression과 logistic regression은 사실 **1-layer neural network**이다.
+여기에 층을 쌓고 비선형 activation을 넣으면 **MLP(Multi-layer Perceptron)**가 된다.
+이것이 다음 챕터의 핵심이다.
+:::
+
+---
+
+## 참고 자료 {#sec-references}
+
+- Goodfellow, I., Bengio, Y., & Courville, A. (2016). *Deep Learning*. MIT Press. Ch. 5: Machine Learning Basics
+- Zhang, A., Lipton, Z. C., Li, M., & Smola, A. J. (2023). *Dive into Deep Learning*. Cambridge University Press.
+  - [Ch. 3: Linear Neural Networks for Regression](https://d2l.ai/chapter_linear-regression/index.html)
+- Thomas, G. (2022). *Mathematics for Machine Learning*.
+  - [gwthomas.github.io/docs/math4ml.pdf](https://gwthomas.github.io/docs/math4ml.pdf)
