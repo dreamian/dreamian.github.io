@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.35">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-04-09">
+<meta name="description" content="정렬된 자연수 수열에서 인접 원소를 XOR로 대체하는 연산을 최소 횟수로 수행하여 단조증가를 깨는 문제. 비둘기집 원리로 큰 입력을 O(1) 처리하고, MSB 구조 분석으로 불가능 판정을 하며, 작은 입력은 브루트포스로 해결하는 풀이를 정리한다.">
+
+<title>XOR 연산으로 단조증가 수열 깨기: 비둘기집 원리와 MSB 분석 – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-46f66b053e56abd73bb6e954d61a315b.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-da17d83626a3727898eb25bb9d1cdf08.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<!-- Privacy-friendly analytics by Plausible -->
+<script async="" src="https://plausible.io/js/pa-q1uQ7QEv5o9DOQFiYigvC.js"></script>
+<script>
+  window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+  plausible.init()
+</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#문제-요약" id="toc-문제-요약" class="nav-link active" data-scroll-target="#문제-요약">1 문제 요약</a></li>
+  <li><a href="#핵심-관찰-연산의-재해석" id="toc-핵심-관찰-연산의-재해석" class="nav-link" data-scroll-target="#핵심-관찰-연산의-재해석">2 핵심 관찰: 연산의 재해석</a></li>
+  <li><a href="#msb-분석" id="toc-msb-분석" class="nav-link" data-scroll-target="#msb-분석">3 MSB 분석</a>
+  <ul class="collapse">
+  <li><a href="#같은-msb-3연속-답-le-1" id="toc-같은-msb-3연속-답-le-1" class="nav-link" data-scroll-target="#같은-msb-3연속-답-le-1">3.1 같은 MSB 3연속 → 답 <span class="math inline">\(\le 1\)</span></a></li>
+  <li><a href="#모든-msb가-서로-다르면-답--1" id="toc-모든-msb가-서로-다르면-답--1" class="nav-link" data-scroll-target="#모든-msb가-서로-다르면-답--1">3.2 모든 MSB가 서로 다르면 → 답 <span class="math inline">\(= -1\)</span></a></li>
+  </ul></li>
+  <li><a href="#비둘기집-원리-n-ge-61이면-답-1" id="toc-비둘기집-원리-n-ge-61이면-답-1" class="nav-link" data-scroll-target="#비둘기집-원리-n-ge-61이면-답-1">4 비둘기집 원리: <span class="math inline">\(N \ge 61\)</span>이면 답 <span class="math inline">\(= 1\)</span></a></li>
+  <li><a href="#n-le-60-브루트포스" id="toc-n-le-60-브루트포스" class="nav-link" data-scroll-target="#n-le-60-브루트포스">5 <span class="math inline">\(N \le 60\)</span>: 브루트포스</a></li>
+  <li><a href="#판정" id="toc-판정" class="nav-link" data-scroll-target="#판정">6 <span class="math inline">\(-1\)</span> 판정</a></li>
+  <li><a href="#전체-풀이-코드" id="toc-전체-풀이-코드" class="nav-link" data-scroll-target="#전체-풀이-코드">7 전체 풀이 코드</a></li>
+  <li><a href="#복잡도-정리" id="toc-복잡도-정리" class="nav-link" data-scroll-target="#복잡도-정리">8 복잡도 정리</a></li>
+  <li><a href="#병렬-비트-카운팅-popcount-구현" id="toc-병렬-비트-카운팅-popcount-구현" class="nav-link" data-scroll-target="#병렬-비트-카운팅-popcount-구현">9 병렬 비트 카운팅 (<code>popcount</code>) 구현</a>
+  <ul class="collapse">
+  <li><a href="#원리" id="toc-원리" class="nav-link" data-scroll-target="#원리">9.1 원리</a></li>
+  <li><a href="#step-1-상세-왜-빼기가-작동하는가" id="toc-step-1-상세-왜-빼기가-작동하는가" class="nav-link" data-scroll-target="#step-1-상세-왜-빼기가-작동하는가">9.2 Step 1 상세: 왜 빼기가 작동하는가</a></li>
+  <li><a href="#비트-구현" id="toc-비트-구현" class="nav-link" data-scroll-target="#비트-구현">9.3 64비트 구현</a></li>
+  </ul></li>
+  <li><a href="#정리" id="toc-정리" class="nav-link" data-scroll-target="#정리">10 정리</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">XOR 연산으로 단조증가 수열 깨기: 비둘기집 원리와 MSB 분석</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">problem-solving</div>
+    <div class="quarto-category">xor</div>
+    <div class="quarto-category">pigeonhole</div>
+    <div class="quarto-category">greedy</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    <p>정렬된 자연수 수열에서 인접 원소를 XOR로 대체하는 연산을 최소 횟수로 수행하여 단조증가를 깨는 문제. 비둘기집 원리로 큰 입력을 O(1) 처리하고, MSB 구조 분석으로 불가능 판정을 하며, 작은 입력은 브루트포스로 해결하는 풀이를 정리한다.</p>
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">April 9, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="문제-요약" class="level2">
+<h2 class="anchored" data-anchor-id="문제-요약">1 문제 요약</h2>
+<p>단조증가하게 정렬된 (<span class="math inline">\(A_1 \le A_2 \le \cdots \le A_N\)</span>) 자연수 수열이 주어진다.</p>
+<p>다음 연산을 원하는 만큼 반복할 수 있다.</p>
+<ul>
+<li><span class="math inline">\(1 \le i \le N-1\)</span>을 만족하는 <span class="math inline">\(i\)</span>를 고른다. (이러한 <span class="math inline">\(i\)</span>가 존재하지 않으면 연산 불가)</li>
+<li><span class="math inline">\(A_i\)</span>, <span class="math inline">\(A_{i+1}\)</span>을 <span class="math inline">\(A_i \oplus A_{i+1}\)</span>로 대체한다. 수열 길이가 1 줄어든다.</li>
+</ul>
+<p>수열 <span class="math inline">\(A\)</span>가 <strong>단조증가하지 않도록</strong> (즉, 어떤 <span class="math inline">\(i\)</span>에 대해 <span class="math inline">\(A_i &gt; A_{i+1}\)</span>이 되도록) 만드는 <strong>최소 연산 횟수</strong>를 구하라. 불가능하면 <span class="math inline">\(-1\)</span>을 출력한다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>제약 조건
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><span class="math inline">\(1 \le N \le 100{,}000\)</span></li>
+<li><span class="math inline">\(1 \le A_i \le 10^9\)</span></li>
+<li>수열은 정렬 상태로 주어진다</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="핵심-관찰-연산의-재해석" class="level2">
+<h2 class="anchored" data-anchor-id="핵심-관찰-연산의-재해석">2 핵심 관찰: 연산의 재해석</h2>
+<p>연산을 <span class="math inline">\(k\)</span>번 수행하면 수열 길이는 <span class="math inline">\(N - k\)</span>가 된다. 이때 남는 각 원소는 원래 수열의 <strong>연속 부분배열의 XOR</strong>이다.</p>
+<p>따라서 문제는 다음과 동치다:</p>
+<blockquote class="blockquote">
+<p>원래 수열을 연속 블록들로 분할했을 때, 인접한 두 블록 <span class="math inline">\([L..M]\)</span>, <span class="math inline">\([M+1..R]\)</span>에서 <span class="math display">\[\mathrm{XOR}(A_L, \ldots, A_M) &gt; \mathrm{XOR}(A_{M+1}, \ldots, A_R)\]</span> 를 만족하는 쌍이 존재하면, 위반을 만들 수 있다.</p>
+</blockquote>
+<p>이때 비용은 해당 두 블록 이외의 원소는 전부 싱글톤으로 남기면 되므로:</p>
+<p><span class="math display">\[\text{cost} = (R - L + 1) - 2 = R - L - 1\]</span></p>
+<p>즉, <strong>크기 <span class="math inline">\((R-L+1)\)</span>인 윈도우 내에서 어떤 분할이든 위반을 만들 수 있으면</strong> 비용은 윈도우 크기 <span class="math inline">\(- 2\)</span>이다.</p>
+</section>
+<section id="msb-분석" class="level2">
+<h2 class="anchored" data-anchor-id="msb-분석">3 MSB 분석</h2>
+<p><span class="math inline">\(\mathrm{MSB}(x)\)</span>를 <span class="math inline">\(x\)</span>의 최상위 비트 위치라 하자. 수열이 정렬되어 있으므로:</p>
+<p><span class="math display">\[\mathrm{MSB}(A_1) \le \mathrm{MSB}(A_2) \le \cdots \le \mathrm{MSB}(A_N)\]</span></p>
+<p>XOR의 핵심 성질: <span class="math inline">\(\mathrm{MSB}(a) &lt; \mathrm{MSB}(b)\)</span>이면 <span class="math inline">\(\mathrm{MSB}(a \oplus b) = \mathrm{MSB}(b)\)</span>이고 <span class="math inline">\(a \oplus b \ge 2^{\mathrm{MSB}(b)} &gt; a\)</span>이다.</p>
+<section id="같은-msb-3연속-답-le-1" class="level3">
+<h3 class="anchored" data-anchor-id="같은-msb-3연속-답-le-1">3.1 같은 MSB 3연속 → 답 <span class="math inline">\(\le 1\)</span></h3>
+<p><span class="math inline">\(\mathrm{MSB}(A_i) = \mathrm{MSB}(A_{i+1}) = \mathrm{MSB}(A_{i+2}) = k\)</span>라 하자.</p>
+<p><span class="math inline">\(A_{i+1} \oplus A_{i+2}\)</span>에서 최상위 비트 <span class="math inline">\(k\)</span>가 상쇄되므로 <span class="math inline">\(\mathrm{MSB}(A_{i+1} \oplus A_{i+2}) &lt; k\)</span>이다.</p>
+<p>따라서:</p>
+<p><span class="math display">\[A_{i+1} \oplus A_{i+2} &lt; 2^k \le A_i\]</span></p>
+<p>위반이 성립하고, 윈도우 크기 3이므로 비용은 1이다.</p>
+</section>
+<section id="모든-msb가-서로-다르면-답--1" class="level3">
+<h3 class="anchored" data-anchor-id="모든-msb가-서로-다르면-답--1">3.2 모든 MSB가 서로 다르면 → 답 <span class="math inline">\(= -1\)</span></h3>
+<p><span class="math inline">\(\mathrm{MSB}(A_1) &lt; \mathrm{MSB}(A_2) &lt; \cdots &lt; \mathrm{MSB}(A_N)\)</span>이면, 어떤 연속 부분배열의 XOR이든 <strong>그 부분배열의 최댓값의 MSB를 보존</strong>한다 (나머지 원소들의 MSB가 전부 낮으므로 최상위 비트가 상쇄되지 않음).</p>
+<p>인접 두 블록 <span class="math inline">\([L..M]\)</span>, <span class="math inline">\([M+1..R]\)</span>에서:</p>
+<ul>
+<li><span class="math inline">\(\mathrm{MSB}(\mathrm{XOR}(L..M)) = \mathrm{MSB}(A_M)\)</span></li>
+<li><span class="math inline">\(\mathrm{MSB}(\mathrm{XOR}(M+1..R)) = \mathrm{MSB}(A_R)\)</span></li>
+<li><span class="math inline">\(M &lt; R\)</span>이므로 <span class="math inline">\(\mathrm{MSB}(A_M) &lt; \mathrm{MSB}(A_R)\)</span></li>
+<li>따라서 <span class="math inline">\(\mathrm{XOR}(L..M) &lt; 2^{\mathrm{MSB}(A_M)+1} \le 2^{\mathrm{MSB}(A_R)} \le \mathrm{XOR}(M+1..R)\)</span></li>
+</ul>
+<p><strong>어떤 분할로도 위반을 만들 수 없다.</strong></p>
+</section>
+</section>
+<section id="비둘기집-원리-n-ge-61이면-답-1" class="level2">
+<h2 class="anchored" data-anchor-id="비둘기집-원리-n-ge-61이면-답-1">4 비둘기집 원리: <span class="math inline">\(N \ge 61\)</span>이면 답 <span class="math inline">\(= 1\)</span></h2>
+<p>원소 값이 <span class="math inline">\(\le 10^9 &lt; 2^{30}\)</span>이므로 MSB는 <span class="math inline">\(0\)</span>부터 <span class="math inline">\(29\)</span>까지 총 <strong>30가지</strong> 값만 가능하다.</p>
+<p><span class="math inline">\(N \ge 61\)</span>이면, 비둘기집 원리에 의해 같은 MSB를 가지는 원소가 최소 3개 존재한다. 수열이 정렬되어 있으므로 같은 MSB끼리 연속으로 모여 있다. 따라서 같은 MSB 3연속이 반드시 존재하고, §3.1에 의해 <strong>답은 항상 1</strong>이다.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심 아이디어
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(N \ge 61\)</span>이면 MSB의 비둘기집 원리로 O(1) 판정이 가능하다. 이로써 <span class="math inline">\(N \le 60\)</span>인 경우만 처리하면 된다.</p>
+</div>
+</div>
+</section>
+<section id="n-le-60-브루트포스" class="level2">
+<h2 class="anchored" data-anchor-id="n-le-60-브루트포스">5 <span class="math inline">\(N \le 60\)</span>: 브루트포스</h2>
+<p><span class="math inline">\(N \le 60\)</span>이면 <span class="math inline">\(O(N^3)\)</span>이 <span class="math inline">\(60^3 = 216{,}000\)</span>이므로 충분하다.</p>
+<p>prefix XOR 배열 <span class="math inline">\(\mathrm{px}[i] = A_1 \oplus A_2 \oplus \cdots \oplus A_i\)</span>를 전처리하면, 구간 XOR을 O(1)에 구할 수 있다:</p>
+<p><span class="math display">\[\mathrm{XOR}(A_i, \ldots, A_j) = \mathrm{px}[j] \oplus \mathrm{px}[i-1]\]</span></p>
+<p>모든 <span class="math inline">\((i, j, k)\)</span> 쌍에 대해:</p>
+<ul>
+<li><span class="math inline">\(L = \mathrm{px}[j] \oplus \mathrm{px}[i-1]\)</span> (왼쪽 블록의 XOR)</li>
+<li><span class="math inline">\(R = \mathrm{px}[k] \oplus \mathrm{px}[j]\)</span> (오른쪽 블록의 XOR)</li>
+<li><span class="math inline">\(L &gt; R\)</span>이면 비용 <span class="math inline">\(= k - i - 1\)</span>, 최솟값 갱신</li>
+</ul>
+</section>
+<section id="판정" class="level2">
+<h2 class="anchored" data-anchor-id="판정">6 <span class="math inline">\(-1\)</span> 판정</h2>
+<p>§3.2에서 보았듯이, <strong>인접한 원소 중 같은 MSB를 가지는 쌍이 하나도 없으면</strong> 답은 <span class="math inline">\(-1\)</span>이다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">bool</span> all_msb_distinct <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> i <span class="op">&lt;=</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">((</span><span class="dv">31</span> <span class="op">-</span> <span class="fu">__builtin_clz</span><span class="op">(</span>a<span class="op">[</span>i<span class="op">]))</span> <span class="op">==</span> <span class="op">(</span><span class="dv">31</span> <span class="op">-</span> <span class="fu">__builtin_clz</span><span class="op">(</span>a<span class="op">[</span>i<span class="op">-</span><span class="dv">1</span><span class="op">])))</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        all_msb_distinct <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>all_msb_distinct<span class="op">)</span> <span class="op">{</span> puts<span class="op">(</span><span class="st">"-1"</span><span class="op">);</span> <span class="cf">continue</span><span class="op">;</span> <span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>대안 판정: 전체 XOR의 popcount
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>실전에서 <code>popcount(a[1] ^ a[2] ^ ... ^ a[n]) == n</code> 조건으로 판정하는 풀이도 AC를 받는다. 이는 모든 MSB가 서로 다를 때 XOR이 비트를 보존하는 성질에 의존하는데, 엄밀한 동치 증명은 쉽지 않으므로 MSB 직접 비교가 더 안전하다.</p>
+</div>
+</div>
+</section>
+<section id="전체-풀이-코드" class="level2">
+<h2 class="anchored" data-anchor-id="전체-풀이-코드">7 전체 풀이 코드</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a<span class="op">[</span><span class="dv">100001</span><span class="op">];</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> px<span class="op">[</span><span class="dv">100001</span><span class="op">];</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> t<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>t<span class="op">);</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(</span>t<span class="op">--)</span> <span class="op">{</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> n<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>n<span class="op">);</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        px<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> i <span class="op">&lt;=</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>            scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>a<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>            px<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> px<span class="op">[</span>i <span class="op">-</span> <span class="dv">1</span><span class="op">]</span> <span class="op">^</span> a<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Case 1: N &gt;= 61 → 비둘기집 원리로 답 = 1</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>n <span class="op">&gt;=</span> <span class="dv">61</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>            puts<span class="op">(</span><span class="st">"1"</span><span class="op">);</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Case 2: 모든 인접 MSB가 다르면 → 답 = -1</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>        <span class="dt">bool</span> all_distinct <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> i <span class="op">&lt;=</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">((</span><span class="dv">31</span> <span class="op">-</span> <span class="fu">__builtin_clz</span><span class="op">(</span>a<span class="op">[</span>i<span class="op">]))</span> <span class="op">==</span> <span class="op">(</span><span class="dv">31</span> <span class="op">-</span> <span class="fu">__builtin_clz</span><span class="op">(</span>a<span class="op">[</span>i <span class="op">-</span> <span class="dv">1</span><span class="op">])))</span> <span class="op">{</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>                all_distinct <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>                <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>all_distinct<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>            puts<span class="op">(</span><span class="st">"-1"</span><span class="op">);</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Case 3: N &lt;= 60 → O(N^3) 브루트포스</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> best <span class="op">=</span> <span class="dv">100000</span><span class="op">;</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> i <span class="op">&lt;=</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> j <span class="op">=</span> i<span class="op">;</span> j <span class="op">&lt;=</span> n<span class="op">;</span> <span class="op">++</span>j<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>                <span class="dt">int</span> L <span class="op">=</span> px<span class="op">[</span>j<span class="op">]</span> <span class="op">^</span> px<span class="op">[</span>i <span class="op">-</span> <span class="dv">1</span><span class="op">];</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> k <span class="op">=</span> j <span class="op">+</span> <span class="dv">1</span><span class="op">;</span> k <span class="op">&lt;=</span> n<span class="op">;</span> <span class="op">++</span>k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>                    <span class="dt">int</span> R <span class="op">=</span> px<span class="op">[</span>k<span class="op">]</span> <span class="op">^</span> px<span class="op">[</span>j<span class="op">];</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">if</span> <span class="op">(</span>L <span class="op">&gt;</span> R<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>                        <span class="dt">int</span> cost <span class="op">=</span> k <span class="op">-</span> i <span class="op">-</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">if</span> <span class="op">(</span>cost <span class="op">&lt;</span> best<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>                            best <span class="op">=</span> cost<span class="op">;</span></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>                        <span class="op">}</span></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">if</span> <span class="op">(</span>best <span class="op">==</span> <span class="dv">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>                            <span class="cf">goto</span> done<span class="op">;</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>                        <span class="op">}</span></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>                    <span class="op">}</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>        done<span class="op">:</span></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">"</span><span class="sc">%d\n</span><span class="st">"</span><span class="op">,</span> best<span class="op">);</span></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="복잡도-정리" class="level2">
+<h2 class="anchored" data-anchor-id="복잡도-정리">8 복잡도 정리</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>케이스</th>
+<th>조건</th>
+<th>시간</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(N \ge 61\)</span></td>
+<td>비둘기집 원리</td>
+<td><span class="math inline">\(O(N)\)</span> (입력만 읽음)</td>
+</tr>
+<tr class="even">
+<td>all-MSB-distinct</td>
+<td>인접 MSB 비교</td>
+<td><span class="math inline">\(O(N)\)</span></td>
+</tr>
+<tr class="odd">
+<td>나머지</td>
+<td>브루트포스</td>
+<td><span class="math inline">\(O(N^3)\)</span>, <span class="math inline">\(N \le 60\)</span></td>
+</tr>
+</tbody>
+</table>
+<p>전체적으로 <strong>테스트 케이스당 <span class="math inline">\(O(N)\)</span></strong> 시간에 동작한다.</p>
+</section>
+<section id="병렬-비트-카운팅-popcount-구현" class="level2">
+<h2 class="anchored" data-anchor-id="병렬-비트-카운팅-popcount-구현">9 병렬 비트 카운팅 (<code>popcount</code>) 구현</h2>
+<p>이 문제에서 직접 사용하지는 않지만, 비트 연산 문제에서 자주 필요한 popcount의 <span class="math inline">\(O(1)\)</span> 구현을 정리한다.</p>
+<section id="원리" class="level3">
+<h3 class="anchored" data-anchor-id="원리">9.1 원리</h3>
+<p>분할정복으로 인접 비트쌍의 1-비트 수를 합산한 뒤, 점점 큰 단위로 병합한다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>단계</th>
+<th>단위</th>
+<th>마스크 (반복 패턴)</th>
+<th>연산</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>2비트</td>
+<td><code>01</code></td>
+<td>빼기: <span class="math inline">\(x - \lfloor x/2 \rfloor \mathbin{\&amp;} \texttt{01..01}\)</span></td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>4비트</td>
+<td><code>0011</code></td>
+<td>더하기: 하위 + 상위</td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td>8비트</td>
+<td><code>00001111</code></td>
+<td>더하기 후 마스크</td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td>전체</td>
+<td>—</td>
+<td>곱셈 후 시프트</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="step-1-상세-왜-빼기가-작동하는가" class="level3">
+<h3 class="anchored" data-anchor-id="step-1-상세-왜-빼기가-작동하는가">9.2 Step 1 상세: 왜 빼기가 작동하는가</h3>
+<p>2비트 그룹 <code>ab</code>에서 1의 개수는 <span class="math inline">\(a + b\)</span>이다. 이 값은 <code>ab - 0b</code>와 같다:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><code>ab</code></th>
+<th><code>0b</code> = <code>(ab&gt;&gt;1) &amp; 01</code></th>
+<th><code>ab - 0b</code></th>
+<th>1의 개수</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>00</code> = 0</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td><code>01</code></td>
+<td><code>00</code></td>
+<td><code>01</code> = 1</td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td><code>10</code></td>
+<td><code>01</code></td>
+<td><code>01</code> = 1</td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td><code>11</code></td>
+<td><code>01</code></td>
+<td><code>10</code> = 2</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="비트-구현" class="level3">
+<h3 class="anchored" data-anchor-id="비트-구현">9.3 64비트 구현</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">long</span> <span class="dt">long</span> popcount<span class="op">(</span><span class="dt">unsigned</span> <span class="dt">long</span> <span class="dt">long</span> x<span class="op">)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Step 1: 2비트 단위 합</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> x <span class="op">-</span> <span class="op">((</span>x <span class="op">&gt;&gt;</span> <span class="dv">1</span><span class="op">)</span> <span class="op">&amp;</span> <span class="bn">0x5555555555555555</span><span class="bu">ULL</span><span class="op">);</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Step 2: 4비트 단위 합</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> <span class="op">(</span>x <span class="op">&amp;</span> <span class="bn">0x3333333333333333</span><span class="bu">ULL</span><span class="op">)</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="op">+</span> <span class="op">((</span>x <span class="op">&gt;&gt;</span> <span class="dv">2</span><span class="op">)</span> <span class="op">&amp;</span> <span class="bn">0x3333333333333333</span><span class="bu">ULL</span><span class="op">);</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Step 3: 8비트 단위 합</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> <span class="op">(</span>x <span class="op">+</span> <span class="op">(</span>x <span class="op">&gt;&gt;</span> <span class="dv">4</span><span class="op">))</span> <span class="op">&amp;</span> <span class="bn">0x0F0F0F0F0F0F0F0F</span><span class="bu">ULL</span><span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Step 4: 전체 합산 (곱셈 + 시프트)</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>x <span class="op">*</span> <span class="bn">0x0101010101010101</span><span class="bu">ULL</span><span class="op">)</span> <span class="op">&gt;&gt;</span> <span class="dv">56</span><span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>흔한 실수
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Step 3에서 <strong>덧셈(<code>+</code>)을 비트 AND(<code>&amp;</code>)로 잘못 쓰는 경우</strong>가 많다. 4비트 카운트끼리 <strong>더해야</strong> 하므로 반드시 <code>+</code>를 사용해야 한다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="정리" class="level2">
+<h2 class="anchored" data-anchor-id="정리">10 정리</h2>
+<p>이 문제의 핵심 takeaway는 다음과 같다.</p>
+<ol type="1">
+<li><strong>XOR과 MSB의 관계</strong>: 같은 MSB끼리 XOR하면 최상위 비트가 상쇄되어 값이 작아진다. 다른 MSB끼리 XOR하면 큰 쪽의 MSB가 보존된다.</li>
+<li><strong>비둘기집 원리로 경계 분리</strong>: 값의 범위로부터 MSB 종류 수를 세고, <span class="math inline">\(N\)</span>이 충분히 크면 같은 MSB 3연속이 보장된다.</li>
+<li><strong>경계 분리 후 브루트포스</strong>: 큰 입력을 O(1)로 처리하고, 남은 작은 입력에서만 <span class="math inline">\(O(N^3)\)</span>을 돌리면 전체가 효율적이 된다.</li>
+</ol>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

@@ -1,0 +1,255 @@
+---
+title: "XOR 연산으로 단조증가 수열 깨기: 비둘기집 원리와 MSB 분석"
+categories: [problem-solving, xor, pigeonhole, greedy]
+description: >
+  정렬된 자연수 수열에서 인접 원소를 XOR로 대체하는 연산을 최소 횟수로 수행하여 단조증가를 깨는 문제. 비둘기집 원리로 큰 입력을 O(1) 처리하고, MSB 구조 분석으로 불가능 판정을 하며, 작은 입력은 브루트포스로 해결하는 풀이를 정리한다.
+date: "2026-04-09"
+---
+
+## 1 문제 요약
+
+단조증가하게 정렬된 ($A_1 \le A_2 \le \cdots \le A_N$) 자연수 수열이 주어진다.
+
+다음 연산을 원하는 만큼 반복할 수 있다.
+
+- $1 \le i \le N-1$을 만족하는 $i$를 고른다. (이러한 $i$가 존재하지 않으면 연산 불가)
+- $A_i$, $A_{i+1}$을 $A_i \oplus A_{i+1}$로 대체한다. 수열 길이가 1 줄어든다.
+
+수열 $A$가 **단조증가하지 않도록** (즉, 어떤 $i$에 대해 $A_i > A_{i+1}$이 되도록) 만드는 **최소 연산 횟수**를 구하라. 불가능하면 $-1$을 출력한다.
+
+:::{.callout-note}
+## 제약 조건
+
+- $1 \le N \le 100{,}000$
+- $1 \le A_i \le 10^9$
+- 수열은 정렬 상태로 주어진다
+:::
+
+## 2 핵심 관찰: 연산의 재해석
+
+연산을 $k$번 수행하면 수열 길이는 $N - k$가 된다. 이때 남는 각 원소는 원래 수열의 **연속 부분배열의 XOR**이다.
+
+따라서 문제는 다음과 동치다:
+
+> 원래 수열을 연속 블록들로 분할했을 때, 인접한 두 블록 $[L..M]$, $[M+1..R]$에서
+> $$\mathrm{XOR}(A_L, \ldots, A_M) > \mathrm{XOR}(A_{M+1}, \ldots, A_R)$$
+> 를 만족하는 쌍이 존재하면, 위반을 만들 수 있다.
+
+이때 비용은 해당 두 블록 이외의 원소는 전부 싱글톤으로 남기면 되므로:
+
+$$\text{cost} = (R - L + 1) - 2 = R - L - 1$$
+
+즉, **크기 $(R-L+1)$인 윈도우 내에서 어떤 분할이든 위반을 만들 수 있으면** 비용은 윈도우 크기 $- 2$이다.
+
+## 3 MSB 분석
+
+$\mathrm{MSB}(x)$를 $x$의 최상위 비트 위치라 하자. 수열이 정렬되어 있으므로:
+
+$$\mathrm{MSB}(A_1) \le \mathrm{MSB}(A_2) \le \cdots \le \mathrm{MSB}(A_N)$$
+
+XOR의 핵심 성질: $\mathrm{MSB}(a) < \mathrm{MSB}(b)$이면 $\mathrm{MSB}(a \oplus b) = \mathrm{MSB}(b)$이고 $a \oplus b \ge 2^{\mathrm{MSB}(b)} > a$이다.
+
+### 3.1 같은 MSB 3연속 → 답 $\le 1$
+
+$\mathrm{MSB}(A_i) = \mathrm{MSB}(A_{i+1}) = \mathrm{MSB}(A_{i+2}) = k$라 하자.
+
+$A_{i+1} \oplus A_{i+2}$에서 최상위 비트 $k$가 상쇄되므로 $\mathrm{MSB}(A_{i+1} \oplus A_{i+2}) < k$이다.
+
+따라서:
+
+$$A_{i+1} \oplus A_{i+2} < 2^k \le A_i$$
+
+위반이 성립하고, 윈도우 크기 3이므로 비용은 1이다.
+
+### 3.2 모든 MSB가 서로 다르면 → 답 $= -1$
+
+$\mathrm{MSB}(A_1) < \mathrm{MSB}(A_2) < \cdots < \mathrm{MSB}(A_N)$이면, 어떤 연속 부분배열의 XOR이든 **그 부분배열의 최댓값의 MSB를 보존**한다 (나머지 원소들의 MSB가 전부 낮으므로 최상위 비트가 상쇄되지 않음).
+
+인접 두 블록 $[L..M]$, $[M+1..R]$에서:
+
+- $\mathrm{MSB}(\mathrm{XOR}(L..M)) = \mathrm{MSB}(A_M)$
+- $\mathrm{MSB}(\mathrm{XOR}(M+1..R)) = \mathrm{MSB}(A_R)$
+- $M < R$이므로 $\mathrm{MSB}(A_M) < \mathrm{MSB}(A_R)$
+- 따라서 $\mathrm{XOR}(L..M) < 2^{\mathrm{MSB}(A_M)+1} \le 2^{\mathrm{MSB}(A_R)} \le \mathrm{XOR}(M+1..R)$
+
+**어떤 분할로도 위반을 만들 수 없다.**
+
+## 4 비둘기집 원리: $N \ge 61$이면 답 $= 1$
+
+원소 값이 $\le 10^9 < 2^{30}$이므로 MSB는 $0$부터 $29$까지 총 **30가지** 값만 가능하다.
+
+$N \ge 61$이면, 비둘기집 원리에 의해 같은 MSB를 가지는 원소가 최소 3개 존재한다. 수열이 정렬되어 있으므로 같은 MSB끼리 연속으로 모여 있다. 따라서 같은 MSB 3연속이 반드시 존재하고, §3.1에 의해 **답은 항상 1**이다.
+
+:::{.callout-important}
+## 핵심 아이디어
+
+$N \ge 61$이면 MSB의 비둘기집 원리로 O(1) 판정이 가능하다. 이로써 $N \le 60$인 경우만 처리하면 된다.
+:::
+
+## 5 $N \le 60$: 브루트포스
+
+$N \le 60$이면 $O(N^3)$이 $60^3 = 216{,}000$이므로 충분하다.
+
+prefix XOR 배열 $\mathrm{px}[i] = A_1 \oplus A_2 \oplus \cdots \oplus A_i$를 전처리하면, 구간 XOR을 O(1)에 구할 수 있다:
+
+$$\mathrm{XOR}(A_i, \ldots, A_j) = \mathrm{px}[j] \oplus \mathrm{px}[i-1]$$
+
+모든 $(i, j, k)$ 쌍에 대해:
+
+- $L = \mathrm{px}[j] \oplus \mathrm{px}[i-1]$ (왼쪽 블록의 XOR)
+- $R = \mathrm{px}[k] \oplus \mathrm{px}[j]$ (오른쪽 블록의 XOR)
+- $L > R$이면 비용 $= k - i - 1$, 최솟값 갱신
+
+## 6 $-1$ 판정
+
+§3.2에서 보았듯이, **인접한 원소 중 같은 MSB를 가지는 쌍이 하나도 없으면** 답은 $-1$이다.
+
+```cpp
+bool all_msb_distinct = true;
+for (int i = 2; i <= n; ++i) {
+    if ((31 - __builtin_clz(a[i])) == (31 - __builtin_clz(a[i-1]))) {
+        all_msb_distinct = false;
+        break;
+    }
+}
+if (all_msb_distinct) { puts("-1"); continue; }
+```
+
+:::{.callout-tip}
+## 대안 판정: 전체 XOR의 popcount
+
+실전에서 `popcount(a[1] ^ a[2] ^ ... ^ a[n]) == n` 조건으로 판정하는 풀이도 AC를 받는다. 이는 모든 MSB가 서로 다를 때 XOR이 비트를 보존하는 성질에 의존하는데, 엄밀한 동치 증명은 쉽지 않으므로 MSB 직접 비교가 더 안전하다.
+:::
+
+## 7 전체 풀이 코드
+
+```cpp
+#include <stdio.h>
+
+int a[100001];
+int px[100001];
+
+int main(void)
+{
+    int t;
+    scanf("%d", &t);
+    while (t--) {
+        int n;
+        scanf("%d", &n);
+        px[0] = 0;
+        for (int i = 1; i <= n; ++i) {
+            scanf("%d", &a[i]);
+            px[i] = px[i - 1] ^ a[i];
+        }
+
+        // Case 1: N >= 61 → 비둘기집 원리로 답 = 1
+        if (n >= 61) {
+            puts("1");
+            continue;
+        }
+
+        // Case 2: 모든 인접 MSB가 다르면 → 답 = -1
+        bool all_distinct = true;
+        for (int i = 2; i <= n; ++i) {
+            if ((31 - __builtin_clz(a[i])) == (31 - __builtin_clz(a[i - 1]))) {
+                all_distinct = false;
+                break;
+            }
+        }
+        if (all_distinct) {
+            puts("-1");
+            continue;
+        }
+
+        // Case 3: N <= 60 → O(N^3) 브루트포스
+        int best = 100000;
+        for (int i = 1; i <= n; ++i) {
+            for (int j = i; j <= n; ++j) {
+                int L = px[j] ^ px[i - 1];
+                for (int k = j + 1; k <= n; ++k) {
+                    int R = px[k] ^ px[j];
+                    if (L > R) {
+                        int cost = k - i - 1;
+                        if (cost < best) {
+                            best = cost;
+                        }
+                        if (best == 1) {
+                            goto done;
+                        }
+                    }
+                }
+            }
+        }
+        done:
+        printf("%d\n", best);
+    }
+    return 0;
+}
+```
+
+## 8 복잡도 정리
+
+| 케이스 | 조건 | 시간 |
+|---|---|---|
+| $N \ge 61$ | 비둘기집 원리 | $O(N)$ (입력만 읽음) |
+| all-MSB-distinct | 인접 MSB 비교 | $O(N)$ |
+| 나머지 | 브루트포스 | $O(N^3)$, $N \le 60$ |
+
+전체적으로 **테스트 케이스당 $O(N)$** 시간에 동작한다.
+
+## 9 병렬 비트 카운팅 (`popcount`) 구현
+
+이 문제에서 직접 사용하지는 않지만, 비트 연산 문제에서 자주 필요한 popcount의 $O(1)$ 구현을 정리한다.
+
+### 9.1 원리
+
+분할정복으로 인접 비트쌍의 1-비트 수를 합산한 뒤, 점점 큰 단위로 병합한다.
+
+| 단계 | 단위 | 마스크 (반복 패턴) | 연산 |
+|---|---|---|---|
+| 1 | 2비트 | `01` | 빼기: $x - \lfloor x/2 \rfloor \mathbin{\&} \texttt{01..01}$ |
+| 2 | 4비트 | `0011` | 더하기: 하위 + 상위 |
+| 3 | 8비트 | `00001111` | 더하기 후 마스크 |
+| 4 | 전체 | — | 곱셈 후 시프트 |
+
+### 9.2 Step 1 상세: 왜 빼기가 작동하는가
+
+2비트 그룹 `ab`에서 1의 개수는 $a + b$이다. 이 값은 `ab - 0b`와 같다:
+
+| `ab` | `0b` = `(ab>>1) & 01` | `ab - 0b` | 1의 개수 |
+|---|---|---|---|
+| `00` | `00` | `00` = 0 | 0 |
+| `01` | `00` | `01` = 1 | 1 |
+| `10` | `01` | `01` = 1 | 1 |
+| `11` | `01` | `10` = 2 | 2 |
+
+### 9.3 64비트 구현
+
+```cpp
+unsigned long long popcount(unsigned long long x)
+{
+    // Step 1: 2비트 단위 합
+    x = x - ((x >> 1) & 0x5555555555555555ULL);
+    // Step 2: 4비트 단위 합
+    x = (x & 0x3333333333333333ULL)
+      + ((x >> 2) & 0x3333333333333333ULL);
+    // Step 3: 8비트 단위 합
+    x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0FULL;
+    // Step 4: 전체 합산 (곱셈 + 시프트)
+    return (x * 0x0101010101010101ULL) >> 56;
+}
+```
+
+:::{.callout-warning}
+## 흔한 실수
+
+Step 3에서 **덧셈(`+`)을 비트 AND(`&`)로 잘못 쓰는 경우**가 많다. 4비트 카운트끼리 **더해야** 하므로 반드시 `+`를 사용해야 한다.
+:::
+
+## 10 정리
+
+이 문제의 핵심 takeaway는 다음과 같다.
+
+1. **XOR과 MSB의 관계**: 같은 MSB끼리 XOR하면 최상위 비트가 상쇄되어 값이 작아진다. 다른 MSB끼리 XOR하면 큰 쪽의 MSB가 보존된다.
+2. **비둘기집 원리로 경계 분리**: 값의 범위로부터 MSB 종류 수를 세고, $N$이 충분히 크면 같은 MSB 3연속이 보장된다.
+3. **경계 분리 후 브루트포스**: 큰 입력을 O(1)로 처리하고, 남은 작은 입력에서만 $O(N^3)$을 돌리면 전체가 효율적이 된다.
