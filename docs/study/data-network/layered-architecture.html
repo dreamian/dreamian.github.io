@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.35">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-04-14">
+
+<title>Layered Architecture – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-3f230b53dc93e4a04bf4a3505d77a42a.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-7f128302b46659ec05c1cdf12d27b5f1.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<!-- Privacy-friendly analytics by Plausible -->
+<script async="" src="https://plausible.io/js/pa-q1uQ7QEv5o9DOQFiYigvC.js"></script>
+<script>
+  window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+  plausible.init()
+</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">목차</h2>
+   
+  <ul>
+  <li><a href="#인터넷이란-무엇인가" id="toc-인터넷이란-무엇인가" class="nav-link active" data-scroll-target="#인터넷이란-무엇인가"><span class="header-section-number">1</span> 인터넷이란 무엇인가?</a>
+  <ul class="collapse">
+  <li><a href="#nuts-bolts-관점" id="toc-nuts-bolts-관점" class="nav-link" data-scroll-target="#nuts-bolts-관점"><span class="header-section-number">1.1</span> Nuts &amp; Bolts 관점</a></li>
+  <li><a href="#service-관점" id="toc-service-관점" class="nav-link" data-scroll-target="#service-관점"><span class="header-section-number">1.2</span> Service 관점</a></li>
+  <li><a href="#protocol의-정의" id="toc-protocol의-정의" class="nav-link" data-scroll-target="#protocol의-정의"><span class="header-section-number">1.3</span> Protocol의 정의</a></li>
+  </ul></li>
+  <li><a href="#network-edge-access-networks" id="toc-network-edge-access-networks" class="nav-link" data-scroll-target="#network-edge-access-networks"><span class="header-section-number">2</span> Network Edge &amp; Access Networks</a>
+  <ul class="collapse">
+  <li><a href="#네트워크-구조의-3요소" id="toc-네트워크-구조의-3요소" class="nav-link" data-scroll-target="#네트워크-구조의-3요소"><span class="header-section-number">2.1</span> 네트워크 구조의 3요소</a></li>
+  <li><a href="#host의-패킷-전송" id="toc-host의-패킷-전송" class="nav-link" data-scroll-target="#host의-패킷-전송"><span class="header-section-number">2.2</span> Host의 패킷 전송</a></li>
+  <li><a href="#접속-네트워크-유형" id="toc-접속-네트워크-유형" class="nav-link" data-scroll-target="#접속-네트워크-유형"><span class="header-section-number">2.3</span> 접속 네트워크 유형</a></li>
+  <li><a href="#물리-매체physical-media" id="toc-물리-매체physical-media" class="nav-link" data-scroll-target="#물리-매체physical-media"><span class="header-section-number">2.4</span> 물리 매체(Physical Media)</a></li>
+  </ul></li>
+  <li><a href="#network-core" id="toc-network-core" class="nav-link" data-scroll-target="#network-core"><span class="header-section-number">3</span> Network Core</a>
+  <ul class="collapse">
+  <li><a href="#packet-switching" id="toc-packet-switching" class="nav-link" data-scroll-target="#packet-switching"><span class="header-section-number">3.1</span> Packet Switching</a>
+  <ul class="collapse">
+  <li><a href="#store-and-forward" id="toc-store-and-forward" class="nav-link" data-scroll-target="#store-and-forward"><span class="header-section-number">3.1.1</span> Store-and-Forward</a></li>
+  <li><a href="#queueing-delay-loss" id="toc-queueing-delay-loss" class="nav-link" data-scroll-target="#queueing-delay-loss"><span class="header-section-number">3.1.2</span> Queueing Delay &amp; Loss</a></li>
+  <li><a href="#two-key-functions" id="toc-two-key-functions" class="nav-link" data-scroll-target="#two-key-functions"><span class="header-section-number">3.1.3</span> Two Key Functions</a></li>
+  </ul></li>
+  <li><a href="#circuit-switching" id="toc-circuit-switching" class="nav-link" data-scroll-target="#circuit-switching"><span class="header-section-number">3.2</span> Circuit Switching</a>
+  <ul class="collapse">
+  <li><a href="#fdm-vs-tdm" id="toc-fdm-vs-tdm" class="nav-link" data-scroll-target="#fdm-vs-tdm"><span class="header-section-number">3.2.1</span> FDM vs TDM</a></li>
+  </ul></li>
+  <li><a href="#packet-vs-circuit-switching-비교" id="toc-packet-vs-circuit-switching-비교" class="nav-link" data-scroll-target="#packet-vs-circuit-switching-비교"><span class="header-section-number">3.3</span> Packet vs Circuit Switching 비교</a>
+  <ul class="collapse">
+  <li><a href="#통계적-우위-이항분포-활용" id="toc-통계적-우위-이항분포-활용" class="nav-link" data-scroll-target="#통계적-우위-이항분포-활용"><span class="header-section-number">3.3.1</span> 통계적 우위 — 이항분포 활용</a></li>
+  </ul></li>
+  <li><a href="#internet-structure-network-of-networks" id="toc-internet-structure-network-of-networks" class="nav-link" data-scroll-target="#internet-structure-network-of-networks"><span class="header-section-number">3.4</span> Internet Structure: Network of Networks</a></li>
+  </ul></li>
+  <li><a href="#delay-loss-throughput" id="toc-delay-loss-throughput" class="nav-link" data-scroll-target="#delay-loss-throughput"><span class="header-section-number">4</span> Delay, Loss, Throughput</a>
+  <ul class="collapse">
+  <li><a href="#가지-패킷-지연" id="toc-가지-패킷-지연" class="nav-link" data-scroll-target="#가지-패킷-지연"><span class="header-section-number">4.1</span> 4가지 패킷 지연</a></li>
+  <li><a href="#traffic-intensity" id="toc-traffic-intensity" class="nav-link" data-scroll-target="#traffic-intensity"><span class="header-section-number">4.2</span> Traffic Intensity</a></li>
+  <li><a href="#throughput-처리량" id="toc-throughput-처리량" class="nav-link" data-scroll-target="#throughput-처리량"><span class="header-section-number">4.3</span> Throughput (처리량)</a></li>
+  </ul></li>
+  <li><a href="#protocol-layers-service-models" id="toc-protocol-layers-service-models" class="nav-link" data-scroll-target="#protocol-layers-service-models"><span class="header-section-number">5</span> Protocol Layers &amp; Service Models</a>
+  <ul class="collapse">
+  <li><a href="#계층화의-이유" id="toc-계층화의-이유" class="nav-link" data-scroll-target="#계층화의-이유"><span class="header-section-number">5.1</span> 계층화의 이유</a></li>
+  <li><a href="#internet-5-layer-stack" id="toc-internet-5-layer-stack" class="nav-link" data-scroll-target="#internet-5-layer-stack"><span class="header-section-number">5.2</span> Internet 5-Layer Stack</a></li>
+  <li><a href="#osi-7계층-모델과-비교" id="toc-osi-7계층-모델과-비교" class="nav-link" data-scroll-target="#osi-7계층-모델과-비교"><span class="header-section-number">5.3</span> OSI 7계층 모델과 비교</a></li>
+  <li><a href="#encapsulation-캡슐화" id="toc-encapsulation-캡슐화" class="nav-link" data-scroll-target="#encapsulation-캡슐화"><span class="header-section-number">5.4</span> Encapsulation (캡슐화)</a></li>
+  <li><a href="#hop-by-hop-전달-메커니즘" id="toc-hop-by-hop-전달-메커니즘" class="nav-link" data-scroll-target="#hop-by-hop-전달-메커니즘"><span class="header-section-number">5.5</span> Hop-by-Hop 전달 메커니즘</a></li>
+  </ul></li>
+  <li><a href="#network-security" id="toc-network-security" class="nav-link" data-scroll-target="#network-security"><span class="header-section-number">6</span> Network Security</a>
+  <ul class="collapse">
+  <li><a href="#인터넷-보안의-근본-문제" id="toc-인터넷-보안의-근본-문제" class="nav-link" data-scroll-target="#인터넷-보안의-근본-문제"><span class="header-section-number">6.1</span> 인터넷 보안의 근본 문제</a></li>
+  <li><a href="#주요-공격-유형" id="toc-주요-공격-유형" class="nav-link" data-scroll-target="#주요-공격-유형"><span class="header-section-number">6.2</span> 주요 공격 유형</a>
+  <ul class="collapse">
+  <li><a href="#malware" id="toc-malware" class="nav-link" data-scroll-target="#malware"><span class="header-section-number">6.2.1</span> Malware</a></li>
+  <li><a href="#dos-ddos" id="toc-dos-ddos" class="nav-link" data-scroll-target="#dos-ddos"><span class="header-section-number">6.2.2</span> DoS / DDoS</a></li>
+  <li><a href="#packet-sniffing" id="toc-packet-sniffing" class="nav-link" data-scroll-target="#packet-sniffing"><span class="header-section-number">6.2.3</span> Packet Sniffing</a></li>
+  <li><a href="#ip-spoofing" id="toc-ip-spoofing" class="nav-link" data-scroll-target="#ip-spoofing"><span class="header-section-number">6.2.4</span> IP Spoofing</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#핵심-공식-정리" id="toc-핵심-공식-정리" class="nav-link" data-scroll-target="#핵심-공식-정리"><span class="header-section-number">7</span> 핵심 공식 정리</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="layered-architecture.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Layered Architecture</h1>
+<p class="subtitle lead">Data Network</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">April 14, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="인터넷이란-무엇인가" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 인터넷이란 무엇인가?</h1>
+<section id="nuts-bolts-관점" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="nuts-bolts-관점"><span class="header-section-number">1.1</span> Nuts &amp; Bolts 관점</h2>
+<p>인터넷은 수십억 개의 <strong>host(end system)</strong>들이 <strong>communication link</strong>와 <strong>packet switch</strong>로 연결된 네트워크다.</p>
+<ul>
+<li><strong>Host</strong>: PC, 스마트폰, 서버 등 네트워크 애플리케이션을 실행하는 장치</li>
+<li><strong>Communication link</strong>: fiber, copper, radio, satellite — 전송 속도는 <strong>bandwidth(대역폭, bps)</strong>로 표현</li>
+<li><strong>Packet switch</strong>: 패킷을 다음 목적지로 전달하는 장치 — <strong>router</strong>(network core), <strong>switch</strong>(link layer)</li>
+</ul>
+<p>인터넷은 “network of networks”로, 수많은 ISP(Internet Service Provider)가 상호 연결된 구조다.</p>
+</section>
+<section id="service-관점" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="service-관점"><span class="header-section-number">1.2</span> Service 관점</h2>
+<p>인터넷은 애플리케이션에게 <strong>프로그래밍 인터페이스(API)</strong> 를 제공하는 인프라다.<br>
+Web, VoIP, email, 게임, e-commerce 등 다양한 애플리케이션이 이 인프라 위에서 동작한다.</p>
+</section>
+<section id="protocol의-정의" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="protocol의-정의"><span class="header-section-number">1.3</span> Protocol의 정의</h2>
+<blockquote class="blockquote">
+<p><strong>Protocol</strong>: 네트워크 엔터티 간 메시지의 포맷, 순서, 그리고 송수신 시 취해야 할 액션을 규정한 규칙 집합</p>
+</blockquote>
+<ul>
+<li>예시: TCP, IP, HTTP, 802.11 (WiFi)</li>
+<li>인터넷 표준은 <strong>RFC(Request for Comments)</strong> 문서로 <strong>IETF(Internet Engineering Task Force)</strong> 에서 관리</li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="network-edge-access-networks" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Network Edge &amp; Access Networks</h1>
+<section id="네트워크-구조의-3요소" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="네트워크-구조의-3요소"><span class="header-section-number">2.1</span> 네트워크 구조의 3요소</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>구성 요소</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Network edge</strong></td>
+<td>hosts(clients &amp; servers), 데이터센터 서버</td>
+</tr>
+<tr class="even">
+<td><strong>Access network</strong></td>
+<td>end system을 edge router에 연결하는 링크</td>
+</tr>
+<tr class="odd">
+<td><strong>Network core</strong></td>
+<td>상호연결된 라우터들의 mesh</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="host의-패킷-전송" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="host의-패킷-전송"><span class="header-section-number">2.2</span> Host의 패킷 전송</h2>
+<p>Host는 애플리케이션 메시지를 <strong>L bits</strong> 크기의 패킷으로 분할하여 전송한다.</p>
+<p><span class="math display">\[d_{trans} = \frac{L \text{ (bits)}}{R \text{ (bits/sec)}}\]</span></p>
+<p>여기서 <span class="math inline">\(R\)</span>은 link transmission rate(= link capacity = link bandwidth)다.</p>
+</section>
+<section id="접속-네트워크-유형" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="접속-네트워크-유형"><span class="header-section-number">2.3</span> 접속 네트워크 유형</h2>
+<p><strong>유선 접속</strong></p>
+<ul>
+<li><em>DSL/케이블</em>: 가정용, HFC(Hybrid Fiber Coax)</li>
+<li><em>Ethernet</em>: 기업/학교 환경, 10 Mbps ~ 10 Gbps</li>
+</ul>
+<p><strong>무선 접속</strong></p>
+<ul>
+<li><em>Wireless LAN (802.11 WiFi)</em>: 건물 내 ~100 ft, 11/54/450 Mbps</li>
+<li><em>Wide-area wireless</em>: 셀룰러 tens of km, 1~10 Mbps (3G, 4G LTE)</li>
+</ul>
+</section>
+<section id="물리-매체physical-media" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="물리-매체physical-media"><span class="header-section-number">2.4</span> 물리 매체(Physical Media)</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>매체</th>
+<th>특성</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Twisted pair (TP)</td>
+<td>Cat5: 100 Mbps/1 Gbps, Cat6: 10 Gbps</td>
+</tr>
+<tr class="even">
+<td>Coaxial cable</td>
+<td>동축 케이블, 다채널(broadband), HFC</td>
+</tr>
+<tr class="odd">
+<td>Fiber optic</td>
+<td>광 펄스, 10s~100s Gbps, 저오류율</td>
+</tr>
+<tr class="even">
+<td>Radio</td>
+<td>무선, 반사/간섭/회절 영향 받음</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="network-core" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Network Core</h1>
+<section id="packet-switching" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="packet-switching"><span class="header-section-number">3.1</span> Packet Switching</h2>
+<p>패킷 교환 방식은 메시지를 패킷으로 분할하고 <strong>store-and-forward</strong> 방식으로 전달한다.</p>
+<section id="store-and-forward" class="level3" data-number="3.1.1">
+<h3 data-number="3.1.1" class="anchored" data-anchor-id="store-and-forward"><span class="header-section-number">3.1.1</span> Store-and-Forward</h3>
+<p>라우터는 패킷 전체가 도착해야 다음 링크로 전송할 수 있다.</p>
+<p><span class="math display">\[d_{end\text{-}end} = N \cdot \frac{L}{R} \quad \text{(N hop, propagation 무시 시)}\]</span></p>
+</section>
+<section id="queueing-delay-loss" class="level3" data-number="3.1.2">
+<h3 data-number="3.1.2" class="anchored" data-anchor-id="queueing-delay-loss"><span class="header-section-number">3.1.2</span> Queueing Delay &amp; Loss</h3>
+<ul>
+<li>입력 속도 &gt; 출력 링크 속도 → 패킷이 큐에 대기</li>
+<li>버퍼가 가득 차면 패킷 <strong>drop(손실)</strong> 발생</li>
+</ul>
+</section>
+<section id="two-key-functions" class="level3" data-number="3.1.3">
+<h3 data-number="3.1.3" class="anchored" data-anchor-id="two-key-functions"><span class="header-section-number">3.1.3</span> Two Key Functions</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>기능</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Forwarding</strong></td>
+<td>입력 포트 → 적절한 출력 포트로 패킷 이동 (local)</td>
+</tr>
+<tr class="even">
+<td><strong>Routing</strong></td>
+<td>출발지-목적지 경로 계산 (라우팅 알고리즘, global)</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="circuit-switching" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="circuit-switching"><span class="header-section-number">3.2</span> Circuit Switching</h2>
+<p>통화/세션 전 end-to-end 자원을 미리 <strong>예약(dedicated)</strong>한다.</p>
+<section id="fdm-vs-tdm" class="level3" data-number="3.2.1">
+<h3 data-number="3.2.1" class="anchored" data-anchor-id="fdm-vs-tdm"><span class="header-section-number">3.2.1</span> FDM vs TDM</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>방식</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>FDM</strong> (Frequency Division Multiplexing)</td>
+<td>주파수 대역을 분할하여 각 사용자에게 고정 할당</td>
+</tr>
+<tr class="even">
+<td><strong>TDM</strong> (Time Division Multiplexing)</td>
+<td>시간 슬롯을 순환하여 각 사용자에게 할당</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="packet-vs-circuit-switching-비교" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="packet-vs-circuit-switching-비교"><span class="header-section-number">3.3</span> Packet vs Circuit Switching 비교</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>Packet Switching</th>
+<th>Circuit Switching</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>자원 할당</td>
+<td>통계적 다중화 (on-demand)</td>
+<td>사전 예약 (dedicated)</td>
+</tr>
+<tr class="even">
+<td>사용자 수</td>
+<td>더 많은 사용자 수용 가능</td>
+<td>고정 (예: 10명/1 Mbps)</td>
+</tr>
+<tr class="odd">
+<td>QoS</td>
+<td>보장 어려움</td>
+<td>보장 가능</td>
+</tr>
+<tr class="even">
+<td>적합 용도</td>
+<td>Bursty data</td>
+<td>실시간 음성/영상</td>
+</tr>
+</tbody>
+</table>
+<section id="통계적-우위-이항분포-활용" class="level3" data-number="3.3.1">
+<h3 data-number="3.3.1" class="anchored" data-anchor-id="통계적-우위-이항분포-활용"><span class="header-section-number">3.3.1</span> 통계적 우위 — 이항분포 활용</h3>
+<blockquote class="blockquote">
+<p>1 Mb/s 링크, 사용자 1명당 100 kb/s, 활성 확률 10% 가정</p>
+</blockquote>
+<ul>
+<li>Circuit switching: 최대 <strong>10명</strong> 수용</li>
+<li>Packet switching: <strong>35명</strong> 수용, P(동시 10명 초과 활성) &lt; 0.0004</li>
+</ul>
+<p><span class="math display">\[P(X &gt; 10) = \sum_{k=11}^{35} \binom{35}{k} (0.1)^k (0.9)^{35-k} \approx 0.0004\]</span></p>
+<p>여기서 <span class="math inline">\(X \sim \text{Binomial}(35,\ 0.1)\)</span>, <span class="math inline">\(E[X] = 3.5\)</span></p>
+</section>
+</section>
+<section id="internet-structure-network-of-networks" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="internet-structure-network-of-networks"><span class="header-section-number">3.4</span> Internet Structure: Network of Networks</h2>
+<p>ISP를 모두 직접 연결하면 <span class="math inline">\(O(N^2)\)</span> 링크가 필요하다.</p>
+<p><span class="math display">\[\binom{N}{2} = \frac{N(N-1)}{2} \approx \frac{(10^6)^2}{2} = 5 \times 10^{11}\]</span></p>
+<p>이를 해결하기 위한 계층적 구조:</p>
+<pre><code>Tier-1 ISP ── IXP ── Tier-1 ISP
+     |                    |
+Regional ISP         Regional ISP
+     |                    |
+Access ISP           Access ISP</code></pre>
+<ul>
+<li><strong>IXP (Internet Exchange Point)</strong>: 동급 ISP 간 peering 연결 지점</li>
+<li><strong>Content provider network</strong> (Google, Akamai 등): 자체 네트워크로 Tier-1 우회</li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="delay-loss-throughput" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Delay, Loss, Throughput</h1>
+<section id="가지-패킷-지연" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="가지-패킷-지연"><span class="header-section-number">4.1</span> 4가지 패킷 지연</h2>
+<p><span class="math display">\[d_{nodal} = d_{proc} + d_{queue} + d_{trans} + d_{prop}\]</span></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 18%">
+<col style="width: 27%">
+<col style="width: 27%">
+<col style="width: 27%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>항</th>
+<th>수식</th>
+<th>의미</th>
+<th>특성</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(d_{proc}\)</span></td>
+<td>—</td>
+<td>비트 오류 검사 + 출력 링크 결정</td>
+<td>&lt; msec</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(d_{queue}\)</span></td>
+<td><span class="math inline">\(\propto \frac{\rho}{1-\rho}\)</span></td>
+<td>출력 링크 큐 대기 시간</td>
+<td>비결정적, 가장 가변적</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(d_{trans}\)</span></td>
+<td><span class="math inline">\(L/R\)</span></td>
+<td>패킷 전체를 링크에 밀어넣는 시간</td>
+<td>패킷 크기·링크 속도 의존</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(d_{prop}\)</span></td>
+<td><span class="math inline">\(d/s\)</span></td>
+<td>비트가 링크 끝까지 이동하는 시간</td>
+<td>물리적 거리 의존 (<span class="math inline">\(s \approx 2\times10^8\)</span> m/s)</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span><span class="math inline">\(d_{trans}\)</span> vs <span class="math inline">\(d_{prop}\)</span> 구분
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><span class="math inline">\(d_{trans}\)</span>: <strong>링크에 싣는</strong> 시간 — 10 Gbps 광케이블이면 매우 작다</li>
+<li><span class="math inline">\(d_{prop}\)</span>: <strong>링크를 건너는</strong> 시간 — 아무리 빠른 링크도 서울→뉴욕 거리는 변하지 않는다</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="traffic-intensity" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="traffic-intensity"><span class="header-section-number">4.2</span> Traffic Intensity</h2>
+<p><span class="math display">\[\rho = \frac{La}{R}\]</span></p>
+<ul>
+<li><span class="math inline">\(L\)</span>: 패킷 길이 (bits)</li>
+<li><span class="math inline">\(a\)</span>: 평균 패킷 도착률 (packets/sec)</li>
+<li><span class="math inline">\(R\)</span>: 링크 전송 속도 (bits/sec)</li>
+<li><span class="math inline">\(La\)</span>: 초당 도착하는 비트 수</li>
+</ul>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><span class="math inline">\(\rho\)</span> 값</th>
+<th>상태</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(\rho \approx 0\)</span></td>
+<td>큐 거의 비어 있음, 대기 시간 ≈ 0</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(\rho \to 1\)</span></td>
+<td>큐 폭발적 증가, 대기 시간 → <span class="math inline">\(\infty\)</span></td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(\rho &gt; 1\)</span></td>
+<td>버퍼 넘침 → <strong>packet drop</strong></td>
+</tr>
+</tbody>
+</table>
+<p>M/M/1 큐 모델에서의 평균 대기 시간:</p>
+<p><span class="math display">\[E[W] = \frac{\rho}{\mu(1-\rho)}, \quad \mu = R/L\]</span></p>
+</section>
+<section id="throughput-처리량" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="throughput-처리량"><span class="header-section-number">4.3</span> Throughput (처리량)</h2>
+<p><span class="math display">\[\text{throughput} = \min(R_c,\ R_s,\ R/N)\]</span></p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>항</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(R_c\)</span></td>
+<td>클라이언트 측 링크 용량</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(R_s\)</span></td>
+<td>서버 측 링크 용량</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(R/N\)</span></td>
+<td>N개 연결이 공유하는 백본 링크 <span class="math inline">\(R\)</span>의 per-connection 몫</td>
+</tr>
+</tbody>
+</table>
+<p>가장 좁은 파이프(bottleneck link)가 전체 처리량을 결정한다.</p>
+<hr>
+</section>
+</section>
+<section id="protocol-layers-service-models" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Protocol Layers &amp; Service Models</h1>
+<section id="계층화의-이유" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="계층화의-이유"><span class="header-section-number">5.1</span> 계층화의 이유</h2>
+<p>복잡한 시스템을 다루기 위한 원칙적 방법이다.</p>
+<ol type="1">
+<li><strong>명시적 구조화</strong> — 복잡한 시스템의 구성 요소와 관계를 명확히 식별</li>
+<li><strong>모듈화</strong> — 한 계층의 구현 변경이 다른 계층에 투명(transparent)</li>
+<li><strong>단점</strong>: 계층 간 기능 중복, 계층 경계를 넘는 정보 접근 제한</li>
+</ol>
+</section>
+<section id="internet-5-layer-stack" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="internet-5-layer-stack"><span class="header-section-number">5.2</span> Internet 5-Layer Stack</h2>
+<pre><code>┌─────────────────────────────┐
+│  Application  │ HTTP, FTP, SMTP, DNS         │
+├─────────────────────────────┤
+│  Transport    │ TCP, UDP                      │
+├─────────────────────────────┤
+│  Network      │ IP, 라우팅 프로토콜            │
+├─────────────────────────────┤
+│  Link         │ Ethernet, 802.11 (WiFi), PPP  │
+├─────────────────────────────┤
+│  Physical     │ bits "on the wire"            │
+└─────────────────────────────┘</code></pre>
+</section>
+<section id="osi-7계층-모델과-비교" class="level2" data-number="5.3">
+<h2 data-number="5.3" class="anchored" data-anchor-id="osi-7계층-모델과-비교"><span class="header-section-number">5.3</span> OSI 7계층 모델과 비교</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Internet Stack</th>
+<th>OSI 모델</th>
+<th>역할</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Application</td>
+<td>Application</td>
+<td>사용자 인터페이스</td>
+</tr>
+<tr class="even">
+<td><em>(없음)</em></td>
+<td>Presentation</td>
+<td>암호화, 압축, 인코딩 변환</td>
+</tr>
+<tr class="odd">
+<td><em>(없음)</em></td>
+<td>Session</td>
+<td>세션 동기화, 체크포인트</td>
+</tr>
+<tr class="even">
+<td>Transport</td>
+<td>Transport</td>
+<td>Process-to-Process 전달</td>
+</tr>
+<tr class="odd">
+<td>Network</td>
+<td>Network</td>
+<td>Host-to-Host 라우팅</td>
+</tr>
+<tr class="even">
+<td>Link</td>
+<td>Data Link</td>
+<td>Hop-to-Hop 전달</td>
+</tr>
+<tr class="odd">
+<td>Physical</td>
+<td>Physical</td>
+<td>비트 전송</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Internet에 Session/Presentation이 없는 이유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>End-to-End Argument</strong> (Saltzer, Reed, Clark, 1984): 네트워크 코어는 최대한 단순하게, 지능은 end system에 두는 설계 원칙.</p>
+<p>Presentation 기능(암호화, 압축)과 Session 기능(세션 관리)은 필요 시 Application 계층에서 직접 구현한다.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>기능</th>
+<th>OSI 계층</th>
+<th>Internet에서의 위치</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>암호화</td>
+<td>Presentation</td>
+<td>TLS/SSL</td>
+</tr>
+<tr class="even">
+<td>압축</td>
+<td>Presentation</td>
+<td>HTTP <code>Content-Encoding: gzip</code></td>
+</tr>
+<tr class="odd">
+<td>세션 관리</td>
+<td>Session</td>
+<td>HTTP Cookie, WebSocket</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section id="encapsulation-캡슐화" class="level2" data-number="5.4">
+<h2 data-number="5.4" class="anchored" data-anchor-id="encapsulation-캡슐화"><span class="header-section-number">5.4</span> Encapsulation (캡슐화)</h2>
+<p>송신 시 각 계층이 헤더를 추가하고, 수신 시 역순으로 제거한다.</p>
+<p><span class="math display">\[M \xrightarrow{\text{Transport}} H_t|M \xrightarrow{\text{Network}} H_n|H_t|M \xrightarrow{\text{Link}} H_l|H_n|H_t|M|\text{FCS}\]</span></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 38%">
+<col style="width: 23%">
+<col style="width: 38%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>PDU 명칭</th>
+<th>계층</th>
+<th>헤더 내용</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Message</strong></td>
+<td>Application</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td><strong>Segment</strong> (TCP) / Datagram (UDP)</td>
+<td>Transport</td>
+<td>src/dst port, seq#, checksum</td>
+</tr>
+<tr class="odd">
+<td><strong>Datagram</strong> (IP Packet)</td>
+<td>Network</td>
+<td>src/dst IP, TTL, protocol</td>
+</tr>
+<tr class="even">
+<td><strong>Frame</strong></td>
+<td>Link</td>
+<td>src/dst MAC, type, FCS</td>
+</tr>
+<tr class="odd">
+<td><strong>Bit</strong></td>
+<td>Physical</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="hop-by-hop-전달-메커니즘" class="level2" data-number="5.5">
+<h2 data-number="5.5" class="anchored" data-anchor-id="hop-by-hop-전달-메커니즘"><span class="header-section-number">5.5</span> Hop-by-Hop 전달 메커니즘</h2>
+<p>라우터는 L1~L3만 처리하고, 스위치는 L1~L2만 처리한다.</p>
+<pre><code>[수신]
+  Physical: bits → Frame 복원
+  Link:     FCS 검사 → H_l 제거 (decapsulation)
+
+[처리]
+  Network:  H_n의 dst IP → Forwarding Table 조회
+            TTL 감소 (0이면 폐기)
+
+[재전송]
+  Link:     새 H_l' 부착 (다음 hop의 MAC 주소)
+  Physical: bits 전송</code></pre>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심 규칙
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong><span class="math inline">\(H_l\)</span></strong>: hop마다 교체 (다음 장비의 MAC 주소)</li>
+<li><strong><span class="math inline">\(H_n\)</span></strong>: TTL만 감소, src/dst IP는 end-to-end 유지 (NAT 제외)</li>
+<li><strong><span class="math inline">\(H_t\)</span>, </strong>M**: 라우터는 절대 열어보지 않음 — end-to-end 불변</li>
+</ul>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="network-security" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> Network Security</h1>
+<section id="인터넷-보안의-근본-문제" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="인터넷-보안의-근본-문제"><span class="header-section-number">6.1</span> 인터넷 보안의 근본 문제</h2>
+<p>인터넷은 원래 “상호 신뢰하는 사용자들의 투명한 네트워크”로 설계됐다. 보안은 이후에 추가된 개념이며, 모든 계층에서 고려가 필요하다.</p>
+</section>
+<section id="주요-공격-유형" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="주요-공격-유형"><span class="header-section-number">6.2</span> 주요 공격 유형</h2>
+<section id="malware" class="level3" data-number="6.2.1">
+<h3 data-number="6.2.1" class="anchored" data-anchor-id="malware"><span class="header-section-number">6.2.1</span> Malware</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 27%">
+<col style="width: 45%">
+<col style="width: 27%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>종류</th>
+<th>전파 방식</th>
+<th>특징</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Virus</strong></td>
+<td>사용자의 실행 행위 필요</td>
+<td>이메일 첨부파일, 감염 파일 실행</td>
+</tr>
+<tr class="even">
+<td><strong>Worm</strong></td>
+<td>자가 실행 (사용자 불필요)</td>
+<td>네트워크 취약점 자동 탐지, 빠른 확산</td>
+</tr>
+</tbody>
+</table>
+<p>감염된 호스트는 <strong>botnet</strong>에 편입되어 spam 발송, DDoS 공격에 동원된다.</p>
+</section>
+<section id="dos-ddos" class="level3" data-number="6.2.2">
+<h3 data-number="6.2.2" class="anchored" data-anchor-id="dos-ddos"><span class="header-section-number">6.2.2</span> DoS / DDoS</h3>
+<p>정상 트래픽을 처리하지 못하도록 대상 서버·링크에 bogus 트래픽을 쏟아붓는 공격.</p>
+<pre><code>공격자 → 다수의 botnet 호스트 → 목표 서버 과부하</code></pre>
+</section>
+<section id="packet-sniffing" class="level3" data-number="6.2.3">
+<h3 data-number="6.2.3" class="anchored" data-anchor-id="packet-sniffing"><span class="header-section-number">6.2.3</span> Packet Sniffing</h3>
+<p>NIC를 <strong>promiscuous mode</strong>로 설정하면 자신에게 오지 않는 패킷도 수집 가능하다.</p>
+<ul>
+<li><strong>수동적 공격</strong> — 피해자 탐지 불가</li>
+<li>Broadcast medium인 <strong>WiFi에서 특히 취약</strong> (공중에 신호 노출)</li>
+<li>대응: 암호화 (TLS, WPA3)</li>
+</ul>
+</section>
+<section id="ip-spoofing" class="level3" data-number="6.2.4">
+<h3 data-number="6.2.4" class="anchored" data-anchor-id="ip-spoofing"><span class="header-section-number">6.2.4</span> IP Spoofing</h3>
+<p>패킷의 <strong>src IP 주소를 위조</strong>하여 전송. 수신자는 패킷 출처를 신뢰하기 어렵다.</p>
+<ul>
+<li>DDoS 공격 시 추적 회피 목적으로 활용</li>
+<li>대응: Ingress filtering (RFC 2827)</li>
+</ul>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>공격</th>
+<th>방향</th>
+<th>목적</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Sniffing</strong></td>
+<td>수동적 (듣기)</td>
+<td>정보 탈취 (비밀번호, 데이터)</td>
+</tr>
+<tr class="even">
+<td><strong>Spoofing</strong></td>
+<td>능동적 (속이기)</td>
+<td>신원 위장, 추적 회피</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+</section>
+<section id="핵심-공식-정리" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> 핵심 공식 정리</h1>
+<p><span class="math display">\[d_{nodal} = d_{proc} + d_{queue} + d_{trans} + d_{prop}\]</span></p>
+<p><span class="math display">\[d_{trans} = \frac{L}{R}, \quad d_{prop} = \frac{d}{s}\]</span></p>
+<p><span class="math display">\[\rho = \frac{La}{R} \quad \Rightarrow \quad E[W]_{M/M/1} = \frac{\rho}{\mu(1-\rho)}\]</span></p>
+<p><span class="math display">\[\text{Throughput} = \min(R_c,\ R_s,\ R/N)\]</span></p>
+<p><span class="math display">\[P(\text{packet switching 혼잡}) = \sum_{k=k_0}^{N} \binom{N}{k} p^k (1-p)^{N-k}\]</span></p>
+<p><span class="math display">\[\text{링크 수 (full mesh)} = \binom{N}{2} = \frac{N(N-1)}{2} = O(N^2)\]</span></p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

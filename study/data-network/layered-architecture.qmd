@@ -1,0 +1,373 @@
+---
+title: "Layered Architecture"
+subtitle: "Data Network"
+date: 2026-04-14
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "목차"
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+    highlight-style: github
+  pdf:
+    toc: true
+    number-sections: true
+    geometry: margin=2.5cm
+    fontsize: 11pt
+execute:
+  echo: false
+  warning: false
+---
+
+# 인터넷이란 무엇인가?
+
+## Nuts & Bolts 관점
+
+인터넷은 수십억 개의 **host(end system)**들이 **communication link**와 **packet switch**로 연결된 네트워크다.
+
+- **Host**: PC, 스마트폰, 서버 등 네트워크 애플리케이션을 실행하는 장치
+- **Communication link**: fiber, copper, radio, satellite — 전송 속도는 **bandwidth(대역폭, bps)**로 표현
+- **Packet switch**: 패킷을 다음 목적지로 전달하는 장치 — **router**(network core), **switch**(link layer)
+
+인터넷은 "network of networks"로, 수많은 ISP(Internet Service Provider)가 상호 연결된 구조다.
+
+## Service 관점
+
+인터넷은 애플리케이션에게 **프로그래밍 인터페이스(API)** 를 제공하는 인프라다.  
+Web, VoIP, email, 게임, e-commerce 등 다양한 애플리케이션이 이 인프라 위에서 동작한다.
+
+## Protocol의 정의
+
+> **Protocol**: 네트워크 엔터티 간 메시지의 포맷, 순서, 그리고 송수신 시 취해야 할 액션을 규정한 규칙 집합
+
+- 예시: TCP, IP, HTTP, 802.11 (WiFi)
+- 인터넷 표준은 **RFC(Request for Comments)** 문서로 **IETF(Internet Engineering Task Force)** 에서 관리
+
+---
+
+# Network Edge & Access Networks
+
+## 네트워크 구조의 3요소
+
+| 구성 요소 | 설명 |
+|-----------|------|
+| **Network edge** | hosts(clients & servers), 데이터센터 서버 |
+| **Access network** | end system을 edge router에 연결하는 링크 |
+| **Network core** | 상호연결된 라우터들의 mesh |
+
+## Host의 패킷 전송
+
+Host는 애플리케이션 메시지를 **L bits** 크기의 패킷으로 분할하여 전송한다.
+
+$$d_{trans} = \frac{L \text{ (bits)}}{R \text{ (bits/sec)}}$$
+
+여기서 $R$은 link transmission rate(= link capacity = link bandwidth)다.
+
+## 접속 네트워크 유형
+
+**유선 접속**
+
+- *DSL/케이블*: 가정용, HFC(Hybrid Fiber Coax)
+- *Ethernet*: 기업/학교 환경, 10 Mbps ~ 10 Gbps
+
+**무선 접속**
+
+- *Wireless LAN (802.11 WiFi)*: 건물 내 ~100 ft, 11/54/450 Mbps
+- *Wide-area wireless*: 셀룰러 tens of km, 1~10 Mbps (3G, 4G LTE)
+
+## 물리 매체(Physical Media)
+
+| 매체 | 특성 |
+|------|------|
+| Twisted pair (TP) | Cat5: 100 Mbps/1 Gbps, Cat6: 10 Gbps |
+| Coaxial cable | 동축 케이블, 다채널(broadband), HFC |
+| Fiber optic | 광 펄스, 10s~100s Gbps, 저오류율 |
+| Radio | 무선, 반사/간섭/회절 영향 받음 |
+
+---
+
+# Network Core
+
+## Packet Switching
+
+패킷 교환 방식은 메시지를 패킷으로 분할하고 **store-and-forward** 방식으로 전달한다.
+
+### Store-and-Forward
+
+라우터는 패킷 전체가 도착해야 다음 링크로 전송할 수 있다.
+
+$$d_{end\text{-}end} = N \cdot \frac{L}{R} \quad \text{(N hop, propagation 무시 시)}$$
+
+### Queueing Delay & Loss
+
+- 입력 속도 > 출력 링크 속도 → 패킷이 큐에 대기
+- 버퍼가 가득 차면 패킷 **drop(손실)** 발생
+
+### Two Key Functions
+
+| 기능 | 설명 |
+|------|------|
+| **Forwarding** | 입력 포트 → 적절한 출력 포트로 패킷 이동 (local) |
+| **Routing** | 출발지-목적지 경로 계산 (라우팅 알고리즘, global) |
+
+## Circuit Switching
+
+통화/세션 전 end-to-end 자원을 미리 **예약(dedicated)**한다.
+
+### FDM vs TDM
+
+| 방식 | 설명 |
+|------|------|
+| **FDM** (Frequency Division Multiplexing) | 주파수 대역을 분할하여 각 사용자에게 고정 할당 |
+| **TDM** (Time Division Multiplexing) | 시간 슬롯을 순환하여 각 사용자에게 할당 |
+
+## Packet vs Circuit Switching 비교
+
+| | Packet Switching | Circuit Switching |
+|--|-----------------|-------------------|
+| 자원 할당 | 통계적 다중화 (on-demand) | 사전 예약 (dedicated) |
+| 사용자 수 | 더 많은 사용자 수용 가능 | 고정 (예: 10명/1 Mbps) |
+| QoS | 보장 어려움 | 보장 가능 |
+| 적합 용도 | Bursty data | 실시간 음성/영상 |
+
+### 통계적 우위 — 이항분포 활용
+
+> 1 Mb/s 링크, 사용자 1명당 100 kb/s, 활성 확률 10% 가정
+
+- Circuit switching: 최대 **10명** 수용
+- Packet switching: **35명** 수용, P(동시 10명 초과 활성) < 0.0004
+
+$$P(X > 10) = \sum_{k=11}^{35} \binom{35}{k} (0.1)^k (0.9)^{35-k} \approx 0.0004$$
+
+여기서 $X \sim \text{Binomial}(35,\ 0.1)$, $E[X] = 3.5$
+
+## Internet Structure: Network of Networks
+
+ISP를 모두 직접 연결하면 $O(N^2)$ 링크가 필요하다.
+
+$$\binom{N}{2} = \frac{N(N-1)}{2} \approx \frac{(10^6)^2}{2} = 5 \times 10^{11}$$
+
+이를 해결하기 위한 계층적 구조:
+
+```
+Tier-1 ISP ── IXP ── Tier-1 ISP
+     |                    |
+Regional ISP         Regional ISP
+     |                    |
+Access ISP           Access ISP
+```
+
+- **IXP (Internet Exchange Point)**: 동급 ISP 간 peering 연결 지점
+- **Content provider network** (Google, Akamai 등): 자체 네트워크로 Tier-1 우회
+
+---
+
+# Delay, Loss, Throughput
+
+## 4가지 패킷 지연
+
+$$d_{nodal} = d_{proc} + d_{queue} + d_{trans} + d_{prop}$$
+
+| 항 | 수식 | 의미 | 특성 |
+|----|------|------|------|
+| $d_{proc}$ | — | 비트 오류 검사 + 출력 링크 결정 | < msec |
+| $d_{queue}$ | $\propto \frac{\rho}{1-\rho}$ | 출력 링크 큐 대기 시간 | 비결정적, 가장 가변적 |
+| $d_{trans}$ | $L/R$ | 패킷 전체를 링크에 밀어넣는 시간 | 패킷 크기·링크 속도 의존 |
+| $d_{prop}$ | $d/s$ | 비트가 링크 끝까지 이동하는 시간 | 물리적 거리 의존 ($s \approx 2\times10^8$ m/s) |
+
+::: {.callout-important}
+## $d_{trans}$ vs $d_{prop}$ 구분
+
+- $d_{trans}$: **링크에 싣는** 시간 — 10 Gbps 광케이블이면 매우 작다
+- $d_{prop}$: **링크를 건너는** 시간 — 아무리 빠른 링크도 서울→뉴욕 거리는 변하지 않는다
+:::
+
+## Traffic Intensity
+
+$$\rho = \frac{La}{R}$$
+
+- $L$: 패킷 길이 (bits)
+- $a$: 평균 패킷 도착률 (packets/sec)
+- $R$: 링크 전송 속도 (bits/sec)
+- $La$: 초당 도착하는 비트 수
+
+| $\rho$ 값 | 상태 |
+|-----------|------|
+| $\rho \approx 0$ | 큐 거의 비어 있음, 대기 시간 ≈ 0 |
+| $\rho \to 1$ | 큐 폭발적 증가, 대기 시간 → $\infty$ |
+| $\rho > 1$ | 버퍼 넘침 → **packet drop** |
+
+M/M/1 큐 모델에서의 평균 대기 시간:
+
+$$E[W] = \frac{\rho}{\mu(1-\rho)}, \quad \mu = R/L$$
+
+## Throughput (처리량)
+
+$$\text{throughput} = \min(R_c,\ R_s,\ R/N)$$
+
+| 항 | 의미 |
+|----|------|
+| $R_c$ | 클라이언트 측 링크 용량 |
+| $R_s$ | 서버 측 링크 용량 |
+| $R/N$ | N개 연결이 공유하는 백본 링크 $R$의 per-connection 몫 |
+
+가장 좁은 파이프(bottleneck link)가 전체 처리량을 결정한다.
+
+---
+
+# Protocol Layers & Service Models
+
+## 계층화의 이유
+
+복잡한 시스템을 다루기 위한 원칙적 방법이다.
+
+1. **명시적 구조화** — 복잡한 시스템의 구성 요소와 관계를 명확히 식별
+2. **모듈화** — 한 계층의 구현 변경이 다른 계층에 투명(transparent)
+3. **단점**: 계층 간 기능 중복, 계층 경계를 넘는 정보 접근 제한
+
+## Internet 5-Layer Stack
+
+```
+┌─────────────────────────────┐
+│  Application  │ HTTP, FTP, SMTP, DNS         │
+├─────────────────────────────┤
+│  Transport    │ TCP, UDP                      │
+├─────────────────────────────┤
+│  Network      │ IP, 라우팅 프로토콜            │
+├─────────────────────────────┤
+│  Link         │ Ethernet, 802.11 (WiFi), PPP  │
+├─────────────────────────────┤
+│  Physical     │ bits "on the wire"            │
+└─────────────────────────────┘
+```
+
+## OSI 7계층 모델과 비교
+
+| Internet Stack | OSI 모델 | 역할 |
+|----------------|---------|------|
+| Application | Application | 사용자 인터페이스 |
+| *(없음)* | Presentation | 암호화, 압축, 인코딩 변환 |
+| *(없음)* | Session | 세션 동기화, 체크포인트 |
+| Transport | Transport | Process-to-Process 전달 |
+| Network | Network | Host-to-Host 라우팅 |
+| Link | Data Link | Hop-to-Hop 전달 |
+| Physical | Physical | 비트 전송 |
+
+::: {.callout-note}
+## Internet에 Session/Presentation이 없는 이유
+
+**End-to-End Argument** (Saltzer, Reed, Clark, 1984): 네트워크 코어는 최대한 단순하게, 지능은 end system에 두는 설계 원칙.
+
+Presentation 기능(암호화, 압축)과 Session 기능(세션 관리)은 필요 시 Application 계층에서 직접 구현한다.
+
+| 기능 | OSI 계층 | Internet에서의 위치 |
+|------|---------|-------------------|
+| 암호화 | Presentation | TLS/SSL |
+| 압축 | Presentation | HTTP `Content-Encoding: gzip` |
+| 세션 관리 | Session | HTTP Cookie, WebSocket |
+:::
+
+## Encapsulation (캡슐화)
+
+송신 시 각 계층이 헤더를 추가하고, 수신 시 역순으로 제거한다.
+
+$$M \xrightarrow{\text{Transport}} H_t|M \xrightarrow{\text{Network}} H_n|H_t|M \xrightarrow{\text{Link}} H_l|H_n|H_t|M|\text{FCS}$$
+
+| PDU 명칭 | 계층 | 헤더 내용 |
+|----------|------|----------|
+| **Message** | Application | — |
+| **Segment** (TCP) / Datagram (UDP) | Transport | src/dst port, seq#, checksum |
+| **Datagram** (IP Packet) | Network | src/dst IP, TTL, protocol |
+| **Frame** | Link | src/dst MAC, type, FCS |
+| **Bit** | Physical | — |
+
+## Hop-by-Hop 전달 메커니즘
+
+라우터는 L1~L3만 처리하고, 스위치는 L1~L2만 처리한다.
+
+```
+[수신]
+  Physical: bits → Frame 복원
+  Link:     FCS 검사 → H_l 제거 (decapsulation)
+
+[처리]
+  Network:  H_n의 dst IP → Forwarding Table 조회
+            TTL 감소 (0이면 폐기)
+
+[재전송]
+  Link:     새 H_l' 부착 (다음 hop의 MAC 주소)
+  Physical: bits 전송
+```
+
+::: {.callout-important}
+## 핵심 규칙
+
+- **$H_l$**: hop마다 교체 (다음 장비의 MAC 주소)
+- **$H_n$**: TTL만 감소, src/dst IP는 end-to-end 유지 (NAT 제외)
+- **$H_t$, **M**: 라우터는 절대 열어보지 않음 — end-to-end 불변
+:::
+
+---
+
+# Network Security
+
+## 인터넷 보안의 근본 문제
+
+인터넷은 원래 "상호 신뢰하는 사용자들의 투명한 네트워크"로 설계됐다. 보안은 이후에 추가된 개념이며, 모든 계층에서 고려가 필요하다.
+
+## 주요 공격 유형
+
+### Malware
+
+| 종류 | 전파 방식 | 특징 |
+|------|----------|------|
+| **Virus** | 사용자의 실행 행위 필요 | 이메일 첨부파일, 감염 파일 실행 |
+| **Worm** | 자가 실행 (사용자 불필요) | 네트워크 취약점 자동 탐지, 빠른 확산 |
+
+감염된 호스트는 **botnet**에 편입되어 spam 발송, DDoS 공격에 동원된다.
+
+### DoS / DDoS
+
+정상 트래픽을 처리하지 못하도록 대상 서버·링크에 bogus 트래픽을 쏟아붓는 공격.
+
+```
+공격자 → 다수의 botnet 호스트 → 목표 서버 과부하
+```
+
+### Packet Sniffing
+
+NIC를 **promiscuous mode**로 설정하면 자신에게 오지 않는 패킷도 수집 가능하다.
+
+- **수동적 공격** — 피해자 탐지 불가
+- Broadcast medium인 **WiFi에서 특히 취약** (공중에 신호 노출)
+- 대응: 암호화 (TLS, WPA3)
+
+### IP Spoofing
+
+패킷의 **src IP 주소를 위조**하여 전송. 수신자는 패킷 출처를 신뢰하기 어렵다.
+
+- DDoS 공격 시 추적 회피 목적으로 활용
+- 대응: Ingress filtering (RFC 2827)
+
+| 공격 | 방향 | 목적 |
+|------|------|------|
+| **Sniffing** | 수동적 (듣기) | 정보 탈취 (비밀번호, 데이터) |
+| **Spoofing** | 능동적 (속이기) | 신원 위장, 추적 회피 |
+
+---
+
+# 핵심 공식 정리
+
+$$d_{nodal} = d_{proc} + d_{queue} + d_{trans} + d_{prop}$$
+
+$$d_{trans} = \frac{L}{R}, \quad d_{prop} = \frac{d}{s}$$
+
+$$\rho = \frac{La}{R} \quad \Rightarrow \quad E[W]_{M/M/1} = \frac{\rho}{\mu(1-\rho)}$$
+
+$$\text{Throughput} = \min(R_c,\ R_s,\ R/N)$$
+
+$$P(\text{packet switching 혼잡}) = \sum_{k=k_0}^{N} \binom{N}{k} p^k (1-p)^{N-k}$$
+
+$$\text{링크 수 (full mesh)} = \binom{N}{2} = \frac{N(N-1)}{2} = O(N^2)$$
