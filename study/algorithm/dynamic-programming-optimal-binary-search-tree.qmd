@@ -1,0 +1,338 @@
+---
+title: "Optimal Binary Search Tree"
+subtitle: "Dynamic Programming 기반 설계 및 분석"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "목차"
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+    highlight-style: github
+    html-math-method: mathjax
+---
+
+---
+
+## Dynamic Programming 적용 조건
+
+Optimal BST를 DP로 풀기 전에, DP가 적용 가능한지를 먼저 판별해야 한다.
+DP는 다음 두 조건이 동시에 성립할 때만 올바르게 작동한다.
+
+1. **최적 부분구조 (Optimal Substructure)**: 전체 최적해가 서브문제의 최적해로 구성된다.
+2. **서브문제의 독립성 (Independence of Subproblems)**: 한 서브문제의 최적해가 다른 서브문제의 최적해에 영향을 주지 않는다.
+
+이 두 조건을 대비적으로 이해하기 위해, Un-weighted Shortest/Longest Path 문제를 먼저 살펴본다.
+
+---
+
+## 최적 부분구조: 두 문제의 대비
+
+### Un-weighted Shortest Path — 최적 부분구조 성립
+
+**[Claim]**
+
+$u \to v$ 의 최적 경로 $p$ 에 중간 정점 $w$ 가 존재할 때, $p$ 를 $p_1(u \to w)$ 과 $p_2(w \to v)$ 로 분해하면 $p_1$ 은 $u \to w$ 의 최적 경로이고, $p_2$ 는 $w \to v$ 의 최적 경로이다.
+
+**[증명]** — $p_1$ 에 대해 증명한다. $p_2$ 도 대칭적으로 동일하다.
+
+귀류법을 사용한다. $p_1$ 이 $u \to w$ 의 최적 경로가 **아니라고** 가정하자.
+
+그렇다면 $u \to w$ 사이에 $p_1$ 보다 엣지 수가 더 적은 경로 $p_1'$ 가 존재한다.
+
+$$\#\text{edges}(p_1') < \#\text{edges}(p_1) \quad \cdots (1)$$
+
+$p_1'$ 와 $p_2$ 를 이어 붙여 $u \to v$ 의 새로운 경로 $p' = p_1' \to p_2$ 를 구성한다.
+
+$(1)$ 에 의해,
+
+$$\#\text{edges}(p') = \#\text{edges}(p_1') + \#\text{edges}(p_2) < \#\text{edges}(p_1) + \#\text{edges}(p_2) = \#\text{edges}(p)$$
+
+즉, $p'$ 는 $u \to v$ 의 경로이면서 $p$ 보다 엣지 수가 더 적다.
+
+이는 $p$ 가 $u \to v$ 의 **최적 경로**라는 전제에 **모순**이다.
+
+따라서 $p_1$ 은 $u \to w$ 의 최적 경로이다. $\blacksquare$
+
+---
+
+### Un-weighted Longest Simple Path — 최적 부분구조 불성립
+
+::: {.callout-note}
+**Simple Path 정의**
+
+Simple Path란 경로 상에서 **같은 정점을 두 번 이상 방문하지 않는 경로**이다.
+Simple Path 조건이 없으면, 사이클이 존재하는 그래프에서 같은 정점을 계속 돌며 경로 길이를 무한히 늘릴 수 있기 때문에 Longest Path 문제 자체가 성립하지 않는다.
+:::
+
+**[Claim]**
+
+Un-weighted Longest Simple Path 문제는 Optimal Substructure를 가지지 않는다.
+
+**[증명]**
+
+아래 그래프를 고려한다.
+
+$$\text{정점 집합: } \{q, r, s, t\}, \quad \text{엣지 집합: } \{q \to r,\ r \to t,\ q \to s,\ s \to t,\ t \to r\}$$
+
+```
+q ──→ r
+│         ↑
+↓         │
+s ──→ t ──┘
+```
+
+**Step 1. 서브문제의 독립성 위반 확인**
+
+$q \to t$ 의 longest simple path 는 **$q \to r \to t$** (엣지 수 2) 이다.
+
+이를 중간 정점 $r$ 에서 분해하면 두 서브문제가 생긴다.
+
+$$\text{서브문제 1}: q \to r \text{ 의 longest simple path}$$
+$$\text{서브문제 2}: r \to t \text{ 의 longest simple path}$$
+
+각 서브문제를 독립적으로 최적화하면,
+
+$$\text{서브문제 1의 최적해}: q \to s \to t \to r \quad (\text{엣지 수 3, 정점 } t \text{ 사용})$$
+$$\text{서브문제 2의 최적해}: r \to t \quad (\text{엣지 수 1, 정점 } t \text{ 사용})$$
+
+두 최적해를 합치면,
+
+$$q \to s \to t \to r \to t$$
+
+정점 $t$ 가 **중복 방문**되어 simple path 조건을 위반한다.
+즉, **서브문제 1이 정점 $t$ 를 소비함으로써 서브문제 2가 정점 $t$ 를 사용하는 데 제약이 걸린다.**
+두 서브문제는 정점 자원을 공유하며 서로 간섭하므로 **독립적이지 않다.**
+
+**Step 2. 독립성 위반으로 인해 서브문제 1의 최적해를 전체 해에 편입 불가**
+
+두 서브문제가 독립적이지 않으므로, 서브문제 1을 최적화하는 순간 서브문제 2의 가용 정점이 달라진다.
+따라서 서브문제 1의 최적해 $q \to s \to t \to r$ 을 전체 경로에 그대로 편입시킬 수 없다.
+
+**Step 3. 전체 최적해를 분해했을 때 $p_1$ 이 최적이 아님 (Optimal Substructure 위반)**
+
+전체 최적해 $p = q \to r \to t$ 를 중간 정점 $r$ 에서 분해하면,
+
+$$p_1 = q \to r \quad (\text{엣지 수 } 1)$$
+
+그런데 $q \to r$ 의 longest simple path 는 $q \to s \to t \to r$ (엣지 수 3) 이므로,
+
+$$\#\text{edges}(p_1) = 1 < 3$$
+
+$p_1$ 은 서브문제 1의 최적해가 아니다. 이는 Optimal Substructure의 정의에 정면으로 위반된다.
+
+따라서 Un-weighted Longest Simple Path 문제는 Optimal Substructure를 가지지 않는다. $\blacksquare$
+
+::: {.callout-tip}
+**독립성 위반 → Optimal Substructure 불성립의 인과 흐름**
+
+$$\text{독립성 위반}$$
+$$\downarrow$$
+$$\text{서브문제 1의 최적해를 전체 해에 편입 불가}$$
+$$\downarrow$$
+$$\text{전체 최적해 } p \text{ 를 분해했을 때 } p_1 \text{ 이 최적이 아님}$$
+$$\downarrow$$
+$$\text{Optimal Substructure 불성립 (반례로 증명)}$$
+:::
+
+---
+
+## Optimal BST 문제 정의
+
+### 동기
+
+$n$ 개의 영어 단어로 구성된 BST에서 텍스트의 모든 단어를 검색한다고 하자.
+검색 비용 = 해당 노드의 depth + 1 이므로, **자주 쓰이는 단어일수록 root에 가까이** 두어야 총 탐색 비용이 최소화된다.
+이것이 Optimal BST 문제의 핵심 동기다.
+
+### 형식화
+
+$n$ 개의 정렬된 키 $K = \langle k_1, k_2, \ldots, k_n \rangle$ 이 주어진다.
+
+- **실제 키** $k_i$: internal node. 탐색 확률 $p_i$.
+- **더미 키** $d_i$: leaf node. 탐색 확률 $q_i$.
+  - $d_0$: $k_1$ 보다 작은 모든 값
+  - $d_i$ ($1 \le i \le n-1$): $k_i$ 와 $k_{i+1}$ 사이의 모든 값
+  - $d_n$: $k_n$ 보다 큰 모든 값
+
+::: {.callout-note}
+**더미 키가 필요한 이유**
+
+실제 텍스트에는 BST에 없는 단어도 등장한다. 이 unsuccessful search의 비용을 모델에 반영하기 위해 더미 키를 둔다.
+더미 키를 제거하면 unsuccessful search 비용이 과소평가된다.
+:::
+
+확률의 합은 항상 1이다.
+
+$$\sum_{i=1}^{n} p_i + \sum_{i=0}^{n} q_i = 1$$
+
+**기대 탐색 비용**은 다음과 같다. (검색 비용 = depth + 1, root의 depth = 0)
+
+$$E[\text{search cost in } T] = \sum_{i=1}^{n} (\text{depth}_T(k_i) + 1) \cdot p_i + \sum_{i=0}^{n} (\text{depth}_T(d_i) + 1) \cdot q_i$$
+
+목표는 이 기대 비용을 최소화하는 BST를 구성하는 것이다.
+
+::: {.callout-important}
+**Greedy가 통하지 않는 이유**
+
+가장 높은 확률의 키를 root로 두면 해당 키의 탐색은 저렴하지만,
+다른 키들의 depth가 의도치 않게 깊어질 수 있다.
+전체 기대값을 최적화하는 문제는 전역적 균형이 필요하므로 DP가 필요하다.
+:::
+
+---
+
+## 최적 부분구조 증명 (Cut-and-Paste)
+
+### 관찰
+
+임의의 BST의 서브트리는 **연속된 범위** $k_i, \ldots, k_j$ 의 키들을 포함하며,
+더미 키 $d_{i-1}, \ldots, d_j$ 를 leaf로 반드시 갖는다.
+
+### 정리
+
+Optimal BST $T$ 가 서브트리 $T'$ ($k_i \sim k_j$ 포함)를 갖는다면,
+$T'$ 는 그 서브문제($k_i, \ldots, k_j$, $d_{i-1}, \ldots, d_j$)에 대해 optimal이다.
+
+**[증명 — Cut-and-Paste 귀류법]**
+
+귀류법을 사용한다. $T'$ 가 optimal이 **아니라고** 가정하자.
+
+그렇다면 동일한 $k_i \sim k_j$, $d_{i-1} \sim d_j$ 를 포함하는 더 낮은 기대비용의 서브트리 $T''$ 가 존재한다.
+
+$$E[T''] < E[T'] \quad \cdots (1)$$
+
+$T$ 에서 $T'$ 를 잘라내고(cut), 그 자리에 $T''$ 를 붙인다(paste). 새 트리를 $T_{\text{new}}$ 라 하자.
+
+$T_{\text{new}}$ 의 기대비용은,
+
+$$E[T_{\text{new}}] = E[T] - E[T'] + E[T'']$$
+
+$(1)$ 에 의해,
+
+$$E[T_{\text{new}}] = E[T] - E[T'] + E[T''] < E[T]$$
+
+이는 $T$ 가 optimal이라는 전제에 **모순**이다.
+
+따라서 $T'$ 는 해당 서브문제에 대해 optimal이다. $\blacksquare$
+
+---
+
+## 점화식 도출
+
+### 상태 정의
+
+$$e[i, j] = k_i, \ldots, k_j \text{ 를 포함하는 optimal BST의 기대 탐색 비용}$$
+
+**기저 조건**: $j = i-1$ (더미 키 $d_{i-1}$ 만 있는 빈 트리)
+
+$$e[i, i-1] = q_{i-1}$$
+
+### 서브트리를 올릴 때 비용 증가량
+
+서브트리가 다른 노드의 자식으로 붙으면 **모든 노드의 depth가 1 증가**한다.
+이때 비용 증가량은 해당 서브트리의 전체 확률 합과 같다.
+
+**확률 합 $w(i, j)$ 정의:**
+
+$$w(i, j) = \sum_{l=i}^{j} p_l + \sum_{l=i-1}^{j} q_l$$
+
+서브트리가 자식으로 붙으면:
+
+$$e'[i, j] = e[i, j] + w(i, j)$$
+
+### 점화식 완전 유도
+
+$k_r$ 이 $k_i \sim k_j$ 의 optimal subtree $T$ 의 root라면,
+
+$$e[i,j] = p_r + e'[i, r-1] + e'[r+1, j]$$
+
+$$= p_r + (e[i, r-1] + w(i, r-1)) + (e[r+1, j] + w(r+1, j))$$
+
+$w(i,j) = w(i, r-1) + p_r + w(r+1, j)$ 이므로,
+
+$$\boxed{e[i,j] = e[i, r-1] + e[r+1, j] + w(i, j)}$$
+
+모든 후보 root $r \in [i, j]$ 에 대해 최솟값을 취하면 최종 점화식이 된다.
+
+$$e[i, j] = \begin{cases} q_{i-1} & \text{if } j = i-1 \\ \min_{i \le r \le j} \{e[i, r-1] + e[r+1, j] + w(i, j)\} & \text{if } i \le j \end{cases}$$
+
+::: {.callout-tip}
+**$w(i,j)$ 항의 수학적 역할**
+
+$w(i,j)$ 가 루트 선택 $r$ 과 무관하게 밖으로 분리되는 것이 핵심이다.
+어떤 루트를 선택하든 "이 서브트리 전체를 상위 트리에 붙이는 비용"은 동일하기 때문이다.
+따라서 최적 루트 탐색은 순수하게 $e[i, r-1] + e[r+1, j]$ 를 최소화하는 문제로 환원된다.
+:::
+
+---
+
+## OPTIMAL-BST 알고리즘
+
+### 테이블 설계
+
+| 테이블 | 크기 | 인덱스 범위 | 의미 |
+|--------|------|------------|------|
+| $e[i, j]$ | $(n+2) \times (n+1)$ | $j \ge i-1$ | $k_i \sim k_j$ 의 optimal subtree 기대비용 |
+| $w[i, j]$ | $(n+2) \times (n+1)$ | $j \ge i-1$ | $k_i \sim k_j$ 의 확률 합 |
+| $\text{root}[i, j]$ | $(n+1) \times n$ | $1 \le i \le j \le n$ | $k_i \sim k_j$ 의 optimal root |
+
+$w[i,j]$ 의 점화식:
+
+$$w[i, i-1] = q_{i-1}, \qquad w[i, j] = w[i, j-1] + p_j + q_j \quad (j \ge i)$$
+
+이를 통해 $\Theta(n^2)$ 개의 $w$ 값을 각각 $\Theta(1)$ 에 계산할 수 있다.
+
+### 알고리즘
+
+```
+OPTIMAL-BST(p, q, n)
+ 1. for i = 1 to n+1
+ 2.     e[i, i-1] = q_{i-1}
+ 3.     w[i, i-1] = q_{i-1}
+ 4. for l = 1 to n               ▷ 체인 길이
+ 5.     for i = 1 to n-l+1
+ 6.         j = i+l-1
+ 7.         e[i, j] = ∞
+ 8.         w[i, j] = w[i, j-1] + p_j + q_j
+ 9.         for r = i to j
+10.             t = e[i, r-1] + e[r+1, j] + w[i, j]
+11.             if t < e[i, j]
+12.                 e[i, j] = t
+13.                 root[i, j] = r
+14. return e and root
+```
+
+### 복잡도 분석
+
+| 구분 | 복잡도 |
+|------|--------|
+| 시간 | $\Theta(n^3)$ (체인 길이 $l$: $O(n)$ × 시작점 $i$: $O(n)$ × 루트 후보 $r$: $O(n)$) |
+| 공간 | $\Theta(n^2)$ ($e$, $w$, $\text{root}$ 테이블 각각 $O(n^2)$) |
+
+### 테이블 채우기 순서
+
+체인 길이 $l = 1, 2, \ldots, n$ 순서로 **대각선 방향**으로 채운다.
+
+$e[i,j]$ (길이 $l = k$) 계산 시 사용하는 값:
+
+- $e[i, r-1]$: 길이 $r-1-i \le k-1$ → 이미 계산됨
+- $e[r+1, j]$: 길이 $j-r \le k-1$ → 이미 계산됨
+
+짧은 체인을 먼저 계산하는 것이 올바른 bottom-up 순서임을 보장한다.
+
+최종 답은 $e[1, n]$ 이며, $\text{root}[i, j]$ 테이블로 트리 구조를 복원할 수 있다.
+
+---
+
+## 핵심 개념 요약
+
+| 개념 | 핵심 내용 |
+|------|----------|
+| **더미 키의 역할** | Unsuccessful search 비용을 모델에 반영 |
+| **기대 비용 공식** | 검색 비용 = depth + 1 (root의 depth = 0) |
+| **Cut-and-Paste** | 서브트리를 더 좋은 것으로 교체 시 전체 최적성 위반 → 귀류법 |
+| **$w(i,j)$ 분리** | 루트 선택과 무관하게 분리되어 최적 루트 탐색 문제가 단순화됨 |
+| **Bottom-up 순서** | 짧은 체인 → 긴 체인 순서로 대각선 방향 채우기 |
+| **시간 복잡도** | $\Theta(n^3)$ |
