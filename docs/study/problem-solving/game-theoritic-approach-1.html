@@ -6,8 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="dcterms.date" content="2026-04-15">
 
-<title>Problem Solving – Rokei Notes</title>
+<title>Game Theory: Winning Strategies and Implementation – Rokei Notes</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -23,6 +24,41 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -33,8 +69,6 @@ ul.task-list li input[type="checkbox"] {
 <script src="../../site_libs/quarto-search/fuse.min.js"></script>
 <script src="../../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../../">
-<script src="../../site_libs/quarto-listing/list.min.js"></script>
-<script src="../../site_libs/quarto-listing/quarto-listing.js"></script>
 <script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="../../site_libs/quarto-html/popper.min.js"></script>
@@ -72,35 +106,6 @@ ul.task-list li input[type="checkbox"] {
     "search-label": "Search"
   }
 }</script>
-<script>
-
-  window.document.addEventListener("DOMContentLoaded", function (_event) {
-    const listingTargetEl = window.document.querySelector('#listing-listing .list');
-    if (!listingTargetEl) {
-      // No listing discovered, do not attach.
-      return; 
-    }
-
-    const options = {
-      valueNames: ['listing-date','listing-title','listing-description',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-title-sort'] }],
-      
-      searchColumns: ["listing-date","listing-title","listing-author"],
-    };
-
-    window['quarto-listings'] = window['quarto-listings'] || {};
-    window['quarto-listings']['listing-listing'] = new List('listing-listing', options);
-
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  });
-
-  window.addEventListener('hashchange',() => {
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  })
-  </script>
 <!-- Privacy-friendly analytics by Plausible -->
 <script async="" src="https://plausible.io/js/pa-q1uQ7QEv5o9DOQFiYigvC.js"></script>
 <script>
@@ -211,25 +216,48 @@ window.Quarto = {
     </nav>
 </header>
 <!-- content -->
-<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-full page-navbar">
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
 <!-- margin-sidebar -->
-    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
-        
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#문제-개요-game-definition" id="toc-문제-개요-game-definition" class="nav-link active" data-scroll-target="#문제-개요-game-definition">1. 문제 개요 (Game Definition)</a></li>
+  <li><a href="#필승-전략-winning-strategy" id="toc-필승-전략-winning-strategy" class="nav-link" data-scroll-target="#필승-전략-winning-strategy">2. 필승 전략 (Winning Strategy)</a>
+  <ul class="collapse">
+  <li><a href="#case-1-n이-홀수" id="toc-case-1-n이-홀수" class="nav-link" data-scroll-target="#case-1-n이-홀수">✔️ Case 1: N이 홀수</a></li>
+  <li><a href="#case-2-n-2k-2의-거듭제곱" id="toc-case-2-n-2k-2의-거듭제곱" class="nav-link" data-scroll-target="#case-2-n-2k-2의-거듭제곱">✔️ Case 2: N = 2^k (2의 거듭제곱)</a></li>
+  <li><a href="#case-3-그-외-짝수" id="toc-case-3-그-외-짝수" class="nav-link" data-scroll-target="#case-3-그-외-짝수">✔️ Case 3: 그 외 짝수</a></li>
+  </ul></li>
+  <li><a href="#dp-관점-recurrence" id="toc-dp-관점-recurrence" class="nav-link" data-scroll-target="#dp-관점-recurrence">3. DP 관점 (Recurrence)</a></li>
+  <li><a href="#구현-시-주의사항" id="toc-구현-시-주의사항" class="nav-link" data-scroll-target="#구현-시-주의사항">4. 구현 시 주의사항</a></li>
+  <li><a href="#학습-전략-training-insight" id="toc-학습-전략-training-insight" class="nav-link" data-scroll-target="#학습-전략-training-insight">5. 학습 전략 (Training Insight)</a></li>
+  <li><a href="#최종-공식" id="toc-최종-공식" class="nav-link" data-scroll-target="#최종-공식">6. 최종 공식</a></li>
+  <li><a href="#용어-정리" id="toc-용어-정리" class="nav-link" data-scroll-target="#용어-정리">7. 용어 정리</a></li>
+  </ul>
+</nav>
     </div>
 <!-- main -->
-<main class="content column-page" id="quarto-document-content">
+<main class="content" id="quarto-document-content">
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Problem Solving</h1>
+<h1 class="title">Game Theory: Winning Strategies and Implementation</h1>
 </div>
 
 
 
-<div class="quarto-title-meta column-page">
+<div class="quarto-title-meta">
 
     
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">April 15, 2026</p>
+    </div>
+  </div>
   
     
   </div>
@@ -239,152 +267,163 @@ window.Quarto = {
 </header>
 
 
+<section id="문제-개요-game-definition" class="level2">
+<h2 class="anchored" data-anchor-id="문제-개요-game-definition">1. 문제 개요 (Game Definition)</h2>
+<p>두 플레이어가 숫자 <span class="math inline">\(N\)</span>을 가지고 게임을 합니다. 자신의 차례에 <span class="math inline">\(N\)</span>의 약수 <span class="math inline">\(C\)</span> (<span class="math inline">\(1 &lt; C &lt; N\)</span>)를 선택하여 <span class="math inline">\(N\)</span>에서 뺍니다. 더 이상 뺄 수 있는 약수가 없는 사람이 패배합니다.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>핵심 인사이트
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>이 게임은 “상대를 패배 상태로 보내는 선택이 하나라도 존재하면 이긴다”는 구조입니다.</p>
+</div>
+</div>
+<hr>
+</section>
+<section id="필승-전략-winning-strategy" class="level2">
+<h2 class="anchored" data-anchor-id="필승-전략-winning-strategy">2. 필승 전략 (Winning Strategy)</h2>
+<section id="case-1-n이-홀수" class="level3">
+<h3 class="anchored" data-anchor-id="case-1-n이-홀수">✔️ Case 1: N이 홀수</h3>
+<ul>
+<li>홀수의 약수는 항상 홀수</li>
+<li>홀수 - 홀수 = 짝수</li>
+<li>상대에게 항상 짝수를 넘김</li>
+</ul>
+<p>👉 결과: <strong>패배 (B)</strong></p>
+<hr>
+</section>
+<section id="case-2-n-2k-2의-거듭제곱" class="level3">
+<h3 class="anchored" data-anchor-id="case-2-n-2k-2의-거듭제곱">✔️ Case 2: N = 2^k (2의 거듭제곱)</h3>
+<ul>
+<li>k가 홀수 → 패배 (B)</li>
+<li>k가 짝수 → 승리 (A)</li>
+</ul>
+<hr>
+</section>
+<section id="case-3-그-외-짝수" class="level3">
+<h3 class="anchored" data-anchor-id="case-3-그-외-짝수">✔️ Case 3: 그 외 짝수</h3>
+<ul>
+<li>반드시 홀수 약수 존재</li>
+<li>그걸 빼서 상대에게 홀수 넘김</li>
+</ul>
+<p>👉 결과: <strong>승리 (A)</strong></p>
+<hr>
+</section>
+</section>
+<section id="dp-관점-recurrence" class="level2">
+<h2 class="anchored" data-anchor-id="dp-관점-recurrence">3. DP 관점 (Recurrence)</h2>
+<p>dp[i] = True (이김) if<br>
+∃ d (약수) such that dp[i - d] == False</p>
+<hr>
+</section>
+<section id="구현-시-주의사항" class="level2">
+<h2 class="anchored" data-anchor-id="구현-시-주의사항">4. 구현 시 주의사항</h2>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>⚠️ 연산자 우선순위
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// ❌ 잘못된 코드</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span><span class="dt">int</span> cnt <span class="op">=</span> is_power_of_two<span class="op">()</span> <span class="op">!=</span> <span class="dv">0</span><span class="op">)</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// cnt에는 0 또는 1만 들어감</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// ✅ 올바른 코드</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span><span class="dt">int</span> cnt <span class="op">=</span> is_power_of_two<span class="op">();</span> cnt <span class="op">!=</span> <span class="dv">0</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+<hr>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>⚠️ 약수 탐색 실수
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>sqrt(N)까지만 보면 안됨</li>
+<li>큰 약수 (예: N/2)가 중요할 수 있음</li>
+</ul>
+</div>
+</div>
+<hr>
+</section>
+<section id="학습-전략-training-insight" class="level2">
+<h2 class="anchored" data-anchor-id="학습-전략-training-insight">5. 학습 전략 (Training Insight)</h2>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>🔥 추천 훈련법
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>Small Case Simulation<br>
+</li>
+<li>Backward Induction<br>
+</li>
+<li>Invariant 찾기<br>
+</li>
+<li>DP → 패턴 → 수학화</li>
+</ol>
+</div>
+</div>
+<hr>
+</section>
+<section id="최종-공식" class="level2">
+<h2 class="anchored" data-anchor-id="최종-공식">6. 최종 공식</h2>
+<p><span class="math display">\[
+f(N) =
+\begin{cases}
+B &amp; \text{if N is odd} \\
+B &amp; \text{if N = 2^k and k is odd} \\
+A &amp; \text{otherwise}
+\end{cases}
+\]</span></p>
+<hr>
+</section>
+<section id="용어-정리" class="level2">
+<h2 class="anchored" data-anchor-id="용어-정리">7. 용어 정리</h2>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>Power of two: 2의 거듭제곱<br>
+</li>
+<li>Exponent: 지수<br>
+</li>
+<li>Optimal Strategy: 최적 전략<br>
+</li>
+</ul>
+</div>
+</div>
 
 
+</section>
 
-
-<div class="quarto-listing quarto-listing-container-table" id="listing-listing">
-<table class="quarto-listing-table table">
-<thead>
-<tr>
-
-<th>
-Date
-</th>
-
-<th>
-Title
-</th>
-
-<th>
-Description
-</th>
-
-</tr>
-</thead>
-<tbody class="list">
-
-<tr data-index="0" data-categories="YWxnb3JpdGhtJTJDZHAlMkNjb21iaW5hdG9yaWNzJTJDbWF0aA==" data-listing-date-sort="1775142000000" data-listing-file-modified-sort="1775231545093" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="6" data-listing-word-count-sort="1131" data-listing-title-sort="순열의 역위 개수를 K로 나눈 나머지별 개수 구하기">
-<td>
-<span class="listing-date">Apr 3, 2026</span>
-</td>
-<td>
-<a href="../../study/problem-solving/inversion-of-permutation-by-dp.html" class="title listing-title">순열의 역위 개수를 K로 나눈 나머지별 개수 구하기</a>
-</td>
-<td>
-<span class="listing-description">길이 N인 순열의 역위 개수를 K로 나눈 나머지별 순열 개수를 DP와 q-factorial로 구하는 문제. 핵심은 mod K DP로 배열 크기를 O(K)로 줄이는 아이디어이다.</span>
-</td>
-
-</tr>
-
-<tr data-index="1" data-listing-date-sort="1775228400000" data-listing-file-modified-sort="1775237136864" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="6" data-listing-word-count-sort="1092" data-listing-title-sort="Lucas' Theorem &amp; 짝수 이항계수 개수">
-<td>
-<span class="listing-date">Apr 4, 2026</span>
-</td>
-<td>
-<a href="../../study/problem-solving/lucas-theorem.html" class="title listing-title">Lucas’ Theorem &amp; 짝수 이항계수 개수</a>
-</td>
-<td>
-<span class="listing-description">음이 아닌 정수 <span class="math inline">\(N\)</span>이 주어질 때, <span class="math inline">\(N+1\)</span>개의 이항계수</span>
-</td>
-
-</tr>
-
-<tr data-index="2" data-listing-date-sort="1775314800000" data-listing-file-modified-sort="1775320152235" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="9" data-listing-word-count-sort="1628" data-listing-title-sort="수 색칠하기">
-<td>
-<span class="listing-date">Apr 5, 2026</span>
-</td>
-<td>
-<a href="../../study/problem-solving/number-coloring.html" class="title listing-title">수 색칠하기</a>
-</td>
-<td>
-<span class="listing-description">인접한 두 수에 대해 서로 다른 색으로 색칠하는 최소 비용 구하기</span>
-</td>
-
-</tr>
-
-<tr data-index="3" data-listing-date-sort="1775660400000" data-listing-file-modified-sort="1775668281096" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="7" data-listing-word-count-sort="1314" data-listing-title-sort="구간별 선형 함수의 수평선 교차 최대화">
-<td>
-<span class="listing-date">Apr 9, 2026</span>
-</td>
-<td>
-<a href="../../study/problem-solving/count-real-root.html" class="title listing-title">구간별 선형 함수의 수평선 교차 최대화</a>
-</td>
-<td>
-<span class="listing-description">정수 수열로 정의된 구간별 선형 함수 f에 대해, 수평선 y=y₀와의 교점 개수 g(y₀)를 최대화하는 문제 풀이</span>
-</td>
-
-</tr>
-
-<tr data-index="4" data-categories="cHJvYmxlbS1zb2x2aW5nJTJDeG9yJTJDcGlnZW9uaG9sZSUyQ2dyZWVkeQ==" data-listing-date-sort="1775660400000" data-listing-file-modified-sort="1775747647095" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="9" data-listing-word-count-sort="1699" data-listing-title-sort="XOR 연산으로 단조증가 수열 깨기: 비둘기집 원리와 MSB 분석">
-<td>
-<span class="listing-date">Apr 9, 2026</span>
-</td>
-<td>
-<a href="../../study/problem-solving/non-decreasing-sequence-xor-comparison.html" class="title listing-title">XOR 연산으로 단조증가 수열 깨기: 비둘기집 원리와 MSB 분석</a>
-</td>
-<td>
-<span class="listing-description">정렬된 자연수 수열에서 인접 원소를 XOR로 대체하는 연산을 최소 횟수로 수행하여 단조증가를 깨는 문제. 비둘기집 원리로 큰 입력을 O(1) 처리하고, MSB 구조 분석으로 불가능 판정을 하며, 작은 입력은…</span>
-</td>
-
-</tr>
-
-<tr data-index="5" data-categories="Y29tYmluYXRvcmljcyUyQ21hdGg=" data-listing-date-sort="1775833200000" data-listing-file-modified-sort="1775840022378" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="4" data-listing-word-count-sort="653" data-listing-title-sort="삼각형 막대기 (여사건 + 하키스틱 항등식)">
-<td>
-<span class="listing-date">Apr 11, 2026</span>
-</td>
-<td>
-<a href="../../study/problem-solving/triangle_sticks.html" class="title listing-title">삼각형 막대기 (여사건 + 하키스틱 항등식)</a>
-</td>
-<td>
-<span class="listing-description">길이 <span class="math inline">\(A\)</span>, <span class="math inline">\(B\)</span>, <span class="math inline">\(C\)</span>인 세 막대기가 있다. 최대 <span class="math inline">\(K\)</span>번의 연산(막대 하나를 골라 1cm 늘리기)을 수행한 뒤, 최종 길이 <span class="math inline">\((X, Y, Z)\)</span>가 삼각형 조건을 만족하는 서로 다른…</span>
-</td>
-
-</tr>
-
-<tr data-index="6" data-categories="YWxnb3JpdGhtJTJDbW9kdWxhci1hcml0aG1ldGljJTJDbnVtYmVyLXRoZW9yeQ==" data-listing-date-sort="1776006000000" data-listing-file-modified-sort="1776020677513" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="7" data-listing-word-count-sort="1331" data-listing-title-sort="X^Y ÷ Z의 소수 표현: Modular Arithmetic 트릭">
-<td>
-<span class="listing-date">Apr 13, 2026</span>
-</td>
-<td>
-<a href="../../study/problem-solving/xy-div-by-z.html" class="title listing-title">X^Y ÷ Z의 소수 표현: Modular Arithmetic 트릭</a>
-</td>
-<td>
-<span class="listing-description">X^Y ÷ Z를 10진법으로 표현할 때, 소숫점 앞 3자리와 뒤 3자리를 구하는 문제를 mod (1000·Z) 트릭과 long division으로 해결하는 과정을 정리한 글</span>
-</td>
-
-</tr>
-
-<tr data-index="7" data-listing-date-sort="1776178800000" data-listing-file-modified-sort="1776262852756" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="2" data-listing-word-count-sort="240" data-listing-title-sort="Game Theory: Winning Strategies and Implementation">
-<td>
-<span class="listing-date">Apr 15, 2026</span>
-</td>
-<td>
-<a href="../../study/problem-solving/game-theoritic-approach-1.html" class="title listing-title">Game Theory: Winning Strategies and Implementation</a>
-</td>
-<td>
-<span class="listing-description">두 플레이어가 숫자 <span class="math inline">\(N\)</span>을 가지고 게임을 합니다. 자신의 차례에 <span class="math inline">\(N\)</span>의 약수 <span class="math inline">\(C\)</span> (<span class="math inline">\(1 &lt; C &lt; N\)</span>)를 선택하여 <span class="math inline">\(N\)</span>에서 뺍니다. 더 이상 뺄 수 있는 약수가 없는 사람이 패배합니다.</span>
-</td>
-
-</tr>
-
-<tr data-index="8" data-categories="bWF0aCUyQ2dlb21ldHJ5JTJDaW5jbHVzaW9uLWV4Y2x1c2lvbg==" data-listing-date-sort="1776178800000" data-listing-file-modified-sort="1776186482314" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="9" data-listing-word-count-sort="1678" data-listing-title-sort="격자판 장애물 우회 — 맨해튼 다이아몬드와 포함-배제">
-<td>
-<span class="listing-date">Apr 15, 2026</span>
-</td>
-<td>
-<a href="../../study/problem-solving/grid-restricted-region-search.html" class="title listing-title">격자판 장애물 우회 — 맨해튼 다이아몬드와 포함-배제</a>
-</td>
-<td>
-<span class="listing-description">원점에서 k번 이동 시 직사각형 장애물을 고려한 도달 가능 격자점 수를 O(1)로 구하는 풀이</span>
-</td>
-
-</tr>
-
-</tbody>
-</table>
-<div class="listing-no-matching d-none">No matching items</div>
-</div></main> <!-- /main -->
+</main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
     const icon = "";
