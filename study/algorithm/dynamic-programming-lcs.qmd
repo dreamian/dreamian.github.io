@@ -1,0 +1,454 @@
+---
+title: "Dynamic Programming: Longest Common Subsequence (LCS)"
+date: 2026-04-15
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "목차"
+    number-sections: true
+    theme: cosmo
+    highlight-style: github
+    code-fold: false
+    self-contained: true
+    css: |
+      body { font-family: 'Pretendard', 'Noto Sans KR', sans-serif; }
+      .theorem-box {
+        border-left: 4px solid #2563eb;
+        background: #eff6ff;
+        padding: 1em 1.2em;
+        margin: 1em 0;
+        border-radius: 0 6px 6px 0;
+      }
+      .proof-box {
+        border-left: 4px solid #16a34a;
+        background: #f0fdf4;
+        padding: 1em 1.2em;
+        margin: 1em 0;
+        border-radius: 0 6px 6px 0;
+      }
+      .caution-box {
+        border-left: 4px solid #dc2626;
+        background: #fef2f2;
+        padding: 1em 1.2em;
+        margin: 1em 0;
+        border-radius: 0 6px 6px 0;
+      }
+      .key-box {
+        border-left: 4px solid #9333ea;
+        background: #faf5ff;
+        padding: 1em 1.2em;
+        margin: 1em 0;
+        border-radius: 0 6px 6px 0;
+      }
+      table {
+        border-collapse: collapse;
+        margin: 1em auto;
+      }
+      th, td {
+        border: 1px solid #cbd5e1;
+        padding: 6px 14px;
+        text-align: center;
+      }
+      th { background: #f1f5f9; font-weight: 600; }
+      .highlight-cell { background: #fef9c3; font-weight: bold; }
+      .match-cell { background: #dcfce7; font-weight: bold; }
+---
+
+# 개요
+
+**Longest Common Subsequence (LCS)** 는 Dynamic Programming의 대표적인 응용 문제로,
+두 수열에서 공통으로 등장하는 가장 긴 부분 수열을 찾는 문제입니다.
+
+이 문서는 다음 네 가지에 초점을 맞춥니다:
+
+1. **문제 정의** — Subsequence vs. Substring
+2. **Optimal Substructure 증명** — Theorem 15.1 (귀류법 + Cut and Paste)
+3. **점화식 및 알고리즘** — LCS-LENGTH, PRINT-LCS
+4. **복잡도 분석 및 공간 최적화**
+
+---
+
+# 기본 정의
+
+## Subsequence
+
+::: {.theorem-box}
+**정의.** 수열 $X = \langle x_1, x_2, \ldots, x_m \rangle$의 **subsequence (부분 수열)** 란,
+인덱스 집합 $1 \le i_1 < i_2 < \cdots < i_k \le m$을 선택하여 얻은 수열
+$\langle x_{i_1}, x_{i_2}, \ldots, x_{i_k} \rangle$이다.
+즉, **순서를 유지하되 연속일 필요가 없다.**
+:::
+
+**예시:**
+
+$$X = \langle A, B, C, B, D, A, B \rangle$$
+
+- $\langle B, C, D, B \rangle$ → 유효한 부분 수열 ✓
+- $\langle A, B, A, B \rangle$ → 유효한 부분 수열 ✓
+- $\langle C, B, A \rangle$ → 유효한 부분 수열 ✓
+
+> ⚠️ **Subsequence ≠ Substring**: Substring은 연속된 원소만 허용하지만, Subsequence는 순서만 보존하면 된다.
+
+## Common Subsequence & LCS
+
+::: {.theorem-box}
+**정의.** 두 수열 $X$, $Y$ 모두의 부분 수열인 것을 **common subsequence**,
+그 중 가장 긴 것을 **Longest Common Subsequence (LCS)** 라 한다.
+:::
+
+**예시:**
+
+$$X = \langle A,B,C,B,D,A,B \rangle, \quad Y = \langle B,D,C,A,B,A \rangle$$
+
+- $\langle B, C, A \rangle$ → common subsequence (길이 3)
+- $\langle B, C, B, A \rangle$ → **LCS** (길이 4) ✓
+- $\langle B, D, A, B \rangle$ → **LCS** (길이 4) ✓
+
+## Prefix (접두 수열)
+
+::: {.theorem-box}
+**정의.** $X = \langle x_1, x_2, \ldots, x_m \rangle$에 대해,
+**$i$번째 prefix**를 다음과 같이 정의한다:
+
+$$X_i = \langle x_1, x_2, \ldots, x_i \rangle, \quad i = 0, 1, \ldots, m$$
+
+$X_0$은 빈 수열이다.
+:::
+
+**예시:** $X = \langle A, B, C, B, D, A, B \rangle$
+
+$$X_4 = \langle A, B, C, B \rangle, \quad X_0 = \langle \rangle$$
+
+---
+
+# Brute-force의 한계
+
+Brute-force 접근은 $X$의 모든 부분 수열을 열거하여 $Y$의 부분 수열인지 확인하는 방식이다.
+
+$$|X| = m \Rightarrow \text{부분 수열 수} = 2^m$$
+
+각 부분 수열이 $Y$의 부분 수열인지 확인하는 데 $O(n)$ 소요 → **전체 $O(n \cdot 2^m)$, 지수 시간**.
+
+::: {.caution-box}
+**결론:** Brute-force는 $m, n$이 조금만 커져도 비실용적이다.
+자연스럽게 **부분 문제 구조 (subproblem structure)** 를 탐색하게 된다.
+:::
+
+---
+
+# Optimal Substructure — Theorem 15.1
+
+## 정리
+
+::: {.theorem-box}
+**Theorem 15.1 (Optimal Substructure of LCS)**
+
+$X = \langle x_1,\ldots,x_m \rangle$, $Y = \langle y_1,\ldots,y_n \rangle$이고,
+$Z = \langle z_1,\ldots,z_k \rangle$이 $X$와 $Y$의 임의의 LCS라 하면:
+
+**(1)** $x_m = y_n$ 이면, $z_k = x_m = y_n$ 이고 $Z_{k-1}$은 $X_{m-1}$과 $Y_{n-1}$의 LCS이다.
+
+**(2)** $x_m \neq y_n$ 이고 $z_k \neq x_m$ 이면, $Z$는 $X_{m-1}$과 $Y$의 LCS이다.
+
+**(3)** $x_m \neq y_n$ 이고 $z_k \neq y_n$ 이면, $Z$는 $X$와 $Y_{n-1}$의 LCS이다.
+:::
+
+## Case (1) 증명: $x_m = y_n$
+
+### Step 1 — $z_k = x_m$ 임을 보인다
+
+::: {.proof-box}
+**귀류법 가정:** $z_k \neq x_m$ 이라 하자.
+
+$x_m = y_n$이므로, $Z$의 끝에 $x_m$을 붙여 새로운 수열을 구성할 수 있다:
+
+$$Z' = \langle z_1, z_2, \ldots, z_k, x_m \rangle$$
+
+$Z'$는 $X$와 $Y$ 모두의 공통 부분 수열이고 길이는 $k + 1 > k$.
+
+이는 $Z$가 LCS (길이 $k$)라는 가정에 **모순**. ∎
+
+따라서 $z_k = x_m = y_n$.
+:::
+
+### Step 2 — $Z_{k-1}$이 $X_{m-1}$과 $Y_{n-1}$의 LCS임을 보인다
+
+::: {.proof-box}
+**관찰:** $z_k = x_m = y_n$ 이므로, $Z_{k-1} = \langle z_1,\ldots,z_{k-1} \rangle$은
+$X_{m-1}$과 $Y_{n-1}$의 **공통 부분 수열**이다 (길이 $k-1$).
+
+**귀류법 가정 (Cut and Paste):**
+$X_{m-1}$과 $Y_{n-1}$에 길이 $> k-1$인 공통 부분 수열 $W$가 존재한다고 하자.
+
+그러면 $W$에 $x_m = y_n$을 붙인
+
+$$W' = \langle W, x_m \rangle$$
+
+은 $X$와 $Y$의 공통 부분 수열이며, 길이는 $> k$이다.
+
+이는 $Z$가 $X$와 $Y$의 LCS (길이 $k$)라는 가정에 **모순**. ∎
+
+따라서 $Z_{k-1}$은 $X_{m-1}$과 $Y_{n-1}$의 LCS이다.
+:::
+
+## Case (2) 증명: $x_m \neq y_n$, $z_k \neq x_m$
+
+::: {.proof-box}
+**관찰:** $z_k \neq x_m$ 이므로, $Z$는 $X_{m-1}$과 $Y$의 공통 부분 수열이다.
+
+**귀류법 가정 (Cut and Paste):**
+$X_{m-1}$과 $Y$에 길이 $> k$인 공통 부분 수열 $W$가 존재한다고 하자.
+
+$X_{m-1} \subseteq X$이므로, $W$는 $X$와 $Y$의 공통 부분 수열이기도 하며 길이 $> k$.
+
+이는 $Z$가 $X$와 $Y$의 LCS (길이 $k$)라는 가정에 **모순**. ∎
+
+따라서 $Z$는 $X_{m-1}$과 $Y$의 LCS이다.
+:::
+
+> Case (3)은 Case (2)와 **대칭적 (symmetric)** 이므로 증명 생략.
+
+## Cut and Paste 논리 구조 요약
+
+::: {.key-box}
+**Cut and Paste의 핵심 패턴:**
+
+1. "더 나은 해 $W$가 있다"고 **귀류법**으로 가정한다.
+2. $W$를 원래 문제의 최적해에 **붙여 넣어 (paste)** 더 좋은 해를 구성한다.
+3. 이것이 원래 **최적해 가정과 모순**임을 보인다.
+
+이 방식으로 *"작은 문제의 최적해를 모으면 큰 문제의 최적해가 된다"*는 **Optimal Substructure**를 확립한다.
+:::
+
+---
+
+# Overlapping Subproblems
+
+$X$와 $Y$의 LCS를 구하려면:
+
+- $X_{m-1}$과 $Y$의 LCS
+- $X$와 $Y_{n-1}$의 LCS
+
+두 서브문제가 필요하다. 그런데 이 둘 모두 $X_{m-1}$과 $Y_{n-1}$의 LCS라는 **공통 서브문제(sub-subproblem)** 를 포함한다.
+
+::: {.key-box}
+**Overlapping Subproblems** 조건이 성립한다.
+→ 중복 계산을 피하기 위해 **테이블에 결과를 메모이제이션**하는 DP 적용이 정당화된다.
+:::
+
+---
+
+# 점화식 (Recurrence)
+
+$c[i,j]$: $X_i$와 $Y_j$의 LCS 길이
+
+$$c[i,j] = \begin{cases}
+0 & \text{if } i = 0 \text{ or } j = 0 \\[6pt]
+c[i-1,\,j-1] + 1 & \text{if } i,j > 0 \text{ and } x_i = y_j \\[6pt]
+\max\!\bigl(c[i,\,j-1],\; c[i-1,\,j]\bigr) & \text{if } i,j > 0 \text{ and } x_i \neq y_j
+\end{cases}$$
+
+**방향 포인터 $b[i,j]$:**
+
+$$b[i,j] = \begin{cases}
+\text{"↖"} & \text{if } x_i = y_j \\
+\text{"↑"} & \text{if } x_i \neq y_j \text{ and } c[i-1,j] \ge c[i,j-1] \\
+\text{"←"} & \text{if } x_i \neq y_j \text{ and } c[i,j-1] > c[i-1,j]
+\end{cases}$$
+
+---
+
+# 알고리즘
+
+## LCS-LENGTH
+
+```pseudocode
+LCS-LENGTH(X, Y)
+1.  m = X.length
+2.  n = Y.length
+3.  let b[1..m, 1..n] and c[0..m, 0..n] be new tables
+4.  for i = 1 to m
+5.      c[i, 0] = 0
+6.  for j = 0 to n
+7.      c[0, j] = 0
+8.  for i = 1 to m
+9.      for j = 1 to n
+10.         if x_i == y_j
+11.             c[i, j] = c[i-1, j-1] + 1
+12.             b[i, j] = "↖"
+13.         else if c[i-1, j] ≥ c[i, j-1]
+14.             c[i, j] = c[i-1, j]
+15.             b[i, j] = "↑"
+16.         else
+17.             c[i, j] = c[i, j-1]
+18.             b[i, j] = "←"
+19. return c and b
+```
+
+**복잡도:**
+
+| 항목 | 복잡도 |
+|:----:|:------:|
+| 시간 | $\Theta(mn)$ |
+| 공간 | $\Theta(mn)$ |
+| 서브문제 수 | $\Theta(mn)$ |
+| 서브문제당 시간 | $\Theta(1)$ |
+
+## PRINT-LCS
+
+```pseudocode
+PRINT-LCS(b, X, i, j)
+1.  if i == 0 or j == 0
+2.      return
+3.  if b[i, j] == "↖"
+4.      PRINT-LCS(b, X, i-1, j-1)
+5.      print x_i
+6.  else if b[i, j] == "↑"
+7.      PRINT-LCS(b, X, i-1, j)
+8.  else
+9.      PRINT-LCS(b, X, i, j-1)
+```
+
+- 최초 호출: `PRINT-LCS(b, X, X.length, Y.length)`
+- **시간복잡도:** $O(m + n)$
+  - 매 재귀 호출마다 $i$ 또는 $j$ 중 하나가 반드시 감소하므로, 총 호출 수 $\le m + n$
+
+---
+
+# 완전한 테이블 계산 예시
+
+$X = \langle A,B,C,B,D,A,B \rangle$ ($m=7$), $Y = \langle B,D,C,A,B,A \rangle$ ($n=6$)
+
+## 완성된 c[i,j] 및 b[i,j] 테이블
+
+|  | **j=0** | **1 (B)** | **2 (D)** | **3 (C)** | **4 (A)** | **5 (B)** | **6 (A)** |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **i=0** | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| **1 (A)** | 0 | ↑ 0 | ↑ 0 | ↑ 0 | **↖ 1** | ← 1 | **↖ 1** |
+| **2 (B)** | 0 | **↖ 1** | ← 1 | ← 1 | ↑ 1 | **↖ 2** | ← 2 |
+| **3 (C)** | 0 | ↑ 1 | ↑ 1 | **↖ 2** | ← 2 | ↑ 2 | ↑ 2 |
+| **4 (B)** | 0 | **↖ 1** | ↑ 1 | ↑ 2 | ↑ 2 | **↖ 3** | ← 3 |
+| **5 (D)** | 0 | ↑ 1 | **↖ 2** | ↑ 2 | ↑ 2 | ↑ 3 | ↑ 3 |
+| **6 (A)** | 0 | ↑ 1 | ↑ 2 | ↑ 2 | **↖ 3** | ↑ 3 | **↖ 4** |
+| **7 (B)** | 0 | **↖ 1** | ↑ 2 | ↑ 2 | ↑ 3 | **↖ 4** | ↑ 4 |
+
+→ $c[7, 6] = 4$: LCS 길이는 **4**
+
+## 역추적 경로 (PRINT-LCS)
+
+`PRINT-LCS(b, X, 7, 6)` 호출 시의 재귀 경로:
+
+```
+(7,6) ↑  →  (6,6) ↖  →  재귀 PRINT-LCS(5,5)  →  print x₆ = A
+(5,5) ↑  →  (4,5) ↖  →  재귀 PRINT-LCS(3,4)  →  print x₄ = B
+(3,4) ←  →  (3,3) ↖  →  재귀 PRINT-LCS(2,2)  →  print x₃ = C
+(2,2) ←  →  (2,1) ↖  →  재귀 PRINT-LCS(1,0)  →  print x₂ = B
+(1,0)        → base case, return
+```
+
+**출력 순서 (재귀 후 print):** B → C → B → A
+
+$$\boxed{\text{LCS} = \langle B, C, B, A \rangle}$$
+
+---
+
+# 선택된 셀 계산 상세 (대표 예시)
+
+| 셀 | $x_i$ | $y_j$ | 조건 | 계산 | $b[i,j]$ |
+|:--:|:-----:|:-----:|:----:|:----:|:---------:|
+| $c[1,4]$ | A | A | $x_1 = y_4$ | $c[0,3]+1 = 1$ | ↖ |
+| $c[2,5]$ | B | B | $x_2 = y_5$ | $c[1,4]+1 = 2$ | ↖ |
+| $c[2,2]$ | B | D | $x_2 \neq y_2$, $c[2,1]=1 > c[1,2]=0$ | $\max(1,0)=1$ | ← |
+| $c[3,3]$ | C | C | $x_3 = y_3$ | $c[2,2]+1 = 2$ | ↖ |
+| $c[4,5]$ | B | B | $x_4 = y_5$ | $c[3,4]+1 = 3$ | ↖ |
+| $c[6,6]$ | A | A | $x_6 = y_6$ | $c[5,5]+1 = 4$ | ↖ |
+
+---
+
+# 코드 최적화 전략
+
+## b 테이블 제거
+
+$c[i,j]$는 오직 세 값에만 의존한다:
+
+$$c[i-1,\,j-1], \quad c[i-1,\,j], \quad c[i,\,j-1]$$
+
+→ $c[i,j]$ 값만으로 $O(1)$ 내에 방향을 역추론 가능:
+
+```
+if c[i,j] == c[i-1,j-1] + 1 and x_i == y_j  →  ↖ 방향
+elif c[i,j] == c[i-1,j]                        →  ↑ 방향
+else                                            →  ← 방향
+```
+
+→ $\Theta(mn)$ 추가 공간 절약. 단, $c$ 테이블은 여전히 $\Theta(mn)$ 필요.
+
+## 두 행만 유지 (길이만 필요한 경우)
+
+$c[i,j]$를 계산할 때 실제로는 **현재 행**과 **이전 행** 두 개만 필요하다.
+
+```python
+# Python 구현 예시 (길이만 반환)
+def lcs_length(X, Y):
+    m, n = len(X), len(Y)
+    prev = [0] * (n + 1)
+    curr = [0] * (n + 1)
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if X[i-1] == Y[j-1]:
+                curr[j] = prev[j-1] + 1
+            else:
+                curr[j] = max(prev[j], curr[j-1])
+        prev, curr = curr, [0] * (n + 1)
+    return prev[n]
+```
+
+| 방법 | 시간 | 공간 |
+|:----:|:----:|:----:|
+| 전체 테이블 유지 | $\Theta(mn)$ | $\Theta(mn)$ |
+| b 테이블 제거 | $\Theta(mn)$ | $\Theta(mn)$ |
+| 두 행만 유지 (길이만) | $\Theta(mn)$ | $\Theta(n)$ |
+
+::: {.caution-box}
+**주의:** 두 행만 유지하면 **LCS의 실제 원소 복원이 불가능**하다.
+길이만 필요하다면 $\Theta(n)$ 공간으로 충분하지만,
+원소를 출력하려면 $\Theta(mn)$ 공간의 전체 테이블이 필요하다.
+:::
+
+---
+
+# DP 설계 4단계 요약
+
+| 단계 | LCS 적용 |
+|:----:|:---------|
+| **① Optimal Substructure** | Theorem 15.1 — 귀류법 + Cut and Paste로 LCS가 prefix들의 LCS를 포함함을 증명 |
+| **② Recursive Formulation** | $c[i,j]$ 점화식 — 세 가지 경우로 분기 |
+| **③ Bottom-up 계산** | LCS-LENGTH — row-major 순서로 테이블 채움, $\Theta(mn)$ |
+| **④ Solution 복원** | PRINT-LCS — $b$ 테이블 역추적, $O(m+n)$ |
+
+---
+
+# 핵심 정리 카드
+
+::: {.key-box}
+**LCS 핵심 공식:**
+
+$$c[i,j] = \begin{cases}
+0 & i=0 \text{ or } j=0 \\
+c[i-1,j-1]+1 & x_i = y_j \\
+\max(c[i,j-1],\ c[i-1,j]) & x_i \neq y_j
+\end{cases}$$
+
+**복잡도:** 시간 $\Theta(mn)$, 공간 $\Theta(mn)$
+
+**역추적:** $b$ 테이블을 따라 $(m,n)$에서 시작, ↖ 셀마다 문자 출력, $O(m+n)$
+:::
+
+::: {.proof-box}
+**Theorem 15.1 증명의 논리 구조 (암기용):**
+
+- Case (1)-①: "$z_k \neq x_m$이면 $Z$에 $x_m$ 붙여 더 긴 공통 수열 → 모순"
+- Case (1)-②: "$Z_{k-1}$보다 긴 $W$가 있으면 $W$에 $x_m$ 붙여 $Z$보다 긴 공통 수열 → 모순"
+- Case (2): "$W$가 $X_{m-1}$과 $Y$의 더 긴 공통 수열이면 $X$와 $Y$에서도 더 긴 수열 → 모순"
+:::
