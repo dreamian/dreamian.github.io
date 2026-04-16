@@ -1,0 +1,572 @@
+---
+title: "TCP Congestion Control"
+subtitle: "Data Network — Transport Layer"
+date: "2026-04-16"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "목차"
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+    highlight-style: github
+    fig-align: center
+    callout-appearance: minimal
+    self-contained: true
+  pdf:
+    toc: true
+    number-sections: true
+    colorlinks: true
+    geometry: margin=1in
+execute:
+  echo: true
+  warning: false
+---
+
+# 개요 (Overview)
+
+TCP Congestion Control은 네트워크의 혼잡(congestion)을 탐지하고 대응함으로써, 송신 측이 네트워크 용량을 초과하지 않는 선에서 최대 처리량을 달성하도록 하는 **엔드-투-엔드(end-to-end) 메커니즘**이다. IP 계층은 혼잡에 대한 명시적 피드백을 제공하지 않기 때문에, TCP는 **패킷 손실(loss event)**을 혼잡의 암묵적(implicit) 신호로 삼아 전송 속도를 스스로 조절한다.
+
+::: {.callout-note}
+**Flow Control vs. Congestion Control**
+
+| 구분 | Flow Control | Congestion Control |
+|------|-------------|-------------------|
+| 목적 | 수신 버퍼 오버플로우 방지 | 네트워크 혼잡 방지 |
+| 피드백 | 수신자의 `rwnd` (Receive Window) | 손실 이벤트 (Timeout / 3 Dup ACK) |
+| 제어 대상 | Sender ↔ Receiver 쌍 | 네트워크 전체 |
+:::
+
+## 핵심 변수
+
+$$
+\text{LastByteSent} - \text{LastByteAcked} \leq \min(\underbrace{cwnd}_{\text{congestion window}},\ \underbrace{rwnd}_{\text{flow control window}})
+$$
+
+- **`cwnd` (Congestion Window)**: 송신자가 네트워크에 주입할 수 있는 unACKed 바이트 수의 상한. 동적으로 변화.
+- **`ssthresh` (Slow Start Threshold)**: Slow Start와 Congestion Avoidance 사이의 전환 기준값.
+- **전송 속도 근사**:
+
+$$
+\text{rate} \approx \frac{cwnd}{RTT} \quad \text{[bytes/sec]}
+$$
+
+---
+
+# 혼잡의 비용 (Costs of Congestion)
+
+TCP 혼잡 제어를 이해하려면 먼저 혼잡 자체가 왜 발생하고, 얼마나 큰 비용을 유발하는지 파악해야 한다.
+
+## Scenario 1: 이상적인 상황 (무한 버퍼, 재전송 없음)
+
+라우터 버퍼가 무한하고 재전송이 없다고 가정하면, 입력 부하($\lambda_{in}$)가 링크 용량 $C/2$에 가까워질수록 지연(delay)이 무한대로 발산한다.
+
+$$
+\lim_{\lambda_{in} \to C/2} \text{delay} = \infty
+$$
+
+## Scenario 2: 유한 버퍼 + 재전송 (현실적 상황)
+
+- 패킷이 버퍼에서 드롭 → 타임아웃 → **불필요한 재전송** 발생
+- 동일 데이터가 링크를 여러 번 통과하므로 **goodput < throughput**
+
+$$
+\lambda_{out} < \lambda_{in}' \quad (\lambda_{in}' = \text{original} + \text{retransmitted})
+$$
+
+## Scenario 3: 멀티홉 경로 (가장 치명적)
+
+패킷이 업스트림 링크를 통해 라우터에 도달했지만 **다운스트림 링크에서 드롭**되면, 업스트림에서 소모된 모든 전송 자원이 낭비된다.
+
+::: {.callout-warning}
+**혼잡의 비용 요약**:
+1. 주어진 goodput을 달성하기 위한 **재전송 오버헤드** 증가  
+2. 불필요한 재전송으로 인한 **goodput 감소**  
+3. 업스트림 전송 자원의 **완전한 낭비**
+:::
+
+---
+
+# TCP 혼잡 제어 알고리즘
+
+TCP 혼잡 제어는 세 가지 핵심 상태(state)로 구성된다.
+
+## Slow Start (SS)
+
+연결 초기에 가용 대역폭을 빠르게 탐색하기 위해 `cwnd`를 **지수적(exponential)**으로 증가시킨다.
+
+**동작 규칙**:
+
+- 초기값: $cwnd = 1 \text{ MSS}$
+- 매 ACK 수신 시: $cwnd \mathrel{+}= 1 \text{ MSS}$
+- 결과: 매 RTT마다 `cwnd`가 **2배** 증가
+
+$$
+cwnd(t + 1 \text{ RTT}) = 2 \cdot cwnd(t)
+$$
+
+**종료 조건**:
+
+| 이벤트 | 동작 |
+|--------|------|
+| `cwnd >= ssthresh` | Congestion Avoidance로 전환 |
+| Timeout (패킷 손실) | `ssthresh = cwnd/2`, `cwnd = 1 MSS`, SS 재시작 |
+| 3 Duplicate ACKs | `ssthresh = cwnd/2`, `cwnd = ssthresh + 3`, Fast Recovery 진입 |
+
+```{python}
+#| label: fig-slow-start
+#| fig-cap: "Slow Start: cwnd의 지수적 증가 시뮬레이션"
+
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import numpy as np
+
+def simulate_tcp(initial_ssthresh=16, max_rounds=20, loss_at=None):
+    cwnd = 1
+    ssthresh = initial_ssthresh
+    cwnd_history = [cwnd]
+    ssthresh_history = [ssthresh]
+    states = ['SS']
+    
+    for rtt in range(1, max_rounds):
+        if loss_at and rtt in loss_at:
+            ssthresh = max(cwnd // 2, 1)
+            loss_type = loss_at[rtt]
+            if loss_type == 'timeout':
+                cwnd = 1
+                states.append('SS')
+            else:  # 3 dup ACK
+                cwnd = ssthresh + 3
+                states.append('FR')
+        else:
+            if cwnd < ssthresh:  # Slow Start
+                cwnd *= 2
+                states.append('SS')
+            else:  # Congestion Avoidance
+                cwnd += 1
+                states.append('CA')
+        
+        cwnd_history.append(cwnd)
+        ssthresh_history.append(ssthresh)
+    
+    return cwnd_history, ssthresh_history, states
+
+cwnd_h, ssthresh_h, states = simulate_tcp(
+    initial_ssthresh=16, 
+    max_rounds=25, 
+    loss_at={8: '3dup', 17: 'timeout'}
+)
+
+fig, ax = plt.subplots(figsize=(12, 6))
+
+colors = {'SS': '#2196F3', 'CA': '#4CAF50', 'FR': '#FF9800'}
+state_colors = [colors.get(s, '#9E9E9E') for s in states]
+
+for i in range(len(cwnd_h)-1):
+    ax.plot([i, i+1], [cwnd_h[i], cwnd_h[i+1]], 
+            color=state_colors[i+1], linewidth=2.5)
+    ax.scatter(i, cwnd_h[i], color=state_colors[i], s=80, zorder=5)
+ax.scatter(len(cwnd_h)-1, cwnd_h[-1], color=state_colors[-1], s=80, zorder=5)
+
+ax.step(range(len(ssthresh_h)), ssthresh_h, where='post', 
+        linestyle='--', color='red', alpha=0.7, linewidth=1.5, label='ssthresh')
+
+ax.set_xlabel('Transmission Round (RTT)', fontsize=12)
+ax.set_ylabel('Congestion Window (MSS)', fontsize=12)
+ax.set_title('TCP Congestion Control: cwnd Evolution\n(Loss at RTT=8: 3 Dup ACK, RTT=17: Timeout)', fontsize=13)
+ax.grid(True, alpha=0.3)
+
+patches = [
+    mpatches.Patch(color='#2196F3', label='Slow Start (SS)'),
+    mpatches.Patch(color='#4CAF50', label='Congestion Avoidance (CA)'),
+    mpatches.Patch(color='#FF9800', label='Fast Recovery (FR)'),
+    mpatches.Patch(color='red', linestyle='--', label='ssthresh')
+]
+ax.legend(handles=patches, loc='upper right')
+plt.tight_layout()
+plt.show()
+```
+
+## Congestion Avoidance (CA)
+
+`cwnd >= ssthresh`에 도달하면, 혼잡이 임박했다고 판단하여 `cwnd`를 **선형(linear)**으로 증가시킨다.
+
+**동작 규칙**:
+
+- 매 ACK 수신 시: $cwnd \mathrel{+}= \frac{MSS^2}{cwnd}$
+- 결과: 매 RTT마다 $cwnd$가 **+1 MSS** 증가 (Additive Increase)
+- 손실 이벤트 발생 시: $ssthresh = cwnd/2$, $cwnd = cwnd/2$ (Multiplicative Decrease)
+
+이것이 바로 **AIMD (Additive Increase, Multiplicative Decrease)** 패러다임이다.
+
+$$
+\boxed{
+\text{AIMD:} \quad 
+\underbrace{cwnd \mathrel{+}= 1 \text{ MSS per RTT}}_{\text{Additive Increase}}, \quad
+\underbrace{cwnd \leftarrow cwnd/2 \text{ on loss}}_{\text{Multiplicative Decrease}}
+}
+$$
+
+::: {.callout-tip}
+**AIMD의 수학적 직관**
+
+두 연결이 동일한 병목 링크를 공유할 때, AIMD는 throughput 공간에서 **45° 등분선(equal share line)**으로 수렴한다.
+
+- Additive Increase: 두 연결의 throughput이 기울기 1의 직선을 따라 동시에 증가 → 등분선에 평행 방향으로 이동
+- Multiplicative Decrease: 손실 시 원점 방향으로 비례 감소 → 등분선을 향해 수렴
+
+이 두 벡터의 조합이 Fair & Efficient 상태로의 수렴을 보장한다.
+:::
+
+## Fast Retransmit & Fast Recovery (FR)
+
+**Fast Retransmit**: 3개의 Duplicate ACK 수신 시, 타임아웃을 기다리지 않고 즉시 손실 세그먼트를 재전송한다. Dup ACK 자체가 "일부 패킷은 도달하고 있다"는 증거이므로, 네트워크 상태가 timeout보다 양호하다고 판단한다.
+
+**Fast Recovery (TCP Reno)**: Fast Retransmit 이후 Slow Start로 돌아가지 않고, `ssthresh`에서 바로 Congestion Avoidance를 재개한다.
+
+```
+# Fast Recovery 진입 조건: 3 Dup ACKs
+ssthresh = cwnd / 2
+cwnd     = ssthresh + 3   # 3은 이미 수신된 Dup ACK 보상
+→ Fast Recovery 상태 진입
+  - 추가 Dup ACK 마다: cwnd += 1 MSS
+  - 새 ACK 수신 시: cwnd = ssthresh, CA 상태로 전환
+  - Timeout 발생 시: cwnd = 1 MSS, SS 상태로 전환
+```
+
+---
+
+# TCP Tahoe vs. TCP Reno 비교
+
+| 이벤트 | TCP Tahoe | TCP Reno |
+|--------|-----------|----------|
+| **Timeout** | `cwnd=1`, SS 재시작 | `cwnd=1`, SS 재시작 |
+| **3 Dup ACK** | `cwnd=1`, SS 재시작 | `cwnd=ssthresh+3`, Fast Recovery |
+| **핵심 차이** | 3 Dup ACK를 Timeout과 동일하게 처리 | 3 Dup ACK를 덜 심각한 이벤트로 구분 |
+
+::: {.callout-note}
+**TCP Reno가 Tahoe보다 효율적인 이유**  
+3 Dup ACK는 패킷 일부가 여전히 전달되고 있음을 의미하므로, `cwnd`를 1 MSS로 리셋하는 것은 **과도한 반응**이다. Reno는 Fast Recovery를 통해 불필요한 throughput 손실을 방지한다.
+:::
+
+```{python}
+#| label: fig-tahoe-reno
+#| fig-cap: "TCP Tahoe vs. Reno: 3 Dup ACK 발생 시 cwnd 비교 (ssthresh=8)"
+
+import matplotlib.pyplot as plt
+
+# 공통 초기 상태
+# Tahoe와 Reno 모두 ssthresh=8에서 시작, 12 MSS에서 3 Dup ACK 발생
+# (Kurose 교재 Figure 3.52 기반)
+
+rounds_tahoe = list(range(0, 20))
+cwnd_tahoe   = [1, 2, 4, 8, 9, 10, 11, 12, 1, 2, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15]
+
+rounds_reno  = list(range(0, 20))
+cwnd_reno    = [1, 2, 4, 8, 9, 10, 11, 12, 7, 8,  9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+
+ssthresh_series = [8]*8 + [6]*12  # 손실 후 ssthresh=6
+
+fig, ax = plt.subplots(figsize=(12, 5))
+
+ax.plot(rounds_tahoe, cwnd_tahoe, 'b-o', markersize=6, linewidth=2, label='TCP Tahoe')
+ax.plot(rounds_reno,  cwnd_reno,  'g-s', markersize=6, linewidth=2, label='TCP Reno')
+ax.step(range(20), ssthresh_series, 'r--', where='post', linewidth=1.5, alpha=0.8, label='ssthresh')
+
+ax.axvline(x=8, color='orange', linestyle=':', linewidth=2, label='3 Dup ACK @ round 8')
+ax.set_xlabel('Transmission Round', fontsize=12)
+ax.set_ylabel('cwnd (MSS)', fontsize=12)
+ax.set_title('TCP Tahoe vs. Reno: cwnd Evolution\n(3 Duplicate ACKs at Round 8, ssthresh=8)', fontsize=13)
+ax.legend(fontsize=11)
+ax.grid(True, alpha=0.3)
+ax.set_ylim(0, 20)
+
+# 주석
+ax.annotate('Tahoe: cwnd→1\n(SS restart)',
+            xy=(8, 1), xytext=(10, 3),
+            arrowprops=dict(arrowstyle='->', color='blue'),
+            fontsize=9, color='blue')
+ax.annotate('Reno: cwnd→ssthresh+3\n(Fast Recovery)',
+            xy=(8, 7), xytext=(10, 9.5),
+            arrowprops=dict(arrowstyle='->', color='green'),
+            fontsize=9, color='green')
+plt.tight_layout()
+plt.show()
+```
+
+---
+
+# TCP 혼잡 제어 FSM
+
+TCP Reno의 전체 상태 전이를 Finite State Machine으로 정리하면 다음과 같다.
+
+```{mermaid}
+stateDiagram-v2
+    [*] --> SlowStart : cwnd=1MSS, ssthresh=64KB
+
+    SlowStart --> SlowStart : New ACK\ncwnd += MSS
+    SlowStart --> CongestionAvoidance : cwnd >= ssthresh
+    SlowStart --> SlowStart : Timeout\nssthresh=cwnd/2, cwnd=1
+    SlowStart --> FastRecovery : 3 Dup ACKs\nssthresh=cwnd/2\ncwnd=ssthresh+3
+
+    CongestionAvoidance --> CongestionAvoidance : New ACK\ncwnd += MSS*(MSS/cwnd)
+    CongestionAvoidance --> SlowStart : Timeout\nssthresh=cwnd/2, cwnd=1
+    CongestionAvoidance --> FastRecovery : 3 Dup ACKs\nssthresh=cwnd/2\ncwnd=ssthresh+3
+
+    FastRecovery --> FastRecovery : Dup ACK\ncwnd += MSS
+    FastRecovery --> CongestionAvoidance : New ACK\ncwnd=ssthresh
+    FastRecovery --> SlowStart : Timeout\nssthresh=cwnd/2, cwnd=1
+```
+
+---
+
+# TCP Throughput 분석
+
+## 평균 처리량 (AIMD 모델)
+
+AIMD 거동에서 `cwnd`는 $W/2$에서 $W$ 사이를 반복적으로 진동한다. 손실이 `cwnd = W`일 때 발생한다고 가정하면:
+
+$$
+\overline{\text{throughput}} = \frac{3}{4} \cdot \frac{W}{RTT} \quad \text{[bytes/sec]}
+$$
+
+**유도**: 평균 윈도우 크기는 $\frac{W/2 + W}{2} = \frac{3W}{4}$
+
+## Mathis Formula (손실률 기반)
+
+손실 이벤트 발생 확률을 $L$이라 하면 \[Mathis 1997\]:
+
+$$
+\overline{\text{throughput}} = \frac{1.22 \cdot MSS}{RTT \cdot \sqrt{L}}
+$$
+
+::: {.callout-tip}
+**수학적 유도 (직관)**
+
+한 번의 AIMD 사이클에서:
+- Additive Increase: $W/2$에서 $W$까지 증가하는 데 $W/2$ RTT 소요
+- 해당 기간 동안 전송된 총 바이트 수: $\sum_{k=W/2}^{W} k \cdot MSS \approx \frac{3W^2}{8} \cdot MSS$
+- 손실 이벤트는 1회 → $L = \frac{1}{\text{총 전송 패킷 수}} = \frac{8}{3W^2}$
+- $W = \sqrt{\frac{8}{3L}}$ 을 throughput 식에 대입하면 $\frac{1.22 \cdot MSS}{RTT\sqrt{L}}$ 도출
+:::
+
+## Long Fat Pipe 문제
+
+고속 장거리 링크(예: 10 Gbps, RTT=100ms)에서:
+
+$$
+L \leq 2 \times 10^{-10}
+$$
+
+이는 사실상 달성 불가능한 낮은 손실률을 요구한다. 이것이 CUBIC, BBR 등 차세대 TCP가 필요한 근본적 이유이다.
+
+```{python}
+#| label: fig-throughput-loss
+#| fig-cap: "Mathis Formula: 손실률에 따른 TCP Throughput (MSS=1500B, RTT=100ms)"
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+MSS = 1500  # bytes
+RTT = 0.1   # seconds
+
+L_range = np.logspace(-8, -2, 500)
+throughput_Mbps = (1.22 * MSS) / (RTT * np.sqrt(L_range)) / 1e6
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.loglog(L_range, throughput_Mbps, 'b-', linewidth=2.5)
+
+# 주요 지점 표시
+targets = [(1e-6, '1Mbps'), (1e-4, ''), (1e-2, '')]
+thresholds = {
+    10000: ('10 Gbps', 'red'),
+    1000:  ('1 Gbps', 'orange'),
+    100:   ('100 Mbps', 'green'),
+    10:    ('10 Mbps', 'blue'),
+}
+for tp, (label, color) in thresholds.items():
+    L_needed = (1.22 * MSS / (RTT * tp * 1e6))**2
+    ax.axhline(y=tp, color=color, linestyle='--', alpha=0.5, linewidth=1)
+    ax.axvline(x=L_needed, color=color, linestyle=':', alpha=0.5, linewidth=1)
+    ax.text(L_needed * 1.1, tp * 1.3, f'{label}\nL={L_needed:.1e}', 
+            fontsize=8, color=color)
+
+ax.set_xlabel('Packet Loss Rate (L)', fontsize=12)
+ax.set_ylabel('Throughput (Mbps)', fontsize=12)
+ax.set_title('TCP Throughput vs. Loss Rate\n(Mathis Formula, MSS=1500B, RTT=100ms)', fontsize=13)
+ax.grid(True, which='both', alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+---
+
+# TCP 공정성 (Fairness)
+
+## AIMD의 공정성 수렴 증명
+
+$K$개의 TCP 연결이 용량 $R$의 병목 링크를 공유할 때, 이상적 공정성 조건:
+
+$$
+\text{공정성 목표:} \quad \text{각 연결의 평균 전송률} = \frac{R}{K}
+$$
+
+두 연결의 경우를 기하학적으로 분석하면:
+
+- **AI 벡터**: $(+1, +1)$ 방향 — 등분선(45°)에 **평행** 이동
+- **MD 벡터**: $(0.5 \cdot x_1, 0.5 \cdot x_2)$ — **원점 방향** 이동
+
+이 두 벡터의 조합은 throughput 궤적을 효율적(링크 포화)이고 공정한(등분선 상) 점으로 수렴시킨다.
+
+```{python}
+#| label: fig-aimd-fairness
+#| fig-cap: "AIMD Fairness: 두 TCP 연결의 Throughput 수렴 궤적"
+
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.patches import FancyArrowPatch
+
+R = 10  # 링크 용량
+
+fig, ax = plt.subplots(figsize=(8, 8))
+
+# 배경 영역
+ax.fill_between([0, R], [R, 0], [R, R], alpha=0.05, color='red', label='Over-capacity')
+ax.fill_between([0, R], [0, 0], [R, 0], alpha=0.05, color='green', label='Under-capacity')
+
+# 등분선 및 용량선
+ax.plot([0, R], [0, R], 'k--', linewidth=1.5, label='Equal share (45°)')
+ax.plot([0, R], [R, 0], 'r-', linewidth=2, alpha=0.7, label='Capacity limit (x₁+x₂=R)')
+
+# AIMD 궤적 시뮬레이션
+np.random.seed(42)
+x1, x2 = 1.0, 7.0  # 초기점 (불공정한 시작)
+trajectory = [(x1, x2)]
+
+for _ in range(20):
+    # AI: 매 RTT마다 +1
+    x1 += 1; x2 += 1
+    # 용량 초과 시 MD
+    if x1 + x2 > R:
+        x1 *= 0.5; x2 *= 0.5
+    trajectory.append((x1, x2))
+
+xs, ys = zip(*trajectory)
+ax.plot(xs, ys, 'b-o', markersize=5, linewidth=1.5, alpha=0.8, label='AIMD trajectory')
+ax.scatter(xs[0], ys[0], s=150, c='blue', marker='^', zorder=6, label='Start')
+ax.scatter(xs[-1], ys[-1], s=150, c='red', marker='*', zorder=6, label='Converged point')
+
+# 벡터 예시
+mid_idx = 5
+ax.annotate('', xy=(xs[mid_idx]+1, ys[mid_idx]+1), 
+            xytext=(xs[mid_idx], ys[mid_idx]),
+            arrowprops=dict(arrowstyle='->', color='green', lw=2))
+ax.text(xs[mid_idx]+0.5, ys[mid_idx]+0.3, 'AI (+1,+1)', fontsize=9, color='green')
+
+ax.annotate('', xy=(xs[mid_idx+1]*0.5, ys[mid_idx+1]*0.5), 
+            xytext=(xs[mid_idx+1], ys[mid_idx+1]),
+            arrowprops=dict(arrowstyle='->', color='red', lw=2))
+ax.text(xs[mid_idx+1]*0.5+0.2, ys[mid_idx+1]*0.5+0.5, 'MD (×0.5)', fontsize=9, color='red')
+
+ax.set_xlim(0, R+1)
+ax.set_ylim(0, R+1)
+ax.set_xlabel('Throughput of Connection 1 (Mbps)', fontsize=12)
+ax.set_ylabel('Throughput of Connection 2 (Mbps)', fontsize=12)
+ax.set_title('AIMD Fairness Convergence\n(Two TCP Connections, Link Capacity R=10)', fontsize=13)
+ax.legend(fontsize=10, loc='upper right')
+ax.grid(True, alpha=0.3)
+ax.set_aspect('equal')
+plt.tight_layout()
+plt.show()
+```
+
+## 공정성의 한계
+
+- **RTT 불평등**: RTT가 짧은 연결이 손실 후 더 빨리 `cwnd`를 복구 → **짧은 RTT 연결이 더 높은 throughput 획득**
+- **병렬 TCP 연결**: 앱이 $N$개 연결을 열면 단일 연결 대비 $N$배 더 많은 대역폭 소비
+- **UDP의 무임승차**: UDP는 혼잡 제어가 없어 TCP 연결을 밀어낼 수 있음
+
+---
+
+# Explicit Congestion Notification (ECN)
+
+기존 TCP는 **손실(loss)**로만 혼잡을 감지하지만, ECN은 **라우터가 명시적으로** 혼잡 신호를 전달하는 네트워크 보조(network-assisted) 방식이다.
+
+## 동작 메커니즘
+
+```
+[송신자] ─────────────────────────────→ [수신자]
+          IP datagram: ECN=10 (capable)
+                   ↓ (라우터가 혼잡 감지)
+          IP datagram: ECN=11 (CE: Congestion Experienced)
+[송신자] ←─────────────────────────────── [수신자]
+          TCP ACK: ECE=1 (Echo CE 비트)
+[송신자]: cwnd 절반으로 감소, CWR=1 설정
+```
+
+| ECN 비트값 | 의미 |
+|-----------|------|
+| `00` | ECN 미지원 |
+| `10` or `01` | ECN 지원 (ECT: ECN-Capable Transport) |
+| `11` | 혼잡 경험 (CE: Congestion Experienced) |
+
+::: {.callout-note}
+**ECN의 장점**  
+패킷이 드롭되기 **전에** 혼잡 신호를 전달하므로, 손실 없이 전송률을 줄일 수 있다. 특히 데이터센터 네트워크(DCTCP)처럼 낮은 지연이 중요한 환경에서 효과적이다.
+:::
+
+---
+
+# 시험 대비 핵심 정리
+
+## 주요 공식 요약
+
+| 항목 | 공식 |
+|------|------|
+| 전송 속도 | $\text{rate} \approx cwnd / RTT$ |
+| 평균 throughput | $\overline{T} = \frac{3}{4} \cdot \frac{W}{RTT}$ |
+| Mathis throughput | $\overline{T} = \frac{1.22 \cdot MSS}{RTT \cdot \sqrt{L}}$ |
+| 공정성 조건 | 각 연결 = $R/K$ |
+
+## 상태별 cwnd 업데이트 규칙
+
+| 상태 | 이벤트 | cwnd 변화 |
+|------|--------|----------|
+| Slow Start | New ACK | `cwnd += 1 MSS` |
+| Slow Start | Timeout | `ssthresh=cwnd/2`, `cwnd=1` |
+| Slow Start | 3 Dup ACK | `ssthresh=cwnd/2`, `cwnd=ssthresh+3` → FR |
+| Congestion Avoidance | New ACK | `cwnd += MSS*(MSS/cwnd)` ≈ `+1 MSS/RTT` |
+| Congestion Avoidance | Timeout | `ssthresh=cwnd/2`, `cwnd=1` |
+| Congestion Avoidance | 3 Dup ACK | `ssthresh=cwnd/2`, `cwnd=ssthresh+3` → FR |
+| Fast Recovery | Dup ACK | `cwnd += 1 MSS` |
+| Fast Recovery | New ACK | `cwnd=ssthresh` → CA |
+| Fast Recovery | Timeout | `ssthresh=cwnd/2`, `cwnd=1` → SS |
+
+## 예제 문제
+
+**Q.** `ssthresh = 8 MSS`, 초기 `cwnd = 1 MSS`에서 시작하는 TCP Reno 연결이 있다.  
+Round 12에서 3 Dup ACK가 발생한다고 할 때, Round 12 시점의 `cwnd`가 12 MSS이면:
+
+1. 새로운 `ssthresh`는?
+2. Fast Recovery 진입 시 `cwnd`는?
+3. 새 ACK 수신 후 `cwnd`와 전환 상태는?
+
+**A.**
+
+1. $ssthresh = 12/2 = 6 \text{ MSS}$
+2. $cwnd = 6 + 3 = 9 \text{ MSS}$  
+3. $cwnd = ssthresh = 6 \text{ MSS}$, Congestion Avoidance 상태로 전환
+
+---
+
+# 참고 문헌
+
+- Kurose, J. F. & Ross, K. W. (2016). *Computer Networking: A Top-Down Approach*, 7th Edition. Pearson.  
+  - Chapter 3.6: Principles of Congestion Control  
+  - Chapter 3.7: TCP Congestion Control  
+- Jacobson, V. (1988). Congestion Avoidance and Control. *ACM SIGCOMM*.  
+- Mathis, M. et al. (1997). The Macroscopic Behavior of the TCP Congestion Avoidance Algorithm. *ACM SIGCOMM Computer Communication Review*.  
+- RFC 5681 — TCP Congestion Control.  
+- RFC 3168 — The Addition of Explicit Congestion Notification (ECN) to IP.
