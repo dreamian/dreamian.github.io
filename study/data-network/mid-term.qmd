@@ -1,0 +1,731 @@
+---
+title: "Data Networks 시험 대비 종합 정리"
+subtitle: "큐잉 이론 · M/G/1 · Burke's Theorem · Kleinrock Independence"
+date: 2026-04-23
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    code-fold: show
+    theme: cosmo
+    number-sections: true
+    mathjax: true
+    fig-width: 8
+    fig-height: 5
+  pdf:
+    toc: true
+    number-sections: true
+    documentclass: article
+    geometry:
+      - margin=1in
+    include-in-header:
+      text: |
+        \usepackage{amsmath,amssymb,amsthm}
+        \usepackage{kotex}
+---
+
+# M/M/m 큐: Erlang C 공식과 대기 고객 수
+
+## 상태 확률의 구조
+
+**파라미터**: 도착률 $\lambda$, 서버당 서비스율 $\mu$, 서버 수 $m$
+
+- 제공 부하: $a = \lambda/\mu = m\rho$
+- 서버 이용률: $\rho = \lambda/(m\mu) < 1$ (안정 조건)
+
+CTMC balance equation으로부터 상태 확률은:
+
+$$
+p_n =
+\begin{cases}
+\dfrac{a^n}{n!}\, p_0 & 0 \le n < m \\[6pt]
+\dfrac{a^n}{m!\, m^{n-m}}\, p_0 & n \ge m
+\end{cases}
+$$
+
+## Erlang C 공식 유도
+
+$n \ge m$인 영역에서 **$n = m+k$ 치환** ($k \ge 0$)이 핵심 트릭이다:
+
+$$
+p_{m+k} = \frac{a^{m+k}}{m!\, m^{k}}\, p_0 = \frac{a^m}{m!} \cdot \rho^k \cdot p_0 = p_0 \cdot \frac{(m\rho)^m}{m!} \cdot \rho^k
+$$
+
+모든 서버가 busy일 확률:
+
+$$
+P_Q = \sum_{n=m}^{\infty} p_n = p_0 \cdot \frac{(m\rho)^m}{m!} \sum_{k=0}^{\infty} \rho^k
+$$
+
+등비급수 $\sum_{k=0}^{\infty} \rho^k = 1/(1-\rho)$를 적용하면:
+
+$$
+\boxed{P_Q = \frac{p_0\,(m\rho)^m}{m!\,(1-\rho)}} \quad \text{(Erlang C)}
+$$
+
+## 대기 중 고객 수 $N_Q$
+
+::: {.callout-important}
+## 핵심 주의: 왜 $k$인가 $m+k$가 아닌가?
+
+$N_Q$는 **대기열에서 기다리는 수**의 기댓값이다. 상태 $n$일 때 서버에 있는 $m$명을 제외하면 대기 중인 수는 $(n-m)$이다.
+
+$$
+N_Q = \sum_{n=m}^{\infty}(n-m)\,p_n
+$$
+
+$n = m+k$ 치환 후 $(n-m) = k$가 되므로:
+
+$$
+N_Q = \sum_{k=0}^{\infty} k \cdot p_{m+k}
+$$
+
+만약 $(m+k)$를 쓴다면 그건 시스템 전체 고객 수 $E[N]$이 된다.
+:::
+
+**핵심 항등식** — 등비급수를 $\rho$로 미분:
+
+$$
+\sum_{k=0}^{\infty}k\,\rho^k = \rho \cdot \frac{d}{d\rho}\sum_{k=0}^{\infty}\rho^k = \frac{\rho}{(1-\rho)^2}
+$$
+
+대입하면:
+
+$$
+N_Q = p_0 \cdot \frac{(m\rho)^m}{m!} \cdot \frac{\rho}{(1-\rho)^2} = \boxed{P_Q \cdot \frac{\rho}{1-\rho}}
+$$
+
+---
+
+# M/M/∞: 무한 서버 시스템
+
+## Detailed Balance와 상태 확률
+
+서버가 무한하므로 $n$명이 있으면 총 서비스율은 $n\mu$:
+
+$$
+\lambda\, p_{n-1} = n\mu\, p_n \quad \Rightarrow \quad p_n = p_0 \left(\frac{\lambda}{\mu}\right)^n \frac{1}{n!}
+$$
+
+## $p_0 = e^{-\lambda/\mu}$ 유도
+
+정규화 $\sum_{n=0}^{\infty} p_n = 1$을 적용하면:
+
+$$
+p_0 \sum_{n=0}^{\infty} \frac{(\lambda/\mu)^n}{n!} = 1
+$$
+
+**테일러 급수 인식이 핵심**:
+
+$$
+e^x = \sum_{n=0}^{\infty} \frac{x^n}{n!} \;\Rightarrow\; \sum_{n=0}^{\infty} \frac{(\lambda/\mu)^n}{n!} = e^{\lambda/\mu}
+$$
+
+따라서:
+
+$$
+\boxed{p_0 = e^{-\lambda/\mu}}
+$$
+
+## 최종 분포: Poisson
+
+$$
+p_n = \frac{(\lambda/\mu)^n \, e^{-\lambda/\mu}}{n!} \sim \text{Poisson}(\lambda/\mu)
+$$
+
+::: {.callout-tip}
+## 물리적 직관
+
+M/M/∞에서는 대기가 없다. 각 고객이 즉시 전용 서버를 받고 독립적으로 Exp($\mu$) 동안 체류한다. Poisson 도착 + 독립 체류 시간 조합은 **항상 안정**이며 ($\rho$ 조건 불필요), 정상 상태 고객 수가 Poisson을 따른다.
+:::
+
+---
+
+# M/M/m/m: 손실 시스템 (Kendall 표기 확장)
+
+## 표기법
+
+$$M/M/m/K$$
+
+| 위치 | 의미 |
+|---|---|
+| 1번째 | 도착 분포 (M = Poisson) |
+| 2번째 | 서비스 분포 (M = Exponential) |
+| 3번째 | 서버 수 |
+| 4번째 | **시스템 수용 한도** |
+
+M/M/m/m은 **대기열이 존재하지 않는 모델**이다. 상태 공간은 $\{0, 1, \ldots, m\}$으로 유한하며, 상태 $m$에서 도착한 고객은 **즉시 손실**된다.
+
+## Erlang B 공식 (호 차단 확률)
+
+$$
+p_n = \frac{(\lambda/\mu)^n / n!}{\sum_{k=0}^{m} (\lambda/\mu)^k / k!}
+$$
+
+$$
+\boxed{P_{\text{loss}} = p_m = \frac{(\lambda/\mu)^m / m!}{\sum_{k=0}^{m} (\lambda/\mu)^k / k!}}
+$$
+
+Circuit switching 네트워크의 **호 차단 확률(blocking probability)**로 직접 사용된다.
+
+---
+
+# M/G/1 큐: Pollaczek-Khinchine 공식
+
+## P-K 공식
+
+$$
+W = \frac{\lambda E[X^2]}{2(1-\rho)}, \qquad N_Q = \frac{\lambda^2 E[X^2]}{2(1-\rho)}
+$$
+
+## 유도: 3가지 도구
+
+P-K 공식은 **잔여 서비스 시간** + **PASTA** + **Little's Law**로 완전히 유도된다.
+
+### Step 1: 대기시간 분해
+
+도착 고객의 대기시간 $W$:
+
+$$
+W = \underbrace{R}_{\text{잔여 서비스 시간}} + \underbrace{\sum_{i=1}^{N_Q} X_i}_{\text{앞에 있는 고객들의 서비스}}
+$$
+
+PASTA(Poisson Arrivals See Time Averages)에 의해 도착 고객이 보는 $N_Q$ = 정상상태 $N_Q$.
+
+기댓값:
+
+$$
+W = E[R] + N_Q \cdot E[X]
+$$
+
+### Step 2: 잔여 서비스 시간 $E[R]$
+
+서버가 busy일 확률 $\rho$이므로:
+
+$$
+E[R] = \rho \cdot E[\text{잔여시간} \mid \text{busy}]
+$$
+
+**Inspection Paradox (Size-biased 분포)**:
+
+임의 시점에 관측되는 고객의 서비스 시간 분포는 $x$에 비례한다 — 긴 서비스일수록 그 구간이 관측될 가능성이 크기 때문이다:
+
+$$
+f_{\tilde{X}}(x) = \frac{x \cdot f_X(x)}{E[X]}
+$$
+
+서비스 시간이 $x$로 확정되면 임의 시점은 $[0,x]$에 균등 분포하므로:
+
+$$
+E[\text{잔여시간} \mid X=x] = \frac{x}{2}
+$$
+
+두 가지를 결합:
+
+$$
+E[\text{잔여시간} \mid \text{busy}] = \int_0^\infty \frac{x}{2} \cdot \frac{x f_X(x)}{E[X]}\,dx = \frac{E[X^2]}{2E[X]}
+$$
+
+$\rho = \lambda E[X]$를 대입:
+
+$$
+E[R] = \rho \cdot \frac{E[X^2]}{2E[X]} = \frac{\lambda E[X^2]}{2}
+$$
+
+### Step 3: Little's Law로 연립
+
+$N_Q = \lambda W$를 Step 1에 대입:
+
+$$
+W = \frac{\lambda E[X^2]}{2} + \lambda W \cdot E[X] = \frac{\lambda E[X^2]}{2} + \rho W
+$$
+
+$W$에 대해 풀면:
+
+$$
+\boxed{W = \frac{\lambda E[X^2]}{2(1-\rho)}}
+$$
+
+## 잔여 시간의 기하학적 해석
+
+서버를 들여다봤을 때 잔여 서비스 시간 $r(\tau)$의 그래프를 시각화하면, 각 고객의 서비스 기간에 **톱니 모양**이 형성된다:
+
+- 수직 점프 ↑: 새 고객 서비스 시작, 잔여시간 $x_i$로 점프
+- 선형 감소 ↘: 기울기 $-1$로 감소
+- 0 도달: 서비스 완료
+
+**$i$번째 톱니의 넓이** = $\frac{1}{2} x_i^2$
+
+시간 평균 잔여시간:
+
+$$
+\frac{1}{t}\int_0^t r(\tau)\,d\tau = \frac{\sum_i \frac{1}{2} x_i^2}{t} \xrightarrow{t \to \infty} \lambda \cdot \frac{E[X^2]}{2}
+$$
+
+```{mermaid}
+flowchart LR
+    A["각 톱니 넓이<br/>= x²/2"] --> B["넓이 합 / 전체시간<br/>= 시간평균 잔여시간"]
+    B --> C["M(t)/t → λ<br/>대수의 법칙"]
+    C --> D["E[R] = λE[X²]/2"]
+```
+
+즉 $E[X^2]$이 등장하는 이유는 **톱니 넓이의 이차성** 때문이다.
+
+## 무기억성과의 연결
+
+::: {.callout-note}
+## 왜 M/M/1에서는 $E[R]$이 안 보였나?
+
+지수분포의 **무기억성**:
+
+$$
+P(X > s+t \mid X > s) = P(X > t)
+$$
+
+서비스가 얼마나 진행됐든 잔여 시간 분포는 항상 원래 지수분포와 동일. 따라서 M/M/1에서:
+
+$$
+E[\text{잔여시간} \mid \text{busy}] = E[X] = 1/\mu
+$$
+
+잔여시간을 별도로 추적할 필요가 없었다. M/G/1에서는 무기억성이 없으므로 Inspection Paradox를 통해 $E[R]$을 명시적으로 계산해야 하며, 그 결과가 $E[X^2]$에 의존하게 된다.
+:::
+
+## 지수분포의 $E[X^2] = 2/\mu^2$ 유도
+
+**분산 공식 이용:**
+
+$$
+E[X^2] = \text{Var}(X) + (E[X])^2 = \frac{1}{\mu^2} + \frac{1}{\mu^2} = \frac{2}{\mu^2}
+$$
+
+**직접 적분으로도 가능** (부분적분 2회):
+
+$$
+E[X^2] = \int_0^\infty x^2 \mu e^{-\mu x}\, dx = \frac{2}{\mu^2}
+$$
+
+## M/M/1 vs M/D/1 비교
+
+| | M/M/1 | M/D/1 (Deterministic) |
+|---|---|---|
+| 서비스 시간 | $\text{Exp}(\mu)$ | 상수 $1/\mu$ |
+| $\text{Var}(X)$ | $1/\mu^2$ | **0** |
+| $E[X^2]$ | $2/\mu^2$ | $1/\mu^2$ |
+| $W$ | $\dfrac{\rho}{\mu(1-\rho)}$ | $\dfrac{\rho}{2\mu(1-\rho)}$ |
+
+::: {.callout-important}
+## P-K 공식의 핵심 교훈
+
+$$
+W \propto E[X^2] = \text{Var}(X) + (E[X])^2
+$$
+
+**서비스 시간의 분산이 클수록 대기시간이 길어진다.** D 서비스(분산=0)가 대기시간 관점에서 최적이며, M 서비스는 같은 평균 대비 분산이 커서 대기가 2배이다.
+:::
+
+## 응용: Go-Back-n ARQ 지연 분석
+
+$p$: 프레임 거부 확률, $n$: 윈도우 크기. 실효 서비스 시간 $X$의 분포 (프레임 단위로 정규화):
+
+$$
+P[X = 1 + kn] = (1-p) p^k, \quad k = 0, 1, \ldots
+$$
+
+재전송 횟수 $K \sim \text{Geometric}(1-p)$이므로:
+
+- $E[K] = \dfrac{p}{1-p}$
+- $E[K^2] = \dfrac{p(1+p)}{(1-p)^2}$
+
+**$E[X]$ 유도:**
+
+$$
+E[X] = 1 + n \cdot E[K] = 1 + \frac{np}{1-p}
+$$
+
+**$E[X^2]$ 유도** ($X = 1 + Kn$ 전개):
+
+$$
+E[X^2] = 1 + 2n E[K] + n^2 E[K^2] = 1 + \frac{2np}{1-p} + \frac{n^2(p+p^2)}{(1-p)^2}
+$$
+
+이를 P-K 공식에 대입하면 ARQ의 큐잉 지연이 얻어진다.
+
+**직관**: $p \uparrow$ → $E[X^2]$는 $(1-p)^2$에 반비례 → **오류율이 높을수록 지연이 급격히 폭발**.
+
+---
+
+# Reservations and Polling
+
+## 기본 구조
+
+Statistical multiplexing을 사용하지 않고, 사전 예약된 순서로 전송 기회를 배분한다:
+
+$$
+\text{Cycle} = \text{Reservation interval} + \text{Data interval}
+$$
+
+## 세 가지 방식
+
+| 방식 | 대기 발생 조건 | 지연 |
+|---|---|---|
+| **Fully Gated** | Reservation 구간 도착 시 | 최대 |
+| **Partially Gated** | Data 구간 도착 시 | 중간 |
+| **Exhaustive** | 거의 없음 (현재 사이클에서 소진) | 최소 |
+
+## User 1의 Arrival Interval 분석
+
+다음 사이클의 "Transmission interval for user 1"에서 전송되는 패킷들의 **도착 허용 구간**:
+
+### Fully Gated
+User 1의 **Reservation 시작** ~ 다음 사이클 User 1 Reservation 시작 → **Full cycle**
+
+### Partially Gated
+User 1의 **Data 시작** ~ 다음 사이클 User 1 Data 시작 → Full cycle − User 1 Reservation
+
+### Exhaustive
+User 1의 **Data 종료** ~ 다음 사이클 User 1 Data 종료 → Full cycle − (User 1 Reservation + Data)
+
+## Arrival Interval과 대기시간의 관계
+
+길이 $L$인 구간에 균등하게 도착한 패킷들의 평균 대기시간은 약 $L/2$:
+
+$$
+W_{\text{Fully Gated}} > W_{\text{Partially Gated}} > W_{\text{Exhaustive}}
+$$
+
+Exhaustive는 Reservation + Data 구간만큼 Arrival Interval이 짧아 최소 지연을 달성한다.
+
+---
+
+# Tandem Queues와 Burke's Theorem
+
+## 문제 설정
+
+```
+Poisson(λ) → | Queue 1 | → | Queue 2 | → ...
+```
+
+Queue 1의 departure가 Queue 2의 arrival이 된다. Queue 2를 독립 분석하려면 departure 과정의 특성을 알아야 한다.
+
+## M/M/1의 Departure 과정
+
+::: {.callout-important}
+## Burke's Theorem
+
+M/M/1 (및 M/M/m, M/M/∞)이 정상상태에 있을 때:
+
+1. **Departure 과정은 rate $\lambda$의 Poisson process**
+2. **시각 $t$에서의 시스템 상태는 $t$ 이전의 departure 과정과 독립**
+
+→ Queue 2를 **독립적인 M/M/1**로 분석 가능
+:::
+
+### Burke's Theorem의 근원: Time Reversibility
+
+#### Backward Transition Probability
+
+베이즈 정리 + Markov 성질:
+
+$$
+P[X_m = j \mid X_{m+1} = i, X_{m+2} = i_2, \ldots] = \frac{p_j P_{ji}}{p_i}
+$$
+
+결과가 $m+2$ 이후 상태와 **무관**하므로, 과거 추론에도 Markov 성질이 성립.
+
+#### Time Reversible의 정의
+
+$$
+P_{ij}^* = P_{ij} \quad \forall i, j
+$$
+
+이를 대입하면 **Detailed Balance Equation**:
+
+$$
+\boxed{p_i P_{ij} = p_j P_{ji}}
+$$
+
+#### M/M/1은 Time Reversible
+
+Birth-Death 과정이므로 detailed balance $p_n \lambda = p_{n+1}(n+1)\mu$가 성립.
+
+#### Time Reversibility ⇒ Burke
+
+- 역방향으로 돌려도 M/M/1
+- 역방향의 "도착" = 순방향의 "출발"
+- 역방향 도착이 Poisson($\lambda$) → **순방향 departure도 Poisson($\lambda$)**
+
+## M/D/1과 M/G/1의 Departure
+
+### M/D/1 (서비스 시간 = 상수 $d$)
+
+$$
+\text{inter-departure} = \max(\text{inter-arrival}, d)
+$$
+
+고부하에서는 **일정한 간격 $d$**으로 정렬됨.
+
+### M/G/1 (일반 분포)
+
+$X_i$ (패킷 크기)와 inter-departure time 사이에 **음의 상관관계**:
+
+- $X_i$ 크면 → Queue 1에서 오래 머묾 → 그동안 뒤 패킷 쌓임 → 다음 departure 빠름
+- $X_i$ 작으면 → 빨리 처리 → 뒤에 없으면 idle → 다음 departure 느림
+
+→ Queue 2 도착 과정은 Poisson도 Renewal도 아님.
+
+## Tandem 분석 가능성 요약
+
+| Queue 1 | Departure | Queue 2 분석 |
+|---|---|---|
+| M/M/1 | Poisson | **독립 M/M/1로 분석 가능** (Burke) |
+| M/D/1 (동일 패킷 길이) | Deterministic | **대기 = 0** (특수 케이스) |
+| M/D/1 (다른 패킷 길이) | 불규칙 | 분석 불가 |
+| M/G/1 | 상관 있음 | **분석 불가** |
+
+### M/D/1 특수 케이스의 수학
+
+Queue 1과 Queue 2 모두 서비스 시간이 $d$로 동일할 때:
+
+$$
+D_i = \max(A_i, d) \ge d = \text{Queue 2 서비스 시간}
+$$
+
+Queue 2 도착 간격이 항상 서비스 시간 이상이므로 **Queue 2 대기 = 0**.
+
+---
+
+# Kleinrock Independence Assumption
+
+## 동기
+
+실제 네트워크는 M/G/1 Tandem 구조라 분석 불가 → 상관관계를 **강제로 끊는** 근사.
+
+## 가정 내용
+
+> 매 링크(큐)마다 inter-arrival time과 패킷 길이가 **독립**이라고 가정한다.
+> → 모든 링크를 **독립적인 M/M/1**로 취급한다.
+
+트래픽이 충분히 혼합(mix)되어 있으면 상관이 희석되어 이 근사가 잘 맞는다.
+
+## 링크 (i,j)에서의 결과
+
+$$
+N_{ij} = \frac{\lambda_{ij}}{\mu_{ij} - \lambda_{ij}}
+$$
+
+## 네트워크 전체 지표
+
+$$
+N = \sum_{(i,j)} \frac{\lambda_{ij}}{\mu_{ij} - \lambda_{ij}}
+$$
+
+Little's Law $N = \gamma T$ 적용:
+
+$$
+T = \frac{1}{\gamma} \sum_{(i,j)} \frac{\lambda_{ij}}{\mu_{ij} - \lambda_{ij}}
+$$
+
+여기서 $\gamma = \sum_p x_p$는 시스템 전체 외부 도착률.
+
+## 경로 $p$의 패킷 지연
+
+3가지 지연 항의 합:
+
+$$
+T_p = \sum_{(i,j) \in p} \left( \underbrace{\frac{\lambda_{ij}}{\mu_{ij}(\mu_{ij}-\lambda_{ij})}}_{\text{대기 지연}} + \underbrace{\frac{1}{\mu_{ij}}}_{\text{전송 지연}} + \underbrace{d_{ij}}_{\text{처리+전파 지연}} \right)
+$$
+
+## 응용 예제 비교
+
+### Example 1: Randomization (두 M/M/1로 분할)
+
+$$
+T_R = \frac{1}{\mu - \lambda/2} = \frac{2}{2\mu - \lambda}
+$$
+
+### Example 2: Metering (하나의 M/M/2)
+
+$$
+T_M = \frac{1}{\mu} + \frac{P_Q}{2\mu - \lambda}
+$$
+
+M/M/2 Erlang C 공식을 대입하여 정리:
+
+$$
+T_M = \frac{2}{2\mu-\lambda} \cdot \frac{1}{1+\rho}
+$$
+
+### 비교 결론
+
+$$
+\frac{T_M}{T_R} = \frac{1}{1+\rho} < 1
+$$
+
+**M/M/2 Metering이 항상 우수**하며, $\rho$가 클수록 격차가 커진다. 서버 풀링(pooling)의 이점이다.
+
+---
+
+# 보너스: $E[E[X|Y]] = E[X]$ 유도
+
+## Tower Property (Law of Total Expectation)
+
+::: {.callout-tip}
+## 정리
+
+임의의 확률변수 $X, Y$에 대해:
+
+$$
+\boxed{E[E[X \mid Y]] = E[X]}
+$$
+
+이를 **Tower Property** 또는 **반복 기댓값의 법칙(Law of Total Expectation)**이라 한다.
+:::
+
+## 이산형 유도
+
+조건부 기댓값의 정의:
+
+$$
+E[X \mid Y = y] = \sum_x x \cdot P(X = x \mid Y = y)
+$$
+
+바깥 기댓값을 $Y$에 대해 취하면:
+
+$$
+E[E[X \mid Y]] = \sum_y E[X \mid Y = y] \cdot P(Y = y)
+$$
+
+대입:
+
+$$
+= \sum_y \left[ \sum_x x \cdot P(X = x \mid Y = y) \right] P(Y = y)
+$$
+
+**곱셈 법칙** $P(X=x \mid Y=y) P(Y=y) = P(X=x, Y=y)$:
+
+$$
+= \sum_y \sum_x x \cdot P(X = x, Y = y)
+$$
+
+**합산 순서 교환** (Fubini):
+
+$$
+= \sum_x x \sum_y P(X = x, Y = y)
+$$
+
+**주변 분포**: $\sum_y P(X=x, Y=y) = P(X=x)$
+
+$$
+= \sum_x x \cdot P(X = x) = E[X] \quad \blacksquare
+$$
+
+## 연속형 유도
+
+동일한 논리를 적분으로:
+
+$$
+E[E[X \mid Y]] = \int_{-\infty}^{\infty} E[X \mid Y = y] f_Y(y)\, dy
+$$
+
+$$
+= \int_y \left[ \int_x x \cdot f_{X|Y}(x|y)\, dx \right] f_Y(y)\, dy
+$$
+
+$f_{X|Y}(x|y) f_Y(y) = f_{X,Y}(x,y)$이므로:
+
+$$
+= \int_y \int_x x \cdot f_{X,Y}(x,y)\, dx\, dy
+$$
+
+Fubini로 순서 교환:
+
+$$
+= \int_x x \underbrace{\int_y f_{X,Y}(x,y)\, dy}_{= f_X(x)}\, dx = \int_x x \cdot f_X(x)\, dx = E[X] \quad \blacksquare
+$$
+
+## 증명의 핵심 구조
+
+```{mermaid}
+flowchart TD
+    A["E[E[X|Y]]"] --> B["조건부 기댓값 정의 대입"]
+    B --> C["곱셈 법칙: P(X|Y)P(Y) = P(X,Y)"]
+    C --> D["Fubini: 합산/적분 순서 교환"]
+    D --> E["주변화(marginalize): Y 적분 → f_X(x)"]
+    E --> F["E[X]"]
+```
+
+## 직관적 해석
+
+$E[X \mid Y]$는 **$Y$의 함수**로 생각할 수 있다. $Y$의 값이 달라질 때마다 $X$의 조건부 평균이 달라지는데, 이를 $Y$의 분포에 대해 가중 평균하면 전체 평균 $E[X]$를 복원한다.
+
+## 큐잉 이론에서의 활용
+
+Tower Property는 다음과 같은 경우에 자주 쓰인다:
+
+- **잔여 서비스 시간** 계산: $E[R] = E[E[R \mid X]]$로 분해
+- **Go-Back-n ARQ**: $E[X] = E[E[X \mid K]]$ ($K$ = 재전송 횟수)
+- **Jackson Network**: 상태별 조건부 확률을 marginalize
+- **조건부 확률 기반 분해**: 복잡한 확률 변수를 관리 가능한 조건부로 쪼갤 때
+
+## 자주 쓰이는 확장: 전체 분산 법칙
+
+Tower Property의 확장형으로 **Law of Total Variance**도 자주 등장:
+
+$$
+\text{Var}(X) = E[\text{Var}(X \mid Y)] + \text{Var}(E[X \mid Y])
+$$
+
+우변 첫째 항은 "그룹 내 분산의 평균", 둘째 항은 "그룹 평균의 분산"으로 해석된다.
+
+---
+
+# 핵심 공식 치트시트
+
+## 큐잉 모델별 주요 공식
+
+| 모델 | $p_n$ | $N$ 또는 $N_Q$ | 특징 |
+|---|---|---|---|
+| **M/M/1** | $(1-\rho)\rho^n$ | $N = \dfrac{\rho}{1-\rho}$ | 가장 기본 |
+| **M/M/m** | 조건부 정의 | $N_Q = P_Q \cdot \dfrac{\rho}{1-\rho}$ | Erlang C |
+| **M/M/∞** | $\dfrac{(\lambda/\mu)^n e^{-\lambda/\mu}}{n!}$ | $N = \lambda/\mu$ | Poisson 분포 |
+| **M/M/m/m** | 유한 정규화 | $P_{\text{loss}} = p_m$ | Erlang B |
+| **M/G/1** | 복잡 | $N_Q = \dfrac{\lambda^2 E[X^2]}{2(1-\rho)}$ | P-K 공식 |
+
+## 주요 이론 도구
+
+| 도구 | 용도 |
+|---|---|
+| **Little's Law** $N = \lambda T$ | 시스템/큐 대기 관계 |
+| **PASTA** | Poisson 도착 고객이 보는 상태 = 정상상태 |
+| **Burke's Theorem** | M/M/1 departure = Poisson |
+| **Kleinrock Independence** | 네트워크를 독립 M/M/1 합으로 근사 |
+| **Tower Property** | $E[X] = E[E[X \mid Y]]$ |
+| **Detailed Balance** | $p_i P_{ij} = p_j P_{ji}$ (reversibility) |
+
+## 핵심 트릭 모음
+
+::: {.callout-note}
+## 시험에서 반복되는 패턴
+
+1. **$n = m+k$ 치환**: M/M/m 계열에서 $n \ge m$ 영역을 다룰 때
+2. **등비급수 미분**: $\sum k\rho^k = \rho/(1-\rho)^2$
+3. **테일러 급수 인식**: $\sum (x^n/n!) = e^x$
+4. **Inspection Paradox**: 임의 관측은 size-biased 분포
+5. **Tower Property**: 조건부로 분해해서 계산
+6. **Little's Law 연립**: 대기시간 분해 후 $N_Q = \lambda W$로 폐쇄
+:::
+
+---
+
+# 시험 대비 최종 점검 포인트
+
+1. **Erlang C와 B의 차이**: 대기 가능(C) vs 손실(B)
+2. **$E[X^2]$이 등장하는 이유**: 서비스 분산의 영향
+3. **M/M/1 vs M/G/1에서 무기억성의 역할**
+4. **Burke's Theorem은 왜 M/M 계열에서만 성립하는가**
+5. **M/D/1 Tandem의 특수 케이스 조건** (동일 패킷 길이)
+6. **Kleinrock Independence가 근사인 이유와 실용적 가치**
+7. **Reservation의 세 방식이 왜 Arrival Interval에서 차이가 나는가**
+8. **Tower Property의 유도와 활용**
