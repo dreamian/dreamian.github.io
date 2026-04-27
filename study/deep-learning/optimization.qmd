@@ -1,0 +1,853 @@
+---
+title: "Optimization for Deep Learning"
+description: "딥러닝 최적화의 이론과 실제 — 1차/2차 미분 기반 방법, Momentum, 초기화, Adaptive learning rate, Modern techniques"
+date: 2026-04-27
+categories:
+  - Deep Learning
+  - Optimization
+  - Study Notes
+toc: true
+toc-depth: 4
+toc-location: left
+number-sections: true
+number-depth: 3
+format:
+  html:
+    code-fold: false
+    html-math-method: katex
+    smooth-scroll: true
+    fig-cap-location: bottom
+execute:
+  echo: false
+  warning: false
+---
+
+# Optimization Problem의 본질
+
+## Risk vs. Empirical Risk
+
+딥러닝의 학습은 결국 **최적화 문제**다. 핵심은 파라미터 $\theta$를 찾아 손실을 최소화하는 것이지만, 두 가지 레벨을 엄격히 구분해야 한다.
+
+**이상적 목표 — Risk (Expected Risk)**
+
+$$
+J^*(\theta) = \min_\theta \mathbb{E}_{(x,y) \sim p_{\text{data}}} \big[L(f(x;\theta), y)\big]
+$$
+
+여기서 $p_{\text{data}}$는 "세상의 모든 데이터"를 생성하는 실제 분포다. 이 값을 최소화하는 것이 진정한 **generalization** 목표다.
+
+**현실적 대안 — Empirical Risk**
+
+$$
+J(\theta) = \mathbb{E}_{(x,y) \sim \hat{p}_{\text{data}}} \big[L(f(x;\theta), y)\big] = \frac{1}{m} \sum_{i=1}^{m} L(f(x^{(i)};\theta), y^{(i)})
+$$
+
+여기서 $\hat{p}_{\text{data}}$는 훈련 데이터셋이 만드는 경험적 분포(empirical distribution)다. $J(\theta)$는 $J^*(\theta)$의 **proxy(대리 변수)**일 뿐이다.
+
+::: {.callout-tip title="무선통신 비유"}
+채널 추정에서 전체 채널 환경(모든 위치, 모든 시간)의 MMSE를 최소화하고 싶지만, 실제로는 pilot symbol로 측정한 유한한 샘플만 있다. 훈련 데이터로 만든 $J(\theta)$는 pilot 기반 추정값처럼, 현실 세계의 $J^*(\theta)$는 진짜 채널처럼 생각할 수 있다.
+:::
+
+이것이 **Empirical Risk Minimization (ERM)**이다.
+
+## ERM의 한계와 Surrogate Loss
+
+ERM은 정의상 training set에 **overfit**하도록 설계되어 있다. 그러나 overfit을 의도하더라도 ERM 자체를 효율적으로 최적화하는 것이 어려운 경우가 많다. 이 때문에 실제로는 **surrogate loss**를 사용한다.
+
+가장 대표적인 예가 분류 문제다. 진짜 목표는 0-1 loss를 최소화하는 것이지만, 미분 불가능하므로 cross-entropy loss를 surrogate로 사용한다. 이는 추정하기 쉬우면서도 비슷한 최적해를 가지는 함수다.
+
+## 순수 최적화와의 차이
+
+순수(pure) 최적화에서는 objective 자체가 문제이지만, 딥러닝의 최적화는 다르다. 우리는 $J(\theta)$를 줄이고 싶은 것이 아니라 $J^*(\theta)$를 줄이고 싶은데, 도구로 $J(\theta)$만 쓸 수 있는 상황이다. 이 미묘한 차이가 딥러닝 최적화의 본질적 어려움을 만든다.
+
+# 최적화 방법의 계보
+
+```
+┌─────────────────────────────────────────────────────┐
+│           최적화 방법 분류                          │
+├─────────────────────────────────────────────────────┤
+│  Exhaustive Search       → 계산 불가능              │
+│  Random Search           → 비효율적                 │
+│  Analytical (Closed Form) → 극히 제한적 경우만      │
+│  Model-based (Bayesian)  → 고차원에서 느림          │
+│  Gradient-based          → 딥러닝의 표준 ✓          │
+└─────────────────────────────────────────────────────┘
+```
+
+딥러닝에서는 gradient-based 방법이 독보적으로 사용된다. 그 이유는 **backpropagation 덕분에 수억 개의 파라미터에 대한 gradient를 $O(n)$ 시간에 계산할 수 있기 때문**이다.
+
+# Critical Points와 Hessian
+
+손실 함수 $J(\theta)$의 **critical point**는 $\nabla_\theta J = 0$인 지점이다. 이 지점이 극값(extremum)인지 안장점(saddle point)인지는 **Hessian 행렬** $H = \nabla^2 J$의 고유값(eigenvalue)으로 판별한다.
+
+| 조건 | 지점의 종류 |
+|------|-----------|
+| 모든 eigenvalue $> 0$ | Local minimum |
+| 모든 eigenvalue $< 0$ | Local maximum |
+| 양/음 eigenvalue 혼재 | Saddle point |
+
+: Hessian eigenvalue로 본 critical point 종류 {.striped}
+
+# Newton's Method
+
+## 원리
+
+$J(\theta)$를 $\theta_0$ 주변에서 2차 Taylor 전개하면:
+
+$$
+J(\theta) \approx J(\theta_0) + (\theta - \theta_0)^\top \nabla J + \frac{1}{2}(\theta - \theta_0)^\top H (\theta - \theta_0)
+$$
+
+이를 $\theta$에 대해 미분하여 0으로 놓으면 한 번의 update step이 닫힌 형태로 얻어진다:
+
+$$
+\theta^* = \theta_0 - H^{-1} \nabla J(\theta_0)
+$$
+
+## Newton's Method의 실패 조건
+
+Hessian이 **indefinite**(양수/음수 eigenvalue 혼재)하면 Newton step이 saddle point로 수렴할 수 있다. 딥러닝의 고차원 공간에서 이런 상황은 매우 흔하다.
+
+또한 실용적 문제가 있다.
+
+- 파라미터가 $n$개면 $H$는 $n \times n$ 행렬 — 수억 개 파라미터에서 **역행렬 계산은 사실상 불가능**
+- 메모리 요구량 $O(n^2)$, 계산량 $O(n^3)$
+- 이 때문에 딥러닝에서는 quasi-Newton 방법(L-BFGS 등)이나 1차 방법에 의존
+
+# Gradient Descent (GD)
+
+## Batch Training 알고리즘
+
+$$
+W \leftarrow W - \lambda \cdot \frac{1}{m} \Delta W
+$$
+
+여기서 $\Delta W = \sum_{i=1}^m \nabla_W \text{loss}^{(i)}(W)$로, 모든 $m$개 샘플의 gradient를 합산한다.
+
+## 특성 분석
+
+| 특성 | 결과 |
+|------|------|
+| 모든 데이터 사용 → 안정적인 gradient | 정확한 방향으로 하강 |
+| 노이즈 없음 | 일부 중요한 gradient가 상쇄될 수 있음 |
+| 큰 데이터셋 → 메모리/계산 비용 급증 | 실용성 저하 |
+
+: GD의 trade-off {.striped}
+
+핵심 문제는 **데이터셋이 클수록 한 번의 업데이트를 위해 전체 데이터를 순회해야 한다**는 점이다. 현대 딥러닝 데이터셋 규모에서 이는 실용적이지 않다.
+
+# Stochastic Gradient Descent (SGD)
+
+## Mini-batch Training 알고리즘
+
+데이터를 $n$개의 mini-batch로 분할(각 batch 크기 $k$, 전체 $m = n \cdot k$)하여:
+
+$$
+W_{l,j} \leftarrow W_{l,j} - \frac{\lambda}{k} \Delta W_{l,j}
+$$
+
+각 mini-batch에 대해 즉시 업데이트한다.
+
+## GD vs SGD 비교
+
+```
+                GD                          SGD
+         ┌──────────────┐            ┌──────────────┐
+gradient │ 안정적, 정확 │            │ 노이즈 있음  │
+         ├──────────────┤            ├──────────────┤
+메모리   │ 전체 데이터  │            │ mini-batch만 │
+         ├──────────────┤            ├──────────────┤
+속도     │ 느림         │            │ 빠름         │
+         ├──────────────┤            ├──────────────┤
+탈출능력 │ local min에  │            │ noise로      │
+         │ 갇힘         │            │ 탈출 가능    │
+         └──────────────┘            └──────────────┘
+```
+
+## SGD의 옹호 논거 — 노이즈가 오히려 장점
+
+1. **Local minimum 탈출**: GD는 local minimum에 확실히 빠지지만, SGD의 stochastic noise가 이를 벗어나게 한다.
+2. **Saddle point 탈출**: Newton's method는 saddle point로 수렴하려 하지만 SGD는 noise로 이를 피한다.
+3. **병렬화 용이**: 각 mini-batch를 독립적으로 처리 가능 → 분산 학습에 유리하다.
+
+::: {.callout-note title="중요한 통찰"}
+Solution space의 구조는 loss function의 convexity가 아니라 **데이터 분포**가 결정한다. Convex loss를 쓰더라도 데이터가 만드는 landscape는 non-convex일 수 있다.
+:::
+
+# 딥러닝 Optimization의 8가지 도전 과제
+
+## Ill-conditioning
+
+Hessian $H$의 condition number $\kappa$가 매우 클 때 발생한다.
+
+$$
+\kappa = \frac{\lambda_{\max}}{\lambda_{\min}} \gg 1
+$$
+
+이상적 step은 $\theta \leftarrow \theta - H^{-1} \nabla J$이지만, ill-conditioning이면 일반적인 gradient 방향이 최적 방향과 크게 벗어나 **지그재그 경로**를 따르며 수렴이 극도로 느려진다.
+
+::: {.callout-tip title="무선통신 직관"}
+채널 행렬 $H$가 ill-conditioned이면 (일부 singular value가 매우 작으면) pseudo-inverse $H^+$를 구해도 노이즈가 증폭된다. ill-conditioned Hessian에서의 gradient 업데이트도 같은 이유로 매우 불안정하다.
+:::
+
+## Local Minima
+
+딥러닝의 손실 landscape는 수많은 local minimum을 가진다. 최적화가 수렴하지 못하는 이유는 다양하다.
+
+- 함수에 local minimum이 없으면 → 멈추지 않음
+- Gradient noise가 너무 크면 → 발산
+- Overfitting → 훈련 데이터에만 맞는 극값
+- 결정적: 대부분의 경우 critical point에 도달하기 전에 멈춤
+
+## Saddle Points — 핵심 도전
+
+각 파라미터 차원에서 Hessian eigenvalue의 부호를 동전 던지기로 생각해보자.
+
+- heads = 양수 (local minimum 방향)
+- tails = 음수 (local maximum 방향)
+
+$n$차원에서 모두 heads(pure local minimum)일 확률은 $2^{-n}$이다. 딥러닝의 $n$은 수백만~수십억이므로 saddle point가 압도적으로 많다.
+
+**Random matrix theory의 보정**: 손실값 $J$가 낮을수록 eigenvalue가 양수일 확률이 높다. 따라서:
+
+- Low-$J$ critical point → 대부분 local minimum (좋은 해)
+- High-$J$ critical point → 대부분 saddle point (피해야 함)
+
+이것이 딥러닝에서 "좋은 local minimum은 충분히 좋다"는 경험적 관찰을 이론적으로 뒷받침한다.
+
+## Cliffs and Exploding Gradients
+
+RNN처럼 깊거나 시간 방향으로 펼쳐진 네트워크에서, 동일한 가중치 행렬이 반복 곱해지면 gradient가 기하급수적으로 커진다.
+
+$$
+\nabla J \sim W^\top \cdot W^\top \cdots W^\top \cdot \delta
+$$
+
+해결책은 **Gradient Clipping**이다.
+
+$$
+\hat{g} = \frac{g}{\|g\|} \cdot \tau \quad \text{if } \|g\| > \tau
+$$
+
+gradient의 방향은 유지하면서 크기만 제한한다.
+
+## Long-Term Dependencies (Vanishing Gradient)
+
+Hidden layer가 깊어질수록 chain rule에 따라 Jacobian이 누적 곱해진다.
+
+$$
+\frac{\partial L}{\partial W^{(1)}} = \frac{\partial L}{\partial h^{(n)}} \cdot \prod_{k=1}^{n-1} \frac{\partial h^{(k+1)}}{\partial h^{(k)}}
+$$
+
+각 layer의 Jacobian이 1보다 작으면 곱이 exponentially 감소한다 → **vanishing gradient**. 초기 layer의 gradient가 사실상 0이 되어 학습이 불가능해진다.
+
+## Inexact Gradients
+
+SGD의 mini-batch gradient는 true gradient의 **확률적 추정값**일 뿐이다.
+
+$$
+g_{\text{batch}} = \frac{1}{k} \sum_{i \in \text{batch}} \nabla_\theta L^{(i)} \approx \nabla_\theta J(\theta)
+$$
+
+Exact gradient가 아니므로 최적화가 더 어렵다. 해결책은 진짜 loss 대신 surrogate loss를 사용하는 것이다.
+
+## Poor Local vs. Global Structure Correspondence
+
+Local gradient 정보가 global landscape를 대표하지 못할 때 발생한다. SGD가 다음 중 어떤 상황인지를 진단해야 한다.
+
+- Local minimum에 갇히는가?
+- Saddle point에서 헤매는가?
+- Global obstacle을 navigate하는 데 시간을 낭비하는가?
+- 여러 local bump 사이를 진동하는가?
+- 구불구불한 canyon을 따라 이동하는가?
+
+이를 **시각화**로 진단할 수 있다.
+
+- **1D subspace visualization**: 두 점 사이의 loss landscape
+- **2D subspace visualization**: 2개의 방향 벡터로 span되는 평면에서 landscape
+
+실증적 교훈: 대부분의 문제에서 monotonically decreasing value를 가지는 **linear subspace**가 존재한다. 이것이 SGD가 실제로 잘 작동하는 이유다.
+
+## Theoretical Limits
+
+딥러닝 최적화의 이론적 분석은 극히 어렵다. 우리가 실제로 원하는 것은:
+
+- 정확한 global minimum ❌
+- 충분히 좋은 generalization performance ✓
+
+이 미묘한 차이가 딥러닝을 이론적으로 어렵게 만든다.
+
+# Optimization Part I 전체 구조 요약
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                딥러닝 Optimization 전체 그림                 │
+├──────────────────────────────────────────────────────────────┤
+│  목표: min J*(θ) = E_{p_data}[L]        ← 이상              │
+│  현실: min J(θ) = (1/m)Σ L(f(x;θ), y)   ← ERM               │
+│                                                              │
+│  방법:                                                       │
+│    Newton → H⁻¹∇J  (2차, 고차원 불가)                        │
+│    GD     → -λ∇J     (안정, 느림)                            │
+│    SGD    → -λ∇J_batch (빠름, noise가 도움)                  │
+│                                                              │
+│  도전:                                                       │
+│    1. Ill-conditioning → 지그재그 수렴                       │
+│    2. Local minima    → 일반적으로 허용 가능                 │
+│    3. Saddle points   → 고차원에서 지배적                    │
+│    4. Exploding grad  → Gradient clipping                    │
+│    5. Vanishing grad  → 구조적 해결 필요                     │
+│    6. Inexact grad    → Surrogate loss                       │
+│    7. Local≠Global    → 시각화로 진단                        │
+│    8. Theory limits   → 완전한 이해 불가                     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+# 1차 미분 기반 최적화의 세 축
+
+Part I에서 GD/SGD의 한계를 분석했다면, Part II는 이를 **실제로 잘 작동하게 만드는 세 가지 핵심 요소**를 다룬다.
+
+```
+딥러닝 최적화의 세 축
+├── 어떻게 이동할 것인가?  → Momentum / Nesterov
+├── 어디서 시작할 것인가?  → Xavier / He 초기화
+└── 얼마나 이동할 것인가?  → AdaGrad → RMSProp → Adam
+```
+
+# Momentum
+
+## 왜 필요한가?
+
+Vanilla SGD는 두 가지 구조적 문제가 있다.
+
+**문제 1 — ill-conditioning (poor Hessian conditioning)**
+
+손실 함수의 등고선이 매우 긴 타원형(좁은 협곡 모양)이라면, gradient는 협곡의 벽을 왔다갔다하며 좁은 방향으로 진동하면서 정작 깊은 방향으로는 느리게 이동한다. 이는 Hessian의 condition number가 클 때 발생한다.
+
+$$
+\kappa = \max_{i,j} \left|\frac{\lambda_i}{\lambda_j}\right|
+$$
+
+**문제 2 — stochastic gradient의 분산**
+
+Mini-batch gradient는 true gradient의 noisy estimate이므로 방향이 매 step마다 흔들린다.
+
+## Momentum 알고리즘 [Polyak, 1964]
+
+핵심 아이디어는 과거 gradient를 **지수이동평균(exponentially decaying moving average)**으로 누적하여 velocity $\mathbf{v}$를 만들고, 실제 parameter 이동은 $\mathbf{v}$ 방향으로 한다는 것이다.
+
+$$
+\mathbf{v} \leftarrow \alpha \mathbf{v} - \epsilon \nabla_\theta \left(\frac{1}{m}\sum_{i=1}^{m} L(f(\mathbf{x}^{(i)};\boldsymbol{\theta}), \mathbf{y}^{(i)})\right)
+$$
+
+$$
+\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} + \mathbf{v}
+$$
+
+- $\alpha \in [0,1)$: momentum hyperparameter, 이전 gradient 기여의 지수 감쇠 속도를 결정
+- $\epsilon$: learning rate
+- $\alpha = 0$이면 vanilla SGD와 동일, $\alpha = 0.9$ 또는 $0.99$가 일반적
+
+::: {.callout-tip title="무선통신 비유"}
+$\alpha$는 일종의 **low-pass filter** 계수다. 매 step의 noisy gradient를 그대로 쓰는 대신, 과거 신호를 지수적으로 가중평균하여 stochastic noise를 억제하고 일관된 방향의 신호는 증폭한다. MMSE estimator가 noise를 filter out하는 것과 같은 원리다.
+:::
+
+**Velocity의 안정값(steady-state) 크기**: 연속적인 gradient $g$가 고정되어 있다면 velocity는
+
+$$
+\mathbf{v}_\infty = \frac{\epsilon \|\mathbf{g}\|}{1-\alpha}
+$$
+
+에 수렴한다. 즉 vanilla SGD 대비 $\frac{1}{1-\alpha}$배 빠르게 이동한다. $\alpha = 0.9$이면 10배, $\alpha = 0.99$이면 100배다.
+
+## Nesterov Momentum
+
+Ordinary momentum의 개선판이다. 핵심 차이는 gradient를 **현재 위치**가 아니라 **velocity를 한 발 앞서 적용한 위치**에서 계산한다는 점이다.
+
+| | Ordinary Momentum | Nesterov Momentum |
+|---|---|---|
+| gradient 계산 위치 | $\boldsymbol{\theta}$ | $\boldsymbol{\theta} + \alpha\mathbf{v}$ |
+| 수식 | $\mathbf{v} \leftarrow \alpha\mathbf{v} - \epsilon\nabla_\theta L(\boldsymbol{\theta})$ | $\mathbf{v} \leftarrow \alpha\mathbf{v} - \epsilon\nabla_\theta L(\boldsymbol{\theta} + \alpha\mathbf{v})$ |
+
+: Ordinary vs. Nesterov Momentum {.striped}
+
+전체 update rule은:
+
+$$
+\mathbf{v} \leftarrow \alpha\mathbf{v} - \epsilon\nabla_\theta\left[\frac{1}{m}\sum_{i=1}^{m} L\left(f(\mathbf{x}^{(i)};\boldsymbol{\theta}+\alpha\mathbf{v}),\mathbf{y}^{(i)}\right)\right]
+$$
+
+$$
+\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} + \mathbf{v}
+$$
+
+::: {.callout-note title="왜 좋은가?"}
+관성으로 이미 이동할 방향이 $\alpha\mathbf{v}$라는 것을 알고 있으니, 그 위치에서 gradient를 계산하여 **correction factor**를 더한다. 볼록(convex) 함수의 경우 이론적으로 수렴 속도가 $O(1/T)$에서 $O(1/T^2)$로 개선됨이 증명되어 있다.
+:::
+
+# Parameter Initialization Strategies
+
+## 왜 초기화가 중요한가?
+
+딥러닝의 최적화는 **non-convex**이므로 어디서 시작하느냐가 어디에 수렴하느냐를 크게 좌우한다. 특히:
+
+- 초기값이 너무 크면 → activation이 saturate → gradient 소멸 (vanishing gradient)
+- 초기값이 너무 작으면 → signal이 전파되지 않음
+- 모든 unit이 동일한 값 → symmetry breaking이 일어나지 않음
+
+## Weight 초기화
+
+### Naive 방법
+
+$$
+W_{i,j} \sim U\left(-\frac{1}{\sqrt{m}}, \frac{1}{\sqrt{m}}\right)
+$$
+
+fan-in $m$에 반비례하는 스케일이다. 입력이 많을수록 각 weight의 기여를 줄여 activation의 분산을 일정하게 유지하는 발상이다.
+
+### Xavier / Glorot Initialization [Glorot and Bengio, 2010]
+
+$$
+W_{i,j} \sim U\left(-\sqrt{\frac{6}{m+n}}, \sqrt{\frac{6}{m+n}}\right)
+$$
+
+여기서 $m$은 fan-in (입력 수), $n$은 fan-out (출력 수)이다.
+
+핵심 아이디어는 두 가지 목표를 동시에 달성하려는 것이다.
+
+1. **Forward pass**: 모든 레이어의 activation 분산이 동일하게 유지
+2. **Backward pass**: 모든 레이어의 gradient 분산이 동일하게 유지
+
+이 두 조건을 선형 네트워크(activation 없음)에서 동시에 만족하는 스케일의 **기하평균**이 $\sqrt{\frac{2}{m+n}}$이고, 균등분포에서 이에 맞게 range를 설정하면 위 식이 도출된다.
+
+::: {.callout-warning title="가정의 한계"}
+Xavier 유도는 "비선형성 없는 행렬곱 체인"을 가정한다. 실제 네트워크에는 ReLU, sigmoid 등 비선형 activation이 있으므로 완전히 정확한 가정은 아니다. 그럼에도 실전에서 매우 잘 작동한다.
+:::
+
+### He Initialization [He et al., 2015] — ReLU를 위한 버전
+
+$$
+W \sim \mathcal{N}\left(0, \sqrt{\frac{2}{m}}\right)
+$$
+
+ReLU는 입력의 절반(음수 영역)을 0으로 만들므로, 유효 분산이 절반으로 줄어드는 것을 보상하기 위해 분산에 2배를 곱한다.
+
+## Bias 초기화
+
+대부분의 경우 **0으로 초기화**해도 weight가 symmetry를 깨준다. 예외는 다음과 같다.
+
+- **Output unit bias**: training set output의 marginal 통계(평균)를 activation 함수의 역함수로 변환한 값
+- **ReLU bias**: 0.1 정도로 설정 → 초기화 시 ReLU saturation 방지
+- **Gate/switch unit (LSTM forget gate 등)**: 1에 가깝게 설정 → 초기에 정보가 통과되도록
+
+# Adaptive Learning Rate Methods
+
+Vanilla SGD의 근본적 문제는 **모든 파라미터에 동일한 learning rate $\epsilon$을 적용**한다는 점이다. 그러나 실제로는:
+
+- 어떤 파라미터는 gradient가 크고 자주 업데이트됨 → 더 작은 step 필요
+- 어떤 파라미터는 gradient가 작고 드물게 업데이트됨 → 더 큰 step 필요
+
+특히 NLP의 sparse feature, CSI feedback의 특정 주파수 성분처럼 **불균등한 gradient landscape** 문제에서 두드러진다. 이를 해결하는 방법이 adaptive learning rate다.
+
+## AdaGrad [Duchi et al., 2011]
+
+파라미터마다 **과거 gradient의 제곱합 $\mathbf{r}$을 누적**하여 learning rate를 조정한다.
+
+$$
+\mathbf{r} \leftarrow \mathbf{r} + \mathbf{g} \odot \mathbf{g}
+$$
+
+$$
+\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} - \frac{\epsilon}{\delta + \sqrt{\mathbf{r}}} \odot \mathbf{g}
+$$
+
+- $\delta$: 수치 안정성을 위한 작은 상수 ($\sim 10^{-7}$)
+- $\odot$: element-wise 곱
+
+**효과**: gradient가 크게 자주 등장한 파라미터 → $\mathbf{r}$이 커짐 → effective learning rate 감소. 반대로 sparse한 파라미터는 큰 step을 유지한다.
+
+::: {.callout-warning title="문제점"}
+$\mathbf{r}$이 단조증가(monotonically increasing)하므로 훈련이 길어질수록 effective learning rate가 0에 수렴 → **학습이 조기에 멈춘다**. 이 때문에 non-convex deep learning에서는 잘 작동하지 않는다.
+:::
+
+## RMSProp [Hinton, 2012 — unpublished]
+
+AdaGrad의 단조증가 문제를 해결한다. 제곱합 대신 **지수이동평균**을 사용한다.
+
+$$
+\mathbf{r} \leftarrow \rho\mathbf{r} + (1-\rho)\mathbf{g} \odot \mathbf{g}
+$$
+
+$$
+\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} - \frac{\epsilon}{\sqrt{\delta + \mathbf{r}}} \odot \mathbf{g}
+$$
+
+- $\rho$: decay factor (보통 0.9 또는 0.99)
+
+**직관**: 최근 gradient의 크기만 반영하므로 오래된 정보는 잊어버린다. 이동평균창(sliding window) 효과가 있다. Non-stationary objective에서 AdaGrad보다 우수하다.
+
+RMSProp with Nesterov momentum 버전도 존재한다.
+
+$$
+\mathbf{r} \leftarrow \rho\mathbf{r} + (1-\rho)\nabla_\theta L(\boldsymbol{\theta}+\alpha\mathbf{v}) \odot \nabla_\theta L(\boldsymbol{\theta}+\alpha\mathbf{v})
+$$
+
+## Adam [Kingma and Ba, 2014]
+
+현재 딥러닝의 사실상 표준(de facto standard) optimizer다. **RMSProp + Momentum을 통합**하고 **bias correction**을 추가했다.
+
+**(1) 1차 moment 추정 (mean)**:
+$$
+\mathbf{s} \leftarrow \rho_1 \mathbf{s} + (1-\rho_1)\mathbf{g}
+$$
+
+**(2) 2차 moment 추정 (uncentered variance)**:
+$$
+\mathbf{r} \leftarrow \rho_2 \mathbf{r} + (1-\rho_2)\mathbf{g} \odot \mathbf{g}
+$$
+
+**(3) Bias correction**:
+$$
+\hat{\mathbf{s}} \leftarrow \frac{\mathbf{s}}{1-\rho_1^t}, \quad \hat{\mathbf{r}} \leftarrow \frac{\mathbf{r}}{1-\rho_2^t}
+$$
+
+**(4) Parameter update**:
+$$
+\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} - \epsilon \frac{\hat{\mathbf{s}}}{\sqrt{\hat{\mathbf{r}}} + \delta}
+$$
+
+::: {.callout-important title="왜 bias correction이 필요한가?"}
+초기에 $\mathbf{s}_0 = 0, \mathbf{r}_0 = 0$으로 시작한다. 1번째 step에서 $\mathbf{s}_1 = (1-\rho_1)\mathbf{g}_1$인데, 실제 gradient의 기대값인 $\mathbf{g}_1$에 비해 크기가 $(1-\rho_1)$ 배로 underestimate된다. 이를 $\frac{1}{1-\rho_1^t}$로 나눠 보정한다. $t$가 커지면 $\rho_1^t \to 0$이므로 보정의 영향이 사라진다.
+:::
+
+**권장 hyperparameter**:
+
+- $\rho_1 = 0.9$ (momentum decay)
+- $\rho_2 = 0.999$ (RMSProp decay)
+- $\epsilon = 10^{-3}$ (learning rate)
+- $\delta = 10^{-8}$ (numerical stability)
+
+## Optimizer 비교 요약
+
+```
+SGD          : θ ← θ - ε·g
+Momentum     : θ ← θ + v,  v ← αv - ε·g
+AdaGrad      : θ ← θ - ε/√r · g,  r 단조증가
+RMSProp      : θ ← θ - ε/√r · g,  r 지수이동평균
+Adam         : θ ← θ - ε·ŝ/√r̂,  both moments + bias correction
+```
+
+::: {.callout-note title="어떤 optimizer를 써야 하는가?"}
+No free lunch theorem에 따라 **문제마다 최적의 optimizer가 다르다**. Schaul et al. (2014)의 광범위한 비교 연구에서도 명확한 우열은 가려지지 않았다. 일반적으로는 Adam을 default로 시작하고, vision task에서는 momentum + SGD가 더 나은 generalization을 보이는 경우도 있다.
+:::
+
+# 2차 미분 기반 최적화
+
+Newton's method를 직접 쓸 수 없는 이유(Hessian 역행렬 비용)를 극복하기 위한 방법들이다.
+
+- **Conjugate gradient**: Fletcher-Reeves, Polak-Ribiere
+- **BFGS / L-BFGS**: quasi-Newton 방법, Hessian의 근사를 점진적으로 업데이트
+
+L-BFGS는 메모리 효율이 좋아 중규모 문제에서 사용되지만, 딥러닝의 거대한 모델에서는 여전히 부담이 크다.
+
+# 기타 최적화 기법
+
+## Coordinate Descent
+
+벡터 입력 $\mathbf{x}$의 각 차원을 **독립적으로** 최적화하는 방법이다. 다른 변수는 freeze하고 한 변수만 최적화하는 것을 반복한다. 차원의 부분집합을 함께 최적화하면 **block coordinate descent**가 된다.
+
+차원이 진정으로 독립적일 때만 유효하므로, 일반적인 딥러닝 파라미터에는 적합하지 않다. 그러나 차원이 명확히 구분되는 문제(예: 이미지의 색상 차원과 엣지 차원)에서는 유용하다.
+
+## Polyak Averaging
+
+최적화 과정에서 **방문한 점들의 평균**을 최종 파라미터로 사용한다.
+
+$$
+\bar{\theta} = \frac{1}{t}\sum_{i=1}^{t} \theta^{(i)}
+$$
+
+Convex optimization에서는 강한 수렴 보장이 있다. Non-convex인 신경망에서는 heuristic이지만 실전에서 잘 작동한다. Non-convex 문제에서는 보통 **running average**(최근 점들만 평균)를 쓴다.
+
+# Modern Techniques
+
+## Batch Normalization [Ioffe and Szegedy, 2015]
+
+엄밀히는 최적화 알고리즘이 아니라 **adaptive reparameterization** 방법이지만, 최적화에 큰 영향을 준다.
+
+각 레이어의 activation을 mini-batch 단위로 정규화한다.
+
+$$
+\hat{x}^{(k)} = \frac{x^{(k)} - \mu_\mathcal{B}}{\sqrt{\sigma_\mathcal{B}^2 + \epsilon}}
+$$
+
+$$
+y^{(k)} = \gamma^{(k)}\hat{x}^{(k)} + \beta^{(k)}
+$$
+
+$\gamma, \beta$는 학습 가능한 scale/shift 파라미터다. 만약 $\gamma = \sigma_\mathcal{B}, \beta = \mu_\mathcal{B}$이면 원래 activation을 복원할 수 있어 표현력 손실이 없다.
+
+**왜 이게 필요한가?** 신경망 출력의 2차 항 $\epsilon^2 g_i g_j \prod_{k=i}^{j-1} w_k$를 보면, $\prod w_k$가 1보다 크면 exponentially 큰 항이 생겨 learning rate 선택이 매우 어려워진다. BN은 각 layer의 activation 분포를 안정화시켜 이 문제를 완화한다.
+
+**효과**:
+
+- 더 높은 learning rate 허용
+- Initialization에 덜 민감
+- Regularization 효과 (mini-batch noise가 일종의 노이즈 주입 역할)
+
+**Test 시**: training 중 누적한 running average의 $\mu, \sigma$를 사용한다.
+
+## Pretraining
+
+대용량 데이터나 관련 태스크에서 미리 학습된 파라미터를 초기값으로 사용한다. Loss landscape의 좋은 영역에서 시작하게 해준다.
+
+**Greedy supervised pretraining**: 복잡한 모델을 직접 최적화하기 어려우면, 더 간단한 모델을 더 간단한 task에서 학습한 후 점진적으로 복잡도를 늘려가는 방법이다.
+
+**MAML (Model-Agnostic Meta-Learning) [Finn et al., 2017]**: 여러 task로 meta-pretraining하여, 새로운 task에 빠르게 적응(fast adaptation) 가능한 초기값을 학습한다.
+
+## Knowledge Distillation [Hinton et al., 2015]
+
+큰 teacher 모델의 soft prediction을 target으로 사용해 작은 student 모델을 훈련한다. Teacher의 예측 분포가 담고 있는 **"dark knowledge"**를 전달한다.
+
+이 주제는 매우 중요하므로 별도 섹션에서 자세히 다룬다.
+
+## Continuation Methods
+
+쉬운 cost function $J^{(0)}$에서 시작하여 점점 어려운 cost function $J^{(k)}$로 옮겨가며 최적화한다. 초기 점이 잘 설정되어 local optimization이 well-behaved region에서 대부분의 시간을 보내도록 만든다.
+
+## Curriculum Learning [Bengio et al., 2009]
+
+쉬운 예제에서 시작해 점진적으로 어려운 예제로 이동하며 훈련한다. Continuation method의 데이터 버전이라고 볼 수 있다. 최적화 landscape를 더 smooth하게 만들어 수렴을 가속한다. 강화학습처럼 weakly supervised task에서 특히 유용하다.
+
+## Better Architecture (ResNet)
+
+엄밀히는 최적화 알고리즘이 아니라 아키텍처 디자인이지만, 최적화를 도와주는 핵심 요소다. **Residual connection**(highway connection)이 후반 layer의 gradient를 초기 layer까지 보존시켜 vanishing gradient를 완화한다.
+
+# Q&A: 추가 탐구
+
+## 왜 soft label이 학습에 도움이 되는가?
+
+이는 Knowledge Distillation의 핵심 메커니즘이며, **정보이론 + 최적화 landscape + 일반화**의 세 관점에서 분석할 수 있다.
+
+### Hard Label vs. Soft Label
+
+Hard label (one-hot)은 $y = [0, 0, 1, 0, 0, \ldots, 0]$로, 정답 클래스에만 확률 1을 부여한다. 모델에게 주는 정보는 오직 "정답이 무엇인가"뿐이다.
+
+Soft label (teacher의 softmax 출력)은 $q = [0.01, 0.05, 0.85, 0.06, 0.02, \ldots, 0.01]$처럼 정답 클래스가 가장 높지만 오답 클래스에도 의미 있는 확률 분포가 존재한다.
+
+### 정보이론 관점 — "Dark Knowledge"
+
+Hinton et al. (2015)이 명명한 개념이다. Teacher의 출력은 클래스 간 유사도 구조(inter-class similarity structure)를 암묵적으로 인코딩한다. 예를 들어 MNIST의 숫자 "8" 이미지에 대해 teacher가:
+
+| 클래스 | soft label |
+|--------|-----------|
+| 8 (정답) | 0.87 |
+| 3 | 0.07 |
+| 0 | 0.04 |
+| 1 | 0.01 |
+| 나머지 | $\approx 0$ |
+
+: Teacher 분포가 담는 dark knowledge {.striped}
+
+라고 출력했다면, 이는 "8은 3과 시각적으로 비슷하고, 0과도 어느 정도 비슷하다"는 정보를 담고 있다.
+
+엔트로피로 비교하면 one-hot 분포는 $H(p) = 0$ bits이지만 soft label은 $H(q) > 0$이다. **추가적인 정보**가 더 들어 있는 것이다.
+
+### Gradient 관점 — 학습 신호 유지
+
+Cross-entropy loss의 gradient를 직접 비교해 보자.
+
+**Hard label**:
+$$
+\frac{\partial \mathcal{L}_{\text{hard}}}{\partial z_c} = p_c - y_c
+$$
+
+정답 클래스($c$)에 대해서만 의미 있는 gradient가 흐른다. 오답 클래스 $j \neq c$에 대해서는:
+$$
+\frac{\partial \mathcal{L}_{\text{hard}}}{\partial z_j} = p_j \quad \text{(매우 작음)}
+$$
+
+모델이 이미 정답에 확신이 높다면($p_c \approx 1$) gradient가 거의 0에 수렴해 **학습 신호가 소멸**한다.
+
+**Soft label**:
+$$
+\frac{\partial \mathcal{L}_{\text{soft}}}{\partial z_j} = p_j - q_j
+$$
+
+오답 클래스에도 $q_j > 0$이므로, 모델이 오답 클래스들 사이의 상대적 관계를 학습하도록 **지속적인 gradient**가 공급된다.
+
+### 정규화 효과 — Label Smoothing의 일반화
+
+Label smoothing(Szegedy et al., 2016)은:
+$$
+y_{\text{smooth}} = (1-\epsilon) \cdot y_{\text{hard}} + \frac{\epsilon}{K}
+$$
+
+모든 오답 클래스에 균등하게 $\epsilon/K$를 배분한다. Soft label은 이를 더 정교하게:
+$$
+y_{\text{soft}} = (1-\lambda) \cdot y_{\text{hard}} + \lambda \cdot q_{\text{teacher}}
+$$
+
+오답 클래스들 사이에서도 **불균등하게**, 실제 유사도를 반영한 분포로 smoothing한다. 둘 다 모델의 over-confident prediction을 억제한다.
+
+### Temperature의 역할
+
+KD에서는 softmax에 temperature $T$를 도입한다:
+$$
+q_c^{(T)} = \frac{\exp(z_c/T)}{\sum_j \exp(z_j/T)}
+$$
+
+| Temperature $T$ | 효과 |
+|-----------------|------|
+| $T = 1$ | 원래 softmax (sharper) |
+| $T \gg 1$ | 분포가 균등에 가까워짐 (softer) |
+| $T \to \infty$ | 완전 균등분포 |
+
+: Temperature의 분포 모양 효과 {.striped}
+
+높은 $T$를 쓸수록 오답 클래스들의 확률이 올라가 **클래스 간 유사도 정보가 더 명확히 드러난다**. Hinton et al.은 teacher와 student 모두 동일한 $T$를 사용하도록 권장한다.
+
+### 정리
+
+```
+Soft Label이 학습에 도움이 되는 이유:
+
+1. 정보량 증가    → 클래스 간 유사도 구조(dark knowledge) 전달
+2. Gradient 유지  → 정답에 confident해도 학습 신호가 소멸하지 않음
+3. Landscape 개선 → Loss surface가 더 smooth, flat minimum 형성
+4. 정규화 효과    → Over-confident prediction 억제, generalization 향상
+```
+
+::: {.callout-tip title="무선통신 비유"}
+Hard label로만 학습하는 것은 마치 binary decision (0/1)만으로 채널 추정을 하는 것과 같다. Soft label은 **LLR(Log-Likelihood Ratio)**처럼 신뢰도 정보를 함께 전달하여, 수신단(student model)이 더 정확하고 robust한 추정을 할 수 있도록 한다.
+:::
+
+## "Loss Landscape"란 정확히 무엇인가?
+
+한 마디로 **파라미터 공간에서 loss 함수가 만들어내는 "지형도"**다.
+
+### 직관적 이해
+
+모델의 파라미터가 $\boldsymbol{\theta} = (\theta_1, \theta_2)$ 두 개뿐이라고 단순화하면, loss $L(\theta_1, \theta_2)$는 3D 공간에 시각화할 수 있다. 실제 딥러닝 모델은 파라미터가 수백만~수십억 개라 직접 시각화는 불가능하지만, **2D 단면을 잘라서** 보거나 개념적으로 이 지형을 상상한다.
+
+### Landscape의 주요 지형지물
+
+| 지형 | 의미 | 문제 |
+|------|------|------|
+| Global minimum | $L$이 전체에서 가장 낮은 지점 | 찾기 어려움 |
+| Local minimum | 주변보다 낮지만 전역 최소는 아님 | 여기 갇힐 수 있음 |
+| Saddle point | 어떤 방향은 최소, 다른 방향은 최대 | gradient = 0이라 탈출 어려움 |
+| Flat region | gradient $\approx 0$인 평탄한 구간 | 학습이 멈춰 보임 |
+| Sharp valley | 한 방향은 가파르고 다른 방향은 완만한 협곡 | ill-conditioning 문제 |
+
+: Loss landscape의 주요 구조물 {.striped}
+
+### Optimization 기법들이 landscape에서 무엇을 하는가
+
+Gradient descent는 결국 **이 지형 위를 걷는 탐색 과정**이다. 각 기법은 지형 위에서 다음 역할을 한다.
+
+- **Momentum** → 관성을 이용해 협곡을 빠져나감
+- **Adaptive LR** → 지형의 경사도에 따라 보폭 조절
+- **Good initialization** → 좋은 출발 위치 선택
+- **Batch normalization** → 지형 자체를 더 완만하게 만듦
+- **Soft label** → 지형을 더 smooth하게 reshape
+
+### Flat Minimum vs Sharp Minimum
+
+"Flat minimum이 generalization이 좋다"는 말도 이 맥락에서 나온다. 넓고 평평한 골짜기에 수렴하면, 파라미터가 조금 흔들려도 loss가 크게 변하지 않으므로 test 데이터에서도 안정적이다. 반면 sharp minimum은 조금만 벗어나도 loss가 폭발적으로 증가한다(Hochreiter and Schmidhuber, 1997; Keskar et al., 2017).
+
+::: {.callout-tip title="무선통신 비유"}
+채널 추정에서 cost function의 landscape는 익숙한 개념이다. MMSE estimator는 **convex한 이차형식(quadratic) landscape**를 가지므로 global minimum이 하나뿐이고 쉽게 수렴한다. 반면 비선형 채널 모델에서의 ML estimation은 **non-convex landscape**를 가져서 local minimum 문제가 생긴다 — 딥러닝과 정확히 같은 상황이다.
+:::
+
+# 무선통신 관점에서 본 딥러닝 최적화
+
+::: {.callout-tip title="3축의 무선통신 대응"}
+딥러닝 최적화의 세 축을 무선통신 관점에서 보면 다음과 같이 대응시킬 수 있다.
+
+- **초기화 (Xavier/He)** → **pilot 배치**: 잘못된 pilot은 이후 모든 추정을 망친다.
+- **Momentum** → **필터 계수**: noisy gradient를 low-pass filtering. MMSE estimator의 noise 억제와 같은 원리.
+- **Adaptive LR (Adam)** → **adaptive modulation**: 채널 상태(파라미터 stat)에 따라 step 크기를 조절.
+:::
+
+# 핵심 정리표
+
+| 개념 | 한 줄 요약 |
+|------|-----------|
+| Risk vs Empirical Risk | $J^*$는 이상, $J$는 그 proxy. ERM은 본질적으로 generalization을 보장하지 않음 |
+| Newton's Method | 2차 정보로 $\theta^* = \theta_0 - H^{-1}\nabla J$. 고차원에서 $H^{-1}$ 계산 불가 |
+| GD vs SGD | GD: 정확하지만 느림 / SGD: 노이즈 있지만 빠르고 local min 탈출 가능 |
+| Saddle point | 고차원에서 압도적으로 많음. Low-$J$ 영역은 대부분 진짜 local minimum |
+| Momentum | 과거 gradient의 EMA로 velocity 누적 → noise 억제, 협곡 탈출 |
+| Nesterov Momentum | 미래 위치에서 gradient 계산 → correction factor |
+| Xavier Init | forward/backward variance 동시 보존, 비선형성 무시 가정 |
+| He Init | ReLU의 절반 감쇠 보상 위해 분산 2배 |
+| AdaGrad | 누적 제곱합으로 scaling. Non-convex에서 학습 조기 정지 |
+| RMSProp | 누적 대신 지수이동평균 → AdaGrad의 정지 문제 해결 |
+| Adam | RMSProp + Momentum + bias correction |
+| Bias Correction | 초기 step에서 moment의 underestimate 보정 |
+| Batch Normalization | 각 layer activation 정규화 → smoother landscape |
+| Knowledge Distillation | Teacher의 soft label로 student 학습 → dark knowledge 전달 |
+| Loss Landscape | 파라미터 공간 위의 손실 지형도. flat minimum이 generalization에 유리 |
+
+: 주요 개념 한 줄 요약 {.striped}
+
+# 참고 자료
+
+## Goodfellow et al. *Deep Learning* 대응
+
+| 주제 | Chapter / Section |
+|------|-------------------|
+| Optimization 전반 | Chapter 8: Optimization for Training Deep Models |
+| Empirical Risk Minimization | §8.1.1 |
+| Surrogate Loss | §8.1.2 |
+| Local Minima, Saddle Points | §8.2.3 ~ §8.2.5 |
+| Cliffs, Vanishing Gradients | §8.2.5 ~ §8.2.6 |
+| SGD | §8.3 |
+| Momentum | §8.3.2 |
+| Nesterov Momentum | §8.3.3 |
+| Initialization | §8.4 |
+| AdaGrad / RMSProp / Adam | §8.5 |
+| Batch Normalization | §8.7.1 |
+
+: Goodfellow 교과서 대응 {.striped}
+
+## d2l.ai 대응
+
+| 주제 | Section |
+|------|---------|
+| Optimization Algorithms 전반 | [Chapter 12](https://d2l.ai/chapter_optimization/) |
+| Gradient Descent | [§12.3](https://d2l.ai/chapter_optimization/gd.html) |
+| Stochastic Gradient Descent | [§12.4](https://d2l.ai/chapter_optimization/sgd.html) |
+| Minibatch SGD | [§12.5](https://d2l.ai/chapter_optimization/minibatch-sgd.html) |
+| Momentum | [§12.6](https://d2l.ai/chapter_optimization/momentum.html) |
+| AdaGrad | [§12.7](https://d2l.ai/chapter_optimization/adagrad.html) |
+| RMSProp | [§12.8](https://d2l.ai/chapter_optimization/rmsprop.html) |
+| Adam | [§12.10](https://d2l.ai/chapter_optimization/adam.html) |
+| Numerical Stability and Initialization | [§5.4](https://d2l.ai/chapter_multilayer-perceptrons/numerical-stability-and-init.html) |
+| Batch Normalization | [§8.5](https://d2l.ai/chapter_convolutional-modern/batch-norm.html) |
+
+: d2l.ai 대응 {.striped}
+
+## Mathematics for Machine Learning 대응
+
+| 주제 | Chapter |
+|------|---------|
+| Gradient descent 수렴 이론 | [Chapter 4: Optimization](https://gwthomas.github.io/docs/math4ml.pdf) |
+| Hessian, Taylor 전개 | Chapter 4 |
+| Lagrangian / KKT (제약 최적화) | Chapter 4 |
+
+: Mathematics for ML 대응 {.striped}
+
+## 핵심 논문
+
+- Polyak, B. T. (1964). "Some methods of speeding up the convergence of iteration methods." *USSR Computational Mathematics and Mathematical Physics*. (Momentum의 원조)
+- Glorot, X., and Bengio, Y. (2010). "Understanding the difficulty of training deep feedforward neural networks." *AISTATS*. (Xavier initialization)
+- He, K., Zhang, X., Ren, S., and Sun, J. (2015). "Delving deep into rectifiers." *ICCV*. (He initialization)
+- Duchi, J., Hazan, E., and Singer, Y. (2011). "Adaptive subgradient methods for online learning and stochastic optimization." *JMLR*. (AdaGrad)
+- Kingma, D. P., and Ba, J. (2014). "Adam: A method for stochastic optimization." *ICLR*. (Adam)
+- Ioffe, S., and Szegedy, C. (2015). "Batch normalization: Accelerating deep network training by reducing internal covariate shift." *ICML*.
+- Hinton, G., Vinyals, O., and Dean, J. (2015). "Distilling the knowledge in a neural network." *arXiv*. (Knowledge Distillation)
+- Finn, C., Abbeel, P., and Levine, S. (2017). "Model-agnostic meta-learning for fast adaptation of deep networks." *ICML*. (MAML)
+- Bengio, Y., Louradour, J., Collobert, R., and Weston, J. (2009). "Curriculum learning." *ICML*.

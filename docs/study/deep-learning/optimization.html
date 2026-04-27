@@ -1,0 +1,1895 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.35">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-04-27">
+<meta name="description" content="딥러닝 최적화의 이론과 실제 — 1차/2차 미분 기반 방법, Momentum, 초기화, Adaptive learning rate, Modern techniques">
+
+<title>Optimization for Deep Learning – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-46f66b053e56abd73bb6e954d61a315b.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-da17d83626a3727898eb25bb9d1cdf08.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<!-- Privacy-friendly analytics by Plausible -->
+<script async="" src="https://plausible.io/js/pa-q1uQ7QEv5o9DOQFiYigvC.js"></script>
+<script>
+  window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+  plausible.init()
+</script>
+<style>html{ scroll-behavior: smooth; }</style>
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#optimization-problem의-본질" id="toc-optimization-problem의-본질" class="nav-link active" data-scroll-target="#optimization-problem의-본질"><span class="header-section-number">1</span> Optimization Problem의 본질</a>
+  <ul>
+  <li><a href="#risk-vs.-empirical-risk" id="toc-risk-vs.-empirical-risk" class="nav-link" data-scroll-target="#risk-vs.-empirical-risk"><span class="header-section-number">1.1</span> Risk vs.&nbsp;Empirical Risk</a></li>
+  <li><a href="#erm의-한계와-surrogate-loss" id="toc-erm의-한계와-surrogate-loss" class="nav-link" data-scroll-target="#erm의-한계와-surrogate-loss"><span class="header-section-number">1.2</span> ERM의 한계와 Surrogate Loss</a></li>
+  <li><a href="#순수-최적화와의-차이" id="toc-순수-최적화와의-차이" class="nav-link" data-scroll-target="#순수-최적화와의-차이"><span class="header-section-number">1.3</span> 순수 최적화와의 차이</a></li>
+  </ul></li>
+  <li><a href="#최적화-방법의-계보" id="toc-최적화-방법의-계보" class="nav-link" data-scroll-target="#최적화-방법의-계보"><span class="header-section-number">2</span> 최적화 방법의 계보</a></li>
+  <li><a href="#critical-points와-hessian" id="toc-critical-points와-hessian" class="nav-link" data-scroll-target="#critical-points와-hessian"><span class="header-section-number">3</span> Critical Points와 Hessian</a></li>
+  <li><a href="#newtons-method" id="toc-newtons-method" class="nav-link" data-scroll-target="#newtons-method"><span class="header-section-number">4</span> Newton’s Method</a>
+  <ul>
+  <li><a href="#원리" id="toc-원리" class="nav-link" data-scroll-target="#원리"><span class="header-section-number">4.1</span> 원리</a></li>
+  <li><a href="#newtons-method의-실패-조건" id="toc-newtons-method의-실패-조건" class="nav-link" data-scroll-target="#newtons-method의-실패-조건"><span class="header-section-number">4.2</span> Newton’s Method의 실패 조건</a></li>
+  </ul></li>
+  <li><a href="#gradient-descent-gd" id="toc-gradient-descent-gd" class="nav-link" data-scroll-target="#gradient-descent-gd"><span class="header-section-number">5</span> Gradient Descent (GD)</a>
+  <ul>
+  <li><a href="#batch-training-알고리즘" id="toc-batch-training-알고리즘" class="nav-link" data-scroll-target="#batch-training-알고리즘"><span class="header-section-number">5.1</span> Batch Training 알고리즘</a></li>
+  <li><a href="#특성-분석" id="toc-특성-분석" class="nav-link" data-scroll-target="#특성-분석"><span class="header-section-number">5.2</span> 특성 분석</a></li>
+  </ul></li>
+  <li><a href="#stochastic-gradient-descent-sgd" id="toc-stochastic-gradient-descent-sgd" class="nav-link" data-scroll-target="#stochastic-gradient-descent-sgd"><span class="header-section-number">6</span> Stochastic Gradient Descent (SGD)</a>
+  <ul>
+  <li><a href="#mini-batch-training-알고리즘" id="toc-mini-batch-training-알고리즘" class="nav-link" data-scroll-target="#mini-batch-training-알고리즘"><span class="header-section-number">6.1</span> Mini-batch Training 알고리즘</a></li>
+  <li><a href="#gd-vs-sgd-비교" id="toc-gd-vs-sgd-비교" class="nav-link" data-scroll-target="#gd-vs-sgd-비교"><span class="header-section-number">6.2</span> GD vs SGD 비교</a></li>
+  <li><a href="#sgd의-옹호-논거-노이즈가-오히려-장점" id="toc-sgd의-옹호-논거-노이즈가-오히려-장점" class="nav-link" data-scroll-target="#sgd의-옹호-논거-노이즈가-오히려-장점"><span class="header-section-number">6.3</span> SGD의 옹호 논거 — 노이즈가 오히려 장점</a></li>
+  </ul></li>
+  <li><a href="#딥러닝-optimization의-8가지-도전-과제" id="toc-딥러닝-optimization의-8가지-도전-과제" class="nav-link" data-scroll-target="#딥러닝-optimization의-8가지-도전-과제"><span class="header-section-number">7</span> 딥러닝 Optimization의 8가지 도전 과제</a>
+  <ul>
+  <li><a href="#ill-conditioning" id="toc-ill-conditioning" class="nav-link" data-scroll-target="#ill-conditioning"><span class="header-section-number">7.1</span> Ill-conditioning</a></li>
+  <li><a href="#local-minima" id="toc-local-minima" class="nav-link" data-scroll-target="#local-minima"><span class="header-section-number">7.2</span> Local Minima</a></li>
+  <li><a href="#saddle-points-핵심-도전" id="toc-saddle-points-핵심-도전" class="nav-link" data-scroll-target="#saddle-points-핵심-도전"><span class="header-section-number">7.3</span> Saddle Points — 핵심 도전</a></li>
+  <li><a href="#cliffs-and-exploding-gradients" id="toc-cliffs-and-exploding-gradients" class="nav-link" data-scroll-target="#cliffs-and-exploding-gradients"><span class="header-section-number">7.4</span> Cliffs and Exploding Gradients</a></li>
+  <li><a href="#long-term-dependencies-vanishing-gradient" id="toc-long-term-dependencies-vanishing-gradient" class="nav-link" data-scroll-target="#long-term-dependencies-vanishing-gradient"><span class="header-section-number">7.5</span> Long-Term Dependencies (Vanishing Gradient)</a></li>
+  <li><a href="#inexact-gradients" id="toc-inexact-gradients" class="nav-link" data-scroll-target="#inexact-gradients"><span class="header-section-number">7.6</span> Inexact Gradients</a></li>
+  <li><a href="#poor-local-vs.-global-structure-correspondence" id="toc-poor-local-vs.-global-structure-correspondence" class="nav-link" data-scroll-target="#poor-local-vs.-global-structure-correspondence"><span class="header-section-number">7.7</span> Poor Local vs.&nbsp;Global Structure Correspondence</a></li>
+  <li><a href="#theoretical-limits" id="toc-theoretical-limits" class="nav-link" data-scroll-target="#theoretical-limits"><span class="header-section-number">7.8</span> Theoretical Limits</a></li>
+  </ul></li>
+  <li><a href="#optimization-part-i-전체-구조-요약" id="toc-optimization-part-i-전체-구조-요약" class="nav-link" data-scroll-target="#optimization-part-i-전체-구조-요약"><span class="header-section-number">8</span> Optimization Part I 전체 구조 요약</a></li>
+  <li><a href="#차-미분-기반-최적화의-세-축" id="toc-차-미분-기반-최적화의-세-축" class="nav-link" data-scroll-target="#차-미분-기반-최적화의-세-축"><span class="header-section-number">9</span> 1차 미분 기반 최적화의 세 축</a></li>
+  <li><a href="#momentum" id="toc-momentum" class="nav-link" data-scroll-target="#momentum"><span class="header-section-number">10</span> Momentum</a>
+  <ul>
+  <li><a href="#왜-필요한가" id="toc-왜-필요한가" class="nav-link" data-scroll-target="#왜-필요한가"><span class="header-section-number">10.1</span> 왜 필요한가?</a></li>
+  <li><a href="#momentum-알고리즘-polyak-1964" id="toc-momentum-알고리즘-polyak-1964" class="nav-link" data-scroll-target="#momentum-알고리즘-polyak-1964"><span class="header-section-number">10.2</span> Momentum 알고리즘 [Polyak, 1964]</a></li>
+  <li><a href="#nesterov-momentum" id="toc-nesterov-momentum" class="nav-link" data-scroll-target="#nesterov-momentum"><span class="header-section-number">10.3</span> Nesterov Momentum</a></li>
+  </ul></li>
+  <li><a href="#parameter-initialization-strategies" id="toc-parameter-initialization-strategies" class="nav-link" data-scroll-target="#parameter-initialization-strategies"><span class="header-section-number">11</span> Parameter Initialization Strategies</a>
+  <ul>
+  <li><a href="#왜-초기화가-중요한가" id="toc-왜-초기화가-중요한가" class="nav-link" data-scroll-target="#왜-초기화가-중요한가"><span class="header-section-number">11.1</span> 왜 초기화가 중요한가?</a></li>
+  <li><a href="#weight-초기화" id="toc-weight-초기화" class="nav-link" data-scroll-target="#weight-초기화"><span class="header-section-number">11.2</span> Weight 초기화</a>
+  <ul class="collapse">
+  <li><a href="#naive-방법" id="toc-naive-방법" class="nav-link" data-scroll-target="#naive-방법"><span class="header-section-number">11.2.1</span> Naive 방법</a></li>
+  <li><a href="#xavier-glorot-initialization-glorot-and-bengio-2010" id="toc-xavier-glorot-initialization-glorot-and-bengio-2010" class="nav-link" data-scroll-target="#xavier-glorot-initialization-glorot-and-bengio-2010"><span class="header-section-number">11.2.2</span> Xavier / Glorot Initialization [Glorot and Bengio, 2010]</a></li>
+  <li><a href="#he-initialization-he-et-al.-2015-relu를-위한-버전" id="toc-he-initialization-he-et-al.-2015-relu를-위한-버전" class="nav-link" data-scroll-target="#he-initialization-he-et-al.-2015-relu를-위한-버전"><span class="header-section-number">11.2.3</span> He Initialization [He et al., 2015] — ReLU를 위한 버전</a></li>
+  </ul></li>
+  <li><a href="#bias-초기화" id="toc-bias-초기화" class="nav-link" data-scroll-target="#bias-초기화"><span class="header-section-number">11.3</span> Bias 초기화</a></li>
+  </ul></li>
+  <li><a href="#adaptive-learning-rate-methods" id="toc-adaptive-learning-rate-methods" class="nav-link" data-scroll-target="#adaptive-learning-rate-methods"><span class="header-section-number">12</span> Adaptive Learning Rate Methods</a>
+  <ul>
+  <li><a href="#adagrad-duchi-et-al.-2011" id="toc-adagrad-duchi-et-al.-2011" class="nav-link" data-scroll-target="#adagrad-duchi-et-al.-2011"><span class="header-section-number">12.1</span> AdaGrad [Duchi et al., 2011]</a></li>
+  <li><a href="#rmsprop-hinton-2012-unpublished" id="toc-rmsprop-hinton-2012-unpublished" class="nav-link" data-scroll-target="#rmsprop-hinton-2012-unpublished"><span class="header-section-number">12.2</span> RMSProp [Hinton, 2012 — unpublished]</a></li>
+  <li><a href="#adam-kingma-and-ba-2014" id="toc-adam-kingma-and-ba-2014" class="nav-link" data-scroll-target="#adam-kingma-and-ba-2014"><span class="header-section-number">12.3</span> Adam [Kingma and Ba, 2014]</a></li>
+  <li><a href="#optimizer-비교-요약" id="toc-optimizer-비교-요약" class="nav-link" data-scroll-target="#optimizer-비교-요약"><span class="header-section-number">12.4</span> Optimizer 비교 요약</a></li>
+  </ul></li>
+  <li><a href="#차-미분-기반-최적화" id="toc-차-미분-기반-최적화" class="nav-link" data-scroll-target="#차-미분-기반-최적화"><span class="header-section-number">13</span> 2차 미분 기반 최적화</a></li>
+  <li><a href="#기타-최적화-기법" id="toc-기타-최적화-기법" class="nav-link" data-scroll-target="#기타-최적화-기법"><span class="header-section-number">14</span> 기타 최적화 기법</a>
+  <ul>
+  <li><a href="#coordinate-descent" id="toc-coordinate-descent" class="nav-link" data-scroll-target="#coordinate-descent"><span class="header-section-number">14.1</span> Coordinate Descent</a></li>
+  <li><a href="#polyak-averaging" id="toc-polyak-averaging" class="nav-link" data-scroll-target="#polyak-averaging"><span class="header-section-number">14.2</span> Polyak Averaging</a></li>
+  </ul></li>
+  <li><a href="#modern-techniques" id="toc-modern-techniques" class="nav-link" data-scroll-target="#modern-techniques"><span class="header-section-number">15</span> Modern Techniques</a>
+  <ul>
+  <li><a href="#batch-normalization-ioffe-and-szegedy-2015" id="toc-batch-normalization-ioffe-and-szegedy-2015" class="nav-link" data-scroll-target="#batch-normalization-ioffe-and-szegedy-2015"><span class="header-section-number">15.1</span> Batch Normalization [Ioffe and Szegedy, 2015]</a></li>
+  <li><a href="#pretraining" id="toc-pretraining" class="nav-link" data-scroll-target="#pretraining"><span class="header-section-number">15.2</span> Pretraining</a></li>
+  <li><a href="#knowledge-distillation-hinton-et-al.-2015" id="toc-knowledge-distillation-hinton-et-al.-2015" class="nav-link" data-scroll-target="#knowledge-distillation-hinton-et-al.-2015"><span class="header-section-number">15.3</span> Knowledge Distillation [Hinton et al., 2015]</a></li>
+  <li><a href="#continuation-methods" id="toc-continuation-methods" class="nav-link" data-scroll-target="#continuation-methods"><span class="header-section-number">15.4</span> Continuation Methods</a></li>
+  <li><a href="#curriculum-learning-bengio-et-al.-2009" id="toc-curriculum-learning-bengio-et-al.-2009" class="nav-link" data-scroll-target="#curriculum-learning-bengio-et-al.-2009"><span class="header-section-number">15.5</span> Curriculum Learning [Bengio et al., 2009]</a></li>
+  <li><a href="#better-architecture-resnet" id="toc-better-architecture-resnet" class="nav-link" data-scroll-target="#better-architecture-resnet"><span class="header-section-number">15.6</span> Better Architecture (ResNet)</a></li>
+  </ul></li>
+  <li><a href="#qa-추가-탐구" id="toc-qa-추가-탐구" class="nav-link" data-scroll-target="#qa-추가-탐구"><span class="header-section-number">16</span> Q&amp;A: 추가 탐구</a>
+  <ul>
+  <li><a href="#왜-soft-label이-학습에-도움이-되는가" id="toc-왜-soft-label이-학습에-도움이-되는가" class="nav-link" data-scroll-target="#왜-soft-label이-학습에-도움이-되는가"><span class="header-section-number">16.1</span> 왜 soft label이 학습에 도움이 되는가?</a>
+  <ul class="collapse">
+  <li><a href="#hard-label-vs.-soft-label" id="toc-hard-label-vs.-soft-label" class="nav-link" data-scroll-target="#hard-label-vs.-soft-label"><span class="header-section-number">16.1.1</span> Hard Label vs.&nbsp;Soft Label</a></li>
+  <li><a href="#정보이론-관점-dark-knowledge" id="toc-정보이론-관점-dark-knowledge" class="nav-link" data-scroll-target="#정보이론-관점-dark-knowledge"><span class="header-section-number">16.1.2</span> 정보이론 관점 — “Dark Knowledge”</a></li>
+  <li><a href="#gradient-관점-학습-신호-유지" id="toc-gradient-관점-학습-신호-유지" class="nav-link" data-scroll-target="#gradient-관점-학습-신호-유지"><span class="header-section-number">16.1.3</span> Gradient 관점 — 학습 신호 유지</a></li>
+  <li><a href="#정규화-효과-label-smoothing의-일반화" id="toc-정규화-효과-label-smoothing의-일반화" class="nav-link" data-scroll-target="#정규화-효과-label-smoothing의-일반화"><span class="header-section-number">16.1.4</span> 정규화 효과 — Label Smoothing의 일반화</a></li>
+  <li><a href="#temperature의-역할" id="toc-temperature의-역할" class="nav-link" data-scroll-target="#temperature의-역할"><span class="header-section-number">16.1.5</span> Temperature의 역할</a></li>
+  <li><a href="#정리" id="toc-정리" class="nav-link" data-scroll-target="#정리"><span class="header-section-number">16.1.6</span> 정리</a></li>
+  </ul></li>
+  <li><a href="#loss-landscape란-정확히-무엇인가" id="toc-loss-landscape란-정확히-무엇인가" class="nav-link" data-scroll-target="#loss-landscape란-정확히-무엇인가"><span class="header-section-number">16.2</span> “Loss Landscape”란 정확히 무엇인가?</a>
+  <ul class="collapse">
+  <li><a href="#직관적-이해" id="toc-직관적-이해" class="nav-link" data-scroll-target="#직관적-이해"><span class="header-section-number">16.2.1</span> 직관적 이해</a></li>
+  <li><a href="#landscape의-주요-지형지물" id="toc-landscape의-주요-지형지물" class="nav-link" data-scroll-target="#landscape의-주요-지형지물"><span class="header-section-number">16.2.2</span> Landscape의 주요 지형지물</a></li>
+  <li><a href="#optimization-기법들이-landscape에서-무엇을-하는가" id="toc-optimization-기법들이-landscape에서-무엇을-하는가" class="nav-link" data-scroll-target="#optimization-기법들이-landscape에서-무엇을-하는가"><span class="header-section-number">16.2.3</span> Optimization 기법들이 landscape에서 무엇을 하는가</a></li>
+  <li><a href="#flat-minimum-vs-sharp-minimum" id="toc-flat-minimum-vs-sharp-minimum" class="nav-link" data-scroll-target="#flat-minimum-vs-sharp-minimum"><span class="header-section-number">16.2.4</span> Flat Minimum vs Sharp Minimum</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#무선통신-관점에서-본-딥러닝-최적화" id="toc-무선통신-관점에서-본-딥러닝-최적화" class="nav-link" data-scroll-target="#무선통신-관점에서-본-딥러닝-최적화"><span class="header-section-number">17</span> 무선통신 관점에서 본 딥러닝 최적화</a></li>
+  <li><a href="#핵심-정리표" id="toc-핵심-정리표" class="nav-link" data-scroll-target="#핵심-정리표"><span class="header-section-number">18</span> 핵심 정리표</a></li>
+  <li><a href="#참고-자료" id="toc-참고-자료" class="nav-link" data-scroll-target="#참고-자료"><span class="header-section-number">19</span> 참고 자료</a>
+  <ul>
+  <li><a href="#goodfellow-et-al.-deep-learning-대응" id="toc-goodfellow-et-al.-deep-learning-대응" class="nav-link" data-scroll-target="#goodfellow-et-al.-deep-learning-대응"><span class="header-section-number">19.1</span> Goodfellow et al.&nbsp;<em>Deep Learning</em> 대응</a></li>
+  <li><a href="#d2l.ai-대응" id="toc-d2l.ai-대응" class="nav-link" data-scroll-target="#d2l.ai-대응"><span class="header-section-number">19.2</span> d2l.ai 대응</a></li>
+  <li><a href="#mathematics-for-machine-learning-대응" id="toc-mathematics-for-machine-learning-대응" class="nav-link" data-scroll-target="#mathematics-for-machine-learning-대응"><span class="header-section-number">19.3</span> Mathematics for Machine Learning 대응</a></li>
+  <li><a href="#핵심-논문" id="toc-핵심-논문" class="nav-link" data-scroll-target="#핵심-논문"><span class="header-section-number">19.4</span> 핵심 논문</a></li>
+  </ul></li>
+  </ul>
+</nav>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Optimization for Deep Learning</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">Deep Learning</div>
+    <div class="quarto-category">Optimization</div>
+    <div class="quarto-category">Study Notes</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    딥러닝 최적화의 이론과 실제 — 1차/2차 미분 기반 방법, Momentum, 초기화, Adaptive learning rate, Modern techniques
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">April 27, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="optimization-problem의-본질" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Optimization Problem의 본질</h1>
+<section id="risk-vs.-empirical-risk" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="risk-vs.-empirical-risk"><span class="header-section-number">1.1</span> Risk vs.&nbsp;Empirical Risk</h2>
+<p>딥러닝의 학습은 결국 <strong>최적화 문제</strong>다. 핵심은 파라미터 <span class="math inline">\theta</span>를 찾아 손실을 최소화하는 것이지만, 두 가지 레벨을 엄격히 구분해야 한다.</p>
+<p><strong>이상적 목표 — Risk (Expected Risk)</strong></p>
+<p><span class="math display">
+J^*(\theta) = \min_\theta \mathbb{E}_{(x,y) \sim p_{\text{data}}} \big[L(f(x;\theta), y)\big]
+</span></p>
+<p>여기서 <span class="math inline">p_{\text{data}}</span>는 “세상의 모든 데이터”를 생성하는 실제 분포다. 이 값을 최소화하는 것이 진정한 <strong>generalization</strong> 목표다.</p>
+<p><strong>현실적 대안 — Empirical Risk</strong></p>
+<p><span class="math display">
+J(\theta) = \mathbb{E}_{(x,y) \sim \hat{p}_{\text{data}}} \big[L(f(x;\theta), y)\big] = \frac{1}{m} \sum_{i=1}^{m} L(f(x^{(i)};\theta), y^{(i)})
+</span></p>
+<p>여기서 <span class="math inline">\hat{p}_{\text{data}}</span>는 훈련 데이터셋이 만드는 경험적 분포(empirical distribution)다. <span class="math inline">J(\theta)</span>는 <span class="math inline">J^*(\theta)</span>의 <strong>proxy(대리 변수)</strong>일 뿐이다.</p>
+<div class="callout callout-style-default callout-tip callout-titled" title="무선통신 비유">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>무선통신 비유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>채널 추정에서 전체 채널 환경(모든 위치, 모든 시간)의 MMSE를 최소화하고 싶지만, 실제로는 pilot symbol로 측정한 유한한 샘플만 있다. 훈련 데이터로 만든 <span class="math inline">J(\theta)</span>는 pilot 기반 추정값처럼, 현실 세계의 <span class="math inline">J^*(\theta)</span>는 진짜 채널처럼 생각할 수 있다.</p>
+</div>
+</div>
+<p>이것이 <strong>Empirical Risk Minimization (ERM)</strong>이다.</p>
+</section>
+<section id="erm의-한계와-surrogate-loss" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="erm의-한계와-surrogate-loss"><span class="header-section-number">1.2</span> ERM의 한계와 Surrogate Loss</h2>
+<p>ERM은 정의상 training set에 <strong>overfit</strong>하도록 설계되어 있다. 그러나 overfit을 의도하더라도 ERM 자체를 효율적으로 최적화하는 것이 어려운 경우가 많다. 이 때문에 실제로는 <strong>surrogate loss</strong>를 사용한다.</p>
+<p>가장 대표적인 예가 분류 문제다. 진짜 목표는 0-1 loss를 최소화하는 것이지만, 미분 불가능하므로 cross-entropy loss를 surrogate로 사용한다. 이는 추정하기 쉬우면서도 비슷한 최적해를 가지는 함수다.</p>
+</section>
+<section id="순수-최적화와의-차이" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="순수-최적화와의-차이"><span class="header-section-number">1.3</span> 순수 최적화와의 차이</h2>
+<p>순수(pure) 최적화에서는 objective 자체가 문제이지만, 딥러닝의 최적화는 다르다. 우리는 <span class="math inline">J(\theta)</span>를 줄이고 싶은 것이 아니라 <span class="math inline">J^*(\theta)</span>를 줄이고 싶은데, 도구로 <span class="math inline">J(\theta)</span>만 쓸 수 있는 상황이다. 이 미묘한 차이가 딥러닝 최적화의 본질적 어려움을 만든다.</p>
+</section>
+</section>
+<section id="최적화-방법의-계보" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> 최적화 방법의 계보</h1>
+<pre><code>┌─────────────────────────────────────────────────────┐
+│           최적화 방법 분류                          │
+├─────────────────────────────────────────────────────┤
+│  Exhaustive Search       → 계산 불가능              │
+│  Random Search           → 비효율적                 │
+│  Analytical (Closed Form) → 극히 제한적 경우만      │
+│  Model-based (Bayesian)  → 고차원에서 느림          │
+│  Gradient-based          → 딥러닝의 표준 ✓          │
+└─────────────────────────────────────────────────────┘</code></pre>
+<p>딥러닝에서는 gradient-based 방법이 독보적으로 사용된다. 그 이유는 <strong>backpropagation 덕분에 수억 개의 파라미터에 대한 gradient를 <span class="math inline">O(n)</span> 시간에 계산할 수 있기 때문</strong>이다.</p>
+</section>
+<section id="critical-points와-hessian" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Critical Points와 Hessian</h1>
+<p>손실 함수 <span class="math inline">J(\theta)</span>의 <strong>critical point</strong>는 <span class="math inline">\nabla_\theta J = 0</span>인 지점이다. 이 지점이 극값(extremum)인지 안장점(saddle point)인지는 <strong>Hessian 행렬</strong> <span class="math inline">H = \nabla^2 J</span>의 고유값(eigenvalue)으로 판별한다.</p>
+<table class="table-striped caption-top table">
+<caption>Hessian eigenvalue로 본 critical point 종류</caption>
+<thead>
+<tr class="header">
+<th>조건</th>
+<th>지점의 종류</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>모든 eigenvalue <span class="math inline">&gt; 0</span></td>
+<td>Local minimum</td>
+</tr>
+<tr class="even">
+<td>모든 eigenvalue <span class="math inline">&lt; 0</span></td>
+<td>Local maximum</td>
+</tr>
+<tr class="odd">
+<td>양/음 eigenvalue 혼재</td>
+<td>Saddle point</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="newtons-method" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Newton’s Method</h1>
+<section id="원리" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="원리"><span class="header-section-number">4.1</span> 원리</h2>
+<p><span class="math inline">J(\theta)</span>를 <span class="math inline">\theta_0</span> 주변에서 2차 Taylor 전개하면:</p>
+<p><span class="math display">
+J(\theta) \approx J(\theta_0) + (\theta - \theta_0)^\top \nabla J + \frac{1}{2}(\theta - \theta_0)^\top H (\theta - \theta_0)
+</span></p>
+<p>이를 <span class="math inline">\theta</span>에 대해 미분하여 0으로 놓으면 한 번의 update step이 닫힌 형태로 얻어진다:</p>
+<p><span class="math display">
+\theta^* = \theta_0 - H^{-1} \nabla J(\theta_0)
+</span></p>
+</section>
+<section id="newtons-method의-실패-조건" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="newtons-method의-실패-조건"><span class="header-section-number">4.2</span> Newton’s Method의 실패 조건</h2>
+<p>Hessian이 <strong>indefinite</strong>(양수/음수 eigenvalue 혼재)하면 Newton step이 saddle point로 수렴할 수 있다. 딥러닝의 고차원 공간에서 이런 상황은 매우 흔하다.</p>
+<p>또한 실용적 문제가 있다.</p>
+<ul>
+<li>파라미터가 <span class="math inline">n</span>개면 <span class="math inline">H</span>는 <span class="math inline">n \times n</span> 행렬 — 수억 개 파라미터에서 <strong>역행렬 계산은 사실상 불가능</strong></li>
+<li>메모리 요구량 <span class="math inline">O(n^2)</span>, 계산량 <span class="math inline">O(n^3)</span></li>
+<li>이 때문에 딥러닝에서는 quasi-Newton 방법(L-BFGS 등)이나 1차 방법에 의존</li>
+</ul>
+</section>
+</section>
+<section id="gradient-descent-gd" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Gradient Descent (GD)</h1>
+<section id="batch-training-알고리즘" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="batch-training-알고리즘"><span class="header-section-number">5.1</span> Batch Training 알고리즘</h2>
+<p><span class="math display">
+W \leftarrow W - \lambda \cdot \frac{1}{m} \Delta W
+</span></p>
+<p>여기서 <span class="math inline">\Delta W = \sum_{i=1}^m \nabla_W \text{loss}^{(i)}(W)</span>로, 모든 <span class="math inline">m</span>개 샘플의 gradient를 합산한다.</p>
+</section>
+<section id="특성-분석" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="특성-분석"><span class="header-section-number">5.2</span> 특성 분석</h2>
+<table class="table-striped caption-top table">
+<caption>GD의 trade-off</caption>
+<thead>
+<tr class="header">
+<th>특성</th>
+<th>결과</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>모든 데이터 사용 → 안정적인 gradient</td>
+<td>정확한 방향으로 하강</td>
+</tr>
+<tr class="even">
+<td>노이즈 없음</td>
+<td>일부 중요한 gradient가 상쇄될 수 있음</td>
+</tr>
+<tr class="odd">
+<td>큰 데이터셋 → 메모리/계산 비용 급증</td>
+<td>실용성 저하</td>
+</tr>
+</tbody>
+</table>
+<p>핵심 문제는 <strong>데이터셋이 클수록 한 번의 업데이트를 위해 전체 데이터를 순회해야 한다</strong>는 점이다. 현대 딥러닝 데이터셋 규모에서 이는 실용적이지 않다.</p>
+</section>
+</section>
+<section id="stochastic-gradient-descent-sgd" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> Stochastic Gradient Descent (SGD)</h1>
+<section id="mini-batch-training-알고리즘" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="mini-batch-training-알고리즘"><span class="header-section-number">6.1</span> Mini-batch Training 알고리즘</h2>
+<p>데이터를 <span class="math inline">n</span>개의 mini-batch로 분할(각 batch 크기 <span class="math inline">k</span>, 전체 <span class="math inline">m = n \cdot k</span>)하여:</p>
+<p><span class="math display">
+W_{l,j} \leftarrow W_{l,j} - \frac{\lambda}{k} \Delta W_{l,j}
+</span></p>
+<p>각 mini-batch에 대해 즉시 업데이트한다.</p>
+</section>
+<section id="gd-vs-sgd-비교" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="gd-vs-sgd-비교"><span class="header-section-number">6.2</span> GD vs SGD 비교</h2>
+<pre><code>                GD                          SGD
+         ┌──────────────┐            ┌──────────────┐
+gradient │ 안정적, 정확 │            │ 노이즈 있음  │
+         ├──────────────┤            ├──────────────┤
+메모리   │ 전체 데이터  │            │ mini-batch만 │
+         ├──────────────┤            ├──────────────┤
+속도     │ 느림         │            │ 빠름         │
+         ├──────────────┤            ├──────────────┤
+탈출능력 │ local min에  │            │ noise로      │
+         │ 갇힘         │            │ 탈출 가능    │
+         └──────────────┘            └──────────────┘</code></pre>
+</section>
+<section id="sgd의-옹호-논거-노이즈가-오히려-장점" class="level2" data-number="6.3">
+<h2 data-number="6.3" class="anchored" data-anchor-id="sgd의-옹호-논거-노이즈가-오히려-장점"><span class="header-section-number">6.3</span> SGD의 옹호 논거 — 노이즈가 오히려 장점</h2>
+<ol type="1">
+<li><strong>Local minimum 탈출</strong>: GD는 local minimum에 확실히 빠지지만, SGD의 stochastic noise가 이를 벗어나게 한다.</li>
+<li><strong>Saddle point 탈출</strong>: Newton’s method는 saddle point로 수렴하려 하지만 SGD는 noise로 이를 피한다.</li>
+<li><strong>병렬화 용이</strong>: 각 mini-batch를 독립적으로 처리 가능 → 분산 학습에 유리하다.</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled" title="중요한 통찰">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>중요한 통찰
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Solution space의 구조는 loss function의 convexity가 아니라 <strong>데이터 분포</strong>가 결정한다. Convex loss를 쓰더라도 데이터가 만드는 landscape는 non-convex일 수 있다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="딥러닝-optimization의-8가지-도전-과제" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> 딥러닝 Optimization의 8가지 도전 과제</h1>
+<section id="ill-conditioning" class="level2" data-number="7.1">
+<h2 data-number="7.1" class="anchored" data-anchor-id="ill-conditioning"><span class="header-section-number">7.1</span> Ill-conditioning</h2>
+<p>Hessian <span class="math inline">H</span>의 condition number <span class="math inline">\kappa</span>가 매우 클 때 발생한다.</p>
+<p><span class="math display">
+\kappa = \frac{\lambda_{\max}}{\lambda_{\min}} \gg 1
+</span></p>
+<p>이상적 step은 <span class="math inline">\theta \leftarrow \theta - H^{-1} \nabla J</span>이지만, ill-conditioning이면 일반적인 gradient 방향이 최적 방향과 크게 벗어나 <strong>지그재그 경로</strong>를 따르며 수렴이 극도로 느려진다.</p>
+<div class="callout callout-style-default callout-tip callout-titled" title="무선통신 직관">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>무선통신 직관
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>채널 행렬 <span class="math inline">H</span>가 ill-conditioned이면 (일부 singular value가 매우 작으면) pseudo-inverse <span class="math inline">H^+</span>를 구해도 노이즈가 증폭된다. ill-conditioned Hessian에서의 gradient 업데이트도 같은 이유로 매우 불안정하다.</p>
+</div>
+</div>
+</section>
+<section id="local-minima" class="level2" data-number="7.2">
+<h2 data-number="7.2" class="anchored" data-anchor-id="local-minima"><span class="header-section-number">7.2</span> Local Minima</h2>
+<p>딥러닝의 손실 landscape는 수많은 local minimum을 가진다. 최적화가 수렴하지 못하는 이유는 다양하다.</p>
+<ul>
+<li>함수에 local minimum이 없으면 → 멈추지 않음</li>
+<li>Gradient noise가 너무 크면 → 발산</li>
+<li>Overfitting → 훈련 데이터에만 맞는 극값</li>
+<li>결정적: 대부분의 경우 critical point에 도달하기 전에 멈춤</li>
+</ul>
+</section>
+<section id="saddle-points-핵심-도전" class="level2" data-number="7.3">
+<h2 data-number="7.3" class="anchored" data-anchor-id="saddle-points-핵심-도전"><span class="header-section-number">7.3</span> Saddle Points — 핵심 도전</h2>
+<p>각 파라미터 차원에서 Hessian eigenvalue의 부호를 동전 던지기로 생각해보자.</p>
+<ul>
+<li>heads = 양수 (local minimum 방향)</li>
+<li>tails = 음수 (local maximum 방향)</li>
+</ul>
+<p><span class="math inline">n</span>차원에서 모두 heads(pure local minimum)일 확률은 <span class="math inline">2^{-n}</span>이다. 딥러닝의 <span class="math inline">n</span>은 수백만~수십억이므로 saddle point가 압도적으로 많다.</p>
+<p><strong>Random matrix theory의 보정</strong>: 손실값 <span class="math inline">J</span>가 낮을수록 eigenvalue가 양수일 확률이 높다. 따라서:</p>
+<ul>
+<li>Low-<span class="math inline">J</span> critical point → 대부분 local minimum (좋은 해)</li>
+<li>High-<span class="math inline">J</span> critical point → 대부분 saddle point (피해야 함)</li>
+</ul>
+<p>이것이 딥러닝에서 “좋은 local minimum은 충분히 좋다”는 경험적 관찰을 이론적으로 뒷받침한다.</p>
+</section>
+<section id="cliffs-and-exploding-gradients" class="level2" data-number="7.4">
+<h2 data-number="7.4" class="anchored" data-anchor-id="cliffs-and-exploding-gradients"><span class="header-section-number">7.4</span> Cliffs and Exploding Gradients</h2>
+<p>RNN처럼 깊거나 시간 방향으로 펼쳐진 네트워크에서, 동일한 가중치 행렬이 반복 곱해지면 gradient가 기하급수적으로 커진다.</p>
+<p><span class="math display">
+\nabla J \sim W^\top \cdot W^\top \cdots W^\top \cdot \delta
+</span></p>
+<p>해결책은 <strong>Gradient Clipping</strong>이다.</p>
+<p><span class="math display">
+\hat{g} = \frac{g}{\|g\|} \cdot \tau \quad \text{if } \|g\| &gt; \tau
+</span></p>
+<p>gradient의 방향은 유지하면서 크기만 제한한다.</p>
+</section>
+<section id="long-term-dependencies-vanishing-gradient" class="level2" data-number="7.5">
+<h2 data-number="7.5" class="anchored" data-anchor-id="long-term-dependencies-vanishing-gradient"><span class="header-section-number">7.5</span> Long-Term Dependencies (Vanishing Gradient)</h2>
+<p>Hidden layer가 깊어질수록 chain rule에 따라 Jacobian이 누적 곱해진다.</p>
+<p><span class="math display">
+\frac{\partial L}{\partial W^{(1)}} = \frac{\partial L}{\partial h^{(n)}} \cdot \prod_{k=1}^{n-1} \frac{\partial h^{(k+1)}}{\partial h^{(k)}}
+</span></p>
+<p>각 layer의 Jacobian이 1보다 작으면 곱이 exponentially 감소한다 → <strong>vanishing gradient</strong>. 초기 layer의 gradient가 사실상 0이 되어 학습이 불가능해진다.</p>
+</section>
+<section id="inexact-gradients" class="level2" data-number="7.6">
+<h2 data-number="7.6" class="anchored" data-anchor-id="inexact-gradients"><span class="header-section-number">7.6</span> Inexact Gradients</h2>
+<p>SGD의 mini-batch gradient는 true gradient의 <strong>확률적 추정값</strong>일 뿐이다.</p>
+<p><span class="math display">
+g_{\text{batch}} = \frac{1}{k} \sum_{i \in \text{batch}} \nabla_\theta L^{(i)} \approx \nabla_\theta J(\theta)
+</span></p>
+<p>Exact gradient가 아니므로 최적화가 더 어렵다. 해결책은 진짜 loss 대신 surrogate loss를 사용하는 것이다.</p>
+</section>
+<section id="poor-local-vs.-global-structure-correspondence" class="level2" data-number="7.7">
+<h2 data-number="7.7" class="anchored" data-anchor-id="poor-local-vs.-global-structure-correspondence"><span class="header-section-number">7.7</span> Poor Local vs.&nbsp;Global Structure Correspondence</h2>
+<p>Local gradient 정보가 global landscape를 대표하지 못할 때 발생한다. SGD가 다음 중 어떤 상황인지를 진단해야 한다.</p>
+<ul>
+<li>Local minimum에 갇히는가?</li>
+<li>Saddle point에서 헤매는가?</li>
+<li>Global obstacle을 navigate하는 데 시간을 낭비하는가?</li>
+<li>여러 local bump 사이를 진동하는가?</li>
+<li>구불구불한 canyon을 따라 이동하는가?</li>
+</ul>
+<p>이를 <strong>시각화</strong>로 진단할 수 있다.</p>
+<ul>
+<li><strong>1D subspace visualization</strong>: 두 점 사이의 loss landscape</li>
+<li><strong>2D subspace visualization</strong>: 2개의 방향 벡터로 span되는 평면에서 landscape</li>
+</ul>
+<p>실증적 교훈: 대부분의 문제에서 monotonically decreasing value를 가지는 <strong>linear subspace</strong>가 존재한다. 이것이 SGD가 실제로 잘 작동하는 이유다.</p>
+</section>
+<section id="theoretical-limits" class="level2" data-number="7.8">
+<h2 data-number="7.8" class="anchored" data-anchor-id="theoretical-limits"><span class="header-section-number">7.8</span> Theoretical Limits</h2>
+<p>딥러닝 최적화의 이론적 분석은 극히 어렵다. 우리가 실제로 원하는 것은:</p>
+<ul>
+<li>정확한 global minimum ❌</li>
+<li>충분히 좋은 generalization performance ✓</li>
+</ul>
+<p>이 미묘한 차이가 딥러닝을 이론적으로 어렵게 만든다.</p>
+</section>
+</section>
+<section id="optimization-part-i-전체-구조-요약" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> Optimization Part I 전체 구조 요약</h1>
+<pre><code>┌──────────────────────────────────────────────────────────────┐
+│                딥러닝 Optimization 전체 그림                 │
+├──────────────────────────────────────────────────────────────┤
+│  목표: min J*(θ) = E_{p_data}[L]        ← 이상              │
+│  현실: min J(θ) = (1/m)Σ L(f(x;θ), y)   ← ERM               │
+│                                                              │
+│  방법:                                                       │
+│    Newton → H⁻¹∇J  (2차, 고차원 불가)                        │
+│    GD     → -λ∇J     (안정, 느림)                            │
+│    SGD    → -λ∇J_batch (빠름, noise가 도움)                  │
+│                                                              │
+│  도전:                                                       │
+│    1. Ill-conditioning → 지그재그 수렴                       │
+│    2. Local minima    → 일반적으로 허용 가능                 │
+│    3. Saddle points   → 고차원에서 지배적                    │
+│    4. Exploding grad  → Gradient clipping                    │
+│    5. Vanishing grad  → 구조적 해결 필요                     │
+│    6. Inexact grad    → Surrogate loss                       │
+│    7. Local≠Global    → 시각화로 진단                        │
+│    8. Theory limits   → 완전한 이해 불가                     │
+└──────────────────────────────────────────────────────────────┘</code></pre>
+<hr>
+</section>
+<section id="차-미분-기반-최적화의-세-축" class="level1" data-number="9">
+<h1 data-number="9"><span class="header-section-number">9</span> 1차 미분 기반 최적화의 세 축</h1>
+<p>Part I에서 GD/SGD의 한계를 분석했다면, Part II는 이를 <strong>실제로 잘 작동하게 만드는 세 가지 핵심 요소</strong>를 다룬다.</p>
+<pre><code>딥러닝 최적화의 세 축
+├── 어떻게 이동할 것인가?  → Momentum / Nesterov
+├── 어디서 시작할 것인가?  → Xavier / He 초기화
+└── 얼마나 이동할 것인가?  → AdaGrad → RMSProp → Adam</code></pre>
+</section>
+<section id="momentum" class="level1" data-number="10">
+<h1 data-number="10"><span class="header-section-number">10</span> Momentum</h1>
+<section id="왜-필요한가" class="level2" data-number="10.1">
+<h2 data-number="10.1" class="anchored" data-anchor-id="왜-필요한가"><span class="header-section-number">10.1</span> 왜 필요한가?</h2>
+<p>Vanilla SGD는 두 가지 구조적 문제가 있다.</p>
+<p><strong>문제 1 — ill-conditioning (poor Hessian conditioning)</strong></p>
+<p>손실 함수의 등고선이 매우 긴 타원형(좁은 협곡 모양)이라면, gradient는 협곡의 벽을 왔다갔다하며 좁은 방향으로 진동하면서 정작 깊은 방향으로는 느리게 이동한다. 이는 Hessian의 condition number가 클 때 발생한다.</p>
+<p><span class="math display">
+\kappa = \max_{i,j} \left|\frac{\lambda_i}{\lambda_j}\right|
+</span></p>
+<p><strong>문제 2 — stochastic gradient의 분산</strong></p>
+<p>Mini-batch gradient는 true gradient의 noisy estimate이므로 방향이 매 step마다 흔들린다.</p>
+</section>
+<section id="momentum-알고리즘-polyak-1964" class="level2" data-number="10.2">
+<h2 data-number="10.2" class="anchored" data-anchor-id="momentum-알고리즘-polyak-1964"><span class="header-section-number">10.2</span> Momentum 알고리즘 [Polyak, 1964]</h2>
+<p>핵심 아이디어는 과거 gradient를 <strong>지수이동평균(exponentially decaying moving average)</strong>으로 누적하여 velocity <span class="math inline">\mathbf{v}</span>를 만들고, 실제 parameter 이동은 <span class="math inline">\mathbf{v}</span> 방향으로 한다는 것이다.</p>
+<p><span class="math display">
+\mathbf{v} \leftarrow \alpha \mathbf{v} - \epsilon \nabla_\theta \left(\frac{1}{m}\sum_{i=1}^{m} L(f(\mathbf{x}^{(i)};\boldsymbol{\theta}), \mathbf{y}^{(i)})\right)
+</span></p>
+<p><span class="math display">
+\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} + \mathbf{v}
+</span></p>
+<ul>
+<li><span class="math inline">\alpha \in [0,1)</span>: momentum hyperparameter, 이전 gradient 기여의 지수 감쇠 속도를 결정</li>
+<li><span class="math inline">\epsilon</span>: learning rate</li>
+<li><span class="math inline">\alpha = 0</span>이면 vanilla SGD와 동일, <span class="math inline">\alpha = 0.9</span> 또는 <span class="math inline">0.99</span>가 일반적</li>
+</ul>
+<div class="callout callout-style-default callout-tip callout-titled" title="무선통신 비유">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>무선통신 비유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\alpha</span>는 일종의 <strong>low-pass filter</strong> 계수다. 매 step의 noisy gradient를 그대로 쓰는 대신, 과거 신호를 지수적으로 가중평균하여 stochastic noise를 억제하고 일관된 방향의 신호는 증폭한다. MMSE estimator가 noise를 filter out하는 것과 같은 원리다.</p>
+</div>
+</div>
+<p><strong>Velocity의 안정값(steady-state) 크기</strong>: 연속적인 gradient <span class="math inline">g</span>가 고정되어 있다면 velocity는</p>
+<p><span class="math display">
+\mathbf{v}_\infty = \frac{\epsilon \|\mathbf{g}\|}{1-\alpha}
+</span></p>
+<p>에 수렴한다. 즉 vanilla SGD 대비 <span class="math inline">\frac{1}{1-\alpha}</span>배 빠르게 이동한다. <span class="math inline">\alpha = 0.9</span>이면 10배, <span class="math inline">\alpha = 0.99</span>이면 100배다.</p>
+</section>
+<section id="nesterov-momentum" class="level2" data-number="10.3">
+<h2 data-number="10.3" class="anchored" data-anchor-id="nesterov-momentum"><span class="header-section-number">10.3</span> Nesterov Momentum</h2>
+<p>Ordinary momentum의 개선판이다. 핵심 차이는 gradient를 <strong>현재 위치</strong>가 아니라 <strong>velocity를 한 발 앞서 적용한 위치</strong>에서 계산한다는 점이다.</p>
+<table class="table-striped caption-top table">
+<caption>Ordinary vs.&nbsp;Nesterov Momentum</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th>Ordinary Momentum</th>
+<th>Nesterov Momentum</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>gradient 계산 위치</td>
+<td><span class="math inline">\boldsymbol{\theta}</span></td>
+<td><span class="math inline">\boldsymbol{\theta} + \alpha\mathbf{v}</span></td>
+</tr>
+<tr class="even">
+<td>수식</td>
+<td><span class="math inline">\mathbf{v} \leftarrow \alpha\mathbf{v} - \epsilon\nabla_\theta L(\boldsymbol{\theta})</span></td>
+<td><span class="math inline">\mathbf{v} \leftarrow \alpha\mathbf{v} - \epsilon\nabla_\theta L(\boldsymbol{\theta} + \alpha\mathbf{v})</span></td>
+</tr>
+</tbody>
+</table>
+<p>전체 update rule은:</p>
+<p><span class="math display">
+\mathbf{v} \leftarrow \alpha\mathbf{v} - \epsilon\nabla_\theta\left[\frac{1}{m}\sum_{i=1}^{m} L\left(f(\mathbf{x}^{(i)};\boldsymbol{\theta}+\alpha\mathbf{v}),\mathbf{y}^{(i)}\right)\right]
+</span></p>
+<p><span class="math display">
+\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} + \mathbf{v}
+</span></p>
+<div class="callout callout-style-default callout-note callout-titled" title="왜 좋은가?">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>왜 좋은가?
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>관성으로 이미 이동할 방향이 <span class="math inline">\alpha\mathbf{v}</span>라는 것을 알고 있으니, 그 위치에서 gradient를 계산하여 <strong>correction factor</strong>를 더한다. 볼록(convex) 함수의 경우 이론적으로 수렴 속도가 <span class="math inline">O(1/T)</span>에서 <span class="math inline">O(1/T^2)</span>로 개선됨이 증명되어 있다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="parameter-initialization-strategies" class="level1" data-number="11">
+<h1 data-number="11"><span class="header-section-number">11</span> Parameter Initialization Strategies</h1>
+<section id="왜-초기화가-중요한가" class="level2" data-number="11.1">
+<h2 data-number="11.1" class="anchored" data-anchor-id="왜-초기화가-중요한가"><span class="header-section-number">11.1</span> 왜 초기화가 중요한가?</h2>
+<p>딥러닝의 최적화는 <strong>non-convex</strong>이므로 어디서 시작하느냐가 어디에 수렴하느냐를 크게 좌우한다. 특히:</p>
+<ul>
+<li>초기값이 너무 크면 → activation이 saturate → gradient 소멸 (vanishing gradient)</li>
+<li>초기값이 너무 작으면 → signal이 전파되지 않음</li>
+<li>모든 unit이 동일한 값 → symmetry breaking이 일어나지 않음</li>
+</ul>
+</section>
+<section id="weight-초기화" class="level2" data-number="11.2">
+<h2 data-number="11.2" class="anchored" data-anchor-id="weight-초기화"><span class="header-section-number">11.2</span> Weight 초기화</h2>
+<section id="naive-방법" class="level3" data-number="11.2.1">
+<h3 data-number="11.2.1" class="anchored" data-anchor-id="naive-방법"><span class="header-section-number">11.2.1</span> Naive 방법</h3>
+<p><span class="math display">
+W_{i,j} \sim U\left(-\frac{1}{\sqrt{m}}, \frac{1}{\sqrt{m}}\right)
+</span></p>
+<p>fan-in <span class="math inline">m</span>에 반비례하는 스케일이다. 입력이 많을수록 각 weight의 기여를 줄여 activation의 분산을 일정하게 유지하는 발상이다.</p>
+</section>
+<section id="xavier-glorot-initialization-glorot-and-bengio-2010" class="level3" data-number="11.2.2">
+<h3 data-number="11.2.2" class="anchored" data-anchor-id="xavier-glorot-initialization-glorot-and-bengio-2010"><span class="header-section-number">11.2.2</span> Xavier / Glorot Initialization [Glorot and Bengio, 2010]</h3>
+<p><span class="math display">
+W_{i,j} \sim U\left(-\sqrt{\frac{6}{m+n}}, \sqrt{\frac{6}{m+n}}\right)
+</span></p>
+<p>여기서 <span class="math inline">m</span>은 fan-in (입력 수), <span class="math inline">n</span>은 fan-out (출력 수)이다.</p>
+<p>핵심 아이디어는 두 가지 목표를 동시에 달성하려는 것이다.</p>
+<ol type="1">
+<li><strong>Forward pass</strong>: 모든 레이어의 activation 분산이 동일하게 유지</li>
+<li><strong>Backward pass</strong>: 모든 레이어의 gradient 분산이 동일하게 유지</li>
+</ol>
+<p>이 두 조건을 선형 네트워크(activation 없음)에서 동시에 만족하는 스케일의 <strong>기하평균</strong>이 <span class="math inline">\sqrt{\frac{2}{m+n}}</span>이고, 균등분포에서 이에 맞게 range를 설정하면 위 식이 도출된다.</p>
+<div class="callout callout-style-default callout-warning callout-titled" title="가정의 한계">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>가정의 한계
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Xavier 유도는 “비선형성 없는 행렬곱 체인”을 가정한다. 실제 네트워크에는 ReLU, sigmoid 등 비선형 activation이 있으므로 완전히 정확한 가정은 아니다. 그럼에도 실전에서 매우 잘 작동한다.</p>
+</div>
+</div>
+</section>
+<section id="he-initialization-he-et-al.-2015-relu를-위한-버전" class="level3" data-number="11.2.3">
+<h3 data-number="11.2.3" class="anchored" data-anchor-id="he-initialization-he-et-al.-2015-relu를-위한-버전"><span class="header-section-number">11.2.3</span> He Initialization [He et al., 2015] — ReLU를 위한 버전</h3>
+<p><span class="math display">
+W \sim \mathcal{N}\left(0, \sqrt{\frac{2}{m}}\right)
+</span></p>
+<p>ReLU는 입력의 절반(음수 영역)을 0으로 만들므로, 유효 분산이 절반으로 줄어드는 것을 보상하기 위해 분산에 2배를 곱한다.</p>
+</section>
+</section>
+<section id="bias-초기화" class="level2" data-number="11.3">
+<h2 data-number="11.3" class="anchored" data-anchor-id="bias-초기화"><span class="header-section-number">11.3</span> Bias 초기화</h2>
+<p>대부분의 경우 <strong>0으로 초기화</strong>해도 weight가 symmetry를 깨준다. 예외는 다음과 같다.</p>
+<ul>
+<li><strong>Output unit bias</strong>: training set output의 marginal 통계(평균)를 activation 함수의 역함수로 변환한 값</li>
+<li><strong>ReLU bias</strong>: 0.1 정도로 설정 → 초기화 시 ReLU saturation 방지</li>
+<li><strong>Gate/switch unit (LSTM forget gate 등)</strong>: 1에 가깝게 설정 → 초기에 정보가 통과되도록</li>
+</ul>
+</section>
+</section>
+<section id="adaptive-learning-rate-methods" class="level1" data-number="12">
+<h1 data-number="12"><span class="header-section-number">12</span> Adaptive Learning Rate Methods</h1>
+<p>Vanilla SGD의 근본적 문제는 <strong>모든 파라미터에 동일한 learning rate <span class="math inline">\epsilon</span>을 적용</strong>한다는 점이다. 그러나 실제로는:</p>
+<ul>
+<li>어떤 파라미터는 gradient가 크고 자주 업데이트됨 → 더 작은 step 필요</li>
+<li>어떤 파라미터는 gradient가 작고 드물게 업데이트됨 → 더 큰 step 필요</li>
+</ul>
+<p>특히 NLP의 sparse feature, CSI feedback의 특정 주파수 성분처럼 <strong>불균등한 gradient landscape</strong> 문제에서 두드러진다. 이를 해결하는 방법이 adaptive learning rate다.</p>
+<section id="adagrad-duchi-et-al.-2011" class="level2" data-number="12.1">
+<h2 data-number="12.1" class="anchored" data-anchor-id="adagrad-duchi-et-al.-2011"><span class="header-section-number">12.1</span> AdaGrad [Duchi et al., 2011]</h2>
+<p>파라미터마다 <strong>과거 gradient의 제곱합 <span class="math inline">\mathbf{r}</span>을 누적</strong>하여 learning rate를 조정한다.</p>
+<p><span class="math display">
+\mathbf{r} \leftarrow \mathbf{r} + \mathbf{g} \odot \mathbf{g}
+</span></p>
+<p><span class="math display">
+\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} - \frac{\epsilon}{\delta + \sqrt{\mathbf{r}}} \odot \mathbf{g}
+</span></p>
+<ul>
+<li><span class="math inline">\delta</span>: 수치 안정성을 위한 작은 상수 (<span class="math inline">\sim 10^{-7}</span>)</li>
+<li><span class="math inline">\odot</span>: element-wise 곱</li>
+</ul>
+<p><strong>효과</strong>: gradient가 크게 자주 등장한 파라미터 → <span class="math inline">\mathbf{r}</span>이 커짐 → effective learning rate 감소. 반대로 sparse한 파라미터는 큰 step을 유지한다.</p>
+<div class="callout callout-style-default callout-warning callout-titled" title="문제점">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>문제점
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\mathbf{r}</span>이 단조증가(monotonically increasing)하므로 훈련이 길어질수록 effective learning rate가 0에 수렴 → <strong>학습이 조기에 멈춘다</strong>. 이 때문에 non-convex deep learning에서는 잘 작동하지 않는다.</p>
+</div>
+</div>
+</section>
+<section id="rmsprop-hinton-2012-unpublished" class="level2" data-number="12.2">
+<h2 data-number="12.2" class="anchored" data-anchor-id="rmsprop-hinton-2012-unpublished"><span class="header-section-number">12.2</span> RMSProp [Hinton, 2012 — unpublished]</h2>
+<p>AdaGrad의 단조증가 문제를 해결한다. 제곱합 대신 <strong>지수이동평균</strong>을 사용한다.</p>
+<p><span class="math display">
+\mathbf{r} \leftarrow \rho\mathbf{r} + (1-\rho)\mathbf{g} \odot \mathbf{g}
+</span></p>
+<p><span class="math display">
+\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} - \frac{\epsilon}{\sqrt{\delta + \mathbf{r}}} \odot \mathbf{g}
+</span></p>
+<ul>
+<li><span class="math inline">\rho</span>: decay factor (보통 0.9 또는 0.99)</li>
+</ul>
+<p><strong>직관</strong>: 최근 gradient의 크기만 반영하므로 오래된 정보는 잊어버린다. 이동평균창(sliding window) 효과가 있다. Non-stationary objective에서 AdaGrad보다 우수하다.</p>
+<p>RMSProp with Nesterov momentum 버전도 존재한다.</p>
+<p><span class="math display">
+\mathbf{r} \leftarrow \rho\mathbf{r} + (1-\rho)\nabla_\theta L(\boldsymbol{\theta}+\alpha\mathbf{v}) \odot \nabla_\theta L(\boldsymbol{\theta}+\alpha\mathbf{v})
+</span></p>
+</section>
+<section id="adam-kingma-and-ba-2014" class="level2" data-number="12.3">
+<h2 data-number="12.3" class="anchored" data-anchor-id="adam-kingma-and-ba-2014"><span class="header-section-number">12.3</span> Adam [Kingma and Ba, 2014]</h2>
+<p>현재 딥러닝의 사실상 표준(de facto standard) optimizer다. <strong>RMSProp + Momentum을 통합</strong>하고 <strong>bias correction</strong>을 추가했다.</p>
+<p><strong>(1) 1차 moment 추정 (mean)</strong>: <span class="math display">
+\mathbf{s} \leftarrow \rho_1 \mathbf{s} + (1-\rho_1)\mathbf{g}
+</span></p>
+<p><strong>(2) 2차 moment 추정 (uncentered variance)</strong>: <span class="math display">
+\mathbf{r} \leftarrow \rho_2 \mathbf{r} + (1-\rho_2)\mathbf{g} \odot \mathbf{g}
+</span></p>
+<p><strong>(3) Bias correction</strong>: <span class="math display">
+\hat{\mathbf{s}} \leftarrow \frac{\mathbf{s}}{1-\rho_1^t}, \quad \hat{\mathbf{r}} \leftarrow \frac{\mathbf{r}}{1-\rho_2^t}
+</span></p>
+<p><strong>(4) Parameter update</strong>: <span class="math display">
+\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} - \epsilon \frac{\hat{\mathbf{s}}}{\sqrt{\hat{\mathbf{r}}} + \delta}
+</span></p>
+<div class="callout callout-style-default callout-important callout-titled" title="왜 bias correction이 필요한가?">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>왜 bias correction이 필요한가?
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>초기에 <span class="math inline">\mathbf{s}_0 = 0, \mathbf{r}_0 = 0</span>으로 시작한다. 1번째 step에서 <span class="math inline">\mathbf{s}_1 = (1-\rho_1)\mathbf{g}_1</span>인데, 실제 gradient의 기대값인 <span class="math inline">\mathbf{g}_1</span>에 비해 크기가 <span class="math inline">(1-\rho_1)</span> 배로 underestimate된다. 이를 <span class="math inline">\frac{1}{1-\rho_1^t}</span>로 나눠 보정한다. <span class="math inline">t</span>가 커지면 <span class="math inline">\rho_1^t \to 0</span>이므로 보정의 영향이 사라진다.</p>
+</div>
+</div>
+<p><strong>권장 hyperparameter</strong>:</p>
+<ul>
+<li><span class="math inline">\rho_1 = 0.9</span> (momentum decay)</li>
+<li><span class="math inline">\rho_2 = 0.999</span> (RMSProp decay)</li>
+<li><span class="math inline">\epsilon = 10^{-3}</span> (learning rate)</li>
+<li><span class="math inline">\delta = 10^{-8}</span> (numerical stability)</li>
+</ul>
+</section>
+<section id="optimizer-비교-요약" class="level2" data-number="12.4">
+<h2 data-number="12.4" class="anchored" data-anchor-id="optimizer-비교-요약"><span class="header-section-number">12.4</span> Optimizer 비교 요약</h2>
+<pre><code>SGD          : θ ← θ - ε·g
+Momentum     : θ ← θ + v,  v ← αv - ε·g
+AdaGrad      : θ ← θ - ε/√r · g,  r 단조증가
+RMSProp      : θ ← θ - ε/√r · g,  r 지수이동평균
+Adam         : θ ← θ - ε·ŝ/√r̂,  both moments + bias correction</code></pre>
+<div class="callout callout-style-default callout-note callout-titled" title="어떤 optimizer를 써야 하는가?">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>어떤 optimizer를 써야 하는가?
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>No free lunch theorem에 따라 <strong>문제마다 최적의 optimizer가 다르다</strong>. Schaul et al.&nbsp;(2014)의 광범위한 비교 연구에서도 명확한 우열은 가려지지 않았다. 일반적으로는 Adam을 default로 시작하고, vision task에서는 momentum + SGD가 더 나은 generalization을 보이는 경우도 있다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="차-미분-기반-최적화" class="level1" data-number="13">
+<h1 data-number="13"><span class="header-section-number">13</span> 2차 미분 기반 최적화</h1>
+<p>Newton’s method를 직접 쓸 수 없는 이유(Hessian 역행렬 비용)를 극복하기 위한 방법들이다.</p>
+<ul>
+<li><strong>Conjugate gradient</strong>: Fletcher-Reeves, Polak-Ribiere</li>
+<li><strong>BFGS / L-BFGS</strong>: quasi-Newton 방법, Hessian의 근사를 점진적으로 업데이트</li>
+</ul>
+<p>L-BFGS는 메모리 효율이 좋아 중규모 문제에서 사용되지만, 딥러닝의 거대한 모델에서는 여전히 부담이 크다.</p>
+</section>
+<section id="기타-최적화-기법" class="level1" data-number="14">
+<h1 data-number="14"><span class="header-section-number">14</span> 기타 최적화 기법</h1>
+<section id="coordinate-descent" class="level2" data-number="14.1">
+<h2 data-number="14.1" class="anchored" data-anchor-id="coordinate-descent"><span class="header-section-number">14.1</span> Coordinate Descent</h2>
+<p>벡터 입력 <span class="math inline">\mathbf{x}</span>의 각 차원을 <strong>독립적으로</strong> 최적화하는 방법이다. 다른 변수는 freeze하고 한 변수만 최적화하는 것을 반복한다. 차원의 부분집합을 함께 최적화하면 <strong>block coordinate descent</strong>가 된다.</p>
+<p>차원이 진정으로 독립적일 때만 유효하므로, 일반적인 딥러닝 파라미터에는 적합하지 않다. 그러나 차원이 명확히 구분되는 문제(예: 이미지의 색상 차원과 엣지 차원)에서는 유용하다.</p>
+</section>
+<section id="polyak-averaging" class="level2" data-number="14.2">
+<h2 data-number="14.2" class="anchored" data-anchor-id="polyak-averaging"><span class="header-section-number">14.2</span> Polyak Averaging</h2>
+<p>최적화 과정에서 <strong>방문한 점들의 평균</strong>을 최종 파라미터로 사용한다.</p>
+<p><span class="math display">
+\bar{\theta} = \frac{1}{t}\sum_{i=1}^{t} \theta^{(i)}
+</span></p>
+<p>Convex optimization에서는 강한 수렴 보장이 있다. Non-convex인 신경망에서는 heuristic이지만 실전에서 잘 작동한다. Non-convex 문제에서는 보통 <strong>running average</strong>(최근 점들만 평균)를 쓴다.</p>
+</section>
+</section>
+<section id="modern-techniques" class="level1" data-number="15">
+<h1 data-number="15"><span class="header-section-number">15</span> Modern Techniques</h1>
+<section id="batch-normalization-ioffe-and-szegedy-2015" class="level2" data-number="15.1">
+<h2 data-number="15.1" class="anchored" data-anchor-id="batch-normalization-ioffe-and-szegedy-2015"><span class="header-section-number">15.1</span> Batch Normalization [Ioffe and Szegedy, 2015]</h2>
+<p>엄밀히는 최적화 알고리즘이 아니라 <strong>adaptive reparameterization</strong> 방법이지만, 최적화에 큰 영향을 준다.</p>
+<p>각 레이어의 activation을 mini-batch 단위로 정규화한다.</p>
+<p><span class="math display">
+\hat{x}^{(k)} = \frac{x^{(k)} - \mu_\mathcal{B}}{\sqrt{\sigma_\mathcal{B}^2 + \epsilon}}
+</span></p>
+<p><span class="math display">
+y^{(k)} = \gamma^{(k)}\hat{x}^{(k)} + \beta^{(k)}
+</span></p>
+<p><span class="math inline">\gamma, \beta</span>는 학습 가능한 scale/shift 파라미터다. 만약 <span class="math inline">\gamma = \sigma_\mathcal{B}, \beta = \mu_\mathcal{B}</span>이면 원래 activation을 복원할 수 있어 표현력 손실이 없다.</p>
+<p><strong>왜 이게 필요한가?</strong> 신경망 출력의 2차 항 <span class="math inline">\epsilon^2 g_i g_j \prod_{k=i}^{j-1} w_k</span>를 보면, <span class="math inline">\prod w_k</span>가 1보다 크면 exponentially 큰 항이 생겨 learning rate 선택이 매우 어려워진다. BN은 각 layer의 activation 분포를 안정화시켜 이 문제를 완화한다.</p>
+<p><strong>효과</strong>:</p>
+<ul>
+<li>더 높은 learning rate 허용</li>
+<li>Initialization에 덜 민감</li>
+<li>Regularization 효과 (mini-batch noise가 일종의 노이즈 주입 역할)</li>
+</ul>
+<p><strong>Test 시</strong>: training 중 누적한 running average의 <span class="math inline">\mu, \sigma</span>를 사용한다.</p>
+</section>
+<section id="pretraining" class="level2" data-number="15.2">
+<h2 data-number="15.2" class="anchored" data-anchor-id="pretraining"><span class="header-section-number">15.2</span> Pretraining</h2>
+<p>대용량 데이터나 관련 태스크에서 미리 학습된 파라미터를 초기값으로 사용한다. Loss landscape의 좋은 영역에서 시작하게 해준다.</p>
+<p><strong>Greedy supervised pretraining</strong>: 복잡한 모델을 직접 최적화하기 어려우면, 더 간단한 모델을 더 간단한 task에서 학습한 후 점진적으로 복잡도를 늘려가는 방법이다.</p>
+<p><strong>MAML (Model-Agnostic Meta-Learning) [Finn et al., 2017]</strong>: 여러 task로 meta-pretraining하여, 새로운 task에 빠르게 적응(fast adaptation) 가능한 초기값을 학습한다.</p>
+</section>
+<section id="knowledge-distillation-hinton-et-al.-2015" class="level2" data-number="15.3">
+<h2 data-number="15.3" class="anchored" data-anchor-id="knowledge-distillation-hinton-et-al.-2015"><span class="header-section-number">15.3</span> Knowledge Distillation [Hinton et al., 2015]</h2>
+<p>큰 teacher 모델의 soft prediction을 target으로 사용해 작은 student 모델을 훈련한다. Teacher의 예측 분포가 담고 있는 <strong>“dark knowledge”</strong>를 전달한다.</p>
+<p>이 주제는 매우 중요하므로 별도 섹션에서 자세히 다룬다.</p>
+</section>
+<section id="continuation-methods" class="level2" data-number="15.4">
+<h2 data-number="15.4" class="anchored" data-anchor-id="continuation-methods"><span class="header-section-number">15.4</span> Continuation Methods</h2>
+<p>쉬운 cost function <span class="math inline">J^{(0)}</span>에서 시작하여 점점 어려운 cost function <span class="math inline">J^{(k)}</span>로 옮겨가며 최적화한다. 초기 점이 잘 설정되어 local optimization이 well-behaved region에서 대부분의 시간을 보내도록 만든다.</p>
+</section>
+<section id="curriculum-learning-bengio-et-al.-2009" class="level2" data-number="15.5">
+<h2 data-number="15.5" class="anchored" data-anchor-id="curriculum-learning-bengio-et-al.-2009"><span class="header-section-number">15.5</span> Curriculum Learning [Bengio et al., 2009]</h2>
+<p>쉬운 예제에서 시작해 점진적으로 어려운 예제로 이동하며 훈련한다. Continuation method의 데이터 버전이라고 볼 수 있다. 최적화 landscape를 더 smooth하게 만들어 수렴을 가속한다. 강화학습처럼 weakly supervised task에서 특히 유용하다.</p>
+</section>
+<section id="better-architecture-resnet" class="level2" data-number="15.6">
+<h2 data-number="15.6" class="anchored" data-anchor-id="better-architecture-resnet"><span class="header-section-number">15.6</span> Better Architecture (ResNet)</h2>
+<p>엄밀히는 최적화 알고리즘이 아니라 아키텍처 디자인이지만, 최적화를 도와주는 핵심 요소다. <strong>Residual connection</strong>(highway connection)이 후반 layer의 gradient를 초기 layer까지 보존시켜 vanishing gradient를 완화한다.</p>
+</section>
+</section>
+<section id="qa-추가-탐구" class="level1" data-number="16">
+<h1 data-number="16"><span class="header-section-number">16</span> Q&amp;A: 추가 탐구</h1>
+<section id="왜-soft-label이-학습에-도움이-되는가" class="level2" data-number="16.1">
+<h2 data-number="16.1" class="anchored" data-anchor-id="왜-soft-label이-학습에-도움이-되는가"><span class="header-section-number">16.1</span> 왜 soft label이 학습에 도움이 되는가?</h2>
+<p>이는 Knowledge Distillation의 핵심 메커니즘이며, <strong>정보이론 + 최적화 landscape + 일반화</strong>의 세 관점에서 분석할 수 있다.</p>
+<section id="hard-label-vs.-soft-label" class="level3" data-number="16.1.1">
+<h3 data-number="16.1.1" class="anchored" data-anchor-id="hard-label-vs.-soft-label"><span class="header-section-number">16.1.1</span> Hard Label vs.&nbsp;Soft Label</h3>
+<p>Hard label (one-hot)은 <span class="math inline">y = [0, 0, 1, 0, 0, \ldots, 0]</span>로, 정답 클래스에만 확률 1을 부여한다. 모델에게 주는 정보는 오직 “정답이 무엇인가”뿐이다.</p>
+<p>Soft label (teacher의 softmax 출력)은 <span class="math inline">q = [0.01, 0.05, 0.85, 0.06, 0.02, \ldots, 0.01]</span>처럼 정답 클래스가 가장 높지만 오답 클래스에도 의미 있는 확률 분포가 존재한다.</p>
+</section>
+<section id="정보이론-관점-dark-knowledge" class="level3" data-number="16.1.2">
+<h3 data-number="16.1.2" class="anchored" data-anchor-id="정보이론-관점-dark-knowledge"><span class="header-section-number">16.1.2</span> 정보이론 관점 — “Dark Knowledge”</h3>
+<p>Hinton et al.&nbsp;(2015)이 명명한 개념이다. Teacher의 출력은 클래스 간 유사도 구조(inter-class similarity structure)를 암묵적으로 인코딩한다. 예를 들어 MNIST의 숫자 “8” 이미지에 대해 teacher가:</p>
+<table class="table-striped caption-top table">
+<caption>Teacher 분포가 담는 dark knowledge</caption>
+<thead>
+<tr class="header">
+<th>클래스</th>
+<th>soft label</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>8 (정답)</td>
+<td>0.87</td>
+</tr>
+<tr class="even">
+<td>3</td>
+<td>0.07</td>
+</tr>
+<tr class="odd">
+<td>0</td>
+<td>0.04</td>
+</tr>
+<tr class="even">
+<td>1</td>
+<td>0.01</td>
+</tr>
+<tr class="odd">
+<td>나머지</td>
+<td><span class="math inline">\approx 0</span></td>
+</tr>
+</tbody>
+</table>
+<p>라고 출력했다면, 이는 “8은 3과 시각적으로 비슷하고, 0과도 어느 정도 비슷하다”는 정보를 담고 있다.</p>
+<p>엔트로피로 비교하면 one-hot 분포는 <span class="math inline">H(p) = 0</span> bits이지만 soft label은 <span class="math inline">H(q) &gt; 0</span>이다. <strong>추가적인 정보</strong>가 더 들어 있는 것이다.</p>
+</section>
+<section id="gradient-관점-학습-신호-유지" class="level3" data-number="16.1.3">
+<h3 data-number="16.1.3" class="anchored" data-anchor-id="gradient-관점-학습-신호-유지"><span class="header-section-number">16.1.3</span> Gradient 관점 — 학습 신호 유지</h3>
+<p>Cross-entropy loss의 gradient를 직접 비교해 보자.</p>
+<p><strong>Hard label</strong>: <span class="math display">
+\frac{\partial \mathcal{L}_{\text{hard}}}{\partial z_c} = p_c - y_c
+</span></p>
+<p>정답 클래스(<span class="math inline">c</span>)에 대해서만 의미 있는 gradient가 흐른다. 오답 클래스 <span class="math inline">j \neq c</span>에 대해서는: <span class="math display">
+\frac{\partial \mathcal{L}_{\text{hard}}}{\partial z_j} = p_j \quad \text{(매우 작음)}
+</span></p>
+<p>모델이 이미 정답에 확신이 높다면(<span class="math inline">p_c \approx 1</span>) gradient가 거의 0에 수렴해 <strong>학습 신호가 소멸</strong>한다.</p>
+<p><strong>Soft label</strong>: <span class="math display">
+\frac{\partial \mathcal{L}_{\text{soft}}}{\partial z_j} = p_j - q_j
+</span></p>
+<p>오답 클래스에도 <span class="math inline">q_j &gt; 0</span>이므로, 모델이 오답 클래스들 사이의 상대적 관계를 학습하도록 <strong>지속적인 gradient</strong>가 공급된다.</p>
+</section>
+<section id="정규화-효과-label-smoothing의-일반화" class="level3" data-number="16.1.4">
+<h3 data-number="16.1.4" class="anchored" data-anchor-id="정규화-효과-label-smoothing의-일반화"><span class="header-section-number">16.1.4</span> 정규화 효과 — Label Smoothing의 일반화</h3>
+<p>Label smoothing(Szegedy et al., 2016)은: <span class="math display">
+y_{\text{smooth}} = (1-\epsilon) \cdot y_{\text{hard}} + \frac{\epsilon}{K}
+</span></p>
+<p>모든 오답 클래스에 균등하게 <span class="math inline">\epsilon/K</span>를 배분한다. Soft label은 이를 더 정교하게: <span class="math display">
+y_{\text{soft}} = (1-\lambda) \cdot y_{\text{hard}} + \lambda \cdot q_{\text{teacher}}
+</span></p>
+<p>오답 클래스들 사이에서도 <strong>불균등하게</strong>, 실제 유사도를 반영한 분포로 smoothing한다. 둘 다 모델의 over-confident prediction을 억제한다.</p>
+</section>
+<section id="temperature의-역할" class="level3" data-number="16.1.5">
+<h3 data-number="16.1.5" class="anchored" data-anchor-id="temperature의-역할"><span class="header-section-number">16.1.5</span> Temperature의 역할</h3>
+<p>KD에서는 softmax에 temperature <span class="math inline">T</span>를 도입한다: <span class="math display">
+q_c^{(T)} = \frac{\exp(z_c/T)}{\sum_j \exp(z_j/T)}
+</span></p>
+<table class="table-striped caption-top table">
+<caption>Temperature의 분포 모양 효과</caption>
+<thead>
+<tr class="header">
+<th>Temperature <span class="math inline">T</span></th>
+<th>효과</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">T = 1</span></td>
+<td>원래 softmax (sharper)</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">T \gg 1</span></td>
+<td>분포가 균등에 가까워짐 (softer)</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">T \to \infty</span></td>
+<td>완전 균등분포</td>
+</tr>
+</tbody>
+</table>
+<p>높은 <span class="math inline">T</span>를 쓸수록 오답 클래스들의 확률이 올라가 <strong>클래스 간 유사도 정보가 더 명확히 드러난다</strong>. Hinton et al.은 teacher와 student 모두 동일한 <span class="math inline">T</span>를 사용하도록 권장한다.</p>
+</section>
+<section id="정리" class="level3" data-number="16.1.6">
+<h3 data-number="16.1.6" class="anchored" data-anchor-id="정리"><span class="header-section-number">16.1.6</span> 정리</h3>
+<pre><code>Soft Label이 학습에 도움이 되는 이유:
+
+1. 정보량 증가    → 클래스 간 유사도 구조(dark knowledge) 전달
+2. Gradient 유지  → 정답에 confident해도 학습 신호가 소멸하지 않음
+3. Landscape 개선 → Loss surface가 더 smooth, flat minimum 형성
+4. 정규화 효과    → Over-confident prediction 억제, generalization 향상</code></pre>
+<div class="callout callout-style-default callout-tip callout-titled" title="무선통신 비유">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>무선통신 비유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Hard label로만 학습하는 것은 마치 binary decision (0/1)만으로 채널 추정을 하는 것과 같다. Soft label은 <strong>LLR(Log-Likelihood Ratio)</strong>처럼 신뢰도 정보를 함께 전달하여, 수신단(student model)이 더 정확하고 robust한 추정을 할 수 있도록 한다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="loss-landscape란-정확히-무엇인가" class="level2" data-number="16.2">
+<h2 data-number="16.2" class="anchored" data-anchor-id="loss-landscape란-정확히-무엇인가"><span class="header-section-number">16.2</span> “Loss Landscape”란 정확히 무엇인가?</h2>
+<p>한 마디로 <strong>파라미터 공간에서 loss 함수가 만들어내는 “지형도”</strong>다.</p>
+<section id="직관적-이해" class="level3" data-number="16.2.1">
+<h3 data-number="16.2.1" class="anchored" data-anchor-id="직관적-이해"><span class="header-section-number">16.2.1</span> 직관적 이해</h3>
+<p>모델의 파라미터가 <span class="math inline">\boldsymbol{\theta} = (\theta_1, \theta_2)</span> 두 개뿐이라고 단순화하면, loss <span class="math inline">L(\theta_1, \theta_2)</span>는 3D 공간에 시각화할 수 있다. 실제 딥러닝 모델은 파라미터가 수백만~수십억 개라 직접 시각화는 불가능하지만, <strong>2D 단면을 잘라서</strong> 보거나 개념적으로 이 지형을 상상한다.</p>
+</section>
+<section id="landscape의-주요-지형지물" class="level3" data-number="16.2.2">
+<h3 data-number="16.2.2" class="anchored" data-anchor-id="landscape의-주요-지형지물"><span class="header-section-number">16.2.2</span> Landscape의 주요 지형지물</h3>
+<table class="table-striped caption-top table">
+<caption>Loss landscape의 주요 구조물</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>지형</th>
+<th>의미</th>
+<th>문제</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Global minimum</td>
+<td><span class="math inline">L</span>이 전체에서 가장 낮은 지점</td>
+<td>찾기 어려움</td>
+</tr>
+<tr class="even">
+<td>Local minimum</td>
+<td>주변보다 낮지만 전역 최소는 아님</td>
+<td>여기 갇힐 수 있음</td>
+</tr>
+<tr class="odd">
+<td>Saddle point</td>
+<td>어떤 방향은 최소, 다른 방향은 최대</td>
+<td>gradient = 0이라 탈출 어려움</td>
+</tr>
+<tr class="even">
+<td>Flat region</td>
+<td>gradient <span class="math inline">\approx 0</span>인 평탄한 구간</td>
+<td>학습이 멈춰 보임</td>
+</tr>
+<tr class="odd">
+<td>Sharp valley</td>
+<td>한 방향은 가파르고 다른 방향은 완만한 협곡</td>
+<td>ill-conditioning 문제</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="optimization-기법들이-landscape에서-무엇을-하는가" class="level3" data-number="16.2.3">
+<h3 data-number="16.2.3" class="anchored" data-anchor-id="optimization-기법들이-landscape에서-무엇을-하는가"><span class="header-section-number">16.2.3</span> Optimization 기법들이 landscape에서 무엇을 하는가</h3>
+<p>Gradient descent는 결국 <strong>이 지형 위를 걷는 탐색 과정</strong>이다. 각 기법은 지형 위에서 다음 역할을 한다.</p>
+<ul>
+<li><strong>Momentum</strong> → 관성을 이용해 협곡을 빠져나감</li>
+<li><strong>Adaptive LR</strong> → 지형의 경사도에 따라 보폭 조절</li>
+<li><strong>Good initialization</strong> → 좋은 출발 위치 선택</li>
+<li><strong>Batch normalization</strong> → 지형 자체를 더 완만하게 만듦</li>
+<li><strong>Soft label</strong> → 지형을 더 smooth하게 reshape</li>
+</ul>
+</section>
+<section id="flat-minimum-vs-sharp-minimum" class="level3" data-number="16.2.4">
+<h3 data-number="16.2.4" class="anchored" data-anchor-id="flat-minimum-vs-sharp-minimum"><span class="header-section-number">16.2.4</span> Flat Minimum vs Sharp Minimum</h3>
+<p>“Flat minimum이 generalization이 좋다”는 말도 이 맥락에서 나온다. 넓고 평평한 골짜기에 수렴하면, 파라미터가 조금 흔들려도 loss가 크게 변하지 않으므로 test 데이터에서도 안정적이다. 반면 sharp minimum은 조금만 벗어나도 loss가 폭발적으로 증가한다(Hochreiter and Schmidhuber, 1997; Keskar et al., 2017).</p>
+<div class="callout callout-style-default callout-tip callout-titled" title="무선통신 비유">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>무선통신 비유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>채널 추정에서 cost function의 landscape는 익숙한 개념이다. MMSE estimator는 <strong>convex한 이차형식(quadratic) landscape</strong>를 가지므로 global minimum이 하나뿐이고 쉽게 수렴한다. 반면 비선형 채널 모델에서의 ML estimation은 <strong>non-convex landscape</strong>를 가져서 local minimum 문제가 생긴다 — 딥러닝과 정확히 같은 상황이다.</p>
+</div>
+</div>
+</section>
+</section>
+</section>
+<section id="무선통신-관점에서-본-딥러닝-최적화" class="level1" data-number="17">
+<h1 data-number="17"><span class="header-section-number">17</span> 무선통신 관점에서 본 딥러닝 최적화</h1>
+<div class="callout callout-style-default callout-tip callout-titled" title="3축의 무선통신 대응">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>3축의 무선통신 대응
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>딥러닝 최적화의 세 축을 무선통신 관점에서 보면 다음과 같이 대응시킬 수 있다.</p>
+<ul>
+<li><strong>초기화 (Xavier/He)</strong> → <strong>pilot 배치</strong>: 잘못된 pilot은 이후 모든 추정을 망친다.</li>
+<li><strong>Momentum</strong> → <strong>필터 계수</strong>: noisy gradient를 low-pass filtering. MMSE estimator의 noise 억제와 같은 원리.</li>
+<li><strong>Adaptive LR (Adam)</strong> → <strong>adaptive modulation</strong>: 채널 상태(파라미터 stat)에 따라 step 크기를 조절.</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="핵심-정리표" class="level1" data-number="18">
+<h1 data-number="18"><span class="header-section-number">18</span> 핵심 정리표</h1>
+<table class="table-striped caption-top table">
+<caption>주요 개념 한 줄 요약</caption>
+<colgroup>
+<col style="width: 35%">
+<col style="width: 64%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>개념</th>
+<th>한 줄 요약</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Risk vs Empirical Risk</td>
+<td><span class="math inline">J^*</span>는 이상, <span class="math inline">J</span>는 그 proxy. ERM은 본질적으로 generalization을 보장하지 않음</td>
+</tr>
+<tr class="even">
+<td>Newton’s Method</td>
+<td>2차 정보로 <span class="math inline">\theta^* = \theta_0 - H^{-1}\nabla J</span>. 고차원에서 <span class="math inline">H^{-1}</span> 계산 불가</td>
+</tr>
+<tr class="odd">
+<td>GD vs SGD</td>
+<td>GD: 정확하지만 느림 / SGD: 노이즈 있지만 빠르고 local min 탈출 가능</td>
+</tr>
+<tr class="even">
+<td>Saddle point</td>
+<td>고차원에서 압도적으로 많음. Low-<span class="math inline">J</span> 영역은 대부분 진짜 local minimum</td>
+</tr>
+<tr class="odd">
+<td>Momentum</td>
+<td>과거 gradient의 EMA로 velocity 누적 → noise 억제, 협곡 탈출</td>
+</tr>
+<tr class="even">
+<td>Nesterov Momentum</td>
+<td>미래 위치에서 gradient 계산 → correction factor</td>
+</tr>
+<tr class="odd">
+<td>Xavier Init</td>
+<td>forward/backward variance 동시 보존, 비선형성 무시 가정</td>
+</tr>
+<tr class="even">
+<td>He Init</td>
+<td>ReLU의 절반 감쇠 보상 위해 분산 2배</td>
+</tr>
+<tr class="odd">
+<td>AdaGrad</td>
+<td>누적 제곱합으로 scaling. Non-convex에서 학습 조기 정지</td>
+</tr>
+<tr class="even">
+<td>RMSProp</td>
+<td>누적 대신 지수이동평균 → AdaGrad의 정지 문제 해결</td>
+</tr>
+<tr class="odd">
+<td>Adam</td>
+<td>RMSProp + Momentum + bias correction</td>
+</tr>
+<tr class="even">
+<td>Bias Correction</td>
+<td>초기 step에서 moment의 underestimate 보정</td>
+</tr>
+<tr class="odd">
+<td>Batch Normalization</td>
+<td>각 layer activation 정규화 → smoother landscape</td>
+</tr>
+<tr class="even">
+<td>Knowledge Distillation</td>
+<td>Teacher의 soft label로 student 학습 → dark knowledge 전달</td>
+</tr>
+<tr class="odd">
+<td>Loss Landscape</td>
+<td>파라미터 공간 위의 손실 지형도. flat minimum이 generalization에 유리</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="참고-자료" class="level1" data-number="19">
+<h1 data-number="19"><span class="header-section-number">19</span> 참고 자료</h1>
+<section id="goodfellow-et-al.-deep-learning-대응" class="level2" data-number="19.1">
+<h2 data-number="19.1" class="anchored" data-anchor-id="goodfellow-et-al.-deep-learning-대응"><span class="header-section-number">19.1</span> Goodfellow et al.&nbsp;<em>Deep Learning</em> 대응</h2>
+<table class="table-striped caption-top table">
+<caption>Goodfellow 교과서 대응</caption>
+<thead>
+<tr class="header">
+<th>주제</th>
+<th>Chapter / Section</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Optimization 전반</td>
+<td>Chapter 8: Optimization for Training Deep Models</td>
+</tr>
+<tr class="even">
+<td>Empirical Risk Minimization</td>
+<td>§8.1.1</td>
+</tr>
+<tr class="odd">
+<td>Surrogate Loss</td>
+<td>§8.1.2</td>
+</tr>
+<tr class="even">
+<td>Local Minima, Saddle Points</td>
+<td>§8.2.3 ~ §8.2.5</td>
+</tr>
+<tr class="odd">
+<td>Cliffs, Vanishing Gradients</td>
+<td>§8.2.5 ~ §8.2.6</td>
+</tr>
+<tr class="even">
+<td>SGD</td>
+<td>§8.3</td>
+</tr>
+<tr class="odd">
+<td>Momentum</td>
+<td>§8.3.2</td>
+</tr>
+<tr class="even">
+<td>Nesterov Momentum</td>
+<td>§8.3.3</td>
+</tr>
+<tr class="odd">
+<td>Initialization</td>
+<td>§8.4</td>
+</tr>
+<tr class="even">
+<td>AdaGrad / RMSProp / Adam</td>
+<td>§8.5</td>
+</tr>
+<tr class="odd">
+<td>Batch Normalization</td>
+<td>§8.7.1</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="d2l.ai-대응" class="level2" data-number="19.2">
+<h2 data-number="19.2" class="anchored" data-anchor-id="d2l.ai-대응"><span class="header-section-number">19.2</span> d2l.ai 대응</h2>
+<table class="table-striped caption-top table">
+<caption>d2l.ai 대응</caption>
+<thead>
+<tr class="header">
+<th>주제</th>
+<th>Section</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Optimization Algorithms 전반</td>
+<td><a href="https://d2l.ai/chapter_optimization/">Chapter 12</a></td>
+</tr>
+<tr class="even">
+<td>Gradient Descent</td>
+<td><a href="https://d2l.ai/chapter_optimization/gd.html">§12.3</a></td>
+</tr>
+<tr class="odd">
+<td>Stochastic Gradient Descent</td>
+<td><a href="https://d2l.ai/chapter_optimization/sgd.html">§12.4</a></td>
+</tr>
+<tr class="even">
+<td>Minibatch SGD</td>
+<td><a href="https://d2l.ai/chapter_optimization/minibatch-sgd.html">§12.5</a></td>
+</tr>
+<tr class="odd">
+<td>Momentum</td>
+<td><a href="https://d2l.ai/chapter_optimization/momentum.html">§12.6</a></td>
+</tr>
+<tr class="even">
+<td>AdaGrad</td>
+<td><a href="https://d2l.ai/chapter_optimization/adagrad.html">§12.7</a></td>
+</tr>
+<tr class="odd">
+<td>RMSProp</td>
+<td><a href="https://d2l.ai/chapter_optimization/rmsprop.html">§12.8</a></td>
+</tr>
+<tr class="even">
+<td>Adam</td>
+<td><a href="https://d2l.ai/chapter_optimization/adam.html">§12.10</a></td>
+</tr>
+<tr class="odd">
+<td>Numerical Stability and Initialization</td>
+<td><a href="https://d2l.ai/chapter_multilayer-perceptrons/numerical-stability-and-init.html">§5.4</a></td>
+</tr>
+<tr class="even">
+<td>Batch Normalization</td>
+<td><a href="https://d2l.ai/chapter_convolutional-modern/batch-norm.html">§8.5</a></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="mathematics-for-machine-learning-대응" class="level2" data-number="19.3">
+<h2 data-number="19.3" class="anchored" data-anchor-id="mathematics-for-machine-learning-대응"><span class="header-section-number">19.3</span> Mathematics for Machine Learning 대응</h2>
+<table class="table-striped caption-top table">
+<caption>Mathematics for ML 대응</caption>
+<thead>
+<tr class="header">
+<th>주제</th>
+<th>Chapter</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Gradient descent 수렴 이론</td>
+<td><a href="https://gwthomas.github.io/docs/math4ml.pdf">Chapter 4: Optimization</a></td>
+</tr>
+<tr class="even">
+<td>Hessian, Taylor 전개</td>
+<td>Chapter 4</td>
+</tr>
+<tr class="odd">
+<td>Lagrangian / KKT (제약 최적화)</td>
+<td>Chapter 4</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="핵심-논문" class="level2" data-number="19.4">
+<h2 data-number="19.4" class="anchored" data-anchor-id="핵심-논문"><span class="header-section-number">19.4</span> 핵심 논문</h2>
+<ul>
+<li>Polyak, B. T. (1964). “Some methods of speeding up the convergence of iteration methods.” <em>USSR Computational Mathematics and Mathematical Physics</em>. (Momentum의 원조)</li>
+<li>Glorot, X., and Bengio, Y. (2010). “Understanding the difficulty of training deep feedforward neural networks.” <em>AISTATS</em>. (Xavier initialization)</li>
+<li>He, K., Zhang, X., Ren, S., and Sun, J. (2015). “Delving deep into rectifiers.” <em>ICCV</em>. (He initialization)</li>
+<li>Duchi, J., Hazan, E., and Singer, Y. (2011). “Adaptive subgradient methods for online learning and stochastic optimization.” <em>JMLR</em>. (AdaGrad)</li>
+<li>Kingma, D. P., and Ba, J. (2014). “Adam: A method for stochastic optimization.” <em>ICLR</em>. (Adam)</li>
+<li>Ioffe, S., and Szegedy, C. (2015). “Batch normalization: Accelerating deep network training by reducing internal covariate shift.” <em>ICML</em>.</li>
+<li>Hinton, G., Vinyals, O., and Dean, J. (2015). “Distilling the knowledge in a neural network.” <em>arXiv</em>. (Knowledge Distillation)</li>
+<li>Finn, C., Abbeel, P., and Levine, S. (2017). “Model-agnostic meta-learning for fast adaptation of deep networks.” <em>ICML</em>. (MAML)</li>
+<li>Bengio, Y., Louradour, J., Collobert, R., and Weston, J. (2009). “Curriculum learning.” <em>ICML</em>.</li>
+</ul>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<script src="../../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>
