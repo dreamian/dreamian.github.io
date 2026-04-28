@@ -1,0 +1,496 @@
+---
+title: "Sequence Modeling: RNN, LSTM, GRU"
+description: "가변 길이 데이터를 위한 순환 구조와 장기 의존성 문제"
+date: "2026-04-28"
+categories: [Deep Learning, Sequence Modeling, RNN, LSTM, GRU]
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: false
+    html-math-method: katex
+---
+
+# 시퀀스 모델링이란
+
+지금까지 다룬 데이터들 — 이미지, 그래프 — 은 길이가 **고정된 스냅샷(snapshot)** 형태였다. 그러나 현실의 많은 데이터는 **가변 길이(variable length)**를 갖는다.
+
+| 도메인 | 예시 |
+|--------|------|
+| 자연어 처리 | 문장, 문서 |
+| 시계열 | 주가, 센서 데이터 |
+| 영상 | 비디오 프레임 |
+| 음성 | 음성 신호 |
+
+::: {.callout-note}
+## 무선통신 관점
+
+채널 임펄스 응답(CIR), CSI 시퀀스, 시간에 따른 fading process, OFDM symbol stream 등이 모두 시퀀스 모델링의 대상이다. 통계적으로는 **랜덤 프로세스(stochastic process)**의 추정·예측 문제로 환원된다.
+:::
+
+## 핵심 도전 과제
+
+1. **장기 의존성(Long-term dependency)**: 멀리 떨어진 시점의 정보를 어떻게 보존할 것인가?
+2. **컨텍스트 인코딩(Context encoding)**: 같은 단어라도 문맥에 따라 의미가 달라진다 ("Buffalo buffalo Buffalo buffalo..." 같은 문장 참조).
+
+---
+
+# 동적 시스템과 RNN의 출발점
+
+## 자기회귀적 동적 시스템
+
+외부 입력 없이 상태가 진화하는 가장 단순한 형태:
+
+$$s^{(t)} = f(s^{(t-1)}; \theta)$$
+
+이를 시간축으로 펼치면(unfold) 모든 과거 상태를 명시적으로 표현할 수 있다.
+
+## 외부 신호가 있는 동적 시스템
+
+외부 입력 $x^{(t)}$가 주어지면:
+
+$$s^{(t)} = f(s^{(t-1)}, x^{(t)}; \theta)$$
+
+이때 $s^{(t)}$는 **과거 전체 시퀀스에 대한 정보를 압축한 표현**이 된다. 이 상태를 **hidden state** $h^{(t)}$라 부르고 학습 가능한 함수 $f$로 구현하면, 그것이 바로 **Recurrent Neural Network**:
+
+$$\boxed{\;h^{(t)} = f(h^{(t-1)}, x^{(t)}; \theta)\;}$$
+
+::: {.callout-tip}
+## 통계적 직관
+
+이는 **HMM(Hidden Markov Model)의 신경망 일반화**로 볼 수 있다. HMM이 이산 상태와 선형 천이 확률을 가정한다면, RNN은 연속 상태와 비선형 천이를 학습한다.
+:::
+
+---
+
+# RNN의 기본 수식과 가중치 표기
+
+## 표준 Vanilla RNN 수식
+
+$$h_t = \tanh(W_{hh}\,h_{t-1} + W_{xh}\,x_t)$$
+$$y_t = W_{hy}\,h_t$$
+
+## 가중치 행렬 네이밍 규칙
+
+기호 $W_{\square\square}$는 일반적으로 **"$W_{\text{from}\to\text{to}}$"**로 읽는다 (단, 표기 컨벤션은 자료마다 다르므로 항상 정의를 확인).
+
+| 행렬 | 역할 | 차원 |
+|------|------|------|
+| $W_{xh}$ | 입력 $x_t$ → hidden $h_t$ 투영 | $d_h \times d_x$ |
+| $W_{hh}$ | 이전 hidden $h_{t-1}$ → 현재 hidden $h_t$ | $d_h \times d_h$ |
+| $W_{hy}$ | hidden $h_t$ → 출력 $y_t$ | $d_y \times d_h$ |
+
+## 차원 추적 예시
+
+$d_x=10$, $d_h=20$, $d_y=5$일 때:
+
+```
+x_t      : (10,)
+W_xh @ x_t     = (20, 10) @ (10,)  = (20,)
+W_hh @ h_{t-1} = (20, 20) @ (20,)  = (20,)
+                                  ↓ + 
+                              tanh → h_t : (20,)
+W_hy @ h_t     = (5, 20) @ (20,)   = y_t : (5,)
+```
+
+## 가중치 공유(Weight Sharing)
+
+$W_{hh}, W_{xh}, W_{hy}$는 **모든 time step에서 동일**하다.
+
+$$h_1 = \tanh(\mathbf{W_{hh}}h_0 + \mathbf{W_{xh}}x_1)$$
+$$h_2 = \tanh(\mathbf{W_{hh}}h_1 + \mathbf{W_{xh}}x_2)$$
+$$h_3 = \tanh(\mathbf{W_{hh}}h_2 + \mathbf{W_{xh}}x_3)$$
+
+이는 CNN의 spatial weight sharing과 같은 철학으로, **시퀀스 길이와 무관하게 파라미터 수를 고정**시킨다.
+
+::: {.callout-note}
+## 무선통신 analogy: Kalman 필터와의 정확한 대응
+
+선형 가우시안 상태공간 모델
+$$s_t = F\,s_{t-1} + G\,u_t + w_t$$
+
+| Kalman | RNN |
+|--------|-----|
+| $F$ (state transition matrix) | $W_{hh}$ |
+| $G$ (input matrix) | $W_{xh}$ |
+| $H$ (observation matrix) | $W_{hy}$ |
+| 선형 + 가우시안 잡음 | 비선형 ($\tanh$), 결정론적 |
+
+RNN은 Kalman 필터의 비선형·학습 가능 일반화로 해석할 수 있다.
+:::
+
+## RNN 다이어그램 해석 시 주의
+
+많은 unfolded 다이어그램에서 hidden state $h^{(t)}$만 그리고 출력 $y^{(t)}$는 생략한다. 이는 **recurrence 메커니즘 자체를 강조**하기 위함이며, 실제로는 각 시점마다 출력 readout이 별도로 존재한다.
+
+출력은 task에 따라 형태가 다르다:
+
+| Task | 출력 형태 |
+|------|-----------|
+| Many-to-many (번역, POS tagging) | 모든 $t$에서 $\hat{y}^{(t)}$ |
+| Many-to-one (감성분석) | 마지막 $T$에서만 $\hat{y}^{(T)}$ |
+| One-to-many (이미지 캡셔닝) | 첫 입력 후 매 $t$에서 출력 |
+
+---
+
+# 활성화 함수: 왜 Tanh인가
+
+## 핵심 이유 세 가지
+
+### Bounded output: $(-1, +1)$
+
+$$\tanh(z) = \frac{e^z - e^{-z}}{e^z + e^{-z}} \in (-1, +1)$$
+
+RNN에서 hidden state는 **시간축으로 반복 적용**된다:
+
+$$h^{(t)} = \tanh(W_h \cdot \tanh(W_h \cdot \tanh(\cdots)))$$
+
+만약 활성화가 unbounded(예: ReLU)였다면 $\|W_h\| > 1$ 방향으로 값이 기하급수적으로 발산할 수 있다. Tanh의 포화 특성이 **state 발산을 방지하는 soft limiter** 역할을 한다.
+
+### Zero-centered
+
+| Activation | 출력 범위 | Zero-centered |
+|-----------|----------|---------------|
+| Sigmoid | $(0, 1)$ | ✗ |
+| **tanh** | $(-1, +1)$ | ✓ |
+| ReLU | $[0, \infty)$ | ✗ |
+
+Sigmoid는 항상 양수 출력을 내므로 다음 층으로 넘어간 gradient가 항상 같은 부호를 갖게 되어 **zigzag update** 문제를 일으킨다. tanh는 양/음 모두 표현 가능하므로 hidden state가 자연스럽게 양방향으로 움직일 수 있다.
+
+### Gradient 전파에서 sigmoid 대비 우위
+
+$$\frac{d}{dz}\tanh(z) = 1 - \tanh^2(z) \in (0, 1]$$
+
+BPTT(Backpropagation Through Time)에서 hidden state gradient는
+
+$$\frac{\partial h^{(t)}}{\partial h^{(k)}} = \prod_{\tau=k+1}^{t} W_h^\top \cdot \mathrm{diag}(1 - (h^{(\tau)})^2)$$
+
+여기서 미분의 최댓값을 비교하면:
+
+- $\tanh$ 미분의 최댓값: **1**
+- sigmoid 미분의 최댓값: **0.25**
+
+→ tanh가 sigmoid보다 vanishing이 약 **4배 느리게** 발생한다.
+
+::: {.callout-warning}
+## 그래도 한계는 존재
+
+Saturation 영역에서는 $1 - \tanh^2(z) \to 0$이 되어 여전히 vanishing이 발생한다. 이것이 **LSTM/GRU 등장의 직접적 동기**이며, 이들은 tanh를 완전히 버리지 않고 **gate를 통해 별도의 gradient highway를 추가**한다.
+:::
+
+::: {.callout-note}
+## 무선통신 analogy
+
+Tanh의 포화 특성은 **PA(Power Amplifier)의 saturation curve**와 유사하다. 입력이 작으면 선형이지만 입력이 크면 출력이 $\pm V_\text{sat}$로 clamping되는 비선형 거동이 양쪽 모두에서 동일하다. RNN을 feedback loop가 있는 시스템으로 본다면, tanh는 발진(divergence)을 막는 자연스러운 limiter다.
+:::
+
+---
+
+# RNN의 세 가지 아키텍처 타입
+
+## Type 1: Hidden-to-Hidden Recurrence
+
+$$h^{(t)} = \tanh(W h^{(t-1)} + U x^{(t)} + b)$$
+$$o^{(t)} = V h^{(t)} + c$$
+
+매 시점 출력 + hidden state 간 연결. **가장 일반적이고 강력한 형태**.
+
+- **장점**: $h^{(t)}$가 과거 전체에 대한 충분통계량(sufficient statistic)을 형성할 수 있어 표현력이 높다.
+- **단점**: 본질적으로 **순차 계산**이 강제된다.
+
+## Type 2: Output-to-Hidden Recurrence (Teacher Forcing)
+
+$$h^{(t)} = \tanh(W o^{(t-1)} + U x^{(t)} + b)$$
+
+Hidden 간 직접 연결이 없고, 이전 **출력** $o^{(t-1)}$만 다음 hidden으로 들어간다. 훈련 시 $o^{(t-1)}$ 대신 **정답** $y^{(t-1)}$을 주입하는 것이 **Teacher Forcing**이다.
+
+### 장점: 훈련 시 병렬화 가능
+
+병렬화가 가능한 이유는 **데이터 의존성의 끊김(decoupling)** 때문이다.
+
+**Type 1의 의존성 사슬**:
+
+$$h^{(1)} \to h^{(2)} \to h^{(3)} \to \cdots$$
+
+→ $h^{(t)}$를 계산하려면 반드시 $h^{(t-1)}$이 먼저 완성되어야 한다. GPU가 아무리 많아도 한 step씩 순차 진행할 수밖에 없다.
+
+**Type 2 + Teacher Forcing의 의존성**:
+
+$$h^{(t)} = \tanh(W \cdot \underbrace{y^{(t-1)}}_{\text{ground truth}} + U x^{(t)})$$
+
+$y^{(0)}, y^{(1)}, \ldots, y^{(T)}$가 **훈련 데이터에 이미 모두 주어져 있으므로** 모든 hidden state를 동시에 계산할 수 있다.
+
+```
+훈련 시 (병렬):
+    h^(1), h^(2), h^(3), ..., h^(T)  ←─ 한 번에 계산
+                                         (모든 y가 이미 알려짐)
+```
+
+| | Type 1 (h→h) | Type 2 (o→h, Teacher Forcing) |
+|--|--|--|
+| 의존성 | $h^{(t)} \leftarrow h^{(t-1)}$ | $h^{(t)} \leftarrow y^{(t-1)}$ (정답) |
+| 훈련 시 정답 접근 | 의미 없음 | 항상 보유 |
+| 병렬화 | 불가 | 가능 |
+| 표현력 | 높음 | 낮음 (history bottleneck) |
+
+### 단점: Less Powerful + Exposure Bias
+
+$h^{(t)}$가 $h^{(t-1)}$과 직접 연결되지 않고 $o^{(t-1)}$이라는 **저차원 병목**을 거쳐야 하므로, $o$의 차원이 작으면 history 정보가 손실된다.
+
+또한 훈련(정답 사용)과 추론(자기 출력 사용)의 분포가 달라지는 **exposure bias** 문제가 발생한다.
+
+::: {.callout-note}
+## 무선통신 analogy: Pilot-aided Estimation
+
+Teacher Forcing은 **pilot-aided channel estimation**과 본질이 같다.
+
+| 무선통신 | Type 2 RNN |
+|----------|------------|
+| Pilot symbol 삽입 (송신기가 알려진 신호 송출) | 훈련 시 정답 $y^{(t)}$ 주입 |
+| Pilot 구간에서 채널 추정 | hidden state 업데이트 |
+| 데이터 구간에서는 추정값으로 demodulation | 추론 시 자기 출력 $o^{(t)}$ 재귀 사용 |
+
+훈련(파일럿 사용)과 추론(데이터 구간) 간의 mismatch가 정확히 exposure bias와 같다.
+:::
+
+## Type 3: Sequence-to-One
+
+전체 시퀀스를 읽고 마지막에 단 하나의 출력만 생성. 분류 문제(감성분석, 문서 분류)에 적합. 구조는 Type 1과 유사하지만 출력 단자가 마지막 시점에만 있다.
+
+---
+
+# 장기 의존성 문제: Eigendecomposition 분석
+
+## 왜 RNN이 긴 시퀀스에서 무너지는가
+
+선형 RNN을 가정하고 단순화하자:
+$$h^{(t)} = W h^{(t-1)}$$
+
+→ $h^{(t)} = W^t h^{(0)}$
+
+$W$를 고유분해 $W = Q \Lambda Q^{-1}$로 쓰면:
+
+$$h^{(t)} = Q \Lambda^t Q^{-1} h^{(0)}$$
+
+여기서 $\Lambda^t$의 거동을 보면:
+
+| 조건 | 결과 |
+|------|------|
+| $\|\lambda_i\| < 1$ | $\lambda_i^t \to 0$ → **Gradient Vanishing** |
+| $\|\lambda_i\| > 1$ | $\lambda_i^t \to \infty$ → **Gradient Exploding** |
+| $\|\lambda_i\| = 1$ | 안정 (그러나 매우 좁은 영역) |
+
+$\|\lambda_i\| = 1$ 위에 정확히 머물게 만드는 것은 사실상 불가능하므로, **거의 모든 RNN은 vanishing 또는 exploding으로 간다**.
+
+비선형 $\tanh$가 추가되어도 saturation 시 미분이 0이 되므로 vanishing은 더 악화된다.
+
+::: {.callout-tip}
+## 무선통신 analogy: 시스템의 안정성
+
+이는 LTI 시스템의 BIBO 안정성과 같은 논리다. 극점(pole)이 단위원 안에 있으면 응답이 감쇠($\to 0$), 밖에 있으면 발산($\to \infty$)한다. RNN의 $W_{hh}$ 고유값이 정확히 같은 역할을 한다.
+:::
+
+## 표현력의 양면성
+
+다른 관점도 있다. 비선형 함수를 깊게 합성하면 합성 함수는 매우 표현력이 높아진다 — 하지만 그 대가로 gradient landscape가 험악해진다. 즉 **표현력과 학습 가능성의 trade-off**가 RNN 깊이에 내재된 근본 문제다.
+
+---
+
+# 게이팅: LSTM과 GRU
+
+## 게이팅의 핵심 아이디어
+
+$f(x) = a \cdot x$ ($a \in [0,1]$, 단순 감쇠)를
+
+$$f(x) = a \cdot x + (1-a) \cdot m$$
+
+로 바꾸자. 여기서 $m$은 **메모리**, $a$는 **게이트**(학습되는 값).
+
+→ 과거를 그대로 통과시키는 경로(memory path)와 새 정보를 융합하는 경로를 **분리**할 수 있다. 이것이 long-term dependency 문제의 핵심 해결책이다.
+
+## LSTM: Long Short-Term Memory
+
+LSTM은 **두 종류의 상태**를 갖는다:
+
+- $c_t$ (cell state): long-term 메모리
+- $h_t$ (hidden state): short-term 메모리이자 출력
+
+### 4개의 Gate
+
+$$f_t = \sigma(W_f [h_{t-1}, x_t] + b_f) \quad \text{(forget gate)}$$
+$$i_t = \sigma(W_i [h_{t-1}, x_t] + b_i) \quad \text{(input gate)}$$
+$$o_t = \sigma(W_o [h_{t-1}, x_t] + b_o) \quad \text{(output gate)}$$
+$$g_t = \tanh(W_g [h_{t-1}, x_t] + b_g) \quad \text{(candidate cell)}$$
+
+### Cell state와 hidden state 갱신
+
+$$c_t = f_t \odot c_{t-1} + i_t \odot g_t$$
+$$h_t = o_t \odot \tanh(c_t)$$
+
+여기서 $\odot$은 element-wise product.
+
+::: {.callout-important}
+## 핵심: Cell state는 별도의 Gradient Highway
+
+$c_t = f_t \odot c_{t-1} + i_t \odot g_t$에서 $f_t \approx 1$일 때 $c_{t-1}$이 거의 그대로 유지된다. 즉
+
+$$\frac{\partial c_t}{\partial c_{t-1}} \approx f_t$$
+
+가 곱셈이 아니라 **forget gate에 의해 선택적으로 1에 가깝게 유지**될 수 있다. 이것이 long-term gradient flow를 가능케 하는 LSTM의 핵심이다.
+:::
+
+## GRU: Gated Recurrent Unit
+
+$$r_t = \sigma(W_r [h_{t-1}, x_t]) \quad \text{(reset gate)}$$
+$$z_t = \sigma(W_z [h_{t-1}, x_t]) \quad \text{(update gate)}$$
+$$\tilde{h}_t = \tanh(W [r_t \odot h_{t-1}, x_t]) \quad \text{(candidate hidden)}$$
+$$h_t = (1 - z_t) \odot h_{t-1} + z_t \odot \tilde{h}_t$$
+
+GRU는 **cell state를 따로 두지 않고** $h_t$ 하나로 long/short-term을 모두 처리한다. Gate도 4개에서 2개로 축소되었다.
+
+## LSTM vs GRU 정밀 비교
+
+| 항목 | LSTM | GRU |
+|------|------|-----|
+| 메모리 구조 | $c_t$, $h_t$ **분리** | $h_t$ 단일 |
+| Gate 개수 | 4 (forget, input, output, candidate) | 2 (reset, update) |
+| 파라미터 수 (대략) | $4 \times d_h(d_h + d_x)$ | $3 \times d_h(d_h + d_x)$ |
+| 표현력 (이론) | 높음 | 낮음 |
+| 학습 데이터 요구량 | 많음 | 적음 |
+| 추론 속도 | 느림 | 빠름 |
+
+### 어느 것을 선택할 것인가
+
+::: {.callout-warning}
+## "GRU가 항상 좋다"는 잘못된 통념
+
+원 슬라이드에는 "GRU가 LSTM과 on par"라고 되어 있지만, 실제로는 task에 따라 결과가 갈린다. 일반적 가이드라인:
+
+**LSTM 선호**:
+- 매우 긴 시퀀스 (수백 step 이상)
+- 데이터가 충분
+- Fine-grained 메모리 제어가 필요
+
+**GRU 선호**:
+- 데이터가 적음 (overfitting 위험)
+- 짧거나 중간 길이 시퀀스
+- 실시간 추론이 중요 (엣지 디바이스)
+:::
+
+::: {.callout-note}
+## 무선통신 analogy: HARQ 버퍼 구조
+
+| 무선통신 | LSTM | GRU |
+|----------|------|-----|
+| 메모리 관리 | HARQ soft buffer + combining buffer 분리 | 통합 버퍼 |
+| 장점 | 정밀한 별도 관리 | 단순, 오버헤드 적음 |
+| 적합 시나리오 | 다중 라운드 재전송 (긴 의존성) | 단일 hop, 짧은 패킷 |
+
+LSTM의 $c_t$는 **장거리 채널 메모리를 별도로 관리**하는 것과 같고, GRU는 이를 하나의 state로 압축한 형태로 볼 수 있다.
+:::
+
+---
+
+# 장기 의존성을 다루는 다른 접근들
+
+게이팅 외에도 다양한 시도들이 존재한다.
+
+## Skip connections through time
+
+ResNet/DenseNet의 시간축 버전. 멀리 떨어진 시점을 직접 연결.
+
+$$h^{(t)} = f(h^{(t-1)}, x^{(t)}) + h^{(t-d)}$$
+
+## Leaky units
+
+$$\mu^{(t)} \leftarrow \alpha\, \mu^{(t-1)} + (1-\alpha)\, v^{(t)}$$
+
+지수이동평균(EMA) 형태. $\alpha$가 1에 가까우면 천천히 변하는 long-term 정보, 0에 가까우면 빠른 변화 추적. 무선통신의 **EMA 기반 채널 추정**과 동일한 구조다.
+
+## Optimization tricks
+
+- **Gradient clipping**: $\|g\| > c$일 때 $g \leftarrow \frac{c\, g}{\|g\|}$. Exploding 대응.
+- **Information flow regularization**: Vanishing 대응.
+
+## Explicit memory
+
+Memory Network처럼 **외부 메모리 저장소**를 둠. 인간의 작업 기억(working memory)과 유사한 구조.
+
+---
+
+# 양방향성과 Seq-to-Seq
+
+## Bidirectional RNN
+
+이전 시점만이 아니라 **이후 시점**의 정보도 활용해야 할 때 (예: 문장 전체를 본 뒤 단어 의미 결정). 양방향 hidden state를 둔다:
+
+$$\overrightarrow{h}^{(t)} = f(\overrightarrow{h}^{(t-1)}, x^{(t)})$$
+$$\overleftarrow{h}^{(t)} = f(\overleftarrow{h}^{(t+1)}, x^{(t)})$$
+$$y^{(t)} = g(\overrightarrow{h}^{(t)}, \overleftarrow{h}^{(t)})$$
+
+::: {.callout-note}
+## 무선통신 analogy: Forward-Backward Smoothing
+
+Kalman filter가 forward-only 추정이라면, Bidirectional RNN은 **Rauch-Tung-Striebel(RTS) smoother**의 신경망 버전이다. 전체 관측을 본 뒤 forward와 backward 추정치를 결합해 더 정확한 state 추정을 얻는 방식과 동일하다.
+:::
+
+## Seq-to-Seq (Encoder-Decoder)
+
+가변 길이 입력을 가변 길이 출력으로 변환하는 범용 구조.
+
+```
+입력 시퀀스 → [Encoder RNN] → context c → [Decoder RNN] → 출력 시퀀스
+```
+
+- **Encoder**: 입력 전체를 읽고 마지막 hidden state $c$를 의미 요약(semantic summary)으로 압축
+- **Decoder**: $c$를 시작으로 출력을 한 토큰씩 생성
+
+응용:
+- 기계 번역 (입력: 영어, 출력: 한국어)
+- 질의응답
+- 챗봇
+
+::: {.callout-warning}
+## Seq-to-Seq의 병목
+
+고정 크기 $c$ 하나에 입력 전체를 압축하므로, 긴 입력에서는 정보 손실이 심각하다. 이것이 **Attention 메커니즘**과 후속의 **Transformer**가 등장하는 직접적 동기다.
+:::
+
+---
+
+# Deep RNN과 Recursive Neural Network
+
+## Deep RNN
+
+여러 RNN 레이어를 수직으로 쌓아 표현력을 높임. 같은 시점에서 lower hidden → upper hidden으로 정보가 흐른다.
+
+## Recursive Neural Network
+
+체인 구조가 아닌 **트리 구조** 계산 그래프.
+
+- 시퀀스 길이 $\tau$에 대해 계산 깊이가 $\tau$가 아니라 $\log \tau$
+- 자연스러운 트리 구조(파스 트리, 장면 그래프)에 적합
+- Long-term dependency가 더 짧은 경로로 연결됨
+
+---
+
+# 요약
+
+1. 시퀀스 모델링의 두 큰 도전 — **장기 의존성**과 **컨텍스트 인코딩** — 은 모든 sequence model의 평가 기준이다.
+2. **Vanilla RNN**은 가중치 공유와 hidden state 압축이라는 우아한 아이디어지만, eigendecomposition 분석에서 보듯 **gradient vanishing/exploding**에 본질적으로 취약하다.
+3. **Tanh**는 bounded·zero-centered 특성과 sigmoid 대비 큰 미분값으로 RNN의 표준 활성화가 되었지만, saturation 영역에서의 vanishing을 완전히 막지는 못한다.
+4. **Type 1/2/3 RNN**의 구조 차이는 데이터 의존성 패턴을 결정하며, **Teacher Forcing(Type 2)**은 훈련 병렬화를 가능케 하는 대신 exposure bias를 야기한다.
+5. **LSTM/GRU**의 게이팅은 **gradient highway**를 만들어 long-term dependency 문제를 완화한다. LSTM은 cell state로 long/short-term을 분리하고, GRU는 단순화·경량화를 추구한다. 둘 사이의 선택은 데이터·시퀀스 길이·연산 자원에 따른 trade-off다.
+6. **Bidirectional RNN, Seq-to-Seq, Deep RNN, Recursive NN** 등은 RNN의 변형으로 각자의 inductive bias에 맞는 task를 다룬다.
+7. 그러나 RNN 계열의 본질적 순차성은 병렬 연산 시대에 한계로 작용했고, 이는 **Attention**과 **Transformer**의 등장으로 이어진다.
+
+---
+
+# 참고 자료
+
+- Goodfellow et al., *Deep Learning*, Chapter 10 (Sequence Modeling)
+- Hochreiter & Schmidhuber, "Long Short-Term Memory", *Neural Computation* (1997)
+- Cho et al., "Learning Phrase Representations using RNN Encoder-Decoder for Statistical Machine Translation", *EMNLP* (2014)
+- d2l.ai, Chapters 9–10 (Recurrent Neural Networks, Modern RNNs)
+- Thomas, *Mathematics for Machine Learning* notes (선형대수 고유분해, 확률 기초)

@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.35">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-04-28">
+<meta name="description" content="가변 길이 데이터를 위한 순환 구조와 장기 의존성 문제">
+
+<title>Sequence Modeling: RNN, LSTM, GRU – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-46f66b053e56abd73bb6e954d61a315b.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-da17d83626a3727898eb25bb9d1cdf08.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<!-- Privacy-friendly analytics by Plausible -->
+<script async="" src="https://plausible.io/js/pa-q1uQ7QEv5o9DOQFiYigvC.js"></script>
+<script>
+  window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+  plausible.init()
+</script>
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#시퀀스-모델링이란" id="toc-시퀀스-모델링이란" class="nav-link active" data-scroll-target="#시퀀스-모델링이란"><span class="header-section-number">1</span> 시퀀스 모델링이란</a>
+  <ul class="collapse">
+  <li><a href="#핵심-도전-과제" id="toc-핵심-도전-과제" class="nav-link" data-scroll-target="#핵심-도전-과제"><span class="header-section-number">1.1</span> 핵심 도전 과제</a></li>
+  </ul></li>
+  <li><a href="#동적-시스템과-rnn의-출발점" id="toc-동적-시스템과-rnn의-출발점" class="nav-link" data-scroll-target="#동적-시스템과-rnn의-출발점"><span class="header-section-number">2</span> 동적 시스템과 RNN의 출발점</a>
+  <ul class="collapse">
+  <li><a href="#자기회귀적-동적-시스템" id="toc-자기회귀적-동적-시스템" class="nav-link" data-scroll-target="#자기회귀적-동적-시스템"><span class="header-section-number">2.1</span> 자기회귀적 동적 시스템</a></li>
+  <li><a href="#외부-신호가-있는-동적-시스템" id="toc-외부-신호가-있는-동적-시스템" class="nav-link" data-scroll-target="#외부-신호가-있는-동적-시스템"><span class="header-section-number">2.2</span> 외부 신호가 있는 동적 시스템</a></li>
+  </ul></li>
+  <li><a href="#rnn의-기본-수식과-가중치-표기" id="toc-rnn의-기본-수식과-가중치-표기" class="nav-link" data-scroll-target="#rnn의-기본-수식과-가중치-표기"><span class="header-section-number">3</span> RNN의 기본 수식과 가중치 표기</a>
+  <ul class="collapse">
+  <li><a href="#표준-vanilla-rnn-수식" id="toc-표준-vanilla-rnn-수식" class="nav-link" data-scroll-target="#표준-vanilla-rnn-수식"><span class="header-section-number">3.1</span> 표준 Vanilla RNN 수식</a></li>
+  <li><a href="#가중치-행렬-네이밍-규칙" id="toc-가중치-행렬-네이밍-규칙" class="nav-link" data-scroll-target="#가중치-행렬-네이밍-규칙"><span class="header-section-number">3.2</span> 가중치 행렬 네이밍 규칙</a></li>
+  <li><a href="#차원-추적-예시" id="toc-차원-추적-예시" class="nav-link" data-scroll-target="#차원-추적-예시"><span class="header-section-number">3.3</span> 차원 추적 예시</a></li>
+  <li><a href="#가중치-공유weight-sharing" id="toc-가중치-공유weight-sharing" class="nav-link" data-scroll-target="#가중치-공유weight-sharing"><span class="header-section-number">3.4</span> 가중치 공유(Weight Sharing)</a></li>
+  <li><a href="#rnn-다이어그램-해석-시-주의" id="toc-rnn-다이어그램-해석-시-주의" class="nav-link" data-scroll-target="#rnn-다이어그램-해석-시-주의"><span class="header-section-number">3.5</span> RNN 다이어그램 해석 시 주의</a></li>
+  </ul></li>
+  <li><a href="#활성화-함수-왜-tanh인가" id="toc-활성화-함수-왜-tanh인가" class="nav-link" data-scroll-target="#활성화-함수-왜-tanh인가"><span class="header-section-number">4</span> 활성화 함수: 왜 Tanh인가</a>
+  <ul class="collapse">
+  <li><a href="#핵심-이유-세-가지" id="toc-핵심-이유-세-가지" class="nav-link" data-scroll-target="#핵심-이유-세-가지"><span class="header-section-number">4.1</span> 핵심 이유 세 가지</a>
+  <ul class="collapse">
+  <li><a href="#bounded-output--1-1" id="toc-bounded-output--1-1" class="nav-link" data-scroll-target="#bounded-output--1-1"><span class="header-section-number">4.1.1</span> Bounded output: <span class="math inline">(-1, +1)</span></a></li>
+  <li><a href="#zero-centered" id="toc-zero-centered" class="nav-link" data-scroll-target="#zero-centered"><span class="header-section-number">4.1.2</span> Zero-centered</a></li>
+  <li><a href="#gradient-전파에서-sigmoid-대비-우위" id="toc-gradient-전파에서-sigmoid-대비-우위" class="nav-link" data-scroll-target="#gradient-전파에서-sigmoid-대비-우위"><span class="header-section-number">4.1.3</span> Gradient 전파에서 sigmoid 대비 우위</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#rnn의-세-가지-아키텍처-타입" id="toc-rnn의-세-가지-아키텍처-타입" class="nav-link" data-scroll-target="#rnn의-세-가지-아키텍처-타입"><span class="header-section-number">5</span> RNN의 세 가지 아키텍처 타입</a>
+  <ul class="collapse">
+  <li><a href="#type-1-hidden-to-hidden-recurrence" id="toc-type-1-hidden-to-hidden-recurrence" class="nav-link" data-scroll-target="#type-1-hidden-to-hidden-recurrence"><span class="header-section-number">5.1</span> Type 1: Hidden-to-Hidden Recurrence</a></li>
+  <li><a href="#type-2-output-to-hidden-recurrence-teacher-forcing" id="toc-type-2-output-to-hidden-recurrence-teacher-forcing" class="nav-link" data-scroll-target="#type-2-output-to-hidden-recurrence-teacher-forcing"><span class="header-section-number">5.2</span> Type 2: Output-to-Hidden Recurrence (Teacher Forcing)</a>
+  <ul class="collapse">
+  <li><a href="#장점-훈련-시-병렬화-가능" id="toc-장점-훈련-시-병렬화-가능" class="nav-link" data-scroll-target="#장점-훈련-시-병렬화-가능"><span class="header-section-number">5.2.1</span> 장점: 훈련 시 병렬화 가능</a></li>
+  <li><a href="#단점-less-powerful-exposure-bias" id="toc-단점-less-powerful-exposure-bias" class="nav-link" data-scroll-target="#단점-less-powerful-exposure-bias"><span class="header-section-number">5.2.2</span> 단점: Less Powerful + Exposure Bias</a></li>
+  </ul></li>
+  <li><a href="#type-3-sequence-to-one" id="toc-type-3-sequence-to-one" class="nav-link" data-scroll-target="#type-3-sequence-to-one"><span class="header-section-number">5.3</span> Type 3: Sequence-to-One</a></li>
+  </ul></li>
+  <li><a href="#장기-의존성-문제-eigendecomposition-분석" id="toc-장기-의존성-문제-eigendecomposition-분석" class="nav-link" data-scroll-target="#장기-의존성-문제-eigendecomposition-분석"><span class="header-section-number">6</span> 장기 의존성 문제: Eigendecomposition 분석</a>
+  <ul class="collapse">
+  <li><a href="#왜-rnn이-긴-시퀀스에서-무너지는가" id="toc-왜-rnn이-긴-시퀀스에서-무너지는가" class="nav-link" data-scroll-target="#왜-rnn이-긴-시퀀스에서-무너지는가"><span class="header-section-number">6.1</span> 왜 RNN이 긴 시퀀스에서 무너지는가</a></li>
+  <li><a href="#표현력의-양면성" id="toc-표현력의-양면성" class="nav-link" data-scroll-target="#표현력의-양면성"><span class="header-section-number">6.2</span> 표현력의 양면성</a></li>
+  </ul></li>
+  <li><a href="#게이팅-lstm과-gru" id="toc-게이팅-lstm과-gru" class="nav-link" data-scroll-target="#게이팅-lstm과-gru"><span class="header-section-number">7</span> 게이팅: LSTM과 GRU</a>
+  <ul class="collapse">
+  <li><a href="#게이팅의-핵심-아이디어" id="toc-게이팅의-핵심-아이디어" class="nav-link" data-scroll-target="#게이팅의-핵심-아이디어"><span class="header-section-number">7.1</span> 게이팅의 핵심 아이디어</a></li>
+  <li><a href="#lstm-long-short-term-memory" id="toc-lstm-long-short-term-memory" class="nav-link" data-scroll-target="#lstm-long-short-term-memory"><span class="header-section-number">7.2</span> LSTM: Long Short-Term Memory</a>
+  <ul class="collapse">
+  <li><a href="#개의-gate" id="toc-개의-gate" class="nav-link" data-scroll-target="#개의-gate"><span class="header-section-number">7.2.1</span> 4개의 Gate</a></li>
+  <li><a href="#cell-state와-hidden-state-갱신" id="toc-cell-state와-hidden-state-갱신" class="nav-link" data-scroll-target="#cell-state와-hidden-state-갱신"><span class="header-section-number">7.2.2</span> Cell state와 hidden state 갱신</a></li>
+  </ul></li>
+  <li><a href="#gru-gated-recurrent-unit" id="toc-gru-gated-recurrent-unit" class="nav-link" data-scroll-target="#gru-gated-recurrent-unit"><span class="header-section-number">7.3</span> GRU: Gated Recurrent Unit</a></li>
+  <li><a href="#lstm-vs-gru-정밀-비교" id="toc-lstm-vs-gru-정밀-비교" class="nav-link" data-scroll-target="#lstm-vs-gru-정밀-비교"><span class="header-section-number">7.4</span> LSTM vs GRU 정밀 비교</a>
+  <ul class="collapse">
+  <li><a href="#어느-것을-선택할-것인가" id="toc-어느-것을-선택할-것인가" class="nav-link" data-scroll-target="#어느-것을-선택할-것인가"><span class="header-section-number">7.4.1</span> 어느 것을 선택할 것인가</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#장기-의존성을-다루는-다른-접근들" id="toc-장기-의존성을-다루는-다른-접근들" class="nav-link" data-scroll-target="#장기-의존성을-다루는-다른-접근들"><span class="header-section-number">8</span> 장기 의존성을 다루는 다른 접근들</a>
+  <ul class="collapse">
+  <li><a href="#skip-connections-through-time" id="toc-skip-connections-through-time" class="nav-link" data-scroll-target="#skip-connections-through-time"><span class="header-section-number">8.1</span> Skip connections through time</a></li>
+  <li><a href="#leaky-units" id="toc-leaky-units" class="nav-link" data-scroll-target="#leaky-units"><span class="header-section-number">8.2</span> Leaky units</a></li>
+  <li><a href="#optimization-tricks" id="toc-optimization-tricks" class="nav-link" data-scroll-target="#optimization-tricks"><span class="header-section-number">8.3</span> Optimization tricks</a></li>
+  <li><a href="#explicit-memory" id="toc-explicit-memory" class="nav-link" data-scroll-target="#explicit-memory"><span class="header-section-number">8.4</span> Explicit memory</a></li>
+  </ul></li>
+  <li><a href="#양방향성과-seq-to-seq" id="toc-양방향성과-seq-to-seq" class="nav-link" data-scroll-target="#양방향성과-seq-to-seq"><span class="header-section-number">9</span> 양방향성과 Seq-to-Seq</a>
+  <ul class="collapse">
+  <li><a href="#bidirectional-rnn" id="toc-bidirectional-rnn" class="nav-link" data-scroll-target="#bidirectional-rnn"><span class="header-section-number">9.1</span> Bidirectional RNN</a></li>
+  <li><a href="#seq-to-seq-encoder-decoder" id="toc-seq-to-seq-encoder-decoder" class="nav-link" data-scroll-target="#seq-to-seq-encoder-decoder"><span class="header-section-number">9.2</span> Seq-to-Seq (Encoder-Decoder)</a></li>
+  </ul></li>
+  <li><a href="#deep-rnn과-recursive-neural-network" id="toc-deep-rnn과-recursive-neural-network" class="nav-link" data-scroll-target="#deep-rnn과-recursive-neural-network"><span class="header-section-number">10</span> Deep RNN과 Recursive Neural Network</a>
+  <ul class="collapse">
+  <li><a href="#deep-rnn" id="toc-deep-rnn" class="nav-link" data-scroll-target="#deep-rnn"><span class="header-section-number">10.1</span> Deep RNN</a></li>
+  <li><a href="#recursive-neural-network" id="toc-recursive-neural-network" class="nav-link" data-scroll-target="#recursive-neural-network"><span class="header-section-number">10.2</span> Recursive Neural Network</a></li>
+  </ul></li>
+  <li><a href="#요약" id="toc-요약" class="nav-link" data-scroll-target="#요약"><span class="header-section-number">11</span> 요약</a></li>
+  <li><a href="#참고-자료" id="toc-참고-자료" class="nav-link" data-scroll-target="#참고-자료"><span class="header-section-number">12</span> 참고 자료</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Sequence Modeling: RNN, LSTM, GRU</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">Deep Learning</div>
+    <div class="quarto-category">Sequence Modeling</div>
+    <div class="quarto-category">RNN</div>
+    <div class="quarto-category">LSTM</div>
+    <div class="quarto-category">GRU</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    가변 길이 데이터를 위한 순환 구조와 장기 의존성 문제
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">April 28, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="시퀀스-모델링이란" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 시퀀스 모델링이란</h1>
+<p>지금까지 다룬 데이터들 — 이미지, 그래프 — 은 길이가 <strong>고정된 스냅샷(snapshot)</strong> 형태였다. 그러나 현실의 많은 데이터는 <strong>가변 길이(variable length)</strong>를 갖는다.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>도메인</th>
+<th>예시</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>자연어 처리</td>
+<td>문장, 문서</td>
+</tr>
+<tr class="even">
+<td>시계열</td>
+<td>주가, 센서 데이터</td>
+</tr>
+<tr class="odd">
+<td>영상</td>
+<td>비디오 프레임</td>
+</tr>
+<tr class="even">
+<td>음성</td>
+<td>음성 신호</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>무선통신 관점
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>채널 임펄스 응답(CIR), CSI 시퀀스, 시간에 따른 fading process, OFDM symbol stream 등이 모두 시퀀스 모델링의 대상이다. 통계적으로는 <strong>랜덤 프로세스(stochastic process)</strong>의 추정·예측 문제로 환원된다.</p>
+</div>
+</div>
+<section id="핵심-도전-과제" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="핵심-도전-과제"><span class="header-section-number">1.1</span> 핵심 도전 과제</h2>
+<ol type="1">
+<li><strong>장기 의존성(Long-term dependency)</strong>: 멀리 떨어진 시점의 정보를 어떻게 보존할 것인가?</li>
+<li><strong>컨텍스트 인코딩(Context encoding)</strong>: 같은 단어라도 문맥에 따라 의미가 달라진다 (“Buffalo buffalo Buffalo buffalo…” 같은 문장 참조).</li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="동적-시스템과-rnn의-출발점" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> 동적 시스템과 RNN의 출발점</h1>
+<section id="자기회귀적-동적-시스템" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="자기회귀적-동적-시스템"><span class="header-section-number">2.1</span> 자기회귀적 동적 시스템</h2>
+<p>외부 입력 없이 상태가 진화하는 가장 단순한 형태:</p>
+<p><span class="math display">s^{(t)} = f(s^{(t-1)}; \theta)</span></p>
+<p>이를 시간축으로 펼치면(unfold) 모든 과거 상태를 명시적으로 표현할 수 있다.</p>
+</section>
+<section id="외부-신호가-있는-동적-시스템" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="외부-신호가-있는-동적-시스템"><span class="header-section-number">2.2</span> 외부 신호가 있는 동적 시스템</h2>
+<p>외부 입력 <span class="math inline">x^{(t)}</span>가 주어지면:</p>
+<p><span class="math display">s^{(t)} = f(s^{(t-1)}, x^{(t)}; \theta)</span></p>
+<p>이때 <span class="math inline">s^{(t)}</span>는 <strong>과거 전체 시퀀스에 대한 정보를 압축한 표현</strong>이 된다. 이 상태를 <strong>hidden state</strong> <span class="math inline">h^{(t)}</span>라 부르고 학습 가능한 함수 <span class="math inline">f</span>로 구현하면, 그것이 바로 <strong>Recurrent Neural Network</strong>:</p>
+<p><span class="math display">\boxed{\;h^{(t)} = f(h^{(t-1)}, x^{(t)}; \theta)\;}</span></p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>통계적 직관
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>이는 <strong>HMM(Hidden Markov Model)의 신경망 일반화</strong>로 볼 수 있다. HMM이 이산 상태와 선형 천이 확률을 가정한다면, RNN은 연속 상태와 비선형 천이를 학습한다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="rnn의-기본-수식과-가중치-표기" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> RNN의 기본 수식과 가중치 표기</h1>
+<section id="표준-vanilla-rnn-수식" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="표준-vanilla-rnn-수식"><span class="header-section-number">3.1</span> 표준 Vanilla RNN 수식</h2>
+<p><span class="math display">h_t = \tanh(W_{hh}\,h_{t-1} + W_{xh}\,x_t)</span> <span class="math display">y_t = W_{hy}\,h_t</span></p>
+</section>
+<section id="가중치-행렬-네이밍-규칙" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="가중치-행렬-네이밍-규칙"><span class="header-section-number">3.2</span> 가중치 행렬 네이밍 규칙</h2>
+<p>기호 <span class="math inline">W_{\square\square}</span>는 일반적으로 <strong>“<span class="math inline">W_{\text{from}\to\text{to}}</span>”</strong>로 읽는다 (단, 표기 컨벤션은 자료마다 다르므로 항상 정의를 확인).</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>행렬</th>
+<th>역할</th>
+<th>차원</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">W_{xh}</span></td>
+<td>입력 <span class="math inline">x_t</span> → hidden <span class="math inline">h_t</span> 투영</td>
+<td><span class="math inline">d_h \times d_x</span></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">W_{hh}</span></td>
+<td>이전 hidden <span class="math inline">h_{t-1}</span> → 현재 hidden <span class="math inline">h_t</span></td>
+<td><span class="math inline">d_h \times d_h</span></td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">W_{hy}</span></td>
+<td>hidden <span class="math inline">h_t</span> → 출력 <span class="math inline">y_t</span></td>
+<td><span class="math inline">d_y \times d_h</span></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="차원-추적-예시" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="차원-추적-예시"><span class="header-section-number">3.3</span> 차원 추적 예시</h2>
+<p><span class="math inline">d_x=10</span>, <span class="math inline">d_h=20</span>, <span class="math inline">d_y=5</span>일 때:</p>
+<pre><code>x_t      : (10,)
+W_xh @ x_t     = (20, 10) @ (10,)  = (20,)
+W_hh @ h_{t-1} = (20, 20) @ (20,)  = (20,)
+                                  ↓ + 
+                              tanh → h_t : (20,)
+W_hy @ h_t     = (5, 20) @ (20,)   = y_t : (5,)</code></pre>
+</section>
+<section id="가중치-공유weight-sharing" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="가중치-공유weight-sharing"><span class="header-section-number">3.4</span> 가중치 공유(Weight Sharing)</h2>
+<p><span class="math inline">W_{hh}, W_{xh}, W_{hy}</span>는 <strong>모든 time step에서 동일</strong>하다.</p>
+<p><span class="math display">h_1 = \tanh(\mathbf{W_{hh}}h_0 + \mathbf{W_{xh}}x_1)</span> <span class="math display">h_2 = \tanh(\mathbf{W_{hh}}h_1 + \mathbf{W_{xh}}x_2)</span> <span class="math display">h_3 = \tanh(\mathbf{W_{hh}}h_2 + \mathbf{W_{xh}}x_3)</span></p>
+<p>이는 CNN의 spatial weight sharing과 같은 철학으로, <strong>시퀀스 길이와 무관하게 파라미터 수를 고정</strong>시킨다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>무선통신 analogy: Kalman 필터와의 정확한 대응
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>선형 가우시안 상태공간 모델 <span class="math display">s_t = F\,s_{t-1} + G\,u_t + w_t</span></p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Kalman</th>
+<th>RNN</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">F</span> (state transition matrix)</td>
+<td><span class="math inline">W_{hh}</span></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">G</span> (input matrix)</td>
+<td><span class="math inline">W_{xh}</span></td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">H</span> (observation matrix)</td>
+<td><span class="math inline">W_{hy}</span></td>
+</tr>
+<tr class="even">
+<td>선형 + 가우시안 잡음</td>
+<td>비선형 (<span class="math inline">\tanh</span>), 결정론적</td>
+</tr>
+</tbody>
+</table>
+<p>RNN은 Kalman 필터의 비선형·학습 가능 일반화로 해석할 수 있다.</p>
+</div>
+</div>
+</section>
+<section id="rnn-다이어그램-해석-시-주의" class="level2" data-number="3.5">
+<h2 data-number="3.5" class="anchored" data-anchor-id="rnn-다이어그램-해석-시-주의"><span class="header-section-number">3.5</span> RNN 다이어그램 해석 시 주의</h2>
+<p>많은 unfolded 다이어그램에서 hidden state <span class="math inline">h^{(t)}</span>만 그리고 출력 <span class="math inline">y^{(t)}</span>는 생략한다. 이는 <strong>recurrence 메커니즘 자체를 강조</strong>하기 위함이며, 실제로는 각 시점마다 출력 readout이 별도로 존재한다.</p>
+<p>출력은 task에 따라 형태가 다르다:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Task</th>
+<th>출력 형태</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Many-to-many (번역, POS tagging)</td>
+<td>모든 <span class="math inline">t</span>에서 <span class="math inline">\hat{y}^{(t)}</span></td>
+</tr>
+<tr class="even">
+<td>Many-to-one (감성분석)</td>
+<td>마지막 <span class="math inline">T</span>에서만 <span class="math inline">\hat{y}^{(T)}</span></td>
+</tr>
+<tr class="odd">
+<td>One-to-many (이미지 캡셔닝)</td>
+<td>첫 입력 후 매 <span class="math inline">t</span>에서 출력</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="활성화-함수-왜-tanh인가" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> 활성화 함수: 왜 Tanh인가</h1>
+<section id="핵심-이유-세-가지" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="핵심-이유-세-가지"><span class="header-section-number">4.1</span> 핵심 이유 세 가지</h2>
+<section id="bounded-output--1-1" class="level3" data-number="4.1.1">
+<h3 data-number="4.1.1" class="anchored" data-anchor-id="bounded-output--1-1"><span class="header-section-number">4.1.1</span> Bounded output: <span class="math inline">(-1, +1)</span></h3>
+<p><span class="math display">\tanh(z) = \frac{e^z - e^{-z}}{e^z + e^{-z}} \in (-1, +1)</span></p>
+<p>RNN에서 hidden state는 <strong>시간축으로 반복 적용</strong>된다:</p>
+<p><span class="math display">h^{(t)} = \tanh(W_h \cdot \tanh(W_h \cdot \tanh(\cdots)))</span></p>
+<p>만약 활성화가 unbounded(예: ReLU)였다면 <span class="math inline">\|W_h\| &gt; 1</span> 방향으로 값이 기하급수적으로 발산할 수 있다. Tanh의 포화 특성이 <strong>state 발산을 방지하는 soft limiter</strong> 역할을 한다.</p>
+</section>
+<section id="zero-centered" class="level3" data-number="4.1.2">
+<h3 data-number="4.1.2" class="anchored" data-anchor-id="zero-centered"><span class="header-section-number">4.1.2</span> Zero-centered</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Activation</th>
+<th>출력 범위</th>
+<th>Zero-centered</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Sigmoid</td>
+<td><span class="math inline">(0, 1)</span></td>
+<td>✗</td>
+</tr>
+<tr class="even">
+<td><strong>tanh</strong></td>
+<td><span class="math inline">(-1, +1)</span></td>
+<td>✓</td>
+</tr>
+<tr class="odd">
+<td>ReLU</td>
+<td><span class="math inline">[0, \infty)</span></td>
+<td>✗</td>
+</tr>
+</tbody>
+</table>
+<p>Sigmoid는 항상 양수 출력을 내므로 다음 층으로 넘어간 gradient가 항상 같은 부호를 갖게 되어 <strong>zigzag update</strong> 문제를 일으킨다. tanh는 양/음 모두 표현 가능하므로 hidden state가 자연스럽게 양방향으로 움직일 수 있다.</p>
+</section>
+<section id="gradient-전파에서-sigmoid-대비-우위" class="level3" data-number="4.1.3">
+<h3 data-number="4.1.3" class="anchored" data-anchor-id="gradient-전파에서-sigmoid-대비-우위"><span class="header-section-number">4.1.3</span> Gradient 전파에서 sigmoid 대비 우위</h3>
+<p><span class="math display">\frac{d}{dz}\tanh(z) = 1 - \tanh^2(z) \in (0, 1]</span></p>
+<p>BPTT(Backpropagation Through Time)에서 hidden state gradient는</p>
+<p><span class="math display">\frac{\partial h^{(t)}}{\partial h^{(k)}} = \prod_{\tau=k+1}^{t} W_h^\top \cdot \mathrm{diag}(1 - (h^{(\tau)})^2)</span></p>
+<p>여기서 미분의 최댓값을 비교하면:</p>
+<ul>
+<li><span class="math inline">\tanh</span> 미분의 최댓값: <strong>1</strong></li>
+<li>sigmoid 미분의 최댓값: <strong>0.25</strong></li>
+</ul>
+<p>→ tanh가 sigmoid보다 vanishing이 약 <strong>4배 느리게</strong> 발생한다.</p>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>그래도 한계는 존재
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Saturation 영역에서는 <span class="math inline">1 - \tanh^2(z) \to 0</span>이 되어 여전히 vanishing이 발생한다. 이것이 <strong>LSTM/GRU 등장의 직접적 동기</strong>이며, 이들은 tanh를 완전히 버리지 않고 <strong>gate를 통해 별도의 gradient highway를 추가</strong>한다.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>무선통신 analogy
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Tanh의 포화 특성은 <strong>PA(Power Amplifier)의 saturation curve</strong>와 유사하다. 입력이 작으면 선형이지만 입력이 크면 출력이 <span class="math inline">\pm V_\text{sat}</span>로 clamping되는 비선형 거동이 양쪽 모두에서 동일하다. RNN을 feedback loop가 있는 시스템으로 본다면, tanh는 발진(divergence)을 막는 자연스러운 limiter다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+</section>
+<section id="rnn의-세-가지-아키텍처-타입" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> RNN의 세 가지 아키텍처 타입</h1>
+<section id="type-1-hidden-to-hidden-recurrence" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="type-1-hidden-to-hidden-recurrence"><span class="header-section-number">5.1</span> Type 1: Hidden-to-Hidden Recurrence</h2>
+<p><span class="math display">h^{(t)} = \tanh(W h^{(t-1)} + U x^{(t)} + b)</span> <span class="math display">o^{(t)} = V h^{(t)} + c</span></p>
+<p>매 시점 출력 + hidden state 간 연결. <strong>가장 일반적이고 강력한 형태</strong>.</p>
+<ul>
+<li><strong>장점</strong>: <span class="math inline">h^{(t)}</span>가 과거 전체에 대한 충분통계량(sufficient statistic)을 형성할 수 있어 표현력이 높다.</li>
+<li><strong>단점</strong>: 본질적으로 <strong>순차 계산</strong>이 강제된다.</li>
+</ul>
+</section>
+<section id="type-2-output-to-hidden-recurrence-teacher-forcing" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="type-2-output-to-hidden-recurrence-teacher-forcing"><span class="header-section-number">5.2</span> Type 2: Output-to-Hidden Recurrence (Teacher Forcing)</h2>
+<p><span class="math display">h^{(t)} = \tanh(W o^{(t-1)} + U x^{(t)} + b)</span></p>
+<p>Hidden 간 직접 연결이 없고, 이전 <strong>출력</strong> <span class="math inline">o^{(t-1)}</span>만 다음 hidden으로 들어간다. 훈련 시 <span class="math inline">o^{(t-1)}</span> 대신 <strong>정답</strong> <span class="math inline">y^{(t-1)}</span>을 주입하는 것이 <strong>Teacher Forcing</strong>이다.</p>
+<section id="장점-훈련-시-병렬화-가능" class="level3" data-number="5.2.1">
+<h3 data-number="5.2.1" class="anchored" data-anchor-id="장점-훈련-시-병렬화-가능"><span class="header-section-number">5.2.1</span> 장점: 훈련 시 병렬화 가능</h3>
+<p>병렬화가 가능한 이유는 <strong>데이터 의존성의 끊김(decoupling)</strong> 때문이다.</p>
+<p><strong>Type 1의 의존성 사슬</strong>:</p>
+<p><span class="math display">h^{(1)} \to h^{(2)} \to h^{(3)} \to \cdots</span></p>
+<p>→ <span class="math inline">h^{(t)}</span>를 계산하려면 반드시 <span class="math inline">h^{(t-1)}</span>이 먼저 완성되어야 한다. GPU가 아무리 많아도 한 step씩 순차 진행할 수밖에 없다.</p>
+<p><strong>Type 2 + Teacher Forcing의 의존성</strong>:</p>
+<p><span class="math display">h^{(t)} = \tanh(W \cdot \underbrace{y^{(t-1)}}_{\text{ground truth}} + U x^{(t)})</span></p>
+<p><span class="math inline">y^{(0)}, y^{(1)}, \ldots, y^{(T)}</span>가 <strong>훈련 데이터에 이미 모두 주어져 있으므로</strong> 모든 hidden state를 동시에 계산할 수 있다.</p>
+<pre><code>훈련 시 (병렬):
+    h^(1), h^(2), h^(3), ..., h^(T)  ←─ 한 번에 계산
+                                         (모든 y가 이미 알려짐)</code></pre>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th>Type 1 (h→h)</th>
+<th>Type 2 (o→h, Teacher Forcing)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>의존성</td>
+<td><span class="math inline">h^{(t)} \leftarrow h^{(t-1)}</span></td>
+<td><span class="math inline">h^{(t)} \leftarrow y^{(t-1)}</span> (정답)</td>
+</tr>
+<tr class="even">
+<td>훈련 시 정답 접근</td>
+<td>의미 없음</td>
+<td>항상 보유</td>
+</tr>
+<tr class="odd">
+<td>병렬화</td>
+<td>불가</td>
+<td>가능</td>
+</tr>
+<tr class="even">
+<td>표현력</td>
+<td>높음</td>
+<td>낮음 (history bottleneck)</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="단점-less-powerful-exposure-bias" class="level3" data-number="5.2.2">
+<h3 data-number="5.2.2" class="anchored" data-anchor-id="단점-less-powerful-exposure-bias"><span class="header-section-number">5.2.2</span> 단점: Less Powerful + Exposure Bias</h3>
+<p><span class="math inline">h^{(t)}</span>가 <span class="math inline">h^{(t-1)}</span>과 직접 연결되지 않고 <span class="math inline">o^{(t-1)}</span>이라는 <strong>저차원 병목</strong>을 거쳐야 하므로, <span class="math inline">o</span>의 차원이 작으면 history 정보가 손실된다.</p>
+<p>또한 훈련(정답 사용)과 추론(자기 출력 사용)의 분포가 달라지는 <strong>exposure bias</strong> 문제가 발생한다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>무선통신 analogy: Pilot-aided Estimation
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Teacher Forcing은 <strong>pilot-aided channel estimation</strong>과 본질이 같다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 45%">
+<col style="width: 54%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>무선통신</th>
+<th>Type 2 RNN</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Pilot symbol 삽입 (송신기가 알려진 신호 송출)</td>
+<td>훈련 시 정답 <span class="math inline">y^{(t)}</span> 주입</td>
+</tr>
+<tr class="even">
+<td>Pilot 구간에서 채널 추정</td>
+<td>hidden state 업데이트</td>
+</tr>
+<tr class="odd">
+<td>데이터 구간에서는 추정값으로 demodulation</td>
+<td>추론 시 자기 출력 <span class="math inline">o^{(t)}</span> 재귀 사용</td>
+</tr>
+</tbody>
+</table>
+<p>훈련(파일럿 사용)과 추론(데이터 구간) 간의 mismatch가 정확히 exposure bias와 같다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="type-3-sequence-to-one" class="level2" data-number="5.3">
+<h2 data-number="5.3" class="anchored" data-anchor-id="type-3-sequence-to-one"><span class="header-section-number">5.3</span> Type 3: Sequence-to-One</h2>
+<p>전체 시퀀스를 읽고 마지막에 단 하나의 출력만 생성. 분류 문제(감성분석, 문서 분류)에 적합. 구조는 Type 1과 유사하지만 출력 단자가 마지막 시점에만 있다.</p>
+<hr>
+</section>
+</section>
+<section id="장기-의존성-문제-eigendecomposition-분석" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> 장기 의존성 문제: Eigendecomposition 분석</h1>
+<section id="왜-rnn이-긴-시퀀스에서-무너지는가" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="왜-rnn이-긴-시퀀스에서-무너지는가"><span class="header-section-number">6.1</span> 왜 RNN이 긴 시퀀스에서 무너지는가</h2>
+<p>선형 RNN을 가정하고 단순화하자: <span class="math display">h^{(t)} = W h^{(t-1)}</span></p>
+<p>→ <span class="math inline">h^{(t)} = W^t h^{(0)}</span></p>
+<p><span class="math inline">W</span>를 고유분해 <span class="math inline">W = Q \Lambda Q^{-1}</span>로 쓰면:</p>
+<p><span class="math display">h^{(t)} = Q \Lambda^t Q^{-1} h^{(0)}</span></p>
+<p>여기서 <span class="math inline">\Lambda^t</span>의 거동을 보면:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>조건</th>
+<th>결과</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\|\lambda_i\| &lt; 1</span></td>
+<td><span class="math inline">\lambda_i^t \to 0</span> → <strong>Gradient Vanishing</strong></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\|\lambda_i\| &gt; 1</span></td>
+<td><span class="math inline">\lambda_i^t \to \infty</span> → <strong>Gradient Exploding</strong></td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\|\lambda_i\| = 1</span></td>
+<td>안정 (그러나 매우 좁은 영역)</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math inline">\|\lambda_i\| = 1</span> 위에 정확히 머물게 만드는 것은 사실상 불가능하므로, <strong>거의 모든 RNN은 vanishing 또는 exploding으로 간다</strong>.</p>
+<p>비선형 <span class="math inline">\tanh</span>가 추가되어도 saturation 시 미분이 0이 되므로 vanishing은 더 악화된다.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>무선통신 analogy: 시스템의 안정성
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>이는 LTI 시스템의 BIBO 안정성과 같은 논리다. 극점(pole)이 단위원 안에 있으면 응답이 감쇠(<span class="math inline">\to 0</span>), 밖에 있으면 발산(<span class="math inline">\to \infty</span>)한다. RNN의 <span class="math inline">W_{hh}</span> 고유값이 정확히 같은 역할을 한다.</p>
+</div>
+</div>
+</section>
+<section id="표현력의-양면성" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="표현력의-양면성"><span class="header-section-number">6.2</span> 표현력의 양면성</h2>
+<p>다른 관점도 있다. 비선형 함수를 깊게 합성하면 합성 함수는 매우 표현력이 높아진다 — 하지만 그 대가로 gradient landscape가 험악해진다. 즉 <strong>표현력과 학습 가능성의 trade-off</strong>가 RNN 깊이에 내재된 근본 문제다.</p>
+<hr>
+</section>
+</section>
+<section id="게이팅-lstm과-gru" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> 게이팅: LSTM과 GRU</h1>
+<section id="게이팅의-핵심-아이디어" class="level2" data-number="7.1">
+<h2 data-number="7.1" class="anchored" data-anchor-id="게이팅의-핵심-아이디어"><span class="header-section-number">7.1</span> 게이팅의 핵심 아이디어</h2>
+<p><span class="math inline">f(x) = a \cdot x</span> (<span class="math inline">a \in [0,1]</span>, 단순 감쇠)를</p>
+<p><span class="math display">f(x) = a \cdot x + (1-a) \cdot m</span></p>
+<p>로 바꾸자. 여기서 <span class="math inline">m</span>은 <strong>메모리</strong>, <span class="math inline">a</span>는 <strong>게이트</strong>(학습되는 값).</p>
+<p>→ 과거를 그대로 통과시키는 경로(memory path)와 새 정보를 융합하는 경로를 <strong>분리</strong>할 수 있다. 이것이 long-term dependency 문제의 핵심 해결책이다.</p>
+</section>
+<section id="lstm-long-short-term-memory" class="level2" data-number="7.2">
+<h2 data-number="7.2" class="anchored" data-anchor-id="lstm-long-short-term-memory"><span class="header-section-number">7.2</span> LSTM: Long Short-Term Memory</h2>
+<p>LSTM은 <strong>두 종류의 상태</strong>를 갖는다:</p>
+<ul>
+<li><span class="math inline">c_t</span> (cell state): long-term 메모리</li>
+<li><span class="math inline">h_t</span> (hidden state): short-term 메모리이자 출력</li>
+</ul>
+<section id="개의-gate" class="level3" data-number="7.2.1">
+<h3 data-number="7.2.1" class="anchored" data-anchor-id="개의-gate"><span class="header-section-number">7.2.1</span> 4개의 Gate</h3>
+<p><span class="math display">f_t = \sigma(W_f [h_{t-1}, x_t] + b_f) \quad \text{(forget gate)}</span> <span class="math display">i_t = \sigma(W_i [h_{t-1}, x_t] + b_i) \quad \text{(input gate)}</span> <span class="math display">o_t = \sigma(W_o [h_{t-1}, x_t] + b_o) \quad \text{(output gate)}</span> <span class="math display">g_t = \tanh(W_g [h_{t-1}, x_t] + b_g) \quad \text{(candidate cell)}</span></p>
+</section>
+<section id="cell-state와-hidden-state-갱신" class="level3" data-number="7.2.2">
+<h3 data-number="7.2.2" class="anchored" data-anchor-id="cell-state와-hidden-state-갱신"><span class="header-section-number">7.2.2</span> Cell state와 hidden state 갱신</h3>
+<p><span class="math display">c_t = f_t \odot c_{t-1} + i_t \odot g_t</span> <span class="math display">h_t = o_t \odot \tanh(c_t)</span></p>
+<p>여기서 <span class="math inline">\odot</span>은 element-wise product.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심: Cell state는 별도의 Gradient Highway
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">c_t = f_t \odot c_{t-1} + i_t \odot g_t</span>에서 <span class="math inline">f_t \approx 1</span>일 때 <span class="math inline">c_{t-1}</span>이 거의 그대로 유지된다. 즉</p>
+<p><span class="math display">\frac{\partial c_t}{\partial c_{t-1}} \approx f_t</span></p>
+<p>가 곱셈이 아니라 <strong>forget gate에 의해 선택적으로 1에 가깝게 유지</strong>될 수 있다. 이것이 long-term gradient flow를 가능케 하는 LSTM의 핵심이다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="gru-gated-recurrent-unit" class="level2" data-number="7.3">
+<h2 data-number="7.3" class="anchored" data-anchor-id="gru-gated-recurrent-unit"><span class="header-section-number">7.3</span> GRU: Gated Recurrent Unit</h2>
+<p><span class="math display">r_t = \sigma(W_r [h_{t-1}, x_t]) \quad \text{(reset gate)}</span> <span class="math display">z_t = \sigma(W_z [h_{t-1}, x_t]) \quad \text{(update gate)}</span> <span class="math display">\tilde{h}_t = \tanh(W [r_t \odot h_{t-1}, x_t]) \quad \text{(candidate hidden)}</span> <span class="math display">h_t = (1 - z_t) \odot h_{t-1} + z_t \odot \tilde{h}_t</span></p>
+<p>GRU는 <strong>cell state를 따로 두지 않고</strong> <span class="math inline">h_t</span> 하나로 long/short-term을 모두 처리한다. Gate도 4개에서 2개로 축소되었다.</p>
+</section>
+<section id="lstm-vs-gru-정밀-비교" class="level2" data-number="7.4">
+<h2 data-number="7.4" class="anchored" data-anchor-id="lstm-vs-gru-정밀-비교"><span class="header-section-number">7.4</span> LSTM vs GRU 정밀 비교</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 35%">
+<col style="width: 35%">
+<col style="width: 29%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>항목</th>
+<th>LSTM</th>
+<th>GRU</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>메모리 구조</td>
+<td><span class="math inline">c_t</span>, <span class="math inline">h_t</span> <strong>분리</strong></td>
+<td><span class="math inline">h_t</span> 단일</td>
+</tr>
+<tr class="even">
+<td>Gate 개수</td>
+<td>4 (forget, input, output, candidate)</td>
+<td>2 (reset, update)</td>
+</tr>
+<tr class="odd">
+<td>파라미터 수 (대략)</td>
+<td><span class="math inline">4 \times d_h(d_h + d_x)</span></td>
+<td><span class="math inline">3 \times d_h(d_h + d_x)</span></td>
+</tr>
+<tr class="even">
+<td>표현력 (이론)</td>
+<td>높음</td>
+<td>낮음</td>
+</tr>
+<tr class="odd">
+<td>학습 데이터 요구량</td>
+<td>많음</td>
+<td>적음</td>
+</tr>
+<tr class="even">
+<td>추론 속도</td>
+<td>느림</td>
+<td>빠름</td>
+</tr>
+</tbody>
+</table>
+<section id="어느-것을-선택할-것인가" class="level3" data-number="7.4.1">
+<h3 data-number="7.4.1" class="anchored" data-anchor-id="어느-것을-선택할-것인가"><span class="header-section-number">7.4.1</span> 어느 것을 선택할 것인가</h3>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>“GRU가 항상 좋다”는 잘못된 통념
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>원 슬라이드에는 “GRU가 LSTM과 on par”라고 되어 있지만, 실제로는 task에 따라 결과가 갈린다. 일반적 가이드라인:</p>
+<p><strong>LSTM 선호</strong>: - 매우 긴 시퀀스 (수백 step 이상) - 데이터가 충분 - Fine-grained 메모리 제어가 필요</p>
+<p><strong>GRU 선호</strong>: - 데이터가 적음 (overfitting 위험) - 짧거나 중간 길이 시퀀스 - 실시간 추론이 중요 (엣지 디바이스)</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>무선통신 analogy: HARQ 버퍼 구조
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>무선통신</th>
+<th>LSTM</th>
+<th>GRU</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>메모리 관리</td>
+<td>HARQ soft buffer + combining buffer 분리</td>
+<td>통합 버퍼</td>
+</tr>
+<tr class="even">
+<td>장점</td>
+<td>정밀한 별도 관리</td>
+<td>단순, 오버헤드 적음</td>
+</tr>
+<tr class="odd">
+<td>적합 시나리오</td>
+<td>다중 라운드 재전송 (긴 의존성)</td>
+<td>단일 hop, 짧은 패킷</td>
+</tr>
+</tbody>
+</table>
+<p>LSTM의 <span class="math inline">c_t</span>는 <strong>장거리 채널 메모리를 별도로 관리</strong>하는 것과 같고, GRU는 이를 하나의 state로 압축한 형태로 볼 수 있다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+</section>
+<section id="장기-의존성을-다루는-다른-접근들" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> 장기 의존성을 다루는 다른 접근들</h1>
+<p>게이팅 외에도 다양한 시도들이 존재한다.</p>
+<section id="skip-connections-through-time" class="level2" data-number="8.1">
+<h2 data-number="8.1" class="anchored" data-anchor-id="skip-connections-through-time"><span class="header-section-number">8.1</span> Skip connections through time</h2>
+<p>ResNet/DenseNet의 시간축 버전. 멀리 떨어진 시점을 직접 연결.</p>
+<p><span class="math display">h^{(t)} = f(h^{(t-1)}, x^{(t)}) + h^{(t-d)}</span></p>
+</section>
+<section id="leaky-units" class="level2" data-number="8.2">
+<h2 data-number="8.2" class="anchored" data-anchor-id="leaky-units"><span class="header-section-number">8.2</span> Leaky units</h2>
+<p><span class="math display">\mu^{(t)} \leftarrow \alpha\, \mu^{(t-1)} + (1-\alpha)\, v^{(t)}</span></p>
+<p>지수이동평균(EMA) 형태. <span class="math inline">\alpha</span>가 1에 가까우면 천천히 변하는 long-term 정보, 0에 가까우면 빠른 변화 추적. 무선통신의 <strong>EMA 기반 채널 추정</strong>과 동일한 구조다.</p>
+</section>
+<section id="optimization-tricks" class="level2" data-number="8.3">
+<h2 data-number="8.3" class="anchored" data-anchor-id="optimization-tricks"><span class="header-section-number">8.3</span> Optimization tricks</h2>
+<ul>
+<li><strong>Gradient clipping</strong>: <span class="math inline">\|g\| &gt; c</span>일 때 <span class="math inline">g \leftarrow \frac{c\, g}{\|g\|}</span>. Exploding 대응.</li>
+<li><strong>Information flow regularization</strong>: Vanishing 대응.</li>
+</ul>
+</section>
+<section id="explicit-memory" class="level2" data-number="8.4">
+<h2 data-number="8.4" class="anchored" data-anchor-id="explicit-memory"><span class="header-section-number">8.4</span> Explicit memory</h2>
+<p>Memory Network처럼 <strong>외부 메모리 저장소</strong>를 둠. 인간의 작업 기억(working memory)과 유사한 구조.</p>
+<hr>
+</section>
+</section>
+<section id="양방향성과-seq-to-seq" class="level1" data-number="9">
+<h1 data-number="9"><span class="header-section-number">9</span> 양방향성과 Seq-to-Seq</h1>
+<section id="bidirectional-rnn" class="level2" data-number="9.1">
+<h2 data-number="9.1" class="anchored" data-anchor-id="bidirectional-rnn"><span class="header-section-number">9.1</span> Bidirectional RNN</h2>
+<p>이전 시점만이 아니라 <strong>이후 시점</strong>의 정보도 활용해야 할 때 (예: 문장 전체를 본 뒤 단어 의미 결정). 양방향 hidden state를 둔다:</p>
+<p><span class="math display">\overrightarrow{h}^{(t)} = f(\overrightarrow{h}^{(t-1)}, x^{(t)})</span> <span class="math display">\overleftarrow{h}^{(t)} = f(\overleftarrow{h}^{(t+1)}, x^{(t)})</span> <span class="math display">y^{(t)} = g(\overrightarrow{h}^{(t)}, \overleftarrow{h}^{(t)})</span></p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>무선통신 analogy: Forward-Backward Smoothing
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Kalman filter가 forward-only 추정이라면, Bidirectional RNN은 <strong>Rauch-Tung-Striebel(RTS) smoother</strong>의 신경망 버전이다. 전체 관측을 본 뒤 forward와 backward 추정치를 결합해 더 정확한 state 추정을 얻는 방식과 동일하다.</p>
+</div>
+</div>
+</section>
+<section id="seq-to-seq-encoder-decoder" class="level2" data-number="9.2">
+<h2 data-number="9.2" class="anchored" data-anchor-id="seq-to-seq-encoder-decoder"><span class="header-section-number">9.2</span> Seq-to-Seq (Encoder-Decoder)</h2>
+<p>가변 길이 입력을 가변 길이 출력으로 변환하는 범용 구조.</p>
+<pre><code>입력 시퀀스 → [Encoder RNN] → context c → [Decoder RNN] → 출력 시퀀스</code></pre>
+<ul>
+<li><strong>Encoder</strong>: 입력 전체를 읽고 마지막 hidden state <span class="math inline">c</span>를 의미 요약(semantic summary)으로 압축</li>
+<li><strong>Decoder</strong>: <span class="math inline">c</span>를 시작으로 출력을 한 토큰씩 생성</li>
+</ul>
+<p>응용: - 기계 번역 (입력: 영어, 출력: 한국어) - 질의응답 - 챗봇</p>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>Seq-to-Seq의 병목
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>고정 크기 <span class="math inline">c</span> 하나에 입력 전체를 압축하므로, 긴 입력에서는 정보 손실이 심각하다. 이것이 <strong>Attention 메커니즘</strong>과 후속의 <strong>Transformer</strong>가 등장하는 직접적 동기다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="deep-rnn과-recursive-neural-network" class="level1" data-number="10">
+<h1 data-number="10"><span class="header-section-number">10</span> Deep RNN과 Recursive Neural Network</h1>
+<section id="deep-rnn" class="level2" data-number="10.1">
+<h2 data-number="10.1" class="anchored" data-anchor-id="deep-rnn"><span class="header-section-number">10.1</span> Deep RNN</h2>
+<p>여러 RNN 레이어를 수직으로 쌓아 표현력을 높임. 같은 시점에서 lower hidden → upper hidden으로 정보가 흐른다.</p>
+</section>
+<section id="recursive-neural-network" class="level2" data-number="10.2">
+<h2 data-number="10.2" class="anchored" data-anchor-id="recursive-neural-network"><span class="header-section-number">10.2</span> Recursive Neural Network</h2>
+<p>체인 구조가 아닌 <strong>트리 구조</strong> 계산 그래프.</p>
+<ul>
+<li>시퀀스 길이 <span class="math inline">\tau</span>에 대해 계산 깊이가 <span class="math inline">\tau</span>가 아니라 <span class="math inline">\log \tau</span></li>
+<li>자연스러운 트리 구조(파스 트리, 장면 그래프)에 적합</li>
+<li>Long-term dependency가 더 짧은 경로로 연결됨</li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="요약" class="level1" data-number="11">
+<h1 data-number="11"><span class="header-section-number">11</span> 요약</h1>
+<ol type="1">
+<li>시퀀스 모델링의 두 큰 도전 — <strong>장기 의존성</strong>과 <strong>컨텍스트 인코딩</strong> — 은 모든 sequence model의 평가 기준이다.</li>
+<li><strong>Vanilla RNN</strong>은 가중치 공유와 hidden state 압축이라는 우아한 아이디어지만, eigendecomposition 분석에서 보듯 <strong>gradient vanishing/exploding</strong>에 본질적으로 취약하다.</li>
+<li><strong>Tanh</strong>는 bounded·zero-centered 특성과 sigmoid 대비 큰 미분값으로 RNN의 표준 활성화가 되었지만, saturation 영역에서의 vanishing을 완전히 막지는 못한다.</li>
+<li><strong>Type 1/2/3 RNN</strong>의 구조 차이는 데이터 의존성 패턴을 결정하며, <strong>Teacher Forcing(Type 2)</strong>은 훈련 병렬화를 가능케 하는 대신 exposure bias를 야기한다.</li>
+<li><strong>LSTM/GRU</strong>의 게이팅은 <strong>gradient highway</strong>를 만들어 long-term dependency 문제를 완화한다. LSTM은 cell state로 long/short-term을 분리하고, GRU는 단순화·경량화를 추구한다. 둘 사이의 선택은 데이터·시퀀스 길이·연산 자원에 따른 trade-off다.</li>
+<li><strong>Bidirectional RNN, Seq-to-Seq, Deep RNN, Recursive NN</strong> 등은 RNN의 변형으로 각자의 inductive bias에 맞는 task를 다룬다.</li>
+<li>그러나 RNN 계열의 본질적 순차성은 병렬 연산 시대에 한계로 작용했고, 이는 <strong>Attention</strong>과 <strong>Transformer</strong>의 등장으로 이어진다.</li>
+</ol>
+<hr>
+</section>
+<section id="참고-자료" class="level1" data-number="12">
+<h1 data-number="12"><span class="header-section-number">12</span> 참고 자료</h1>
+<ul>
+<li>Goodfellow et al., <em>Deep Learning</em>, Chapter 10 (Sequence Modeling)</li>
+<li>Hochreiter &amp; Schmidhuber, “Long Short-Term Memory”, <em>Neural Computation</em> (1997)</li>
+<li>Cho et al., “Learning Phrase Representations using RNN Encoder-Decoder for Statistical Machine Translation”, <em>EMNLP</em> (2014)</li>
+<li>d2l.ai, Chapters 9–10 (Recurrent Neural Networks, Modern RNNs)</li>
+<li>Thomas, <em>Mathematics for Machine Learning</em> notes (선형대수 고유분해, 확률 기초)</li>
+</ul>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
