@@ -1,0 +1,1965 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.35">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-04-28">
+<meta name="description" content="공간적 구조를 활용한 딥러닝 — 합성곱, 풀링, 그리고 그 변형들">
+
+<title>Convolutional Neural Networks – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-46f66b053e56abd73bb6e954d61a315b.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-da17d83626a3727898eb25bb9d1cdf08.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<!-- Privacy-friendly analytics by Plausible -->
+<script async="" src="https://plausible.io/js/pa-q1uQ7QEv5o9DOQFiYigvC.js"></script>
+<script>
+  window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+  plausible.init()
+</script>
+<style>html{ scroll-behavior: smooth; }</style>
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#cnn의-동기-왜-mlp가-아닌가" id="toc-cnn의-동기-왜-mlp가-아닌가" class="nav-link active" data-scroll-target="#cnn의-동기-왜-mlp가-아닌가"><span class="header-section-number">1</span> CNN의 동기 — 왜 MLP가 아닌가?</a>
+  <ul>
+  <li><a href="#mlp의-한계" id="toc-mlp의-한계" class="nav-link" data-scroll-target="#mlp의-한계"><span class="header-section-number">1.1</span> MLP의 한계</a></li>
+  <li><a href="#cnn의-두-가지-inductive-bias" id="toc-cnn의-두-가지-inductive-bias" class="nav-link" data-scroll-target="#cnn의-두-가지-inductive-bias"><span class="header-section-number">1.2</span> CNN의 두 가지 Inductive Bias</a></li>
+  </ul></li>
+  <li><a href="#stationarity와-weight-sharing" id="toc-stationarity와-weight-sharing" class="nav-link" data-scroll-target="#stationarity와-weight-sharing"><span class="header-section-number">2</span> Stationarity와 Weight Sharing</a>
+  <ul>
+  <li><a href="#statistics-are-similar-at-different-locations" id="toc-statistics-are-similar-at-different-locations" class="nav-link" data-scroll-target="#statistics-are-similar-at-different-locations"><span class="header-section-number">2.1</span> “Statistics are similar at different locations”</a></li>
+  <li><a href="#weight-sharing의-직접적-결과" id="toc-weight-sharing의-직접적-결과" class="nav-link" data-scroll-target="#weight-sharing의-직접적-결과"><span class="header-section-number">2.2</span> Weight Sharing의 직접적 결과</a></li>
+  </ul></li>
+  <li><a href="#convolution-연산" id="toc-convolution-연산" class="nav-link" data-scroll-target="#convolution-연산"><span class="header-section-number">3</span> Convolution 연산</a>
+  <ul>
+  <li><a href="#수학적-정의" id="toc-수학적-정의" class="nav-link" data-scroll-target="#수학적-정의"><span class="header-section-number">3.1</span> 수학적 정의</a></li>
+  <li><a href="#직관-필터는-패턴-감지기" id="toc-직관-필터는-패턴-감지기" class="nav-link" data-scroll-target="#직관-필터는-패턴-감지기"><span class="header-section-number">3.2</span> 직관 — 필터는 패턴 감지기</a></li>
+  </ul></li>
+  <li><a href="#locally-connected-layer-cnn과의-비교" id="toc-locally-connected-layer-cnn과의-비교" class="nav-link" data-scroll-target="#locally-connected-layer-cnn과의-비교"><span class="header-section-number">4</span> Locally Connected Layer — CNN과의 비교</a>
+  <ul>
+  <li><a href="#세-번째-옵션의-등장" id="toc-세-번째-옵션의-등장" class="nav-link" data-scroll-target="#세-번째-옵션의-등장"><span class="header-section-number">4.1</span> 세 번째 옵션의 등장</a></li>
+  <li><a href="#파라미터-수-분석" id="toc-파라미터-수-분석" class="nav-link" data-scroll-target="#파라미터-수-분석"><span class="header-section-number">4.2</span> 파라미터 수 분석</a></li>
+  <li><a href="#세-구조-비교" id="toc-세-구조-비교" class="nav-link" data-scroll-target="#세-구조-비교"><span class="header-section-number">4.3</span> 세 구조 비교</a></li>
+  </ul></li>
+  <li><a href="#convolutional-layer의-차원-분석" id="toc-convolutional-layer의-차원-분석" class="nav-link" data-scroll-target="#convolutional-layer의-차원-분석"><span class="header-section-number">5</span> Convolutional Layer의 차원 분석</a>
+  <ul>
+  <li><a href="#필터의-깊이" id="toc-필터의-깊이" class="nav-link" data-scroll-target="#필터의-깊이"><span class="header-section-number">5.1</span> 필터의 “깊이”</a></li>
+  <li><a href="#한-위치에서의-계산" id="toc-한-위치에서의-계산" class="nav-link" data-scroll-target="#한-위치에서의-계산"><span class="header-section-number">5.2</span> 한 위치에서의 계산</a></li>
+  <li><a href="#출력-크기-공식" id="toc-출력-크기-공식" class="nav-link" data-scroll-target="#출력-크기-공식"><span class="header-section-number">5.3</span> 출력 크기 공식</a></li>
+  <li><a href="#파라미터-수" id="toc-파라미터-수" class="nav-link" data-scroll-target="#파라미터-수"><span class="header-section-number">5.4</span> 파라미터 수</a></li>
+  </ul></li>
+  <li><a href="#출력-크기-공식의-기하학적-직관" id="toc-출력-크기-공식의-기하학적-직관" class="nav-link" data-scroll-target="#출력-크기-공식의-기하학적-직관"><span class="header-section-number">6</span> 출력 크기 공식의 기하학적 직관</a>
+  <ul>
+  <li><a href="#fracn---fs-1의-의미" id="toc-fracn---fs-1의-의미" class="nav-link" data-scroll-target="#fracn---fs-1의-의미"><span class="header-section-number">6.1</span> <span class="math inline">\frac{N - F}{S} + 1</span>의 의미</a></li>
+  <li><a href="#stride가-맞지-않을-때" id="toc-stride가-맞지-않을-때" class="nav-link" data-scroll-target="#stride가-맞지-않을-때"><span class="header-section-number">6.2</span> Stride가 맞지 않을 때</a></li>
+  </ul></li>
+  <li><a href="#padding" id="toc-padding" class="nav-link" data-scroll-target="#padding"><span class="header-section-number">7</span> Padding</a>
+  <ul>
+  <li><a href="#경계-처리" id="toc-경계-처리" class="nav-link" data-scroll-target="#경계-처리"><span class="header-section-number">7.1</span> 경계 처리</a></li>
+  <li><a href="#same-padding" id="toc-same-padding" class="nav-link" data-scroll-target="#same-padding"><span class="header-section-number">7.2</span> Same Padding</a></li>
+  <li><a href="#same-padding의-특징" id="toc-same-padding의-특징" class="nav-link" data-scroll-target="#same-padding의-특징"><span class="header-section-number">7.3</span> Same Padding의 특징</a></li>
+  </ul></li>
+  <li><a href="#채널-수가-깊이에-따라-늘어나는-이유" id="toc-채널-수가-깊이에-따라-늘어나는-이유" class="nav-link" data-scroll-target="#채널-수가-깊이에-따라-늘어나는-이유"><span class="header-section-number">8</span> 채널 수가 깊이에 따라 늘어나는 이유</a>
+  <ul>
+  <li><a href="#정보-부피-보존-원칙" id="toc-정보-부피-보존-원칙" class="nav-link" data-scroll-target="#정보-부피-보존-원칙"><span class="header-section-number">8.1</span> 정보 부피 보존 원칙</a></li>
+  <li><a href="#세-가지-이유" id="toc-세-가지-이유" class="nav-link" data-scroll-target="#세-가지-이유"><span class="header-section-number">8.2</span> 세 가지 이유</a></li>
+  </ul></li>
+  <li><a href="#pooling-layer" id="toc-pooling-layer" class="nav-link" data-scroll-target="#pooling-layer"><span class="header-section-number">9</span> Pooling Layer</a>
+  <ul>
+  <li><a href="#동작과-종류" id="toc-동작과-종류" class="nav-link" data-scroll-target="#동작과-종류"><span class="header-section-number">9.1</span> 동작과 종류</a></li>
+  <li><a href="#pooling이-주는-위치-불변성-정확한-의미" id="toc-pooling이-주는-위치-불변성-정확한-의미" class="nav-link" data-scroll-target="#pooling이-주는-위치-불변성-정확한-의미"><span class="header-section-number">9.2</span> Pooling이 주는 위치 불변성 — 정확한 의미</a></li>
+  <li><a href="#pooling의-효과" id="toc-pooling의-효과" class="nav-link" data-scroll-target="#pooling의-효과"><span class="header-section-number">9.3</span> Pooling의 효과</a></li>
+  </ul></li>
+  <li><a href="#receptive-field" id="toc-receptive-field" class="nav-link" data-scroll-target="#receptive-field"><span class="header-section-number">10</span> Receptive Field</a>
+  <ul>
+  <li><a href="#정의" id="toc-정의" class="nav-link" data-scroll-target="#정의"><span class="header-section-number">10.1</span> 정의</a></li>
+  <li><a href="#pooling이-rf를-키우는-효과" id="toc-pooling이-rf를-키우는-효과" class="nav-link" data-scroll-target="#pooling이-rf를-키우는-효과"><span class="header-section-number">10.2</span> Pooling이 RF를 키우는 효과</a></li>
+  <li><a href="#공식-유도" id="toc-공식-유도" class="nav-link" data-scroll-target="#공식-유도"><span class="header-section-number">10.3</span> 공식 유도</a></li>
+  <li><a href="#핵심-통찰" id="toc-핵심-통찰" class="nav-link" data-scroll-target="#핵심-통찰"><span class="header-section-number">10.4</span> 핵심 통찰</a></li>
+  </ul></li>
+  <li><a href="#dilated-convolution" id="toc-dilated-convolution" class="nav-link" data-scroll-target="#dilated-convolution"><span class="header-section-number">11</span> Dilated Convolution</a>
+  <ul>
+  <li><a href="#동기-resolution과-rf의-딜레마" id="toc-동기-resolution과-rf의-딜레마" class="nav-link" data-scroll-target="#동기-resolution과-rf의-딜레마"><span class="header-section-number">11.1</span> 동기 — Resolution과 RF의 딜레마</a></li>
+  <li><a href="#정의-1" id="toc-정의-1" class="nav-link" data-scroll-target="#정의-1"><span class="header-section-number">11.2</span> 정의</a></li>
+  <li><a href="#stride와의-차이" id="toc-stride와의-차이" class="nav-link" data-scroll-target="#stride와의-차이"><span class="header-section-number">11.3</span> Stride와의 차이</a></li>
+  <li><a href="#실효-필터-크기" id="toc-실효-필터-크기" class="nav-link" data-scroll-target="#실효-필터-크기"><span class="header-section-number">11.4</span> 실효 필터 크기</a></li>
+  </ul></li>
+  <li><a href="#transposed-convolution" id="toc-transposed-convolution" class="nav-link" data-scroll-target="#transposed-convolution"><span class="header-section-number">12</span> Transposed Convolution</a>
+  <ul>
+  <li><a href="#deconvolution이라는-이름의-함정" id="toc-deconvolution이라는-이름의-함정" class="nav-link" data-scroll-target="#deconvolution이라는-이름의-함정"><span class="header-section-number">12.1</span> “Deconvolution”이라는 이름의 함정</a></li>
+  <li><a href="#행렬-관점" id="toc-행렬-관점" class="nav-link" data-scroll-target="#행렬-관점"><span class="header-section-number">12.2</span> 행렬 관점</a></li>
+  <li><a href="#동작-방식-scatter" id="toc-동작-방식-scatter" class="nav-link" data-scroll-target="#동작-방식-scatter"><span class="header-section-number">12.3</span> 동작 방식 — Scatter</a></li>
+  <li><a href="#구체적-예시-22-입력-stride2" id="toc-구체적-예시-22-입력-stride2" class="nav-link" data-scroll-target="#구체적-예시-22-입력-stride2"><span class="header-section-number">12.4</span> 구체적 예시 — 2×2 입력, stride=2</a></li>
+  <li><a href="#stride의-역할-반전" id="toc-stride의-역할-반전" class="nav-link" data-scroll-target="#stride의-역할-반전"><span class="header-section-number">12.5</span> Stride의 역할 반전</a></li>
+  <li><a href="#활용-분야" id="toc-활용-분야" class="nav-link" data-scroll-target="#활용-분야"><span class="header-section-number">12.6</span> 활용 분야</a></li>
+  </ul></li>
+  <li><a href="#gabor-filter-vs.-learned-filter" id="toc-gabor-filter-vs.-learned-filter" class="nav-link" data-scroll-target="#gabor-filter-vs.-learned-filter"><span class="header-section-number">13</span> Gabor Filter vs.&nbsp;Learned Filter</a>
+  <ul>
+  <li><a href="#gabor-filter-수작업-설계" id="toc-gabor-filter-수작업-설계" class="nav-link" data-scroll-target="#gabor-filter-수작업-설계"><span class="header-section-number">13.1</span> Gabor Filter — 수작업 설계</a></li>
+  <li><a href="#신경과학적-기반" id="toc-신경과학적-기반" class="nav-link" data-scroll-target="#신경과학적-기반"><span class="header-section-number">13.2</span> 신경과학적 기반</a></li>
+  <li><a href="#learned-filter-데이터-기반" id="toc-learned-filter-데이터-기반" class="nav-link" data-scroll-target="#learned-filter-데이터-기반"><span class="header-section-number">13.3</span> Learned Filter — 데이터 기반</a></li>
+  <li><a href="#비교" id="toc-비교" class="nav-link" data-scroll-target="#비교"><span class="header-section-number">13.4</span> 비교</a></li>
+  <li><a href="#놀라운-사실" id="toc-놀라운-사실" class="nav-link" data-scroll-target="#놀라운-사실"><span class="header-section-number">13.5</span> 놀라운 사실</a></li>
+  </ul></li>
+  <li><a href="#종합-정리" id="toc-종합-정리" class="nav-link" data-scroll-target="#종합-정리"><span class="header-section-number">14</span> 종합 정리</a>
+  <ul>
+  <li><a href="#cnn-설계-체크리스트" id="toc-cnn-설계-체크리스트" class="nav-link" data-scroll-target="#cnn-설계-체크리스트"><span class="header-section-number">14.1</span> CNN 설계 체크리스트</a></li>
+  <li><a href="#핵심-통찰-요약" id="toc-핵심-통찰-요약" class="nav-link" data-scroll-target="#핵심-통찰-요약"><span class="header-section-number">14.2</span> 핵심 통찰 요약</a></li>
+  <li><a href="#다음-학습-주제" id="toc-다음-학습-주제" class="nav-link" data-scroll-target="#다음-학습-주제"><span class="header-section-number">14.3</span> 다음 학습 주제</a></li>
+  </ul></li>
+  <li><a href="#참고-자료" id="toc-참고-자료" class="nav-link" data-scroll-target="#참고-자료"><span class="header-section-number">15</span> 참고 자료</a></li>
+  </ul>
+</nav>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Convolutional Neural Networks</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">Deep Learning</div>
+    <div class="quarto-category">CNN</div>
+    <div class="quarto-category">Computer Vision</div>
+    <div class="quarto-category">Study Notes</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    공간적 구조를 활용한 딥러닝 — 합성곱, 풀링, 그리고 그 변형들
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">April 28, 2026</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">April 28, 2026</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="cnn의-동기-왜-mlp가-아닌가" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> CNN의 동기 — 왜 MLP가 아닌가?</h1>
+<section id="mlp의-한계" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="mlp의-한계"><span class="header-section-number">1.1</span> MLP의 한계</h2>
+<p><span class="math inline">224 \times 224 \times 3</span> 이미지를 입력으로 받는 첫 번째 FC layer가 1,000개의 뉴런을 가진다고 하자. 파라미터 수는</p>
+<p><span class="math display">
+224 \times 224 \times 3 \times 1{,}000 = 150{,}528{,}000
+</span></p>
+<p>약 1.5억 개. 첫 레이어 하나에서만 그러하다.</p>
+<p>이 문제는 단순히 파라미터가 많다는 데 그치지 않는다. 더 근본적인 결함은 <strong>공간적 구조(spatial structure)를 전혀 활용하지 못한다</strong>는 것이다.</p>
+<div class="callout callout-style-default callout-tip callout-titled" title="무선통신에서의 비유">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>무선통신에서의 비유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>채널 행렬 <span class="math inline">\mathbf{H}</span>를 추정할 때, 인접한 subcarrier들의 채널 계수가 강하게 상관(correlated)되어 있다는 사실을 무시하고 모든 subcarrier를 독립적으로 취급하는 것과 같다. 구조적 사전 정보(structural prior)를 버리는 셈이다.</p>
+</div>
+</div>
+</section>
+<section id="cnn의-두-가지-inductive-bias" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="cnn의-두-가지-inductive-bias"><span class="header-section-number">1.2</span> CNN의 두 가지 Inductive Bias</h2>
+<p>CNN은 두 가지 핵심 inductive bias를 도입한다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Inductive Bias</th>
+<th>의미</th>
+<th>무선통신 유사체</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Local connectivity</strong></td>
+<td>인접 픽셀만 연결</td>
+<td>Frequency correlation, coherence bandwidth</td>
+</tr>
+<tr class="even">
+<td><strong>Weight sharing (Stationarity)</strong></td>
+<td>같은 필터를 공간 전체에 재사용</td>
+<td>Wide-Sense Stationary (WSS) 가정</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="stationarity와-weight-sharing" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Stationarity와 Weight Sharing</h1>
+<section id="statistics-are-similar-at-different-locations" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="statistics-are-similar-at-different-locations"><span class="header-section-number">2.1</span> “Statistics are similar at different locations”</h2>
+<p>이미지의 어떤 “통계”가 위치에 무관한지 생각해보자. 산 사진에서 왼쪽에 있는 산봉우리나, 오른쪽으로 이동한 산봉우리나 <strong>생김새(edge 방향, 색상 패턴, 텍스처)는 동일하다.</strong></p>
+<p>즉, <strong>“어떤 패턴이 존재하는가”</strong> 라는 통계적 특성은 위치가 달라져도 같다.</p>
+<div class="callout callout-style-default callout-important callout-titled" title="왜 이 가정이 필요한가?">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>왜 이 가정이 필요한가?
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>이 가정 없이는 다음과 같은 결론이 나온다.</p>
+<ul>
+<li>위치 <span class="math inline">(50, 50)</span>의 edge detector</li>
+<li>위치 <span class="math inline">(50, 200)</span>의 동일한 edge detector</li>
+</ul>
+<p>이 둘이 서로 완전히 다른 파라미터를 가져야 한다. 모든 픽셀 위치마다 모든 패턴에 대한 detector를 따로 학습해야 하므로 파라미터가 폭발한다.</p>
+<p>Stationarity를 가정하면 “edge를 감지하는 능력”은 위치에 무관하게 동일하다고 보고, 하나의 edge detector를 학습하여 이미지 전체에서 재사용할 수 있다.</p>
+</div>
+</div>
+</section>
+<section id="weight-sharing의-직접적-결과" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="weight-sharing의-직접적-결과"><span class="header-section-number">2.2</span> Weight Sharing의 직접적 결과</h2>
+<p>논리 흐름은 다음과 같다.</p>
+<pre><code>Stationarity 가정
+        ↓
+"패턴 감지 능력은 위치에 무관"
+        ↓
+"동일한 필터(weight)를 모든 위치에 적용 가능"
+        ↓
+Weight Sharing: 하나의 필터를 슬라이딩하며 재사용</code></pre>
+<p>구체적 비교 (<span class="math inline">224 \times 224</span> 이미지에서 <span class="math inline">3 \times 3</span> edge detector를 학습):</p>
+<pre><code>Weight sharing 없이:
+  각 위치마다 9개의 독립적 파라미터
+  → 총 9 × 224 × 224 ≈ 451,584 개
+
+Weight sharing 있이 (CNN):
+  9개 파라미터 하나로 모든 위치 커버
+  → 총 9 개</code></pre>
+<div class="callout callout-style-default callout-tip callout-titled" title="WSS와의 구조적 동치">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>WSS와의 구조적 동치
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>OFDM 채널 추정에서 WSS(Wide-Sense Stationary) 가정 덕분에 하나의 MMSE 필터를 설계하면 어느 시점에서든 동일하게 적용할 수 있다. CNN이 하나의 필터를 이미지 전체에 재사용하는 것과 정확히 같은 구조다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="convolution-연산" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Convolution 연산</h1>
+<section id="수학적-정의" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="수학적-정의"><span class="header-section-number">3.1</span> 수학적 정의</h2>
+<p><strong>연속 1D Convolution</strong>:</p>
+<p><span class="math display">
+(f * g)(t) = \int_{-\infty}^{\infty} f(\tau)\, g(t - \tau)\, d\tau
+</span></p>
+<p><strong>이산 2D Convolution</strong> (딥러닝에서 실제 사용):</p>
+<p>입력 <span class="math inline">\mathbf{X} \in \mathbb{R}^{H \times W}</span>, 필터 <span class="math inline">\mathbf{K} \in \mathbb{R}^{F \times F}</span>에 대해</p>
+<p><span class="math display">
+(\mathbf{X} * \mathbf{K})[i, j] = \sum_{m=0}^{F-1} \sum_{n=0}^{F-1} \mathbf{X}[i+m,\, j+n] \cdot \mathbf{K}[m, n]
+</span></p>
+<div class="callout callout-style-default callout-warning callout-titled" title="Convolution vs. Cross-correlation">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>Convolution vs.&nbsp;Cross-correlation
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>엄밀한 의미의 convolution은 필터를 180° 뒤집지만(flip), 딥러닝 프레임워크에서 실제로 구현된 것은 <strong>cross-correlation</strong>이다. 필터 자체를 학습하므로 이 차이는 실용적으로 무관하다.</p>
+</div>
+</div>
+</section>
+<section id="직관-필터는-패턴-감지기" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="직관-필터는-패턴-감지기"><span class="header-section-number">3.2</span> 직관 — 필터는 패턴 감지기</h2>
+<pre><code>이미지와 동일 크기 필터의 내적     → 1.000 (완벽 매칭)
+이미지와 다른 모양 필터의 내적     → 0.321 (불완전 매칭)
+
+해결책: 필터를 작은 조각으로 나눠서
+        이미지 전체를 슬라이딩하며 "어디서 매칭되는지" 찾는다.</code></pre>
+<p>각 위치에서의 내적값은 <strong>“이 위치에 이 패턴이 얼마나 강하게 존재하는가”</strong> 를 나타낸다.</p>
+<hr>
+</section>
+</section>
+<section id="locally-connected-layer-cnn과의-비교" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Locally Connected Layer — CNN과의 비교</h1>
+<section id="세-번째-옵션의-등장" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="세-번째-옵션의-등장"><span class="header-section-number">4.1</span> 세 번째 옵션의 등장</h2>
+<p>MLP와 CNN 사이에 또 하나의 구조가 있다: <strong>Locally Connected Layer</strong>.</p>
+<pre><code>MLP (FC):         모든 뉴런 → 이미지 전체 픽셀에 연결
+                   weight sharing 없음
+
+Locally Connected: 각 뉴런 → 자기 담당 구역에만 연결
+                   weight sharing 없음
+
+CNN:              각 뉴런 → 자기 담당 구역에만 연결
+                   weight sharing 있음</code></pre>
+</section>
+<section id="파라미터-수-분석" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="파라미터-수-분석"><span class="header-section-number">4.2</span> 파라미터 수 분석</h2>
+<p><span class="math inline">200 \times 200</span> 이미지, 40K hidden units, <span class="math inline">10 \times 10</span> 필터를 가정하자.</p>
+<p><strong>Locally Connected Layer</strong>: <span class="math display">
+\underbrace{10 \times 10}_{\text{뉴런당 가중치}} \times \underbrace{40{,}000}_{\text{뉴런 수}} = 4{,}000{,}000 = 4M
+</span></p>
+<p><strong>CNN</strong>: <span class="math display">
+10 \times 10 = 100
+</span></p>
+<div class="callout callout-style-default callout-note callout-titled" title="Locally Connected가 적합한 경우">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Locally Connected가 적합한 경우
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>“입력이 registered되어 있을 때” — 즉 이미지 내 물체의 위치가 항상 고정되어 있을 때 적합하다. 얼굴 인식이 대표적이다.</p>
+<pre><code>얼굴 이미지는 항상:
+  눈   → 상단에
+  코   → 중앙에
+  입   → 하단에</code></pre>
+<p>이때는 stationarity가 성립하지 않으므로, 위치마다 다른 detector를 쓰는 locally connected layer가 오히려 합리적이다. 반면 일반 객체 분류에서는 객체가 어디에 있을지 모르므로 CNN이 적합하다.</p>
+</div>
+</div>
+</section>
+<section id="세-구조-비교" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="세-구조-비교"><span class="header-section-number">4.3</span> 세 구조 비교</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>MLP</th>
+<th>Locally Connected</th>
+<th>CNN</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>연결 범위</td>
+<td>전체 픽셀</td>
+<td>담당 구역만</td>
+<td>담당 구역만</td>
+</tr>
+<tr class="even">
+<td>Weight sharing</td>
+<td>없음</td>
+<td>없음</td>
+<td>있음</td>
+</tr>
+<tr class="odd">
+<td>파라미터 수</td>
+<td>매우 많음</td>
+<td>중간</td>
+<td>매우 적음</td>
+</tr>
+<tr class="even">
+<td>적합 상황</td>
+<td>—</td>
+<td>위치 고정</td>
+<td>위치 자유</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="convolutional-layer의-차원-분석" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Convolutional Layer의 차원 분석</h1>
+<section id="필터의-깊이" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="필터의-깊이"><span class="header-section-number">5.1</span> 필터의 “깊이”</h2>
+<p>이미지는 2D가 아니라 <strong>3D 구조</strong>다.</p>
+<p><span class="math display">
+32 \times 32 \times 3 = (\text{가로}) \times (\text{세로}) \times (\text{채널: R, G, B})
+</span></p>
+<p><strong>필터도 마찬가지로 3D</strong>이며, 핵심 원칙은:</p>
+<blockquote class="blockquote">
+<p><strong>필터의 깊이는 반드시 입력의 깊이와 같다.</strong></p>
+</blockquote>
+<p>예를 들어 <span class="math inline">5 \times 5</span> 공간 필터를 RGB 이미지에 적용하려면 필터는 <span class="math inline">5 \times 5 \times 3</span>이어야 한다.</p>
+<div class="callout callout-style-default callout-tip callout-titled" title="왜 깊이가 같아야 하는가">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>왜 깊이가 같아야 하는가
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>한 위치에서 R채널 5×5 픽셀 + G채널 5×5 픽셀 + B채널 5×5 픽셀을 동시에 봐야 하기 때문이다. 예: 노란색 물체를 감지하려면 R채널과 G채널이 함께 높고 B채널이 낮아야 하므로 세 채널을 동시에 고려해야 한다.</p>
+</div>
+</div>
+</section>
+<section id="한-위치에서의-계산" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="한-위치에서의-계산"><span class="header-section-number">5.2</span> 한 위치에서의 계산</h2>
+<p><span class="math inline">5 \times 5 \times 3</span> 필터가 한 위치에서 수행하는 연산:</p>
+<pre><code>이미지 패치 (5×5×3 = 75개 숫자)
+필터 가중치 (5×5×3 = 75개 숫자)
+
+→ 내적 = 75개를 element-wise 곱한 뒤 모두 합산
+→ scalar 1개 출력</code></pre>
+<p>이 scalar가 <strong>“이 위치에서 이 패턴이 얼마나 강하게 존재하는가”</strong> 를 나타낸다.</p>
+</section>
+<section id="출력-크기-공식" class="level2" data-number="5.3">
+<h2 data-number="5.3" class="anchored" data-anchor-id="출력-크기-공식"><span class="header-section-number">5.3</span> 출력 크기 공식</h2>
+<p>입력 볼륨 <span class="math inline">W_1 \times H_1 \times D_1</span>, 4가지 하이퍼파라미터:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>기호</th>
+<th>이름</th>
+<th>역할</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">K</span></td>
+<td>Number of filters</td>
+<td>출력 채널 수</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">F</span></td>
+<td>Filter size</td>
+<td>로컬 수용 영역 크기</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">S</span></td>
+<td>Stride</td>
+<td>필터 이동 간격</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">P</span></td>
+<td>Zero-padding</td>
+<td>경계 처리</td>
+</tr>
+</tbody>
+</table>
+<p>출력 볼륨 <span class="math inline">W_2 \times H_2 \times D_2</span>:</p>
+<p><span class="math display">
+\boxed{
+W_2 = \frac{W_1 - F + 2P}{S} + 1, \quad H_2 = \frac{H_1 - F + 2P}{S} + 1, \quad D_2 = K
+}
+</span></p>
+<div class="callout callout-style-default callout-important callout-titled" title="$D_1$은 어디로 갔는가?">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span><span class="math inline">D_1</span>은 어디로 갔는가?
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">D_1</span>은 <strong>각 필터의 두께로 흡수</strong>된다. <span class="math inline">K</span>는 <strong>필터의 개수</strong>로서 출력의 깊이 <span class="math inline">D_2</span>가 된다.</p>
+<pre><code>필터 하나의 구조: F × F × D₁  (D₁은 여기에 흡수됨)
+필터 K개:        각 필터가 W₂×H₂ activation map 1개 생성
+                 → D₂ = K</code></pre>
+<p>따라서 <span class="math inline">D_1</span>과 <span class="math inline">D_2</span>는 같을 필요가 없다. 예: 입력 <span class="math inline">32 \times 32 \times 3</span>에 <span class="math inline">5 \times 5 \times 3</span> 필터 10개를 적용하면 출력은 <span class="math inline">28 \times 28 \times 10</span>.</p>
+</div>
+</div>
+</section>
+<section id="파라미터-수" class="level2" data-number="5.4">
+<h2 data-number="5.4" class="anchored" data-anchor-id="파라미터-수"><span class="header-section-number">5.4</span> 파라미터 수</h2>
+<p>필터 하나의 가중치 수:</p>
+<p><span class="math display">
+F \cdot F \cdot D_1
+</span></p>
+<p>이는 <strong>공간 방향 (<span class="math inline">F \times F</span>) × 채널 방향 (<span class="math inline">D_1</span>)</strong> 의 곱이다.</p>
+<p>전체 layer의 파라미터 수:</p>
+<p><span class="math display">
+\underbrace{(F \cdot F \cdot D_1) \cdot K}_{\text{weights}} + \underbrace{K}_{\text{biases}}
+</span></p>
+<hr>
+</section>
+</section>
+<section id="출력-크기-공식의-기하학적-직관" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> 출력 크기 공식의 기하학적 직관</h1>
+<section id="fracn---fs-1의-의미" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="fracn---fs-1의-의미"><span class="header-section-number">6.1</span> <span class="math inline">\frac{N - F}{S} + 1</span>의 의미</h2>
+<p>1D로 단순화하여 <span class="math inline">N=7, F=3</span>인 경우를 보자.</p>
+<pre><code>입력: [1  2  3  4  5  6  7]
+
+위치 1: [1  2  3] 4  5  6  7   → 출력값 1개
+위치 2:  1 [2  3  4] 5  6  7   → 출력값 1개
+위치 3:  1  2 [3  4  5] 6  7   → 출력값 1개
+위치 4:  1  2  3 [4  5  6] 7   → 출력값 1개
+위치 5:  1  2  3  4 [5  6  7]  → 출력값 1개
+
+총 5번 → 출력 크기 = 5</code></pre>
+<p>공식 분해:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>항</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">N - F</span></td>
+<td>필터가 움직일 수 있는 “여유 공간”</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">/S</span></td>
+<td>그 공간을 몇 걸음으로 나누는가</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">+1</span></td>
+<td>출발점 자체도 위치 하나</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-tip callout-titled" title="울타리 비유">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>울타리 비유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>기둥 사이 간격이 4개라면 기둥은 5개다.</p>
+<pre><code>|   |   |   |   |
+1   2   3   4   5</code></pre>
+<p><strong>위치 수 = 이동 횟수 + 1.</strong> 따라서 시작점을 위해 <span class="math inline">+1</span>을 더해준다.</p>
+</div>
+</div>
+</section>
+<section id="stride가-맞지-않을-때" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="stride가-맞지-않을-때"><span class="header-section-number">6.2</span> Stride가 맞지 않을 때</h2>
+<p><span class="math inline">N=7, F=3</span>, stride <span class="math inline">= 3</span>이면 <span class="math inline">(7-3)/3 = 1.33</span> — 정수가 아니다.</p>
+<pre><code>0 → 3 → 6?  →  6 &gt; 4 (여유 공간)이므로 삐져나감</code></pre>
+<p>따라서 이런 stride는 사용할 수 없다. 해결책은 padding을 추가하거나 stride를 바꾸는 것이다.</p>
+<hr>
+</section>
+</section>
+<section id="padding" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> Padding</h1>
+<section id="경계-처리" class="level2" data-number="7.1">
+<h2 data-number="7.1" class="anchored" data-anchor-id="경계-처리"><span class="header-section-number">7.1</span> 경계 처리</h2>
+<p>Zero padding은 입력 주변을 0으로 둘러싸 경계에서도 convolution을 수행할 수 있게 한다.</p>
+<pre><code>[0  0  0  0  0  0]
+[0  1  0  0.5 0.5 0]
+[0  0  0.5 1  0  0]    원본 4×4 입력을
+[0  0  1  0.5 1  0]    1픽셀 zero padding
+[0  1  0.5 0.5 1  0]
+[0  0  0  0  0  0]</code></pre>
+</section>
+<section id="same-padding" class="level2" data-number="7.2">
+<h2 data-number="7.2" class="anchored" data-anchor-id="same-padding"><span class="header-section-number">7.2</span> Same Padding</h2>
+<p>입력과 출력의 spatial size를 <strong>동일하게</strong> 유지하는 padding 양:</p>
+<p><span class="math display">
+P = \frac{F - 1}{2} \quad (\text{stride}=1\text{일 때})
+</span></p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><span class="math inline">F</span></th>
+<th>Same Padding <span class="math inline">P</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>3</td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td>5</td>
+<td>2</td>
+</tr>
+<tr class="odd">
+<td>7</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="same-padding의-특징" class="level2" data-number="7.3">
+<h2 data-number="7.3" class="anchored" data-anchor-id="same-padding의-특징"><span class="header-section-number">7.3</span> Same Padding의 특징</h2>
+<ol type="1">
+<li><strong>공간 크기 보존</strong>: <span class="math inline">W_2 = W_1</span>, <span class="math inline">H_2 = H_1</span>. 변하는 건 깊이뿐.</li>
+<li><strong>경계 픽셀 동등 처리</strong>: padding 없이는 모서리 픽셀이 필터에 한 번만 닿지만, same padding 하에서는 모든 픽셀이 충분히 커버된다.</li>
+<li><strong>깊은 네트워크 설계 가능</strong>: 레이어를 쌓아도 크기가 줄어들지 않는다.</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled" title="Valid Padding과의 비교">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Valid Padding과의 비교
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>Valid (<span class="math inline">P=0</span>)</th>
+<th>Same (<span class="math inline">P=(F-1)/2</span>)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>출력 크기</td>
+<td>입력보다 작아짐</td>
+<td>입력과 동일</td>
+</tr>
+<tr class="even">
+<td>경계 처리</td>
+<td>경계 손실 발생</td>
+<td>손실 없음</td>
+</tr>
+<tr class="odd">
+<td>깊게 쌓기</td>
+<td>크기 소멸 위험</td>
+<td>자유롭게 가능</td>
+</tr>
+<tr class="even">
+<td>사용 시점</td>
+<td>크기 줄이고 싶을 때</td>
+<td>크기 유지하고 싶을 때</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="설계 철학">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>설계 철학
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Same padding을 쓰면 Conv layer는 “크기 변환 없이 채널만 바꾸는 연산”이 된다. 공간 크기 축소는 pooling이나 stride&gt;1로 <strong>명시적으로 제어</strong>할 수 있게 되어 네트워크 설계가 깔끔해진다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="채널-수가-깊이에-따라-늘어나는-이유" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> 채널 수가 깊이에 따라 늘어나는 이유</h1>
+<section id="정보-부피-보존-원칙" class="level2" data-number="8.1">
+<h2 data-number="8.1" class="anchored" data-anchor-id="정보-부피-보존-원칙"><span class="header-section-number">8.1</span> 정보 부피 보존 원칙</h2>
+<p>CNN의 전형적인 구조에서는 <strong>공간 차원이 줄어드는 만큼 채널 차원이 늘어난다.</strong></p>
+<pre><code>입력:       224×224×3
+Conv1 후:   224×224×64    공간 유지, 채널 3→64
+Pool 후:    112×112×64    공간 절반
+Conv2 후:   112×112×128   공간 유지, 채널 64→128
+Pool 후:    56×56×128     공간 절반
+Conv3 후:   56×56×256     공간 유지, 채널 128→256
+Pool 후:    28×28×256     공간 절반</code></pre>
+<p>공간이 절반씩 줄 때마다 채널은 두 배씩 늘어난다.</p>
+</section>
+<section id="세-가지-이유" class="level2" data-number="8.2">
+<h2 data-number="8.2" class="anchored" data-anchor-id="세-가지-이유"><span class="header-section-number">8.2</span> 세 가지 이유</h2>
+<p><strong>1. 한 위치의 의미가 풍부해진다</strong></p>
+<pre><code>입력 픽셀 1개:    "밝기값" 하나        → 단순
+Conv 출력 1개:    "이 위치의 패턴들"   → 복합
+  채널 1: 수평 edge 0.9
+  채널 2: 수직 edge 0.1
+  채널 3: 빨간색   0.7
+  ...</code></pre>
+<p>위치 하나를 설명하는 데 더 많은 채널이 필요해진다.</p>
+<p><strong>2. 더 복잡한 패턴 감지에 더 많은 채널 필요</strong></p>
+<pre><code>Layer 1: edge (수평/수직/대각선) → 적은 채널로 충분
+Layer 2: 코너, 곡선, 텍스처      → 더 많은 채널
+Layer 3: 눈, 코, 바퀴, 창문      → 훨씬 더 많은 채널</code></pre>
+<p><strong>3. 공간 해상도 손실에 대한 보상</strong></p>
+<pre><code>Pooling 전:  32 × 32 × 32  = 32,768
+Pooling 후:  16 × 16 × 32  = 8,192    ← 정보 손실
+
+채널을 두 배로:
+Pooling 후:  16 × 16 × 64  = 16,384   ← 어느 정도 보상</code></pre>
+<div class="callout callout-style-default callout-tip callout-titled" title="MIMO 빔포밍과의 비유">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>MIMO 빔포밍과의 비유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>공간 자유도(안테나 수)가 줄어들면 각 샘플이 더 많은 정보를 담아야 하므로 처리 차원(채널)을 늘려서 보상한다. 빔포밍으로 공간을 압축한 뒤 각 빔이 담은 정보를 더 정교하게 분리하는 것과 같다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="pooling-layer" class="level1" data-number="9">
+<h1 data-number="9"><span class="header-section-number">9</span> Pooling Layer</h1>
+<section id="동작과-종류" class="level2" data-number="9.1">
+<h2 data-number="9.1" class="anchored" data-anchor-id="동작과-종류"><span class="header-section-number">9.1</span> 동작과 종류</h2>
+<p><strong>Max Pooling</strong>:</p>
+<p><span class="math display">
+\text{MaxPool}(\mathbf{X})[i,j] = \max_{(m,n) \in \text{pool region}} \mathbf{X}[i+m, j+n]
+</span></p>
+<pre><code>입력 4×4:                  2×2 max pooling, stride=2:
+[1  3  2  4]
+[5  6  1  2]   →           [6  8]
+[1  2  0  3]               [3  4]
+[2  3  1  4]</code></pre>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>종류</th>
+<th>동작</th>
+<th>특성</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Max Pooling</strong></td>
+<td>최댓값 선택</td>
+<td>Sharp feature 보존</td>
+</tr>
+<tr class="even">
+<td><strong>Average Pooling</strong></td>
+<td>평균값</td>
+<td>Smooth feature, 글로벌 컨텍스트</td>
+</tr>
+<tr class="odd">
+<td><strong>Global Average Pooling</strong></td>
+<td>전체를 하나로</td>
+<td>FC layer 대체</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="pooling이-주는-위치-불변성-정확한-의미" class="level2" data-number="9.2">
+<h2 data-number="9.2" class="anchored" data-anchor-id="pooling이-주는-위치-불변성-정확한-의미"><span class="header-section-number">9.2</span> Pooling이 주는 위치 불변성 — 정확한 의미</h2>
+<p>핵심 비교 대상은 <strong>Conv 출력 (pooling 전)</strong> 과 <strong>Pooling 출력 (pooling 후)</strong>, 둘 중 어느 것이 위치 변화에 더 둔감한가이다.</p>
+<div class="callout callout-style-default callout-important callout-titled" title="구체적 수치 예시">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>구체적 수치 예시
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>길이 8 신호, edge 패턴이 위치 3 → 4 → 5로 이동하는 경우를 보자.</p>
+<p><strong>[Pooling 없이] Conv 출력</strong></p>
+<pre><code>edge@3:   [0,   0,  0.9, 0.1,  0,   0,   0,   0]
+edge@4:   [0,   0,   0,  0.9, 0.1,  0,   0,   0]
+edge@5:   [0,   0,   0,   0,  0.9, 0.1,  0,   0]</code></pre>
+<p>1픽셀 이동할 때마다 벡터 전체가 달라진다.</p>
+<p><strong>[2×2 Max Pooling 후] 출력</strong></p>
+<pre><code>              Bin A   Bin B   Bin C   Bin D
+
+edge@3:      [ 0,     0.9,    0,      0  ]
+edge@4:      [ 0,     0.9,    0,      0  ]   ← edge@3과 동일!
+edge@5:      [ 0,      0,    0.9,     0  ]   ← bin 경계 넘음</code></pre>
+<ul>
+<li><strong>edge가 3→4로 이동 (같은 bin 내부)</strong>: 출력 완전 동일</li>
+<li><strong>edge가 4→5로 이동 (bin 경계 넘음)</strong>: 출력 달라짐</li>
+</ul>
+</div>
+</div>
+<p>따라서 pooling은 <strong>“완전한 위치 불변”이 아니라 “일정 범위 내 위치에 둔감해짐”</strong> 이다. 원문이 “invariance”가 아니라 <strong>“robustness”</strong> 라고 표현하는 이유가 여기에 있다.</p>
+</section>
+<section id="pooling의-효과" class="level2" data-number="9.3">
+<h2 data-number="9.3" class="anchored" data-anchor-id="pooling의-효과"><span class="header-section-number">9.3</span> Pooling의 효과</h2>
+<ol type="1">
+<li><strong>공간 차원 축소</strong> — 계산량 감소</li>
+<li><strong>Receptive field 확장</strong> — 더 넓은 영역을 보게 됨</li>
+<li><strong>위치에 대한 강건성 (robustness)</strong> — 약간의 위치 이동에 둔감</li>
+<li><strong>노이즈 제거</strong> — 인접한 위치의 불필요한 변동 억제</li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="receptive-field" class="level1" data-number="10">
+<h1 data-number="10"><span class="header-section-number">10</span> Receptive Field</h1>
+<section id="정의" class="level2" data-number="10.1">
+<h2 data-number="10.1" class="anchored" data-anchor-id="정의"><span class="header-section-number">10.1</span> 정의</h2>
+<p><span class="math display">
+\text{Receptive Field} = \text{이 뉴런의 출력값이 원본 입력의 어느 영역에 영향을 받는가?}
+</span></p>
+</section>
+<section id="pooling이-rf를-키우는-효과" class="level2" data-number="10.2">
+<h2 data-number="10.2" class="anchored" data-anchor-id="pooling이-rf를-키우는-효과"><span class="header-section-number">10.2</span> Pooling이 RF를 키우는 효과</h2>
+<p><span class="math inline">K \times K</span> 필터(stride 1) + <span class="math inline">P \times P</span> pooling 조합에서, 한 출력 뉴런이 두 layer 이전(<span class="math inline">h^{n-1}</span>)에서 보는 영역:</p>
+<p><span class="math display">
+(P + K - 1) \times (P + K - 1)
+</span></p>
+</section>
+<section id="공식-유도" class="level2" data-number="10.3">
+<h2 data-number="10.3" class="anchored" data-anchor-id="공식-유도"><span class="header-section-number">10.3</span> 공식 유도</h2>
+<p><span class="math inline">P=3, K=3</span>인 경우 1D로 추적:</p>
+<pre><code>h^n의 위치:   1   2   3   4   5   6   7
+                  └───────────┘
+              Pool이 보는 P=3 구간: 위치 2, 3, 4
+
+각 위치가 h^(n-1)에서 보는 K=3 구간:
+  위치 2 → [1, 2, 3]
+  위치 3 → [2, 3, 4]   ← 1칸 겹침
+  위치 4 → [3, 4, 5]   ← 1칸 겹침
+
+전체 구간 = [1, 2, 3, 4, 5] = 5개 = P + K - 1</code></pre>
+<div class="callout callout-style-default callout-note callout-titled" title="-1이 나오는 이유">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>-1이 나오는 이유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>P개의 K×K 구간이 1칸씩 겹치므로 단순히 <span class="math inline">P \times K</span>가 아니라 그 겹침을 빼야 한다.</p>
+<p><span class="math display">
+P \cdot K - (K-1)(P-1) = P + K - 1
+</span></p>
+</div>
+</div>
+</section>
+<section id="핵심-통찰" class="level2" data-number="10.4">
+<h2 data-number="10.4" class="anchored" data-anchor-id="핵심-통찰"><span class="header-section-number">10.4</span> 핵심 통찰</h2>
+<pre><code>Conv만 2번 쌓을 때:
+  Layer 1 (K=3):  RF = 3
+  Layer 2 (K=3):  RF = 5  (선형 증가)
+
+Conv + Pool 조합:
+  Conv (K=3) + Pool (P=3):  RF = 5
+  → 동일한 RF를 더 적은 파라미터로 (Pool은 파라미터 0)</code></pre>
+<p>깊이가 쌓이면 receptive field는 누적되어, 최종 layer의 한 뉴런은 이미지 전체를 커버할 수 있게 된다. 이것이 <strong>전역적 패턴(고양이 전체)을 인식</strong>할 수 있는 메커니즘이다.</p>
+<hr>
+</section>
+</section>
+<section id="dilated-convolution" class="level1" data-number="11">
+<h1 data-number="11"><span class="header-section-number">11</span> Dilated Convolution</h1>
+<section id="동기-resolution과-rf의-딜레마" class="level2" data-number="11.1">
+<h2 data-number="11.1" class="anchored" data-anchor-id="동기-resolution과-rf의-딜레마"><span class="header-section-number">11.1</span> 동기 — Resolution과 RF의 딜레마</h2>
+<p>일반 Conv + Pooling 조합은 receptive field를 키우는 대가로 <strong>공간 해상도를 희생</strong>한다. Segmentation, detection처럼 픽셀 단위 예측이 필요한 task에서는 치명적이다.</p>
+<blockquote class="blockquote">
+<p>“해상도 유지하면서 receptive field만 키울 수 없을까?”</p>
+</blockquote>
+</section>
+<section id="정의-1" class="level2" data-number="11.2">
+<h2 data-number="11.2" class="anchored" data-anchor-id="정의-1"><span class="header-section-number">11.2</span> 정의</h2>
+<p>필터 원소들 사이에 간격(구멍)을 두고 입력을 샘플링한다.</p>
+<p><span class="math display">
+(\mathbf{X} *_d \mathbf{K})[i, j] = \sum_{m=0}^{F-1} \sum_{n=0}^{F-1} \mathbf{X}[i + d \cdot m,\; j + d \cdot n] \cdot \mathbf{K}[m, n]
+</span></p>
+<p>여기서 <span class="math inline">d</span>는 <strong>dilation rate</strong>이다.</p>
+<pre><code>일반 Conv (rate=1):       Dilated (rate=2):
+
+X X X                     X . X . X
+X X X   ← 필터            . . . . .
+X X X                     X . X . X
+                          . . . . .
+                          X . X . X
+                          (X=샘플링, .=건너뜀)</code></pre>
+<p>같은 9개 파라미터로 더 넓은 영역을 커버한다.</p>
+</section>
+<section id="stride와의-차이" class="level2" data-number="11.3">
+<h2 data-number="11.3" class="anchored" data-anchor-id="stride와의-차이"><span class="header-section-number">11.3</span> Stride와의 차이</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>Stride=2</th>
+<th>Dilation=2</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>출력 크기</td>
+<td>절반으로 줄음</td>
+<td>유지됨</td>
+</tr>
+<tr class="even">
+<td>Receptive Field</td>
+<td>커짐</td>
+<td>커짐</td>
+</tr>
+<tr class="odd">
+<td>파라미터 수</td>
+<td>동일</td>
+<td>동일</td>
+</tr>
+<tr class="even">
+<td>해상도 손실</td>
+<td><strong>있음</strong></td>
+<td><strong>없음</strong></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="실효-필터-크기" class="level2" data-number="11.4">
+<h2 data-number="11.4" class="anchored" data-anchor-id="실효-필터-크기"><span class="header-section-number">11.4</span> 실효 필터 크기</h2>
+<p><span class="math display">
+\text{실효 크기} = F + (F-1)(d-1) = d(F-1) + 1
+</span></p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><span class="math inline">d</span></th>
+<th>3×3 필터의 실효 크기</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>3×3</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>5×5</td>
+</tr>
+<tr class="odd">
+<td>4</td>
+<td>9×9</td>
+</tr>
+<tr class="even">
+<td>8</td>
+<td>17×17</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-warning callout-titled" title="공짜는 아니다">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>공짜는 아니다
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>듬성듬성 샘플링하므로 중간 위치 정보를 놓친다. 이 때문에 실제로는 여러 dilation rate를 병렬로 사용한다 (ASPP: Atrous Spatial Pyramid Pooling).</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="Sparse Pilot과의 비유">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Sparse Pilot과의 비유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>OFDM에서 sparse pilot 배치와 구조적으로 동일하다. 4개 subcarrier마다 pilot을 두면 overhead는 줄지만 중간 subcarrier는 보간으로 추정한다. Dilated Conv는 파라미터 수를 유지하면서 더 넓은 주파수 범위(receptive field)를 커버한다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="transposed-convolution" class="level1" data-number="12">
+<h1 data-number="12"><span class="header-section-number">12</span> Transposed Convolution</h1>
+<section id="deconvolution이라는-이름의-함정" class="level2" data-number="12.1">
+<h2 data-number="12.1" class="anchored" data-anchor-id="deconvolution이라는-이름의-함정"><span class="header-section-number">12.1</span> “Deconvolution”이라는 이름의 함정</h2>
+<p>신호처리에서 <strong>deconvolution은 역연산</strong>이다.</p>
+<p><span class="math display">
+y = h * x \quad \Rightarrow \quad x = \mathcal{F}^{-1}\left\{\frac{\mathcal{F}\{y\}}{\mathcal{F}\{h\}}\right\}
+</span></p>
+<p>원본 신호 <span class="math inline">x</span>를 완벽히 복원하는 것이다.</p>
+<div class="callout callout-style-default callout-important callout-titled" title="딥러닝의 deconvolution은 다르다">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>딥러닝의 deconvolution은 다르다
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>딥러닝에서 “deconvolution”이라 부르는 연산은 <strong>역연산이 아니다.</strong> 그저 <strong>공간을 키우는 upsampling</strong>일 뿐이며, 원본을 정확히 복원하지 않는다.</p>
+<p>정확한 명칭은 <strong>Transposed Convolution</strong>이다.</p>
+</div>
+</div>
+</section>
+<section id="행렬-관점" class="level2" data-number="12.2">
+<h2 data-number="12.2" class="anchored" data-anchor-id="행렬-관점"><span class="header-section-number">12.2</span> 행렬 관점</h2>
+<p>일반 Conv를 행렬 곱으로 표현:</p>
+<p><span class="math display">
+\mathbf{y} = \mathbf{C}\mathbf{x}
+</span></p>
+<p>여기서 <span class="math inline">\mathbf{C}</span>는 Toeplitz 구조의 convolution matrix.</p>
+<p><strong>Transposed Convolution</strong>:</p>
+<p><span class="math display">
+\mathbf{y} = \mathbf{C}^\top \mathbf{x}
+</span></p>
+<p>전치행렬을 곱하는 것이지, 역행렬을 곱하는 것이 아니다.</p>
+<p><span class="math display">
+\mathbf{C}^\top \neq \mathbf{C}^{-1}
+</span></p>
+</section>
+<section id="동작-방식-scatter" class="level2" data-number="12.3">
+<h2 data-number="12.3" class="anchored" data-anchor-id="동작-방식-scatter"><span class="header-section-number">12.3</span> 동작 방식 — Scatter</h2>
+<p>일반 Conv는 <strong>gather</strong> (“모아서 하나로”):</p>
+<pre><code>입력의 여러 픽셀 → 필터와 내적 → 출력 하나</code></pre>
+<p>Transposed Conv는 <strong>scatter</strong> (“하나를 뿌려서”):</p>
+<pre><code>입력 하나 → 필터를 곱해서 → 출력의 여러 위치에 분산</code></pre>
+</section>
+<section id="구체적-예시-22-입력-stride2" class="level2" data-number="12.4">
+<h2 data-number="12.4" class="anchored" data-anchor-id="구체적-예시-22-입력-stride2"><span class="header-section-number">12.4</span> 구체적 예시 — 2×2 입력, stride=2</h2>
+<p><strong>입력</strong>:</p>
+<p><span class="math display">
+\begin{bmatrix} a &amp; b \\ c &amp; d \end{bmatrix}, \qquad
+\text{필터} = \begin{bmatrix} w_1 &amp; w_2 \\ w_3 &amp; w_4 \end{bmatrix}
+</span></p>
+<p>각 입력 원소를 필터 전체에 곱해 출력에 stamp 한다. stride=2이므로 stamp들이 2칸씩 떨어진 위치에 찍힌다.</p>
+<p><strong>최종 출력 (4×4)</strong>:</p>
+<p><span class="math display">
+\begin{bmatrix}
+a w_1 &amp; a w_2 &amp; b w_1 &amp; b w_2 \\
+a w_3 &amp; a w_4 &amp; b w_3 &amp; b w_4 \\
+c w_1 &amp; c w_2 &amp; d w_1 &amp; d w_2 \\
+c w_3 &amp; c w_4 &amp; d w_3 &amp; d w_4
+\end{bmatrix}
+</span></p>
+<p>2×2 → 4×4. <strong>공간이 stride배만큼 확장</strong>된다.</p>
+</section>
+<section id="stride의-역할-반전" class="level2" data-number="12.5">
+<h2 data-number="12.5" class="anchored" data-anchor-id="stride의-역할-반전"><span class="header-section-number">12.5</span> Stride의 역할 반전</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>일반 Conv</th>
+<th>Transposed Conv</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Stride의 역할</td>
+<td>출력 <strong>축소</strong></td>
+<td>출력 <strong>확장</strong></td>
+</tr>
+<tr class="even">
+<td>Stride=2</td>
+<td>4×4 → 2×2</td>
+<td>2×2 → 4×4</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="활용-분야" class="level2" data-number="12.6">
+<h2 data-number="12.6" class="anchored" data-anchor-id="활용-분야"><span class="header-section-number">12.6</span> 활용 분야</h2>
+<ul>
+<li><strong>Encoder-Decoder 구조</strong> (U-Net, Segmentation)</li>
+<li><strong>GAN의 Generator</strong></li>
+<li><strong>Super-resolution</strong></li>
+<li><strong>CSI Feedback 복원</strong> (CsiNet 등)</li>
+</ul>
+<div class="callout callout-style-default callout-warning callout-titled" title="Checkerboard Artifact">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>Checkerboard Artifact
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Transposed convolution은 stride &gt; 1일 때 출력에 격자 무늬 artifact가 생길 수 있다. 특정 출력 위치가 입력 값을 더 많이 받는 불균등한 overlap 때문이다.</p>
+<p><strong>해결책</strong>: Bilinear/nearest-neighbor upsampling → Conv 순서로 대체하는 것이 현대 아키텍처에서 선호된다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="gabor-filter-vs.-learned-filter" class="level1" data-number="13">
+<h1 data-number="13"><span class="header-section-number">13</span> Gabor Filter vs.&nbsp;Learned Filter</h1>
+<section id="gabor-filter-수작업-설계" class="level2" data-number="13.1">
+<h2 data-number="13.1" class="anchored" data-anchor-id="gabor-filter-수작업-설계"><span class="header-section-number">13.1</span> Gabor Filter — 수작업 설계</h2>
+<p>Gaussian 함수와 사인파를 곱한 필터:</p>
+<p><span class="math display">
+g(x, y; \lambda, \theta, \psi, \sigma, \gamma) = \exp\left(-\frac{x'^2 + \gamma^2 y'^2}{2\sigma^2}\right) \cos\left(\frac{2\pi x'}{\lambda} + \psi\right)
+</span></p>
+<p>직관:</p>
+<pre><code>Gaussian (종 모양)        × Sinusoid (사인파)
+  국소 영역에 집중            특정 방향/주파수의 줄무늬
+
+= "특정 방향과 주파수의 edge를 국소적으로 감지"</code></pre>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>파라미터</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\lambda</span></td>
+<td>사인파의 파장 → feature 크기</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\theta</span></td>
+<td>필터 방향 (0°, 45°, 90°, …)</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\sigma</span></td>
+<td>Gaussian 폭 → 국소 영역 크기</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\gamma</span></td>
+<td>종횡비</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\psi</span></td>
+<td>위상</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="신경과학적-기반" class="level2" data-number="13.2">
+<h2 data-number="13.2" class="anchored" data-anchor-id="신경과학적-기반"><span class="header-section-number">13.2</span> 신경과학적 기반</h2>
+<p>Hubel &amp; Wiesel(1959)이 발견한 <strong>시각피질의 simple cell 반응과 수학적으로 동일</strong>하다.</p>
+<pre><code>생물학:  simple cell → 특정 방향 edge에만 반응
+Gabor:   특정 방향/주파수에 선택적 반응
+
+→ 뇌가 이미 "발명한" 최적 필터를 수학으로 모델링</code></pre>
+</section>
+<section id="learned-filter-데이터-기반" class="level2" data-number="13.3">
+<h2 data-number="13.3" class="anchored" data-anchor-id="learned-filter-데이터-기반"><span class="header-section-number">13.3</span> Learned Filter — 데이터 기반</h2>
+<p>역전파로 데이터에서 자동 학습된 필터.</p>
+<pre><code>초기화: 랜덤 가중치
+        [0.1  -0.3   0.2]
+        [0.5   0.1  -0.4]
+        [-0.2  0.3   0.1]
+
+학습 후: 의미 있는 패턴 감지기
+        [-1   0   1]
+        [-2   0   2]
+        [-1   0   1]
+        (수직 edge 감지기, Sobel filter와 유사)</code></pre>
+</section>
+<section id="비교" class="level2" data-number="13.4">
+<h2 data-number="13.4" class="anchored" data-anchor-id="비교"><span class="header-section-number">13.4</span> 비교</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>Gabor Filter</th>
+<th>Learned Filter</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>설계 주체</td>
+<td>인간 (수작업)</td>
+<td>데이터 (자동)</td>
+</tr>
+<tr class="even">
+<td>파라미터</td>
+<td><span class="math inline">\lambda, \theta, \sigma</span> 등</td>
+<td>역전파로 결정</td>
+</tr>
+<tr class="odd">
+<td>해석 가능성</td>
+<td>높음</td>
+<td>낮음</td>
+</tr>
+<tr class="even">
+<td>유연성</td>
+<td>낮음</td>
+<td>높음</td>
+</tr>
+<tr class="odd">
+<td>Task 특화</td>
+<td>어려움</td>
+<td>자동 적응</td>
+</tr>
+<tr class="even">
+<td>필요 데이터</td>
+<td>없음</td>
+<td>많이 필요</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="놀라운-사실" class="level2" data-number="13.5">
+<h2 data-number="13.5" class="anchored" data-anchor-id="놀라운-사실"><span class="header-section-number">13.5</span> 놀라운 사실</h2>
+<p>AlexNet의 첫 번째 Conv layer 필터를 시각화하면 <strong>Gabor filter와 매우 유사한 형태</strong>로 수렴한다.</p>
+<pre><code>학습된 필터들:
+  ↗ 방향 edge 감지기  → Gabor filter와 유사
+  ↘ 방향 edge 감지기  → Gabor filter와 유사
+  빨간색 감지기        → color blob filter
+  초록-빨강 대비       → opponent color filter</code></pre>
+<p>데이터만 주었는데 인간이 수십 년간 연구해 설계한 Gabor filter 형태가 자동으로 나타난다.</p>
+<div class="callout callout-style-default callout-tip callout-titled" title="딥러닝 철학의 핵심">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>딥러닝 철학의 핵심
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<pre><code>전통적 컴퓨터 비전:
+  연구자가 Gabor filter 등을 수작업 설계 (feature engineering)
+
+딥러닝:
+  "그냥 데이터에서 학습하게 하자"
+  → 결과적으로 Gabor filter와 비슷한 게 나옴
+  → "feature engineering이 필요 없다"는 강력한 증거</code></pre>
+<p>더 깊은 layer로 가면 Gabor filter 같은 단순 패턴을 넘어, <strong>인간이 직접 설계할 수 없는 복잡한 패턴</strong>을 학습한다.</p>
+<pre><code>Layer 1: Gabor-like (edge, color)   ← 인간이 이해 가능
+Layer 2: 텍스처, 곡선                ← 어느 정도
+Layer 3: 눈, 코, 바퀴 등             ← 이해 어려움
+Layer 4: 얼굴, 자동차                ← 블랙박스</code></pre>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="종합-정리" class="level1" data-number="14">
+<h1 data-number="14"><span class="header-section-number">14</span> 종합 정리</h1>
+<section id="cnn-설계-체크리스트" class="level2" data-number="14.1">
+<h2 data-number="14.1" class="anchored" data-anchor-id="cnn-설계-체크리스트"><span class="header-section-number">14.1</span> CNN 설계 체크리스트</h2>
+<ol type="1">
+<li><p><strong>입력 데이터에 공간적/지역적 상관이 있는가?</strong></p>
+<ul>
+<li>YES → CNN 적합 (이미지, 신호, 채널 행렬 등)</li>
+</ul></li>
+<li><p><strong>출력 크기 계산</strong> <span class="math display">W_{out} = \frac{W_{in} - F + 2P}{S} + 1</span></p></li>
+<li><p><strong>파라미터 수 계산</strong> <span class="math display">(F \cdot F \cdot D_{in} + 1) \cdot K \quad \text{per layer}</span></p></li>
+<li><p><strong>해상도 보존이 필요한가?</strong></p>
+<ul>
+<li>YES → Dilated Conv 또는 Same Padding</li>
+</ul></li>
+<li><p><strong>Upsampling이 필요한가?</strong></p>
+<ul>
+<li>YES → Transposed Conv (또는 Upsample + Conv)</li>
+</ul></li>
+</ol>
+</section>
+<section id="핵심-통찰-요약" class="level2" data-number="14.2">
+<h2 data-number="14.2" class="anchored" data-anchor-id="핵심-통찰-요약"><span class="header-section-number">14.2</span> 핵심 통찰 요약</h2>
+<div class="callout callout-style-default callout-note callout-titled" title="CNN의 본질">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>CNN의 본질
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>CNN은 공간 정보를 압축하면서 의미 정보를 풍부하게 만드는 변환이다.</p>
+<pre><code>공간 해상도 (어디에) ↓     |   채널 수 (무엇이) ↑
+                          |
+W × H 줄어들수록           |   D 늘어나서
+                          |   정보 부피 보존</code></pre>
+<p>위치 정보를 압축하는 동시에, 그 위치에서 무엇이 일어나는지에 대한 표현을 풍부하게 만든다. 이것이 <strong>계층적 표현 학습(hierarchical representation learning)</strong> 의 본질이다.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="무선통신과의 다리">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>무선통신과의 다리
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>CNN 개념</th>
+<th>무선통신 대응</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Convolutional filter</td>
+<td>FIR 필터, 채널 임펄스 응답</td>
+</tr>
+<tr class="even">
+<td>Stride</td>
+<td>Decimation (downsampling)</td>
+</tr>
+<tr class="odd">
+<td>Pooling</td>
+<td>이동평균, 에너지 검출</td>
+</tr>
+<tr class="even">
+<td>Feature map</td>
+<td>채널 응답 (각 필터가 다른 모드 감지)</td>
+</tr>
+<tr class="odd">
+<td>Receptive field</td>
+<td>채널 coherence bandwidth</td>
+</tr>
+<tr class="even">
+<td>Weight sharing</td>
+<td>Wide-Sense Stationarity</td>
+</tr>
+<tr class="odd">
+<td>Same padding</td>
+<td>보호 구간 (guard interval)</td>
+</tr>
+<tr class="even">
+<td>Dilated Conv</td>
+<td>Sparse pilot 배치</td>
+</tr>
+<tr class="odd">
+<td>Transposed Conv</td>
+<td>CSI feedback 복원 (CsiNet)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section id="다음-학습-주제" class="level2" data-number="14.3">
+<h2 data-number="14.3" class="anchored" data-anchor-id="다음-학습-주제"><span class="header-section-number">14.3</span> 다음 학습 주제</h2>
+<ul>
+<li><strong>Efficient CNN</strong>: Depthwise separable convolution, 1×1 Conv, Bottleneck blocks</li>
+<li><strong>Modern Architectures</strong>: AlexNet → VGG → GoogLeNet → ResNet → SENet</li>
+<li><strong>Skip Connection의 수학</strong>: Vanishing gradient 해결 메커니즘</li>
+<li><strong>CNN의 무선통신 응용</strong>: ChannelNet, CsiNet, AMC</li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="참고-자료" class="level1" data-number="15">
+<h1 data-number="15"><span class="header-section-number">15</span> 참고 자료</h1>
+<ul>
+<li><em>Deep Learning</em> (Goodfellow, Bengio, Courville), Chapter 9: Convolutional Networks</li>
+<li><a href="https://d2l.ai/chapter_convolutional-neural-networks/">d2l.ai Chapter 7</a>: Convolutional Neural Networks</li>
+<li><a href="https://d2l.ai/chapter_convolutional-modern/">d2l.ai Chapter 8</a>: Modern CNNs</li>
+<li>LeCun, Y. (1998). Gradient-based learning applied to document recognition.</li>
+</ul>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<script src="../../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>

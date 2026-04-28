@@ -1,0 +1,886 @@
+---
+title: "Convolutional Neural Networks"
+description: "공간적 구조를 활용한 딥러닝 — 합성곱, 풀링, 그리고 그 변형들"
+date: 2026-04-28
+date-modified: 2026-04-28
+categories:
+  - Deep Learning
+  - CNN
+  - Computer Vision
+  - Study Notes
+toc: true
+toc-depth: 4
+toc-location: left
+number-sections: true
+number-depth: 3
+format:
+  html:
+    code-fold: false
+    html-math-method: katex
+    smooth-scroll: true
+    fig-cap-location: bottom
+execute:
+  echo: false
+  warning: false
+---
+
+# CNN의 동기 — 왜 MLP가 아닌가?
+
+## MLP의 한계
+
+$224 \times 224 \times 3$ 이미지를 입력으로 받는 첫 번째 FC layer가 1,000개의 뉴런을 가진다고 하자. 파라미터 수는
+
+$$
+224 \times 224 \times 3 \times 1{,}000 = 150{,}528{,}000
+$$
+
+약 1.5억 개. 첫 레이어 하나에서만 그러하다.
+
+이 문제는 단순히 파라미터가 많다는 데 그치지 않는다. 더 근본적인 결함은 **공간적 구조(spatial structure)를 전혀 활용하지 못한다**는 것이다.
+
+::: {.callout-tip title="무선통신에서의 비유"}
+채널 행렬 $\mathbf{H}$를 추정할 때, 인접한 subcarrier들의 채널 계수가 강하게 상관(correlated)되어 있다는 사실을 무시하고 모든 subcarrier를 독립적으로 취급하는 것과 같다. 구조적 사전 정보(structural prior)를 버리는 셈이다.
+:::
+
+## CNN의 두 가지 Inductive Bias
+
+CNN은 두 가지 핵심 inductive bias를 도입한다.
+
+| Inductive Bias | 의미 | 무선통신 유사체 |
+|---|---|---|
+| **Local connectivity** | 인접 픽셀만 연결 | Frequency correlation, coherence bandwidth |
+| **Weight sharing (Stationarity)** | 같은 필터를 공간 전체에 재사용 | Wide-Sense Stationary (WSS) 가정 |
+
+---
+
+# Stationarity와 Weight Sharing
+
+## "Statistics are similar at different locations"
+
+이미지의 어떤 "통계"가 위치에 무관한지 생각해보자. 산 사진에서 왼쪽에 있는 산봉우리나, 오른쪽으로 이동한 산봉우리나 **생김새(edge 방향, 색상 패턴, 텍스처)는 동일하다.**
+
+즉, **"어떤 패턴이 존재하는가"** 라는 통계적 특성은 위치가 달라져도 같다.
+
+::: {.callout-important title="왜 이 가정이 필요한가?"}
+이 가정 없이는 다음과 같은 결론이 나온다.
+
+- 위치 $(50, 50)$의 edge detector
+- 위치 $(50, 200)$의 동일한 edge detector
+
+이 둘이 서로 완전히 다른 파라미터를 가져야 한다. 모든 픽셀 위치마다 모든 패턴에 대한 detector를 따로 학습해야 하므로 파라미터가 폭발한다.
+
+Stationarity를 가정하면 "edge를 감지하는 능력"은 위치에 무관하게 동일하다고 보고, 하나의 edge detector를 학습하여 이미지 전체에서 재사용할 수 있다.
+:::
+
+## Weight Sharing의 직접적 결과
+
+논리 흐름은 다음과 같다.
+
+```
+Stationarity 가정
+        ↓
+"패턴 감지 능력은 위치에 무관"
+        ↓
+"동일한 필터(weight)를 모든 위치에 적용 가능"
+        ↓
+Weight Sharing: 하나의 필터를 슬라이딩하며 재사용
+```
+
+구체적 비교 ($224 \times 224$ 이미지에서 $3 \times 3$ edge detector를 학습):
+
+```
+Weight sharing 없이:
+  각 위치마다 9개의 독립적 파라미터
+  → 총 9 × 224 × 224 ≈ 451,584 개
+
+Weight sharing 있이 (CNN):
+  9개 파라미터 하나로 모든 위치 커버
+  → 총 9 개
+```
+
+::: {.callout-tip title="WSS와의 구조적 동치"}
+OFDM 채널 추정에서 WSS(Wide-Sense Stationary) 가정 덕분에 하나의 MMSE 필터를 설계하면 어느 시점에서든 동일하게 적용할 수 있다. CNN이 하나의 필터를 이미지 전체에 재사용하는 것과 정확히 같은 구조다.
+:::
+
+---
+
+# Convolution 연산
+
+## 수학적 정의
+
+**연속 1D Convolution**:
+
+$$
+(f * g)(t) = \int_{-\infty}^{\infty} f(\tau)\, g(t - \tau)\, d\tau
+$$
+
+**이산 2D Convolution** (딥러닝에서 실제 사용):
+
+입력 $\mathbf{X} \in \mathbb{R}^{H \times W}$, 필터 $\mathbf{K} \in \mathbb{R}^{F \times F}$에 대해
+
+$$
+(\mathbf{X} * \mathbf{K})[i, j] = \sum_{m=0}^{F-1} \sum_{n=0}^{F-1} \mathbf{X}[i+m,\, j+n] \cdot \mathbf{K}[m, n]
+$$
+
+::: {.callout-warning title="Convolution vs. Cross-correlation"}
+엄밀한 의미의 convolution은 필터를 180° 뒤집지만(flip), 딥러닝 프레임워크에서 실제로 구현된 것은 **cross-correlation**이다. 필터 자체를 학습하므로 이 차이는 실용적으로 무관하다.
+:::
+
+## 직관 — 필터는 패턴 감지기
+
+```
+이미지와 동일 크기 필터의 내적     → 1.000 (완벽 매칭)
+이미지와 다른 모양 필터의 내적     → 0.321 (불완전 매칭)
+
+해결책: 필터를 작은 조각으로 나눠서
+        이미지 전체를 슬라이딩하며 "어디서 매칭되는지" 찾는다.
+```
+
+각 위치에서의 내적값은 **"이 위치에 이 패턴이 얼마나 강하게 존재하는가"** 를 나타낸다.
+
+---
+
+# Locally Connected Layer — CNN과의 비교
+
+## 세 번째 옵션의 등장
+
+MLP와 CNN 사이에 또 하나의 구조가 있다: **Locally Connected Layer**.
+
+```
+MLP (FC):         모든 뉴런 → 이미지 전체 픽셀에 연결
+                   weight sharing 없음
+
+Locally Connected: 각 뉴런 → 자기 담당 구역에만 연결
+                   weight sharing 없음
+
+CNN:              각 뉴런 → 자기 담당 구역에만 연결
+                   weight sharing 있음
+```
+
+## 파라미터 수 분석
+
+$200 \times 200$ 이미지, 40K hidden units, $10 \times 10$ 필터를 가정하자.
+
+**Locally Connected Layer**:
+$$
+\underbrace{10 \times 10}_{\text{뉴런당 가중치}} \times \underbrace{40{,}000}_{\text{뉴런 수}} = 4{,}000{,}000 = 4M
+$$
+
+**CNN**:
+$$
+10 \times 10 = 100
+$$
+
+::: {.callout-note title="Locally Connected가 적합한 경우"}
+"입력이 registered되어 있을 때" — 즉 이미지 내 물체의 위치가 항상 고정되어 있을 때 적합하다. 얼굴 인식이 대표적이다.
+
+```
+얼굴 이미지는 항상:
+  눈   → 상단에
+  코   → 중앙에
+  입   → 하단에
+```
+
+이때는 stationarity가 성립하지 않으므로, 위치마다 다른 detector를 쓰는 locally connected layer가 오히려 합리적이다. 반면 일반 객체 분류에서는 객체가 어디에 있을지 모르므로 CNN이 적합하다.
+:::
+
+## 세 구조 비교
+
+| | MLP | Locally Connected | CNN |
+|---|---|---|---|
+| 연결 범위 | 전체 픽셀 | 담당 구역만 | 담당 구역만 |
+| Weight sharing | 없음 | 없음 | 있음 |
+| 파라미터 수 | 매우 많음 | 중간 | 매우 적음 |
+| 적합 상황 | — | 위치 고정 | 위치 자유 |
+
+---
+
+# Convolutional Layer의 차원 분석
+
+## 필터의 "깊이"
+
+이미지는 2D가 아니라 **3D 구조**다.
+
+$$
+32 \times 32 \times 3 = (\text{가로}) \times (\text{세로}) \times (\text{채널: R, G, B})
+$$
+
+**필터도 마찬가지로 3D**이며, 핵심 원칙은:
+
+> **필터의 깊이는 반드시 입력의 깊이와 같다.**
+
+예를 들어 $5 \times 5$ 공간 필터를 RGB 이미지에 적용하려면 필터는 $5 \times 5 \times 3$이어야 한다.
+
+::: {.callout-tip title="왜 깊이가 같아야 하는가"}
+한 위치에서 R채널 5×5 픽셀 + G채널 5×5 픽셀 + B채널 5×5 픽셀을 동시에 봐야 하기 때문이다. 예: 노란색 물체를 감지하려면 R채널과 G채널이 함께 높고 B채널이 낮아야 하므로 세 채널을 동시에 고려해야 한다.
+:::
+
+## 한 위치에서의 계산
+
+$5 \times 5 \times 3$ 필터가 한 위치에서 수행하는 연산:
+
+```
+이미지 패치 (5×5×3 = 75개 숫자)
+필터 가중치 (5×5×3 = 75개 숫자)
+
+→ 내적 = 75개를 element-wise 곱한 뒤 모두 합산
+→ scalar 1개 출력
+```
+
+이 scalar가 **"이 위치에서 이 패턴이 얼마나 강하게 존재하는가"** 를 나타낸다.
+
+## 출력 크기 공식
+
+입력 볼륨 $W_1 \times H_1 \times D_1$, 4가지 하이퍼파라미터:
+
+| 기호 | 이름 | 역할 |
+|---|---|---|
+| $K$ | Number of filters | 출력 채널 수 |
+| $F$ | Filter size | 로컬 수용 영역 크기 |
+| $S$ | Stride | 필터 이동 간격 |
+| $P$ | Zero-padding | 경계 처리 |
+
+출력 볼륨 $W_2 \times H_2 \times D_2$:
+
+$$
+\boxed{
+W_2 = \frac{W_1 - F + 2P}{S} + 1, \quad H_2 = \frac{H_1 - F + 2P}{S} + 1, \quad D_2 = K
+}
+$$
+
+::: {.callout-important title="$D_1$은 어디로 갔는가?"}
+$D_1$은 **각 필터의 두께로 흡수**된다. $K$는 **필터의 개수**로서 출력의 깊이 $D_2$가 된다.
+
+```
+필터 하나의 구조: F × F × D₁  (D₁은 여기에 흡수됨)
+필터 K개:        각 필터가 W₂×H₂ activation map 1개 생성
+                 → D₂ = K
+```
+
+따라서 $D_1$과 $D_2$는 같을 필요가 없다. 예: 입력 $32 \times 32 \times 3$에 $5 \times 5 \times 3$ 필터 10개를 적용하면 출력은 $28 \times 28 \times 10$.
+:::
+
+## 파라미터 수
+
+필터 하나의 가중치 수:
+
+$$
+F \cdot F \cdot D_1
+$$
+
+이는 **공간 방향 ($F \times F$) × 채널 방향 ($D_1$)** 의 곱이다.
+
+전체 layer의 파라미터 수:
+
+$$
+\underbrace{(F \cdot F \cdot D_1) \cdot K}_{\text{weights}} + \underbrace{K}_{\text{biases}}
+$$
+
+---
+
+# 출력 크기 공식의 기하학적 직관
+
+## $\frac{N - F}{S} + 1$의 의미
+
+1D로 단순화하여 $N=7, F=3$인 경우를 보자.
+
+```
+입력: [1  2  3  4  5  6  7]
+
+위치 1: [1  2  3] 4  5  6  7   → 출력값 1개
+위치 2:  1 [2  3  4] 5  6  7   → 출력값 1개
+위치 3:  1  2 [3  4  5] 6  7   → 출력값 1개
+위치 4:  1  2  3 [4  5  6] 7   → 출력값 1개
+위치 5:  1  2  3  4 [5  6  7]  → 출력값 1개
+
+총 5번 → 출력 크기 = 5
+```
+
+공식 분해:
+
+| 항 | 의미 |
+|---|---|
+| $N - F$ | 필터가 움직일 수 있는 "여유 공간" |
+| $/S$ | 그 공간을 몇 걸음으로 나누는가 |
+| $+1$ | 출발점 자체도 위치 하나 |
+
+::: {.callout-tip title="울타리 비유"}
+기둥 사이 간격이 4개라면 기둥은 5개다.
+```
+|   |   |   |   |
+1   2   3   4   5
+```
+**위치 수 = 이동 횟수 + 1.** 따라서 시작점을 위해 $+1$을 더해준다.
+:::
+
+## Stride가 맞지 않을 때
+
+$N=7, F=3$, stride $= 3$이면 $(7-3)/3 = 1.33$ — 정수가 아니다.
+
+```
+0 → 3 → 6?  →  6 > 4 (여유 공간)이므로 삐져나감
+```
+
+따라서 이런 stride는 사용할 수 없다. 해결책은 padding을 추가하거나 stride를 바꾸는 것이다.
+
+---
+
+# Padding
+
+## 경계 처리
+
+Zero padding은 입력 주변을 0으로 둘러싸 경계에서도 convolution을 수행할 수 있게 한다.
+
+```
+[0  0  0  0  0  0]
+[0  1  0  0.5 0.5 0]
+[0  0  0.5 1  0  0]    원본 4×4 입력을
+[0  0  1  0.5 1  0]    1픽셀 zero padding
+[0  1  0.5 0.5 1  0]
+[0  0  0  0  0  0]
+```
+
+## Same Padding
+
+입력과 출력의 spatial size를 **동일하게** 유지하는 padding 양:
+
+$$
+P = \frac{F - 1}{2} \quad (\text{stride}=1\text{일 때})
+$$
+
+| $F$ | Same Padding $P$ |
+|---|---|
+| 3 | 1 |
+| 5 | 2 |
+| 7 | 3 |
+
+## Same Padding의 특징
+
+1. **공간 크기 보존**: $W_2 = W_1$, $H_2 = H_1$. 변하는 건 깊이뿐.
+2. **경계 픽셀 동등 처리**: padding 없이는 모서리 픽셀이 필터에 한 번만 닿지만, same padding 하에서는 모든 픽셀이 충분히 커버된다.
+3. **깊은 네트워크 설계 가능**: 레이어를 쌓아도 크기가 줄어들지 않는다.
+
+::: {.callout-note title="Valid Padding과의 비교"}
+| | Valid ($P=0$) | Same ($P=(F-1)/2$) |
+|---|---|---|
+| 출력 크기 | 입력보다 작아짐 | 입력과 동일 |
+| 경계 처리 | 경계 손실 발생 | 손실 없음 |
+| 깊게 쌓기 | 크기 소멸 위험 | 자유롭게 가능 |
+| 사용 시점 | 크기 줄이고 싶을 때 | 크기 유지하고 싶을 때 |
+:::
+
+::: {.callout-tip title="설계 철학"}
+Same padding을 쓰면 Conv layer는 "크기 변환 없이 채널만 바꾸는 연산"이 된다. 공간 크기 축소는 pooling이나 stride>1로 **명시적으로 제어**할 수 있게 되어 네트워크 설계가 깔끔해진다.
+:::
+
+---
+
+# 채널 수가 깊이에 따라 늘어나는 이유
+
+## 정보 부피 보존 원칙
+
+CNN의 전형적인 구조에서는 **공간 차원이 줄어드는 만큼 채널 차원이 늘어난다.**
+
+```
+입력:       224×224×3
+Conv1 후:   224×224×64    공간 유지, 채널 3→64
+Pool 후:    112×112×64    공간 절반
+Conv2 후:   112×112×128   공간 유지, 채널 64→128
+Pool 후:    56×56×128     공간 절반
+Conv3 후:   56×56×256     공간 유지, 채널 128→256
+Pool 후:    28×28×256     공간 절반
+```
+
+공간이 절반씩 줄 때마다 채널은 두 배씩 늘어난다.
+
+## 세 가지 이유
+
+**1. 한 위치의 의미가 풍부해진다**
+
+```
+입력 픽셀 1개:    "밝기값" 하나        → 단순
+Conv 출력 1개:    "이 위치의 패턴들"   → 복합
+  채널 1: 수평 edge 0.9
+  채널 2: 수직 edge 0.1
+  채널 3: 빨간색   0.7
+  ...
+```
+
+위치 하나를 설명하는 데 더 많은 채널이 필요해진다.
+
+**2. 더 복잡한 패턴 감지에 더 많은 채널 필요**
+
+```
+Layer 1: edge (수평/수직/대각선) → 적은 채널로 충분
+Layer 2: 코너, 곡선, 텍스처      → 더 많은 채널
+Layer 3: 눈, 코, 바퀴, 창문      → 훨씬 더 많은 채널
+```
+
+**3. 공간 해상도 손실에 대한 보상**
+
+```
+Pooling 전:  32 × 32 × 32  = 32,768
+Pooling 후:  16 × 16 × 32  = 8,192    ← 정보 손실
+
+채널을 두 배로:
+Pooling 후:  16 × 16 × 64  = 16,384   ← 어느 정도 보상
+```
+
+::: {.callout-tip title="MIMO 빔포밍과의 비유"}
+공간 자유도(안테나 수)가 줄어들면 각 샘플이 더 많은 정보를 담아야 하므로 처리 차원(채널)을 늘려서 보상한다. 빔포밍으로 공간을 압축한 뒤 각 빔이 담은 정보를 더 정교하게 분리하는 것과 같다.
+:::
+
+---
+
+# Pooling Layer
+
+## 동작과 종류
+
+**Max Pooling**:
+
+$$
+\text{MaxPool}(\mathbf{X})[i,j] = \max_{(m,n) \in \text{pool region}} \mathbf{X}[i+m, j+n]
+$$
+
+```
+입력 4×4:                  2×2 max pooling, stride=2:
+[1  3  2  4]
+[5  6  1  2]   →           [6  8]
+[1  2  0  3]               [3  4]
+[2  3  1  4]
+```
+
+| 종류 | 동작 | 특성 |
+|---|---|---|
+| **Max Pooling** | 최댓값 선택 | Sharp feature 보존 |
+| **Average Pooling** | 평균값 | Smooth feature, 글로벌 컨텍스트 |
+| **Global Average Pooling** | 전체를 하나로 | FC layer 대체 |
+
+## Pooling이 주는 위치 불변성 — 정확한 의미
+
+핵심 비교 대상은 **Conv 출력 (pooling 전)** 과 **Pooling 출력 (pooling 후)**, 둘 중 어느 것이 위치 변화에 더 둔감한가이다.
+
+::: {.callout-important title="구체적 수치 예시"}
+길이 8 신호, edge 패턴이 위치 3 → 4 → 5로 이동하는 경우를 보자.
+
+**[Pooling 없이] Conv 출력**
+
+```
+edge@3:   [0,   0,  0.9, 0.1,  0,   0,   0,   0]
+edge@4:   [0,   0,   0,  0.9, 0.1,  0,   0,   0]
+edge@5:   [0,   0,   0,   0,  0.9, 0.1,  0,   0]
+```
+
+1픽셀 이동할 때마다 벡터 전체가 달라진다.
+
+**[2×2 Max Pooling 후] 출력**
+
+```
+              Bin A   Bin B   Bin C   Bin D
+
+edge@3:      [ 0,     0.9,    0,      0  ]
+edge@4:      [ 0,     0.9,    0,      0  ]   ← edge@3과 동일!
+edge@5:      [ 0,      0,    0.9,     0  ]   ← bin 경계 넘음
+```
+
+- **edge가 3→4로 이동 (같은 bin 내부)**: 출력 완전 동일
+- **edge가 4→5로 이동 (bin 경계 넘음)**: 출력 달라짐
+:::
+
+따라서 pooling은 **"완전한 위치 불변"이 아니라 "일정 범위 내 위치에 둔감해짐"** 이다. 원문이 "invariance"가 아니라 **"robustness"** 라고 표현하는 이유가 여기에 있다.
+
+## Pooling의 효과
+
+1. **공간 차원 축소** — 계산량 감소
+2. **Receptive field 확장** — 더 넓은 영역을 보게 됨
+3. **위치에 대한 강건성 (robustness)** — 약간의 위치 이동에 둔감
+4. **노이즈 제거** — 인접한 위치의 불필요한 변동 억제
+
+---
+
+# Receptive Field
+
+## 정의
+
+$$
+\text{Receptive Field} = \text{이 뉴런의 출력값이 원본 입력의 어느 영역에 영향을 받는가?}
+$$
+
+## Pooling이 RF를 키우는 효과
+
+$K \times K$ 필터(stride 1) + $P \times P$ pooling 조합에서, 한 출력 뉴런이 두 layer 이전($h^{n-1}$)에서 보는 영역:
+
+$$
+(P + K - 1) \times (P + K - 1)
+$$
+
+## 공식 유도
+
+$P=3, K=3$인 경우 1D로 추적:
+
+```
+h^n의 위치:   1   2   3   4   5   6   7
+                  └───────────┘
+              Pool이 보는 P=3 구간: 위치 2, 3, 4
+
+각 위치가 h^(n-1)에서 보는 K=3 구간:
+  위치 2 → [1, 2, 3]
+  위치 3 → [2, 3, 4]   ← 1칸 겹침
+  위치 4 → [3, 4, 5]   ← 1칸 겹침
+
+전체 구간 = [1, 2, 3, 4, 5] = 5개 = P + K - 1
+```
+
+::: {.callout-note title="-1이 나오는 이유"}
+P개의 K×K 구간이 1칸씩 겹치므로 단순히 $P \times K$가 아니라 그 겹침을 빼야 한다.
+
+$$
+P \cdot K - (K-1)(P-1) = P + K - 1
+$$
+:::
+
+## 핵심 통찰
+
+```
+Conv만 2번 쌓을 때:
+  Layer 1 (K=3):  RF = 3
+  Layer 2 (K=3):  RF = 5  (선형 증가)
+
+Conv + Pool 조합:
+  Conv (K=3) + Pool (P=3):  RF = 5
+  → 동일한 RF를 더 적은 파라미터로 (Pool은 파라미터 0)
+```
+
+깊이가 쌓이면 receptive field는 누적되어, 최종 layer의 한 뉴런은 이미지 전체를 커버할 수 있게 된다. 이것이 **전역적 패턴(고양이 전체)을 인식**할 수 있는 메커니즘이다.
+
+---
+
+# Dilated Convolution
+
+## 동기 — Resolution과 RF의 딜레마
+
+일반 Conv + Pooling 조합은 receptive field를 키우는 대가로 **공간 해상도를 희생**한다. Segmentation, detection처럼 픽셀 단위 예측이 필요한 task에서는 치명적이다.
+
+> "해상도 유지하면서 receptive field만 키울 수 없을까?"
+
+## 정의
+
+필터 원소들 사이에 간격(구멍)을 두고 입력을 샘플링한다.
+
+$$
+(\mathbf{X} *_d \mathbf{K})[i, j] = \sum_{m=0}^{F-1} \sum_{n=0}^{F-1} \mathbf{X}[i + d \cdot m,\; j + d \cdot n] \cdot \mathbf{K}[m, n]
+$$
+
+여기서 $d$는 **dilation rate**이다.
+
+```
+일반 Conv (rate=1):       Dilated (rate=2):
+
+X X X                     X . X . X
+X X X   ← 필터            . . . . .
+X X X                     X . X . X
+                          . . . . .
+                          X . X . X
+                          (X=샘플링, .=건너뜀)
+```
+
+같은 9개 파라미터로 더 넓은 영역을 커버한다.
+
+## Stride와의 차이
+
+| | Stride=2 | Dilation=2 |
+|---|---|---|
+| 출력 크기 | 절반으로 줄음 | 유지됨 |
+| Receptive Field | 커짐 | 커짐 |
+| 파라미터 수 | 동일 | 동일 |
+| 해상도 손실 | **있음** | **없음** |
+
+## 실효 필터 크기
+
+$$
+\text{실효 크기} = F + (F-1)(d-1) = d(F-1) + 1
+$$
+
+| $d$ | 3×3 필터의 실효 크기 |
+|---|---|
+| 1 | 3×3 |
+| 2 | 5×5 |
+| 4 | 9×9 |
+| 8 | 17×17 |
+
+::: {.callout-warning title="공짜는 아니다"}
+듬성듬성 샘플링하므로 중간 위치 정보를 놓친다. 이 때문에 실제로는 여러 dilation rate를 병렬로 사용한다 (ASPP: Atrous Spatial Pyramid Pooling).
+:::
+
+::: {.callout-tip title="Sparse Pilot과의 비유"}
+OFDM에서 sparse pilot 배치와 구조적으로 동일하다. 4개 subcarrier마다 pilot을 두면 overhead는 줄지만 중간 subcarrier는 보간으로 추정한다. Dilated Conv는 파라미터 수를 유지하면서 더 넓은 주파수 범위(receptive field)를 커버한다.
+:::
+
+---
+
+# Transposed Convolution
+
+## "Deconvolution"이라는 이름의 함정
+
+신호처리에서 **deconvolution은 역연산**이다.
+
+$$
+y = h * x \quad \Rightarrow \quad x = \mathcal{F}^{-1}\left\{\frac{\mathcal{F}\{y\}}{\mathcal{F}\{h\}}\right\}
+$$
+
+원본 신호 $x$를 완벽히 복원하는 것이다.
+
+::: {.callout-important title="딥러닝의 deconvolution은 다르다"}
+딥러닝에서 "deconvolution"이라 부르는 연산은 **역연산이 아니다.** 그저 **공간을 키우는 upsampling**일 뿐이며, 원본을 정확히 복원하지 않는다.
+
+정확한 명칭은 **Transposed Convolution**이다.
+:::
+
+## 행렬 관점
+
+일반 Conv를 행렬 곱으로 표현:
+
+$$
+\mathbf{y} = \mathbf{C}\mathbf{x}
+$$
+
+여기서 $\mathbf{C}$는 Toeplitz 구조의 convolution matrix.
+
+**Transposed Convolution**:
+
+$$
+\mathbf{y} = \mathbf{C}^\top \mathbf{x}
+$$
+
+전치행렬을 곱하는 것이지, 역행렬을 곱하는 것이 아니다.
+
+$$
+\mathbf{C}^\top \neq \mathbf{C}^{-1}
+$$
+
+## 동작 방식 — Scatter
+
+일반 Conv는 **gather** ("모아서 하나로"):
+
+```
+입력의 여러 픽셀 → 필터와 내적 → 출력 하나
+```
+
+Transposed Conv는 **scatter** ("하나를 뿌려서"):
+
+```
+입력 하나 → 필터를 곱해서 → 출력의 여러 위치에 분산
+```
+
+## 구체적 예시 — 2×2 입력, stride=2
+
+**입력**:
+
+$$
+\begin{bmatrix} a & b \\ c & d \end{bmatrix}, \qquad
+\text{필터} = \begin{bmatrix} w_1 & w_2 \\ w_3 & w_4 \end{bmatrix}
+$$
+
+각 입력 원소를 필터 전체에 곱해 출력에 stamp 한다. stride=2이므로 stamp들이 2칸씩 떨어진 위치에 찍힌다.
+
+**최종 출력 (4×4)**:
+
+$$
+\begin{bmatrix}
+a w_1 & a w_2 & b w_1 & b w_2 \\
+a w_3 & a w_4 & b w_3 & b w_4 \\
+c w_1 & c w_2 & d w_1 & d w_2 \\
+c w_3 & c w_4 & d w_3 & d w_4
+\end{bmatrix}
+$$
+
+2×2 → 4×4. **공간이 stride배만큼 확장**된다.
+
+## Stride의 역할 반전
+
+| | 일반 Conv | Transposed Conv |
+|---|---|---|
+| Stride의 역할 | 출력 **축소** | 출력 **확장** |
+| Stride=2 | 4×4 → 2×2 | 2×2 → 4×4 |
+
+## 활용 분야
+
+- **Encoder-Decoder 구조** (U-Net, Segmentation)
+- **GAN의 Generator**
+- **Super-resolution**
+- **CSI Feedback 복원** (CsiNet 등)
+
+::: {.callout-warning title="Checkerboard Artifact"}
+Transposed convolution은 stride > 1일 때 출력에 격자 무늬 artifact가 생길 수 있다. 특정 출력 위치가 입력 값을 더 많이 받는 불균등한 overlap 때문이다.
+
+**해결책**: Bilinear/nearest-neighbor upsampling → Conv 순서로 대체하는 것이 현대 아키텍처에서 선호된다.
+:::
+
+---
+
+# Gabor Filter vs. Learned Filter
+
+## Gabor Filter — 수작업 설계
+
+Gaussian 함수와 사인파를 곱한 필터:
+
+$$
+g(x, y; \lambda, \theta, \psi, \sigma, \gamma) = \exp\left(-\frac{x'^2 + \gamma^2 y'^2}{2\sigma^2}\right) \cos\left(\frac{2\pi x'}{\lambda} + \psi\right)
+$$
+
+직관:
+
+```
+Gaussian (종 모양)        × Sinusoid (사인파)
+  국소 영역에 집중            특정 방향/주파수의 줄무늬
+
+= "특정 방향과 주파수의 edge를 국소적으로 감지"
+```
+
+| 파라미터 | 의미 |
+|---|---|
+| $\lambda$ | 사인파의 파장 → feature 크기 |
+| $\theta$ | 필터 방향 (0°, 45°, 90°, ...) |
+| $\sigma$ | Gaussian 폭 → 국소 영역 크기 |
+| $\gamma$ | 종횡비 |
+| $\psi$ | 위상 |
+
+## 신경과학적 기반
+
+Hubel & Wiesel(1959)이 발견한 **시각피질의 simple cell 반응과 수학적으로 동일**하다.
+
+```
+생물학:  simple cell → 특정 방향 edge에만 반응
+Gabor:   특정 방향/주파수에 선택적 반응
+
+→ 뇌가 이미 "발명한" 최적 필터를 수학으로 모델링
+```
+
+## Learned Filter — 데이터 기반
+
+역전파로 데이터에서 자동 학습된 필터.
+
+```
+초기화: 랜덤 가중치
+        [0.1  -0.3   0.2]
+        [0.5   0.1  -0.4]
+        [-0.2  0.3   0.1]
+
+학습 후: 의미 있는 패턴 감지기
+        [-1   0   1]
+        [-2   0   2]
+        [-1   0   1]
+        (수직 edge 감지기, Sobel filter와 유사)
+```
+
+## 비교
+
+| | Gabor Filter | Learned Filter |
+|---|---|---|
+| 설계 주체 | 인간 (수작업) | 데이터 (자동) |
+| 파라미터 | $\lambda, \theta, \sigma$ 등 | 역전파로 결정 |
+| 해석 가능성 | 높음 | 낮음 |
+| 유연성 | 낮음 | 높음 |
+| Task 특화 | 어려움 | 자동 적응 |
+| 필요 데이터 | 없음 | 많이 필요 |
+
+## 놀라운 사실
+
+AlexNet의 첫 번째 Conv layer 필터를 시각화하면 **Gabor filter와 매우 유사한 형태**로 수렴한다.
+
+```
+학습된 필터들:
+  ↗ 방향 edge 감지기  → Gabor filter와 유사
+  ↘ 방향 edge 감지기  → Gabor filter와 유사
+  빨간색 감지기        → color blob filter
+  초록-빨강 대비       → opponent color filter
+```
+
+데이터만 주었는데 인간이 수십 년간 연구해 설계한 Gabor filter 형태가 자동으로 나타난다.
+
+::: {.callout-tip title="딥러닝 철학의 핵심"}
+```
+전통적 컴퓨터 비전:
+  연구자가 Gabor filter 등을 수작업 설계 (feature engineering)
+
+딥러닝:
+  "그냥 데이터에서 학습하게 하자"
+  → 결과적으로 Gabor filter와 비슷한 게 나옴
+  → "feature engineering이 필요 없다"는 강력한 증거
+```
+
+더 깊은 layer로 가면 Gabor filter 같은 단순 패턴을 넘어, **인간이 직접 설계할 수 없는 복잡한 패턴**을 학습한다.
+
+```
+Layer 1: Gabor-like (edge, color)   ← 인간이 이해 가능
+Layer 2: 텍스처, 곡선                ← 어느 정도
+Layer 3: 눈, 코, 바퀴 등             ← 이해 어려움
+Layer 4: 얼굴, 자동차                ← 블랙박스
+```
+:::
+
+---
+
+# 종합 정리
+
+## CNN 설계 체크리스트
+
+1. **입력 데이터에 공간적/지역적 상관이 있는가?**
+   - YES → CNN 적합 (이미지, 신호, 채널 행렬 등)
+
+2. **출력 크기 계산**
+   $$W_{out} = \frac{W_{in} - F + 2P}{S} + 1$$
+
+3. **파라미터 수 계산**
+   $$(F \cdot F \cdot D_{in} + 1) \cdot K \quad \text{per layer}$$
+
+4. **해상도 보존이 필요한가?**
+   - YES → Dilated Conv 또는 Same Padding
+
+5. **Upsampling이 필요한가?**
+   - YES → Transposed Conv (또는 Upsample + Conv)
+
+## 핵심 통찰 요약
+
+::: {.callout-note title="CNN의 본질"}
+CNN은 공간 정보를 압축하면서 의미 정보를 풍부하게 만드는 변환이다.
+
+```
+공간 해상도 (어디에) ↓     |   채널 수 (무엇이) ↑
+                          |
+W × H 줄어들수록           |   D 늘어나서
+                          |   정보 부피 보존
+```
+
+위치 정보를 압축하는 동시에, 그 위치에서 무엇이 일어나는지에 대한 표현을 풍부하게 만든다. 이것이 **계층적 표현 학습(hierarchical representation learning)** 의 본질이다.
+:::
+
+::: {.callout-tip title="무선통신과의 다리"}
+| CNN 개념 | 무선통신 대응 |
+|---|---|
+| Convolutional filter | FIR 필터, 채널 임펄스 응답 |
+| Stride | Decimation (downsampling) |
+| Pooling | 이동평균, 에너지 검출 |
+| Feature map | 채널 응답 (각 필터가 다른 모드 감지) |
+| Receptive field | 채널 coherence bandwidth |
+| Weight sharing | Wide-Sense Stationarity |
+| Same padding | 보호 구간 (guard interval) |
+| Dilated Conv | Sparse pilot 배치 |
+| Transposed Conv | CSI feedback 복원 (CsiNet) |
+:::
+
+## 다음 학습 주제
+
+- **Efficient CNN**: Depthwise separable convolution, 1×1 Conv, Bottleneck blocks
+- **Modern Architectures**: AlexNet → VGG → GoogLeNet → ResNet → SENet
+- **Skip Connection의 수학**: Vanishing gradient 해결 메커니즘
+- **CNN의 무선통신 응용**: ChannelNet, CsiNet, AMC
+
+---
+
+# 참고 자료
+
+- *Deep Learning* (Goodfellow, Bengio, Courville), Chapter 9: Convolutional Networks
+- [d2l.ai Chapter 7](https://d2l.ai/chapter_convolutional-neural-networks/): Convolutional Neural Networks
+- [d2l.ai Chapter 8](https://d2l.ai/chapter_convolutional-modern/): Modern CNNs
+- LeCun, Y. (1998). Gradient-based learning applied to document recognition.
