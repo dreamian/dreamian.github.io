@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.36">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-05-08">
+<meta name="description" content="최솟값 맛 최대화 문제를 가격축 세그트리와 병렬 이분탐색으로 푸는 방법">
+
+<title>맛 임계값 이분탐색 × 가격축 세그먼트 트리 × 병렬 이분탐색 – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-845c23b38eaddc0f92fda52bfe77a8c8.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-da17d83626a3727898eb25bb9d1cdf08.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#문제-요약" id="toc-문제-요약" class="nav-link active" data-scroll-target="#문제-요약"><span class="header-section-number">1</span> 문제 요약</a></li>
+  <li><a href="#핵심-관찰" id="toc-핵심-관찰" class="nav-link" data-scroll-target="#핵심-관찰"><span class="header-section-number">2</span> 핵심 관찰</a>
+  <ul class="collapse">
+  <li><a href="#임계값-사고" id="toc-임계값-사고" class="nav-link" data-scroll-target="#임계값-사고"><span class="header-section-number">2.1</span> 임계값 사고</a></li>
+  <li><a href="#단조성" id="toc-단조성" class="nav-link" data-scroll-target="#단조성"><span class="header-section-number">2.2</span> 단조성</a></li>
+  <li><a href="#분수-배낭-그리디" id="toc-분수-배낭-그리디" class="nav-link" data-scroll-target="#분수-배낭-그리디"><span class="header-section-number">2.3</span> 분수 배낭 그리디</a></li>
+  </ul></li>
+  <li><a href="#자료구조-가격축-세그먼트-트리" id="toc-자료구조-가격축-세그먼트-트리" class="nav-link" data-scroll-target="#자료구조-가격축-세그먼트-트리"><span class="header-section-number">3</span> 자료구조: 가격축 세그먼트 트리</a>
+  <ul class="collapse">
+  <li><a href="#점-업데이트" id="toc-점-업데이트" class="nav-link" data-scroll-target="#점-업데이트"><span class="header-section-number">3.1</span> 점 업데이트</a></li>
+  <li><a href="#최소비용-쿼리-descent" id="toc-최소비용-쿼리-descent" class="nav-link" data-scroll-target="#최소비용-쿼리-descent"><span class="header-section-number">3.2</span> 최소비용 쿼리 — Descent</a></li>
+  <li><a href="#노드-인덱스와-의미적-구간의-분리" id="toc-노드-인덱스와-의미적-구간의-분리" class="nav-link" data-scroll-target="#노드-인덱스와-의미적-구간의-분리"><span class="header-section-number">3.3</span> 노드 인덱스와 의미적 구간의 분리</a></li>
+  <li><a href="#트리-크기" id="toc-트리-크기" class="nav-link" data-scroll-target="#트리-크기"><span class="header-section-number">3.4</span> 트리 크기</a></li>
+  </ul></li>
+  <li><a href="#통합-병렬-이분탐색" id="toc-통합-병렬-이분탐색" class="nav-link" data-scroll-target="#통합-병렬-이분탐색"><span class="header-section-number">4</span> 통합: 병렬 이분탐색</a></li>
+  <li><a href="#복잡도" id="toc-복잡도" class="nav-link" data-scroll-target="#복잡도"><span class="header-section-number">5</span> 복잡도</a></li>
+  <li><a href="#함정-모음" id="toc-함정-모음" class="nav-link" data-scroll-target="#함정-모음"><span class="header-section-number">6</span> 함정 모음</a></li>
+  <li><a href="#대안-persistent-segment-tree" id="toc-대안-persistent-segment-tree" class="nav-link" data-scroll-target="#대안-persistent-segment-tree"><span class="header-section-number">7</span> 대안: Persistent Segment Tree</a></li>
+  <li><a href="#codes" id="toc-codes" class="nav-link" data-scroll-target="#codes"><span class="header-section-number">8</span> Codes</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">맛 임계값 이분탐색 × 가격축 세그먼트 트리 × 병렬 이분탐색</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">알고리즘</div>
+    <div class="quarto-category">자료구조</div>
+    <div class="quarto-category">세그먼트 트리</div>
+    <div class="quarto-category">병렬 이분탐색</div>
+    <div class="quarto-category">그리디</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    최솟값 맛 최대화 문제를 가격축 세그트리와 병렬 이분탐색으로 푸는 방법
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 8, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="문제-요약" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="문제-요약"><span class="header-section-number">1</span> 문제 요약</h2>
+<p>마트에 <span class="math inline">\(n\)</span>개의 액체가 있다. <span class="math inline">\(i\)</span>번 액체는 맛 <span class="math inline">\(d_i\)</span>, 1리터당 가격 <span class="math inline">\(p_i\)</span>, 최대 사용량 <span class="math inline">\(l_i\)</span> 리터를 가진다.</p>
+<p><span class="math inline">\(m\)</span>명의 사람이 음료수 한 병씩을 받는다. <span class="math inline">\(j\)</span>번 사람의 조건은:</p>
+<ul>
+<li>사용한 액체 가격 합 <span class="math inline">\(\le g_j\)</span></li>
+<li>액체 양의 합 <span class="math inline">\(\ge L_j\)</span> 리터</li>
+<li><strong>음료수의 맛</strong>(= 사용한 액체들의 맛 중 <strong>최솟값</strong>)을 <strong>최대화</strong></li>
+</ul>
+<p>각 사람의 답을 출력. 불가능하면 <span class="math inline">\(-1\)</span>.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>제약
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><span class="math inline">\(1 \le n, m \le 10^5\)</span></li>
+<li><span class="math inline">\(1 \le d_i, p_i, l_i \le 10^5\)</span></li>
+<li><span class="math inline">\(1 \le g_j, L_j \le 10^{18}\)</span></li>
+</ul>
+</div>
+</div>
+</section>
+<section id="핵심-관찰" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="핵심-관찰"><span class="header-section-number">2</span> 핵심 관찰</h2>
+<section id="임계값-사고" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="임계값-사고"><span class="header-section-number">2.1</span> 임계값 사고</h3>
+<p>맛이 사용한 액체들의 최솟값으로 정의되니, 어떤 임계값 <span class="math inline">\(T\)</span>를 정하고 “<span class="math inline">\(d_i \ge T\)</span>인 액체만 풀로 사용 가능”이라고 보면, 그 풀에서 만든 음료수의 맛은 <span class="math inline">\(\ge T\)</span>. 답은 <strong>실현 가능한 가장 큰 <span class="math inline">\(T\)</span></strong>.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>Lemma 1 (답 = 최대 임계값)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math display">\[T^* := \max\{T : \{d_i \ge T\} \text{ 풀에서 } (g_j, L_j) \text{ 조건 실현 가능}\}\]</span></p>
+<p>일 때, 정답은 <span class="math inline">\(T^*\)</span>이다.</p>
+<p><strong>증명.</strong> <span class="math inline">\(T = T^*\)</span>에서 최적 부분집합이 <span class="math inline">\(d_i = T^*\)</span>인 액체를 하나도 안 쓴다고 가정하면, 그 부분집합의 모든 원소가 <span class="math inline">\(d_i &gt; T^*\)</span>이므로 <span class="math inline">\(T = T^* + \epsilon\)</span>에서도 실현 가능. 이는 <span class="math inline">\(T^*\)</span>의 최댓값성에 모순. 따라서 최적 부분집합은 <span class="math inline">\(d_i = T^*\)</span>인 액체를 적어도 하나 사용하며, 그 부분집합의 맛 최솟값 <span class="math inline">\(= T^*\)</span>. <span class="math inline">\(\square\)</span></p>
+</div>
+</div>
+</section>
+<section id="단조성" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="단조성"><span class="header-section-number">2.2</span> 단조성</h3>
+<p>액체를 <span class="math inline">\(d_i\)</span> <strong>내림차순</strong>으로 정렬한 뒤 prefix 크기 <span class="math inline">\(k\)</span>를 잡는다 (= 임계값을 그 prefix의 최솟값으로 설정한 것과 동치).</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>Lemma 2 (단조성)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(k\)</span>가 증가하면 가용 풀이 단조 확장 → <span class="math inline">\(L\)</span> 리터를 만드는 최소비용은 단조 비증가 → feasibility는 <span class="math inline">\(k\)</span>에 대해 단조.</p>
+<p>따라서 “feasibility를 만족시키는 가장 작은 <span class="math inline">\(k^*\)</span>”가 존재하면 답 = (정렬된 액체의 <span class="math inline">\(k^*\)</span>번째 맛), 없으면 <span class="math inline">\(-1\)</span>.</p>
+</div>
+</div>
+</section>
+<section id="분수-배낭-그리디" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="분수-배낭-그리디"><span class="header-section-number">2.3</span> 분수 배낭 그리디</h3>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>Lemma 3 (그리디 최적성)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>고정된 풀에서 <span class="math inline">\(L\)</span> 리터를 만드는 최소비용은 가격 <span class="math inline">\(p\)</span>가 작은 것부터 <span class="math inline">\(l_i\)</span>까지 채워가며 <span class="math inline">\(L\)</span>에 도달하는 그리디로 얻어진다.</p>
+<p><strong>증명 스케치.</strong> Exchange argument. 만약 더 비싼 액체를 부분 사용하면서 더 싼 액체를 부분 미사용한 해가 있다면, 둘을 무한소 교환해 비용을 (엄밀히) 줄일 수 있다. <span class="math inline">\(\square\)</span></p>
+</div>
+</div>
+</section>
+</section>
+<section id="자료구조-가격축-세그먼트-트리" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="자료구조-가격축-세그먼트-트리"><span class="header-section-number">3</span> 자료구조: 가격축 세그먼트 트리</h2>
+<p>가격 <span class="math inline">\(p\)</span>가 <span class="math inline">\([1, P_{\max}]\)</span>의 작은 정수 (<span class="math inline">\(\le 10^5\)</span>)라는 점을 활용해 <strong>가격을 인덱스</strong>로 하는 세그트리를 만든다. 각 노드 <span class="math inline">\(v\)</span>는 해당 가격 구간 <span class="math inline">\([\ell_v, r_v]\)</span>의 <strong>활성 액체</strong> 통계를 저장:</p>
+<p><span class="math display">\[
+\begin{aligned}
+\text{liters}(v) &amp;= \sum_{p \in [\ell_v, r_v]} (\text{가격이 } p \text{인 활성 액체들의 리터 합}) \\
+\text{cost}(v) &amp;= \sum_{p \in [\ell_v, r_v]} p \cdot (\text{같은 합})
+\end{aligned}
+\]</span></p>
+<section id="점-업데이트" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="점-업데이트"><span class="header-section-number">3.1</span> 점 업데이트</h3>
+<p>액체 <span class="math inline">\((p, l)\)</span> 추가: 인덱스 <span class="math inline">\(p\)</span> 잎에 <span class="math inline">\((+l, +pl)\)</span> 누적 후 루트로 합 갱신. <span class="math inline">\(O(\log P)\)</span>.</p>
+</section>
+<section id="최소비용-쿼리-descent" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="최소비용-쿼리-descent"><span class="header-section-number">3.2</span> 최소비용 쿼리 — Descent</h3>
+<p><strong>질문.</strong> 활성 풀에서 <span class="math inline">\(L\)</span> 리터를 가장 싸게 채우는 비용은?</p>
+<p>루트에서 시작해 다음 규칙으로 내려간다:</p>
+<ol type="1">
+<li><code>liters(현재 노드) &lt; L</code> → 풀 전체로도 부족, <span class="math inline">\(-1\)</span>.</li>
+<li>잎(<code>l == r</code>) → 이 가격 <span class="math inline">\(p (= l)\)</span>로 <span class="math inline">\(L\)</span> 리터, 비용 <span class="math inline">\(L \cdot p\)</span>.</li>
+<li>좌측 자식의 liters <span class="math inline">\(\ge L\)</span> → 답이 좌측 안에 있음, 좌측 재귀.</li>
+<li>그렇지 않으면 → 좌측을 <strong>통째로 흡수</strong>(<code>cost(좌)</code> 누적)하고 남은 <span class="math inline">\(L - \text{liters(좌)}\)</span>를 우측에서 마저 찾기.</li>
+</ol>
+<p>루트에서 잎까지 한 경로만 타니 <span class="math inline">\(O(\log P)\)</span>.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>패턴: 세그먼트 트리 위 이분탐색
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>이 descent는 “<span class="math inline">\(k\)</span>번째 원소 찾기”, “prefix sum이 <span class="math inline">\(X\)</span>를 처음 넘는 위치” 같은 류의 일반화. <strong>누적 가능한 양에 대한 임계값 검색</strong>이 필요할 때마다 등장하는 도구.</p>
+</div>
+</div>
+</section>
+<section id="노드-인덱스와-의미적-구간의-분리" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="노드-인덱스와-의미적-구간의-분리"><span class="header-section-number">3.3</span> 노드 인덱스와 의미적 구간의 분리</h3>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>흔한 헷갈림
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>세그트리 코드의 매개변수 <code>(node, l, r, idx)</code>에서:</p>
+<ul>
+<li><code>node</code>: <code>seg[]</code> 배열 안의 위치. 자식 = <span class="math inline">\(2v, 2v+1\)</span>.</li>
+<li><code>[l, r]</code>: 그 노드가 의미적으로 책임지는 <strong>가격 범위</strong>. 재귀 인자로만 추적되며 배열에 저장되지 않는다.</li>
+<li><code>l == r</code>은 <strong>잎 도달</strong>(구간 폭 1로 수렴) 조건. <code>idx == mid</code>와는 <strong>무관</strong>. 후자는 임의 깊이에서 우연히 성립할 수 있는 국소적 사건이며, 성립해도 종료하지 않는다.</li>
+</ul>
+<p>잎에 도달했을 때만 <code>l = r = idx</code>가 성립한다 (재귀가 항상 idx를 포함하는 자식으로 내려가기 때문).</p>
+</div>
+</div>
+</section>
+<section id="트리-크기" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="트리-크기"><span class="header-section-number">3.4</span> 트리 크기</h3>
+<p>배열 크기는 <span class="math inline">\(4P_{\max}\)</span>로 잡는다. 정확히는 노드 인덱스 최댓값이 <span class="math inline">\(2 \cdot 2^{\lceil \log_2 P_{\max} \rceil}\)</span>까지 갈 수 있어 <span class="math inline">\(4P_{\max}\)</span>가 안전 상한. <span class="math inline">\(P_{\max}\)</span>가 2의 거듭제곱이면 <span class="math inline">\(2P_{\max}\)</span>도 충분하나, 일반화를 위해 <span class="math inline">\(4P_{\max}\)</span>.</p>
+</section>
+</section>
+<section id="통합-병렬-이분탐색" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="통합-병렬-이분탐색"><span class="header-section-number">4</span> 통합: 병렬 이분탐색</h2>
+<p>각 쿼리에 대해 prefix 크기 <span class="math inline">\(k\)</span>를 이분탐색. 단일 세그트리를 공유하기 위해 <strong>모든 쿼리의 이분탐색을 동시에 굴린다</strong>.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>알고리즘 골격
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>쿼리 <span class="math inline">\(j\)</span>마다 <code>lo[j] = 0</code>, <code>hi[j] = n</code> (sentinel)로 시작.</p>
+<p><strong>라운드 반복</strong> (총 <span class="math inline">\(O(\log n)\)</span>회):</p>
+<ol type="1">
+<li>각 활성 쿼리(<code>lo[j] &lt; hi[j]</code>)의 mid를 계산해 <code>bucket[mid]</code>에 push.</li>
+<li>세그트리를 0으로 초기화.</li>
+<li><span class="math inline">\(k = 0, 1, \ldots, n-1\)</span>로 액체를 맛 내림차순 추가 (점 업데이트).</li>
+<li>각 <span class="math inline">\(k\)</span> 직후, <code>bucket[k]</code>의 모든 쿼리에 대해 descent 쿼리 → cost와 <span class="math inline">\(g_j\)</span> 비교 → <code>lo</code>/<code>hi</code> 갱신.</li>
+</ol>
+<p>수렴 후, <code>lo[j] == n</code>이면 <span class="math inline">\(-1\)</span>, 아니면 정렬된 액체의 <code>lo[j]</code>번째 맛이 답.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>안티패턴
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>각 <span class="math inline">\(k\)</span>마다 <span class="math inline">\(m\)</span>개 쿼리를 전부 순회하며 “내 mid가 <span class="math inline">\(k\)</span>인가?”를 검사하면 한 라운드가 <span class="math inline">\(O(nm) = 10^{10}\)</span>. <strong>반드시 mid별 버킷에 미리 그룹핑</strong>해야 한다.</p>
+</div>
+</div>
+</section>
+<section id="복잡도" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="복잡도"><span class="header-section-number">5</span> 복잡도</h2>
+<p><span class="math display">\[O\big((n + m) \cdot \log n \cdot \log P\big) \approx 10^5 \cdot 17 \cdot 17 \approx 3 \times 10^7\]</span></p>
+</section>
+<section id="함정-모음" class="level2" data-number="6">
+<h2 data-number="6" class="anchored" data-anchor-id="함정-모음"><span class="header-section-number">6</span> 함정 모음</h2>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>1. 타입 절단 (정답성)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(L_j \le 10^{18}\)</span>이므로 <code>liters</code> 관련 모든 변수와 함수 매개변수를 <code>long long</code> (또는 <code>unsigned long long</code>)으로 둔다. 특히 <code>query</code> 함수의 <code>litter</code> 매개변수가 <code>int</code>로 선언되어 있으면 호출 시 <strong>암묵적 절단</strong>되어 큰 <span class="math inline">\(L\)</span>에서 오답.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>2. 이분탐색 경계 (정답성)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><code>hi = n - 1</code>로 초기화하면 모든 <span class="math inline">\(k\)</span>가 infeasible인 경우에도 수렴 후 <code>lo == n - 1</code>이 되어 <code>liq[n-1].d</code>를 잘못 반환할 수 있다. <strong><code>hi = n</code>을 sentinel로 두는 게 안전</strong>. (혹은 <code>hi = n-1</code>을 유지하면서 마지막에 명시적으로 feasibility 검증.)</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>3. 정렬 알고리즘 (TLE)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>피벗을 항상 마지막 원소로 잡는 quicksort는 정렬된 입력에서 <span class="math inline">\(O(n^2)\)</span>. <code>std::sort</code> 또는 랜덤 피벗 사용.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>4. 비용 오버플로 (정답성)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>비용은 <span class="math inline">\(\le n \cdot l_{\max} \cdot p_{\max} = 10^5 \cdot 10^5 \cdot 10^5 = 10^{15}\)</span>. <code>long long</code> 충분. 다만 <code>liters</code> 측에서 <span class="math inline">\(L_j\)</span>가 <span class="math inline">\(10^{18}\)</span>까지 들어오므로 비교는 <code>long long</code> 또는 <code>unsigned long long</code>로.</p>
+<p>루트의 <code>liters &lt; L</code> 체크로 $L &gt; $ 풀 총량 케이스를 즉시 infeasible로 거른다.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>5. 출력 포맷
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>“마지막 정수 끝에 공백 금지”. 첫 토큰 앞에 공백을 붙이는 패턴이 안전.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> j <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> j <span class="op">&lt;</span> m<span class="op">;</span> <span class="op">++</span>j<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>j <span class="op">&gt;</span> <span class="dv">0</span><span class="op">)</span> putchar<span class="op">(</span><span class="ch">' '</span><span class="op">);</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> ans<span class="op">[</span>j<span class="op">]);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>putchar<span class="op">(</span><span class="ch">'</span><span class="sc">\n</span><span class="ch">'</span><span class="op">);</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</section>
+<section id="대안-persistent-segment-tree" class="level2" data-number="7">
+<h2 data-number="7" class="anchored" data-anchor-id="대안-persistent-segment-tree"><span class="header-section-number">7</span> 대안: Persistent Segment Tree</h2>
+<p>병렬 이분탐색은 매 라운드 세그트리를 재구축하므로 업데이트 측이 <span class="math inline">\(O(n \log n \log P)\)</span>. 이를 한 번의 빌드로 줄이려면 <strong>영속 세그트리</strong> 사용:</p>
+<ul>
+<li>액체를 맛 내림차순으로 한 번만 sweep, 매 추가마다 <strong>새 버전</strong> 생성.</li>
+<li>각 버전은 변경되지 않은 노드를 이전 버전과 공유, 새 노드 <span class="math inline">\(O(\log P)\)</span>개씩만 생성.</li>
+<li>빌드 <span class="math inline">\(O(n \log P)\)</span>, 메모리 <span class="math inline">\(O(n \log P)\)</span>.</li>
+<li>각 쿼리는 독립적으로 prefix 크기에 대해 이분탐색하며 해당 버전에 descent → <span class="math inline">\(O(m \log n \log P)\)</span>.</li>
+</ul>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>측면</th>
+<th>병렬 BS</th>
+<th>Persistent SegTree</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>빌드</td>
+<td><span class="math inline">\(O(n \log n \log P)\)</span></td>
+<td><span class="math inline">\(O(n \log P)\)</span></td>
+</tr>
+<tr class="even">
+<td>쿼리</td>
+<td><span class="math inline">\(O(m \log n \log P)\)</span></td>
+<td><span class="math inline">\(O(m \log n \log P)\)</span></td>
+</tr>
+<tr class="odd">
+<td>메모리</td>
+<td><span class="math inline">\(O(P)\)</span></td>
+<td><span class="math inline">\(O(n \log P)\)</span></td>
+</tr>
+<tr class="even">
+<td>코드 길이</td>
+<td>짧음</td>
+<td>김</td>
+</tr>
+<tr class="odd">
+<td>캐시 / 상수</td>
+<td>좋음</td>
+<td>나쁨</td>
+</tr>
+</tbody>
+</table>
+<p>전체 점근은 같지만 메모리와 구현 난이도에서 트레이드오프. 단순함이 보통 우선이라 병렬 BS가 더 자주 채택된다.</p>
+</section>
+<section id="codes" class="level2" data-number="8">
+<h2 data-number="8" class="anchored" data-anchor-id="codes"><span class="header-section-number">8</span> Codes</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;bits/stdc++.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> <span class="kw">namespace</span> std<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="dt">long</span> <span class="dt">long</span> ll<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="dt">int</span> MAXP <span class="op">=</span> <span class="dv">100001</span><span class="op">;</span>  <span class="co">// prices in [1, MAXP-1]</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Node <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    ll liters<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    ll cost<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>Node seg<span class="op">[</span><span class="dv">4</span> <span class="op">*</span> MAXP<span class="op">];</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> update<span class="op">(</span><span class="dt">int</span> node<span class="op">,</span> <span class="dt">int</span> l<span class="op">,</span> <span class="dt">int</span> r<span class="op">,</span> <span class="dt">int</span> idx<span class="op">,</span> ll dl<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>l <span class="op">==</span> r<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        seg<span class="op">[</span>node<span class="op">].</span>liters <span class="op">+=</span> dl<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        seg<span class="op">[</span>node<span class="op">].</span>cost   <span class="op">+=</span> dl <span class="op">*</span> <span class="op">(</span>ll<span class="op">)</span>l<span class="op">;</span>   <span class="co">// l == price at the leaf</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> mid <span class="op">=</span> <span class="op">(</span>l <span class="op">+</span> r<span class="op">)</span> <span class="op">&gt;&gt;</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>idx <span class="op">&lt;=</span> mid<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        update<span class="op">(</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">,</span> l<span class="op">,</span> mid<span class="op">,</span> idx<span class="op">,</span> dl<span class="op">);</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        update<span class="op">(</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span> <span class="op">|</span> <span class="dv">1</span><span class="op">,</span> mid <span class="op">+</span> <span class="dv">1</span><span class="op">,</span> r<span class="op">,</span> idx<span class="op">,</span> dl<span class="op">);</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    seg<span class="op">[</span>node<span class="op">].</span>liters <span class="op">=</span> seg<span class="op">[</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">].</span>liters <span class="op">+</span> seg<span class="op">[</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span> <span class="op">|</span> <span class="dv">1</span><span class="op">].</span>liters<span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    seg<span class="op">[</span>node<span class="op">].</span>cost   <span class="op">=</span> seg<span class="op">[</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">].</span>cost   <span class="op">+</span> seg<span class="op">[</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span> <span class="op">|</span> <span class="dv">1</span><span class="op">].</span>cost<span class="op">;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="co">// min cost to obtain exactly L liters from active liquids; -1 if pool insufficient</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>ll query<span class="op">(</span><span class="dt">int</span> node<span class="op">,</span> <span class="dt">int</span> l<span class="op">,</span> <span class="dt">int</span> r<span class="op">,</span> ll L<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>seg<span class="op">[</span>node<span class="op">].</span>liters <span class="op">&lt;</span> L<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>l <span class="op">==</span> r<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> L <span class="op">*</span> <span class="op">(</span>ll<span class="op">)</span>l<span class="op">;</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> mid <span class="op">=</span> <span class="op">(</span>l <span class="op">+</span> r<span class="op">)</span> <span class="op">&gt;&gt;</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>seg<span class="op">[</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">].</span>liters <span class="op">&gt;=</span> L<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> query<span class="op">(</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">,</span> l<span class="op">,</span> mid<span class="op">,</span> L<span class="op">);</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> seg<span class="op">[</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">].</span>cost</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>             <span class="op">+</span> query<span class="op">(</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span> <span class="op">|</span> <span class="dv">1</span><span class="op">,</span> mid <span class="op">+</span> <span class="dv">1</span><span class="op">,</span> r<span class="op">,</span> L <span class="op">-</span> seg<span class="op">[</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">].</span>liters<span class="op">);</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> TC<span class="op">;</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>    scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>TC<span class="op">);</span></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(</span>TC<span class="op">--)</span> <span class="op">{</span></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> n<span class="op">,</span> m<span class="op">;</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>        scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st"> </span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>n<span class="op">,</span> <span class="op">&amp;</span>m<span class="op">);</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>        vector<span class="op">&lt;</span>array<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="dv">3</span><span class="op">&gt;&gt;</span> liq<span class="op">(</span>n<span class="op">);</span>  <span class="co">// {d, p, l}</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>            scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st"> </span><span class="sc">%d</span><span class="st"> </span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>liq<span class="op">[</span>i<span class="op">][</span><span class="dv">0</span><span class="op">],</span> <span class="op">&amp;</span>liq<span class="op">[</span>i<span class="op">][</span><span class="dv">1</span><span class="op">],</span> <span class="op">&amp;</span>liq<span class="op">[</span>i<span class="op">][</span><span class="dv">2</span><span class="op">]);</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>        sort<span class="op">(</span>liq<span class="op">.</span>begin<span class="op">(),</span> liq<span class="op">.</span>end<span class="op">(),</span></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>             <span class="op">[](</span><span class="at">const</span> array<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span><span class="dv">3</span><span class="op">&gt;&amp;</span> a<span class="op">,</span> <span class="at">const</span> array<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span><span class="dv">3</span><span class="op">&gt;&amp;</span> b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>                 <span class="cf">return</span> a<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">&gt;</span> b<span class="op">[</span><span class="dv">0</span><span class="op">];</span>   <span class="co">// taste descending</span></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>             <span class="op">});</span></span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>        vector<span class="op">&lt;</span>ll<span class="op">&gt;</span> G<span class="op">(</span>m<span class="op">),</span> L<span class="op">(</span>m<span class="op">);</span></span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> j <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> j <span class="op">&lt;</span> m<span class="op">;</span> <span class="op">++</span>j<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>            scanf<span class="op">(</span><span class="st">"</span><span class="sc">%lld</span><span class="st"> </span><span class="sc">%lld</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>G<span class="op">[</span>j<span class="op">],</span> <span class="op">&amp;</span>L<span class="op">[</span>j<span class="op">]);</span></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Binary search: smallest k in [0, n-1] s.t. feasible(top-(k+1)).</span></span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>        <span class="co">// hi = n is the "infeasible" sentinel.</span></span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>        vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> lo<span class="op">(</span>m<span class="op">,</span> <span class="dv">0</span><span class="op">),</span> hi<span class="op">(</span>m<span class="op">,</span> n<span class="op">);</span></span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span><span class="kw">true</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>            vector<span class="op">&lt;</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;&gt;</span> bucket<span class="op">(</span>n <span class="op">+</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>            <span class="dt">bool</span> active <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> j <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> j <span class="op">&lt;</span> m<span class="op">;</span> <span class="op">++</span>j<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> <span class="op">(</span>lo<span class="op">[</span>j<span class="op">]</span> <span class="op">&lt;</span> hi<span class="op">[</span>j<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a>                    <span class="dt">int</span> mid <span class="op">=</span> <span class="op">(</span>lo<span class="op">[</span>j<span class="op">]</span> <span class="op">+</span> hi<span class="op">[</span>j<span class="op">])</span> <span class="op">&gt;&gt;</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a>                    bucket<span class="op">[</span>mid<span class="op">].</span>push_back<span class="op">(</span>j<span class="op">);</span></span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>                    active <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(!</span>active<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>                <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a>            memset<span class="op">(</span>seg<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>seg<span class="op">));</span></span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> k <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> k <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a>                <span class="dt">int</span> p   <span class="op">=</span> liq<span class="op">[</span>k<span class="op">][</span><span class="dv">1</span><span class="op">];</span></span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a>                <span class="dt">int</span> lit <span class="op">=</span> liq<span class="op">[</span>k<span class="op">][</span><span class="dv">2</span><span class="op">];</span></span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a>                update<span class="op">(</span><span class="dv">1</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> MAXP <span class="op">-</span> <span class="dv">1</span><span class="op">,</span> p<span class="op">,</span> lit<span class="op">);</span></span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> j <span class="op">:</span> bucket<span class="op">[</span>k<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a>                    ll c <span class="op">=</span> query<span class="op">(</span><span class="dv">1</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> MAXP <span class="op">-</span> <span class="dv">1</span><span class="op">,</span> L<span class="op">[</span>j<span class="op">]);</span></span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">if</span> <span class="op">(</span>c <span class="op">!=</span> <span class="op">-</span><span class="dv">1</span> <span class="op">&amp;&amp;</span> c <span class="op">&lt;=</span> G<span class="op">[</span>j<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a>                        hi<span class="op">[</span>j<span class="op">]</span> <span class="op">=</span> k<span class="op">;</span></span>
+<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a>                    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a>                        lo<span class="op">[</span>j<span class="op">]</span> <span class="op">=</span> k <span class="op">+</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a>                    <span class="op">}</span></span>
+<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
+<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> j <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> j <span class="op">&lt;</span> m<span class="op">;</span> <span class="op">++</span>j<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>j <span class="op">&gt;</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a>                putchar<span class="op">(</span><span class="ch">' '</span><span class="op">);</span></span>
+<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> k <span class="op">=</span> lo<span class="op">[</span>j<span class="op">];</span></span>
+<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>k <span class="op">&gt;=</span> n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a>                printf<span class="op">(</span><span class="st">"-1"</span><span class="op">);</span></span>
+<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a>                printf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> liq<span class="op">[</span>k<span class="op">][</span><span class="dv">0</span><span class="op">]);</span></span>
+<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a>        putchar<span class="op">(</span><span class="ch">'</span><span class="sc">\n</span><span class="ch">'</span><span class="op">);</span></span>
+<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
