@@ -1,0 +1,328 @@
+---
+title: "K개 클리크 합집합 그래프의 채색 수"
+date: "2026-05-09"
+description: "K ≤ 4 조건에서 union of cliques 그래프가 perfect graph임을 활용해 χ(G) = ω(G)를 비트마스크 기반 intersecting family 탐색으로 구하는 풀이"
+categories:
+  - 그래프 이론
+  - 그래프 채색
+  - Perfect Graph
+  - Intersecting Family
+  - 비트마스킹
+  - 조합론
+number-sections: true
+---
+
+# 문제 개요
+
+$N$개의 정점이 있는 빈 그래프와 $K$개의 정점 부분집합 $S_1, S_2, \dots, S_K$가 주어진다. 각 $S_i$ 안의 모든 정점쌍에 대해 (간선이 없다면) 간선을 추가했을 때, 결과 그래프의 **chromatic number** $\chi(G)$를 구하는 문제이다.
+
+- $1 \leq N \leq 100{,}000$
+- $1 \leq K \leq 4$
+- $1 \leq |S_i| \leq N$
+
+핵심 단서는 $K \leq 4$라는 강한 제약이다. 이 사실 하나가 풀이의 모든 것을 가능하게 한다.
+
+# 그래프 구조 관찰
+
+각 $S_i$의 모든 정점쌍을 연결하므로 **$S_i$ 자체가 완전 그래프(클리크) $K_{|S_i|}$가 된다**. 결과 그래프 $G$는 따라서
+
+$$
+G = \bigcup_{i=1}^{K} K_{S_i}
+$$
+
+즉 $K$개 클리크의 (간선) 합집합이다.
+
+::: {.callout-note}
+## 한 정점이 여러 $S_i$에 속하는 경우
+정점 $v$가 $S_a$와 $S_b$ 양쪽에 속해도, $S_a$와 $S_b$가 자동으로 한 큰 클리크로 합쳐지지 않는다. $v$가 양쪽 클리크의 멤버일 뿐이며, $S_a \setminus \{v\}$와 $S_b \setminus \{v\}$의 정점들 사이에는 (다른 $S_k$를 공유하지 않는 한) 간선이 생기지 않는다.
+
+예: $S_1 = \{1, 2\}$, $S_2 = \{1, 3\}$이면 정점 1이 양쪽에 있지만, $\{1,2,3\}$은 클리크가 아니다 ($2$와 $3$ 사이에 간선 없음).
+:::
+
+# 타입 환원
+
+각 정점 $v$에 대해 **타입**을 다음과 같이 정의한다:
+
+$$
+T(v) = \{\, i : v \in S_i \,\} \subseteq \{1, 2, \dots, K\}
+$$
+
+$K$비트 비트마스크로 표현하면 가능한 타입 수는 최대 $2^K \leq 16$개. 
+
+이는 $N$차원의 정점 정보를 $2^K \leq 16$차원의 타입 정보로 압축하는 **차원 축소**이다.
+
+## 인접성의 타입 표현
+
+두 정점 $u, v$가 인접 ⟺ 어떤 $S_k$에 둘 다 속함 ⟺ 두 정점의 클리크 인덱스 집합이 만남:
+
+$$
+u \sim v \iff T(u) \cap T(v) \neq \emptyset
+$$
+
+비트마스크로는 `T(u) & T(v) != 0`.
+
+::: {.callout-important}
+## 같은 타입 정점들의 관계
+같은 타입 $T \neq \emptyset$ 정점들은 서로 인접하다 ($T \cap T = T \neq \emptyset$). 즉 **같은 타입 자체가 클리크**.
+
+반면 타입 $0$ (어느 $S_k$에도 속하지 않은 격리 정점들)은 서로도 인접하지 않으므로 클리크를 이루지 않는다. 이 경계 케이스는 코드에서 별도 처리가 필요하다.
+:::
+
+# 핵심 정리: Perfect Graph
+
+::: {.callout-tip}
+## 정리
+$K \leq 4$일 때, $K$개 클리크의 합집합 그래프는 **perfect graph**이다. 따라서 
+
+$$\chi(G) = \omega(G)$$
+
+(채색 수 = 최대 클리크 크기)
+:::
+
+## 증명 스케치 (Strong Perfect Graph Theorem)
+
+SPGT(Chudnovsky–Robertson–Seymour–Thomas, 2006)에 의해 그래프가 perfect ⟺ 자기 자신과 보-그래프 모두 odd hole (길이 ≥ 5의 홀수 induced cycle)이 없음.
+
+- $C_5$ (가장 작은 odd hole): 트라이앵글-프리이므로 클리크 합집합 표현에 간선마다 클리크 1개 필요 → $K \geq 5$ 필요.
+- $C_7, C_9, \dots$: 더 많은 클리크 필요.
+- Odd antihole $\overline{C_{2k+1}}$ ($k \geq 2$): 마찬가지로 클리크 커버 수 $\geq 5$ 필요.
+
+따라서 $K \leq 4$ 클리크 합집합에는 odd hole/antihole이 induced subgraph로 들어올 수 없다 → perfect.
+
+# Intersecting Family
+
+집합들의 모임 $\mathcal{F} = \{T_1, \dots, T_m\}$이 **intersecting family**라는 것은
+
+$$
+\forall i \neq j,\quad T_i \cap T_j \neq \emptyset
+$$
+
+즉 모든 쌍이 적어도 한 원소를 공유한다.
+
+::: {.callout-warning}
+## 함정: 공통 원소 vs 쌍별 교집합
+"모든 집합에 공통으로 들어가는 원소가 있다" ($\bigcap_i T_i \neq \emptyset$)는 **더 강한 조건**이다. Intersecting family는 **쌍별로만** 교집합 ≠ ∅이면 충분.
+
+예: $\{1,2\}, \{2,3\}, \{1,3\}$은 intersecting family이지만 셋의 공통 원소는 없다 — 이런 비자명 케이스가 perfect graph 풀이에서 결정적 역할을 한다.
+:::
+
+## 클리크 ⟺ 타입의 Intersecting Family
+
+| 그래프 언어 | 집합 언어 | 비트마스크 |
+|:---|:---|:---|
+| 정점 $u$ | 집합 $T(u)$ | 비트마스크 |
+| 간선 $u \sim v$ | $T(u) \cap T(v) \neq \emptyset$ | `T(u) & T(v) != 0` |
+| 클리크 | 타입들의 intersecting family | 모든 쌍의 AND ≠ 0 |
+| 최대 가중치 클리크 | 가중치 합 최대 intersecting family | — |
+
+따라서 풀이 공식:
+
+$$
+\chi(G) = \omega(G) = \max_{\mathcal{F}\ \text{intersecting}} \sum_{T \in \mathcal{F}} n_T
+$$
+
+여기서 $n_T$는 타입 $T$를 갖는 정점의 수.
+
+## 작은 예: 삼각형 케이스
+
+$K=3$, 정점 $a, b, c$의 타입이 각각 $\{1,2\}, \{1,3\}, \{2,3\}$이면:
+
+- 각 $|S_i| = 2$
+- 그러나 세 타입은 pairwise 교집합 ≠ ∅인 intersecting family
+- 합 = 3 → 그래프는 $K_3$, $\chi = 3$
+
+이 경우 **어떤 단일 $S_i$의 크기보다 더 큰 클리크가 여러 $S_i$를 가로질러 형성**되므로 $\max_i |S_i|$만으로는 답이 안 나온다. 모든 intersecting family를 봐야 하는 이유.
+
+# 알고리즘
+
+1. 각 정점의 타입을 비트마스크 OR로 누적
+2. 타입별 정점 수 $n_T$ ($T = 0, 1, \dots, 2^K - 1$) 카운트
+3. 타입 $0$ (격리 정점)의 카운트는 0으로 초기화 (클리크 미참여)
+4. 모든 타입 부분집합 $\mathcal{F} \subseteq \{0, 1, \dots, 2^K - 1\}$를 비트마스크로 열거
+5. 각 $\mathcal{F}$가 intersecting family인지 검사 (모든 쌍의 비트 AND ≠ 0)
+6. 통과한 $\mathcal{F}$의 가중치 합 최대값 출력
+
+## 복잡도
+
+- 가능한 타입 수: $2^K \leq 16$
+- 가능한 부분집합 수: $2^{2^K} \leq 2^{16} = 65{,}536$
+- 각 부분집합 검사: $O((2^K)^2) \leq 256$
+- 테스트케이스당: $O(2^{2^K} \cdot 2^{2K}) \leq 2^{16} \cdot 256 \approx 1.7 \times 10^7$
+
+여유롭게 통과.
+
+# 예제 추적
+
+## 예제 1: 별 모양
+
+`N=5, K=4`, $S_1=\{1,2\}, S_2=\{1,3\}, S_3=\{1,4\}, S_4=\{1,5\}$.
+
+타입:
+
+- 정점 1: 모든 $S_i$에 속함 → `1111` (= 15)
+- 정점 2: $S_1$에만 → `0001` (= 1)
+- 정점 3: $S_2$에만 → `0010` (= 2)
+- 정점 4: $S_3$에만 → `0100` (= 4)
+- 정점 5: $S_4$에만 → `1000` (= 8)
+
+`vtx_cnt_at_state[15] = 1`, `vtx_cnt_at_state[{1,2,4,8}] = 1` 각각.
+
+가능한 intersecting family 후보:
+
+- `{15, 1}`: `15 & 1 = 1 ≠ 0` ✓, 합 = 2
+- `{15, 2}`: `15 & 2 = 2 ≠ 0` ✓, 합 = 2
+- `{15, 1, 2}`: `1 & 2 = 0` ❌ (단일 비트 타입끼리 disjoint)
+- `{1, 2}`: `1 & 2 = 0` ❌
+
+최대 = **2**. 출력: `2` ✓
+
+## 예제 2: 단일 큰 클리크
+
+`N=5, K=1, S_1={1,2,3,4,5}`.
+
+모든 정점의 타입이 `1`이므로 `vtx_cnt_at_state[1] = 5`.
+
+`used`는 단일 타입 → 단일 family `{1}`이 답: 합 = **5**. 출력: `5` ✓
+
+# 코드 분석
+
+## 비트마스크의 두 층위
+
+이 풀이의 가장 헷갈리는 부분은 비트마스크가 **두 종류** 등장한다는 점이다.
+
+| 비트마스크 | 비트 수 | 의미 | 예시 |
+|:---|:---:|:---|:---|
+| `vtx_to_state[v]` (= 타입) | $K$ | 정점 $v$가 어느 $S_i$들에 속하는가 | `0011` = $S_1, S_2$에 속함 |
+| `state` (= 부분집합 선택자) | $2^K$ | 어떤 타입들을 family에 포함시킬 것인가 | `0b0...0101` = 타입 0, 2 선택 |
+
+::: {.callout-note}
+## 변수 이름 정리
+- `state_comb` $= 2^K$: 가능한 타입의 가짓수
+- `subset_comb` $= 2^{2^K}$: 타입의 부분집합 가짓수
+- `state` 변수의 비트 $i$ = "타입 $i$를 이번 family에 포함시킬 것인가?"
+- `i`, `j` (안쪽 루프 변수) = 타입 자체 (0 ~ $2^K - 1$)
+:::
+
+## 핵심 검사: `(i & j) == 0`
+
+```c
+if((i & j) == 0) {
+    possible = false;
+}
+```
+
+- `i`, `j`는 타입 자체 ($K$비트 비트마스크)
+- `i & j == 0` ⟺ 두 타입이 비트마스크상 disjoint ⟺ 같은 $S_k$를 공유 안 함 ⟺ 비-인접
+- 한 쌍이라도 비-인접이면 family가 클리크가 아님 → 탈락
+
+::: {.callout-warning}
+## 흔한 실수
+`vtx_cnt_at_state[i & j] == 0`로 검사하는 건 **틀렸다**. 이는 "타입 $i \& j$인 정점이 존재하는가"를 묻는 것이지, "타입 $i$와 $j$가 서로 만나는가"를 묻는 것이 아니다.
+
+올바른 검사는 정점 카운트와 무관한 **순수 비트 연산** `(i & j) == 0`.
+:::
+
+## `possible` 플래그의 역할
+
+`possible`은 "이 family가 아직 intersecting family라는 가정이 살아있는가"를 추적하는 플래그.
+
+- `state`로 정해진 family는 **고정된 검사 대상**
+- 안쪽 $i, j$ 루프는 검사 절차일 뿐 family를 수정하지 않음
+- 한 쌍이라도 깨지면 family **전체**가 탈락 (정의: 모든 쌍이 만나야 함)
+- `for(... && possible; ...)` 조건은 조기 종료 최적화
+
+::: {.callout-note}
+## "왜 `j`만 빼고 계속 진행하지 않는가?"
+$j$를 뺀 family는 **다른 `state` 값에서 별도로** 시도된다. 바깥 `state` 루프가 모든 부분집합을 빠짐없이 훑기 때문에, 현재 family를 통째로 폐기해도 손해가 없다.
+
+이는 brute force의 본질: "고치지 말고 다음 후보를 시도하라."
+:::
+
+## 격리 정점 처리
+
+타입 $0$ 정점은 클리크에 기여하지 않으므로 카운트를 0으로 비움:
+
+```c
+vtx_cnt_at_state[0] = 0;
+```
+
+이 한 줄이 없으면 일부 정점만 $S_i$에 속하고 나머지가 격리된 경우 (예: $N=5, K=1, S_1=\{1\}$, 정점 2~5는 격리) 잘못된 답이 나온다.
+
+이유:
+
+- 타입 0 단독 family `state = 0b...01` → `sum = vtx_cnt_at_state[0]`이 후보로 등재
+- 그러나 격리 정점들은 서로 인접하지 않으므로 클리크가 아님
+- 카운트를 0으로 비우면 단독 family도 sum=0이 되어 영향 없음
+- 다른 타입과 함께 들어가면 `0 & T = 0`으로 어차피 탈락
+
+# 일반화 가능한 발상
+
+이 풀이에서 가져갈 수 있는 PS 패턴:
+
+1. **타입 환원 (Equivalence Class)**: 정점의 본질적 정보(어느 클리크에 속하는가)만 추출하여 $N$차원 → $2^K$차원으로 차원 축소.
+2. **작은 파라미터의 활용**: 제약 $K \leq 4$가 작을 때는 지수 시간 brute force ($2^{2^K}$)가 정당화됨. 제약을 의심하는 습관.
+3. **Perfect Graph 인식**: 채색 문제에서 $\chi = \omega$가 성립하는 구조(union of small number of cliques, interval graph, chordal graph 등) 인식.
+4. **Intersecting Family ↔ Clique 동치**: 집합론과 그래프 이론 간 자유로운 번역 능력.
+5. **두 층위 비트마스크**: 객체 자체와 객체들의 부분집합을 동시에 비트마스크로 표현하는 패턴 — bitmask DP 등에서 자주 등장.
+6. **검사와 탐색의 분리**: 안쪽 루프는 평가, 바깥 루프는 후보 생성. 이 분리를 명확히 인식하면 brute force의 정당성이 자명해짐.
+
+# Codes
+
+```c
+#include <stdio.h>
+#include <stdbool.h>
+
+int vtx_cnt_at_state[16];
+int vtx_to_state[100'001];
+
+int main(void)
+{
+    int t;
+    scanf("%d", &t);
+    while(t--)
+    {
+        int n, k;
+        scanf("%d%d", &n, &k);
+        for(int i = 0; i < 16; ++i) vtx_cnt_at_state[i] = 0;
+        for(int i = 1; i <= n; ++i) vtx_to_state[i] = 0b00;
+        for(int i = 0; i < k; ++i) {
+            int kn, vtx;
+            scanf("%d", &kn);
+            for(int j = 0; j < kn; ++j) {
+                scanf("%d", &vtx);
+                vtx_to_state[vtx] |= (1 << i);
+            }
+        }
+        for(int i = 1; i <= n; ++i) {
+            ++vtx_cnt_at_state[vtx_to_state[i]];
+        }
+        // 타입 0 (어느 S_k에도 속하지 않은 격리 정점)은 클리크에 기여하지 않음
+        vtx_cnt_at_state[0] = 0;
+
+        int max_clique = 0;
+        const int state_comb = (1 << k);
+        const int subset_comb = 1 << state_comb;
+        for(int state = 1; state < subset_comb; ++state)
+        {
+            bool possible = true;
+            int sum = 0;
+            for(int i = 0; i < state_comb && possible; ++i)
+            {
+                if(!(state & (1 << i))) continue;
+                sum += vtx_cnt_at_state[i];
+                for(int j = i + 1; j < state_comb && possible; ++j)
+                {
+                    if(!(state & (1 << j))) continue;
+                    // 두 타입이 disjoint하면 intersecting family가 깨짐
+                    if((i & j) == 0) {
+                        possible = false;
+                    }
+                }
+            }
+            if(possible && sum > max_clique) max_clique = sum;
+        }
+
+        printf("%d\n", max_clique);
+    }
+}
+```
