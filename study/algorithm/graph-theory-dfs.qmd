@@ -1,0 +1,443 @@
+---
+title: "DFS와 위상 정렬: 탐색 구조와 증명"
+date: "2026-05-21"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    highlight-style: github
+    code-block-bg: true
+---
+
+# DFS의 개념과 의사코드
+
+## 핵심 아이디어
+
+깊이 우선 탐색(Depth-First Search)은 **가장 최근에 발견한 정점**에서 아직 탐색하지 않은 간선을 따라 계속 나아간다. 더 이상 나아갈 곳이 없으면 그 정점을 발견했던 정점으로 **backtrack**하여 탐색을 이어간다. 원천 정점에서 도달 가능한 모든 정점을 발견하고 나서도 미발견 정점이 남아 있으면, 그 중 하나를 새로운 원천으로 삼아 같은 과정을 반복한다. 모든 정점을 발견할 때까지 이 과정이 계속된다.
+
+## 정점의 색과 타임스탬프
+
+각 정점 $u$는 다음 속성을 가진다.
+
+- $u.d$ — **발견 시각**(discovered time)
+- $u.f$ — **완료 시각**(finished time)
+- $u.\pi$ — 선행 정점(predecessor)
+
+색은 탐색 진행 상태를 나타낸다.
+
+| 색 | 구간 | 의미 |
+|------|------|------|
+| WHITE | $u.d$ 이전 | 아직 발견되지 않음 |
+| GRAY | $u.d \le t < u.f$ | 발견되었으나 탐색 진행 중 |
+| BLACK | $u.f$ 이후 | 탐색 완료 |
+
+타임스탬프는 $1$부터 $2|V|$ 사이의 정수다. 정점마다 발견 이벤트 1회, 완료 이벤트 1회가 일어나기 때문이다.
+
+## 의사코드
+
+```text
+DFS(G)
+1.  for each vertex u ∈ G.V
+2.      u.color = WHITE
+3.      u.π = NIL
+4.  time = 0
+5.  for each vertex u ∈ G.V
+6.      if u.color == WHITE
+7.          DFS-VISIT(G, u)
+
+DFS-VISIT(G, u)
+1.  time = time + 1
+2.  u.d = time
+3.  u.color = GRAY
+4.  for each v ∈ G.adj[u]
+5.      if v.color == WHITE
+6.          v.π = u
+7.          DFS-VISIT(G, v)
+8.  u.color = BLACK
+9.  time = time + 1
+10. u.f = time
+```
+
+## 수행 시간
+
+`DFS`의 1–3행과 5–6행 루프는 각각 $\Theta(|V|)$이다(`DFS-VISIT` 호출 제외). `DFS-VISIT`는 각 정점에 대해 정확히 한 번 호출되며, 4행의 인접 리스트 순회는 전체적으로 $\sum_{v \in V} |\text{Adj}[v]| = \Theta(|E|)$이다. 따라서 전체 수행 시간은
+
+$$
+\Theta(|V| + |E|)
+$$
+
+이다.
+
+---
+
+# DFS-VISIT의 WHITE 체크와 DFS Forest
+
+## WHITE 체크가 의미하는 것
+
+`DFS-VISIT`의 5행은 인접 정점 $v$가 **WHITE일 때만** 재귀 호출한다. 이 조건 때문에 헷갈리기 쉬운 상황을 살펴본다.
+
+다음 그래프를 알파벳 순서로 순회한다고 하자.
+
+$$
+A \to C, \qquad B \to C
+$$
+
+여기서 "$A$의 탐색이 끝나면 $B$는 도달 경로가 없는가?"라는 의문이 생긴다. 답은 **그렇지 않다**이다. 핵심은 `DFS-VISIT`만 보면 안 되고 **외부 루프(`DFS`의 5–7행)**를 함께 봐야 한다는 점이다.
+
+## 탐색 과정 추적
+
+| 단계 | 이벤트 | 상태 변화 |
+|------|--------|-----------|
+| 1 | 외부 루프: $A$가 WHITE → `DFS-VISIT(G, A)` | $A$: GRAY |
+| 2 | $A$의 인접 $C$가 WHITE → `DFS-VISIT(G, C)` | $C$: GRAY |
+| 3 | $C$의 인접 없음 → 완료 | $C$: BLACK |
+| 4 | $A$로 복귀 → 완료 | $A$: BLACK |
+| 5 | **외부 루프: $B$가 여전히 WHITE → `DFS-VISIT(G, B)`** | $B$: GRAY |
+| 6 | $B$의 인접 $C$가 **BLACK** → 5행 조건 불만족, skip | — |
+| 7 | $B$ 완료 | $B$: BLACK |
+
+$B$는 $A$로부터 도달 불가능하므로 `DFS-VISIT(A)` 내부에서 발견되지 않을 뿐, **외부 루프가 $B$를 독립적으로 호출**하여 방문한다.
+
+## DFS Forest
+
+선행 정점 $\pi$로 정의되는 선행 부분그래프
+
+$$
+G_\pi = (V, E_\pi), \qquad E_\pi = \{(v.\pi, v) \mid v \in V,\ v.\pi \ne \text{NIL}\}
+$$
+
+는 일반적으로 하나의 트리가 아니라 **여러 개의 깊이 우선 트리(depth-first tree)로 구성된 forest**를 이룬다. 위 예시에서 $A$와 $B$는 각각 다른 트리의 루트가 된다.
+
+::: {.callout-note}
+## DFS Forest로 드러나는 구조 정보
+
+$B \to C$ 경로가 존재함에도 $B$가 별도 트리의 루트가 되는 것은 오류가 아니다. 이것은 **"$A$로부터 $B$는 도달 불가능하다"**는 그래프의 구조적 사실이 forest의 형태로 드러난 것이며, $B \to C$ 간선이 cross edge라는 정보 자체가 의미를 갖는다.
+:::
+
+---
+
+# DFS의 목적
+
+DFS의 목적은 **최단 경로 탐색이 아니다.** 최단 경로는 BFS(또는 Dijkstra, Bellman-Ford)의 영역이다. DFS의 목적은 발견 시각 $d$와 완료 시각 $f$를 기록하여 **그래프의 구조 자체를 밝히는 것**이다.
+
+| 응용 | 활용하는 정보 |
+|------|---------------|
+| 위상 정렬(Topological Sort) | 완료 시각 $f$의 내림차순 |
+| 강결합 요소(SCC) 분해 | $f$ 값과 전치 그래프 |
+| 사이클 탐지 | Back edge 존재 여부 |
+| 간선 분류 | 발견 시점 $v$의 색 |
+
+> DFS는 "어디까지 갈 수 있는가"가 아니라 "그래프가 어떤 구조인가"를 밝히는 도구다.
+
+---
+
+# Parenthesis 구조와 Theorem 22.7
+
+## 괄호 구조
+
+DFS에서 각 정점의 구간 $[u.d, u.f]$는 마치 잘 짝지어진 괄호처럼 동작한다. 두 구간이 겹치면 하나가 다른 하나에 **완전히 포함(nested)**되며, 더 작은 구간에 해당하는 정점이 descendant가 된다.
+
+## Theorem 22.7 (Parenthesis Theorem)
+
+::: {.callout-important}
+## Theorem 22.7
+
+방향 또는 무방향 그래프 $G=(V,E)$의 임의의 DFS에서, 임의의 두 정점 $u$, $v$에 대해 다음 세 조건 중 **정확히 하나**가 성립한다.
+
+1. 구간 $[u.d, u.f]$와 $[v.d, v.f]$가 **완전히 disjoint**하며, depth-first forest에서 $u$와 $v$ 중 어느 쪽도 다른 쪽의 descendant가 아니다.
+2. $[u.d, u.f]$가 $[v.d, v.f]$에 완전히 포함되며, $u$는 depth-first tree에서 $v$의 descendant이다.
+3. $[v.d, v.f]$가 $[u.d, u.f]$에 완전히 포함되며, $v$는 $u$의 descendant이다.
+:::
+
+### Disjoint 케이스의 의미
+
+세 번째 조건이 아닌 첫 번째 조건, 즉 두 구간이 disjoint하다는 것은 다음을 뜻한다.
+
+```text
+time:  1  2  3  4  5  6  7  8
+       [  A [C] ]  [  B  ]
+       1      4    5    6
+```
+
+$u$의 탐색이 완전히 끝난(BLACK이 된) 이후에 $v$가 발견된다. 즉 **$u$를 탐색하는 동안 $v$를 한 번도 만나지 않았다.** 따라서 $v$는 $u$의 subtree 안에 없고, 역도 성립한다. 두 정점은 depth-first forest에서 **서로 다른 가지(branch)에 존재**한다.
+
+앞서 본 $A \to C,\ B \to C$ 예시가 정확히 이 케이스다. $[A.d, A.f]=[1,4]$와 $[B.d, B.f]=[5,6]$이 disjoint하므로 $A$와 $B$는 서로 ancestor/descendant 관계가 아니며, 별개의 트리를 이룬다.
+
+## Theorem 22.7의 증명
+
+::: {.callout-tip}
+## Proof (Theorem 22.7)
+
+$u.d < v.d$인 경우부터 다룬다(대칭이므로 $v.d < u.d$는 동일한 논증).
+
+**경우 (i): $v.d < u.f$.**
+$v$가 $u$의 GRAY 구간 안에서 발견되었으므로 $v$는 $u$의 descendant이다. 또한 $v$는 $u$보다 더 나중에 발견되었으므로, 탐색이 $u$로 복귀하여 $u$를 완료하기 전에 $v$의 모든 출력 간선이 탐색되고 $v$가 완료된다. 따라서 $[v.d, v.f]$는 $[u.d, u.f]$에 완전히 포함된다.
+
+**경우 (ii): $u.f < v.d$.**
+모든 정점에서 $x.d < x.f$이므로 $u.d < u.f$이고 $v.d < v.f$이다. 여기에 $u.f < v.d$를 결합하면
+
+$$
+u.d < u.f < v.d < v.f
+$$
+
+이므로 두 구간 $[u.d, u.f]$와 $[v.d, v.f]$는 disjoint하다. $\blacksquare$
+:::
+
+## Corollary 22.8 (Nesting of descendants' intervals)
+
+::: {.callout-important}
+## Corollary 22.8
+
+정점 $v$가 depth-first forest에서 정점 $u$의 **proper descendant**일 필요충분조건은
+
+$$
+u.d < v.d < v.f < u.f
+$$
+
+이다. Theorem 22.7로부터 즉시 따라온다.
+:::
+
+---
+
+# White-Path Theorem
+
+## Theorem 22.9 (White-Path Theorem)
+
+::: {.callout-important}
+## Theorem 22.9
+
+방향 또는 무방향 그래프 $G=(V,E)$의 depth-first forest에서, 정점 $v$가 정점 $u$의 descendant일 **필요충분조건**은, 탐색이 $u$를 발견하는 시각 $u.d$에 $u$로부터 $v$까지 **전부 WHITE 정점으로만 이루어진 경로**가 존재하는 것이다.
+:::
+
+직관적으로, `DFS-VISIT(u)`가 막 시작된 시점($u.d$)에 $u$는 방금 GRAY가 되었고 아직 탐색되지 않은 정점들은 모두 WHITE이다. 이때 WHITE 정점만 밟아서 $v$까지 갈 수 있다면, DFS는 결국 그 경로를 따라가 $v$를 발견하므로 $v$는 $u$의 subtree에 들어온다.
+
+## 증명
+
+::: {.callout-tip}
+## Proof (⇒) — descendant이면 WHITE 경로가 존재
+
+$v = u$이면 $u$에서 $v$까지의 경로는 정점 $u$만으로 이루어지며, $u.d$를 설정하는 시점에 $u$는 아직 WHITE이다.
+
+이제 $v$가 $u$의 proper descendant라고 하자. Corollary 22.8에 의해 $u.d < v.d$이므로 $v$는 시각 $u.d$에 WHITE이다. $v$는 $u$의 임의의 descendant일 수 있으므로, depth-first forest에서 $u$로부터 $v$로의 유일한 단순 경로 위의 모든 정점이 시각 $u.d$에 WHITE이다. $\blacksquare$
+:::
+
+::: {.callout-tip}
+## Proof (⇐) — WHITE 경로가 존재하면 descendant (귀류법)
+
+시각 $u.d$에 $u$에서 $v$로의 WHITE 경로가 존재하지만, $v$가 depth-first tree에서 $u$의 descendant가 **되지 않는다**고 가정하자.
+
+일반성을 잃지 않고, 경로 위에서 $v$를 제외한 모든 정점은 $u$의 descendant가 된다고 하자(그렇지 않다면, $u$의 descendant가 되지 않는 정점 중 $u$에 가장 가까운 것을 $v$로 다시 잡는다).
+
+경로에서 $v$의 바로 앞 정점을 $w$라 하면 $w$는 $u$의 descendant이다($w$와 $u$는 같을 수도 있다). Corollary 22.8에 의해 $w.f \le u.f$이다. $v$는 $u$가 발견된 이후, 그리고 $w$가 완료되기 이전에 발견되어야 하므로
+
+$$
+u.d < v.d < w.f \le u.f
+$$
+
+가 성립한다. Theorem 22.7에 의해 구간 $[v.d, v.f]$는 $[u.d, u.f]$에 완전히 포함되고, Corollary 22.8에 의해 $v$는 결국 $u$의 descendant이다. 이는 가정에 모순이다. $\blacksquare$
+:::
+
+## 예시로 확인
+
+$A \to C,\ B \to C$에서
+
+- $u = A,\ v = C$: $A.d$ 시점에 $C$는 WHITE이고 $A \to C$ 경로가 전부 WHITE이므로 $C$는 $A$의 descendant이다.
+- $u = B,\ v = C$: $B.d$ 시점에 $C$는 이미 BLACK이다($A$가 먼저 완료). $B \to C$ 경로는 존재하지만 WHITE 경로가 아니므로 $C$는 $B$의 descendant가 아니다.
+
+::: {.callout-note}
+## 두 정리의 관계
+
+Parenthesis Theorem은 "$v$가 $u$의 subtree에 있다"는 사실을 **시간 구간 $[d, f]$의 포함 관계**로 표현하고, White-Path Theorem은 같은 사실을 **$u.d$ 시점의 WHITE 경로 존재 여부**로 표현한다. 같은 구조적 사실의 두 가지 언어다.
+:::
+
+---
+
+# 간선의 분류
+
+## 네 가지 간선
+
+depth-first forest $G_\pi$를 기준으로 간선 $(u,v)$는 네 종류로 분류된다.
+
+- **Tree edge** — 간선 $(u,v)$를 탐색하면서 정점 $v$가 **처음 발견된** 경우의 간선
+- **Back edge** — 정점 $u$를 depth-first tree에서 자신의 **ancestor** $v$에 연결하는 간선
+- **Forward edge** — 정점 $u$를 자신의 **descendant** $v$에 연결하는 간선(트리 간선은 아님)
+- **Cross edge** — 그 외 모든 간선. 같은 트리 안에서 한 정점이 다른 정점의 ancestor가 아닌 경우이거나, 서로 다른 트리 사이의 간선
+
+## 색에 의한 분류
+
+DFS에서 간선 $(u,v)$가 처음 탐색될 때 도달한 정점 $v$의 색으로 분류할 수 있다.
+
+| $v$의 색 | 간선 종류 | 추가 조건 |
+|----------|-----------|-----------|
+| WHITE | Tree edge | — |
+| GRAY | Back edge | — |
+| BLACK | Cross edge | $v.f < u.d$ |
+| BLACK | Forward edge | 그 외 ($v.d > u.d$) |
+
+## Tree Edge
+
+Tree edge는 `DFS-VISIT`의 5–7행이 실행될 때 만들어진다.
+
+```text
+5.  if v.color == WHITE
+6.      v.π = u           ← 부모 설정
+7.      DFS-VISIT(G, v)   ← 실제로 건너감
+```
+
+$v$가 WHITE일 때 건너간 간선이 곧 **depth-first forest의 뼈대를 구성하는 간선**이다.
+
+---
+
+# Tree Edge와 Forward Edge의 상호 배타성
+
+같은 간선 $(u,v)$가 tree edge이면서 동시에 forward edge일 수는 **없다.** 두 개념은 정의 자체가 충돌한다.
+
+| 구분 | Tree edge | Forward edge |
+|------|-----------|--------------|
+| 탐색 시 $v$의 색 | WHITE (첫 발견) | BLACK (이미 완료) |
+| $v.\pi = u$ 설정 | 됨 | 안 됨 |
+| `DFS-VISIT(v)` 호출 | 됨 | 안 됨 |
+
+한 간선에 대해 $v$가 WHITE이면서 동시에 BLACK일 수 없으므로 두 분류는 배타적이다. Forward edge는 다음처럼 **이미 tree edge로 한 번 발견된 정점**으로 가는 추가 간선이다.
+
+$$
+A \to B \to C \quad(\text{tree edges}), \qquad A \to C \quad(\text{forward edge})
+$$
+
+DFS가 $A \to B \to C$ 순으로 탐색한 뒤 $A \to C$를 만나면, $C$는 이미 BLACK이고 $C.d > A.d$이므로 이 간선은 forward edge가 된다.
+
+> Tree edge는 "처음 발견"의 간선이고, forward edge는 "이미 발견된 descendant"로 가는 간선이다.
+
+---
+
+# 무방향 그래프의 간선: Theorem 22.10
+
+## Theorem 22.10
+
+::: {.callout-important}
+## Theorem 22.10
+
+무방향 그래프 $G$의 DFS에서, $G$의 모든 간선은 **tree edge이거나 back edge**이다.
+:::
+
+무방향 그래프에서 간선 $(u,v)$는 양방향이므로, $u \to v$ 방향으로도 $v \to u$ 방향으로도 탐색될 수 있다. **어느 방향으로 먼저 만나느냐**가 분류를 결정한다.
+
+## 증명
+
+::: {.callout-tip}
+## Proof (Theorem 22.10)
+
+$(u,v)$를 $G$의 임의의 간선이라 하고, 일반성을 잃지 않고 $u.d < v.d$라 하자. $v$는 $u$의 인접 리스트에 있으므로, $u$가 GRAY인 동안 $v$가 발견되고 완료되어야 한다.
+
+**경우 1: 간선 $(u,v)$가 $u \to v$ 방향으로 먼저 탐색되는 경우.**
+이 시각까지 $v$는 미발견(WHITE) 상태이다. 만약 $v$가 이미 발견되었다면 이 간선은 $v \to u$ 방향으로 이미 탐색되었을 것이므로 모순이다. 따라서 $(u,v)$는 tree edge가 된다.
+
+**경우 2: 간선 $(u,v)$가 $v \to u$ 방향으로 먼저 탐색되는 경우.**
+이 간선이 처음 탐색되는 시각에 $u$는 여전히 GRAY이다($u.d < v.d$이므로 $u$가 먼저 발견되었고 아직 완료되지 않음). GRAY인 $u$는 $v$의 ancestor이므로 $(u,v)$는 back edge이다. $\blacksquare$
+:::
+
+## Forward / Cross edge가 불가능한 이유
+
+Forward edge와 cross edge는 모두 탐색 시점에 $v$가 BLACK이어야 한다. 그러나 무방향 그래프에서 간선 $(u,v)$는 $v$를 탐색하는 동안 인접 리스트에서 반드시 $u$를 만난다. 그 시점에 $u$가 GRAY(ancestor)이면 back edge로 즉시 처리되므로, $(u,v)$가 미발견 상태로 남아 있다가 $v$가 BLACK이 된 뒤에 처음 탐색되는 일은 구조적으로 불가능하다.
+
+---
+
+# 사이클과 Back Edge: Lemma 22.11
+
+## Lemma 22.11
+
+::: {.callout-important}
+## Lemma 22.11
+
+방향 그래프 $G$가 acyclic일 **필요충분조건**은 $G$의 DFS가 back edge를 만들지 않는 것이다.
+:::
+
+## 증명
+
+::: {.callout-tip}
+## Proof (⇒) — Back edge가 있으면 사이클이 있다
+
+$(u,v)$가 back edge라고 하자. 그러면 정점 $v$는 depth-first forest에서 $u$의 ancestor이다. 따라서 $G$에는 $v$에서 $u$로의 경로 $p$가 존재한다. 이 경로 $p$와 back edge $(u,v)$를 합치면 $G$에 사이클이 생긴다.
+
+(대우로 읽으면: $G$가 acyclic이면 back edge가 없다.)
+:::
+
+::: {.callout-tip}
+## Proof (⇐) — 사이클이 있으면 back edge가 있다
+
+$G$에 사이클 $c$가 있다고 가정하고, DFS가 back edge를 만듦을 보인다.
+
+$c$에서 가장 먼저 발견되는 정점을 $v$라 하고, $c$에서 $v$로 들어오는 바로 앞 간선을 $(u,v)$라 하자. $v$가 $c$ 안에서 가장 먼저 발견되므로, 시각 $v.d$에 사이클 $c$의 나머지 부분은 $v$에서 $u$로 가는 **WHITE 경로**를 이룬다.
+
+White-Path Theorem에 의해 정점 $u$는 depth-first forest에서 $v$의 descendant가 된다. 따라서 간선 $(u,v)$는 descendant $u$에서 ancestor $v$로 가는 간선, 즉 **back edge**이다. $\blacksquare$
+:::
+
+---
+
+# 위상 정렬과 Theorem 22.12
+
+## 위상 정렬의 정의
+
+방향 비순환 그래프(DAG)의 **위상 정렬**은 모든 정점을 일렬로 배열하되, $G$에 간선 $(u,v)$가 있으면 $u$가 $v$보다 앞에 오도록 하는 순서다. 그래프에 사이클이 있으면 그러한 선형 순서는 존재할 수 없다.
+
+```text
+TOPOLOGICAL-SORT(G)
+1.  call DFS(G) to compute finishing times v.f for each vertex v
+2.  as each vertex is finished, insert it onto the front of a linked list
+3.  return the linked list of vertices
+```
+
+`DFS`의 수행 시간이 $\Theta(|V|+|E|)$이고 각 정점 삽입이 $O(1)$이므로, 위상 정렬의 전체 수행 시간도 $\Theta(|V|+|E|)$이다.
+
+## Theorem 22.12
+
+::: {.callout-important}
+## Theorem 22.12
+
+`TOPOLOGICAL-SORT(G)`는 입력으로 주어진 DAG의 올바른 위상 정렬을 만든다.
+:::
+
+## 증명
+
+증명의 핵심은 단 하나의 명제다.
+
+> $G$에 간선 $(u,v)$가 있으면 $v.f < u.f$이다.
+
+이것이 성립하면 완료 시각 $f$의 내림차순으로 정점을 배열했을 때 모든 간선이 앞에서 뒤로 향하므로 위상 정렬이 된다.
+
+::: {.callout-tip}
+## Proof (Theorem 22.12)
+
+DAG $G=(V,E)$에 DFS를 실행하여 완료 시각을 구한다고 하자. 간선 $(u,v)$가 탐색되는 시점에 $v$의 색을 세 경우로 나눈다.
+
+**$v$가 GRAY인 경우 — 발생 불가.**
+$v$가 GRAY이면 $v$는 $u$의 ancestor이고 $(u,v)$는 back edge가 되어 사이클이 존재한다(Lemma 22.11). 그러나 $G$는 DAG이므로 모순이다. 따라서 이 경우는 일어나지 않는다.
+
+**$v$가 WHITE인 경우.**
+$v$는 $u$의 descendant가 되므로, descendant는 ancestor보다 먼저 완료된다. 따라서 $v.f < u.f$.
+
+**$v$가 BLACK인 경우.**
+$v.f$는 이미 설정되어 있고, $u$는 아직 탐색 중이므로 $u.f$는 아직 설정되지 않았다. 이후에 설정될 $u.f$는 현재 시각보다 큰 값이므로 $v.f < u.f$.
+
+세 경우 모두 $v.f < u.f$이거나 발생 불가능하므로, DAG의 모든 간선 $(u,v)$에 대해 $v.f < u.f$가 성립한다. $\blacksquare$
+:::
+
+## 정리
+
+DAG에서 DFS를 실행하면 모든 간선의 방향이 완료 시각의 **역순**을 따른다. 따라서 $f$ 값 내림차순 정렬이 곧 위상 정렬이 된다. 옷 입는 순서(undershorts → pants → belt → jacket 등)처럼 선후 관계가 정의된 작업의 순서를 정하는 데 직접 활용된다.
+
+---
+
+# 핵심 요약
+
+| 개념 | 한 줄 요약 |
+|------|-----------|
+| DFS Forest | 외부 루프가 미발견 정점을 새 루트로 삼아 여러 트리를 형성 |
+| DFS의 목적 | 최단 경로가 아니라 그래프의 구조를 밝히는 것 |
+| Parenthesis Theorem | 두 정점의 구간은 disjoint 또는 nested 중 하나 |
+| White-Path Theorem | $u.d$ 시점의 WHITE 경로 ↔ descendant 관계 |
+| 간선 분류 | 탐색 시 $v$의 색(WHITE/GRAY/BLACK)으로 결정 |
+| Theorem 22.10 | 무방향 그래프는 tree edge 또는 back edge만 존재 |
+| Lemma 22.11 | DAG ↔ DFS가 back edge를 만들지 않음 |
+| Theorem 22.12 | DAG의 모든 간선에서 $v.f < u.f$ → $f$ 내림차순이 위상 정렬 |
