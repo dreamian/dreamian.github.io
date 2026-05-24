@@ -1,0 +1,400 @@
+---
+title: "CLRS Ch.22 — 그래프 기초 및 BFS 정확성 증명"
+date: "2026-05-18"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    number-sections: true
+    theme: cosmo
+    html-math-method: katex
+---
+
+# 그래프 기본 정의 (Ch.22.1)
+
+## 그래프 $G = (V, E)$
+
+방향 그래프(directed graph)는 정점 집합 $V$와 간선 집합 $E \subseteq V \times V$로 구성된다.
+비방향 그래프(undirected graph)에서 간선 $(u,v)$는 순서 없는 쌍이다.
+
+## 그래프 표현
+
+그래프를 표현하는 두 가지 표준 방법이 있다.
+
+**인접 리스트 (Adjacency List):** 각 정점 $u \in V$에 대해, $u$에 인접한 모든 정점들의 리스트 $\text{Adj}[u]$를 저장한다. 공간 복잡도 $\Theta(V + E)$.
+
+**인접 행렬 (Adjacency Matrix):** $|V| \times |V|$ 크기의 행렬 $A$에서, $a_{ij} = 1$ iff $(i,j) \in E$. 공간 복잡도 $\Theta(V^2)$.
+
+| 표현 방식 | 공간 | 간선 존재 확인 | 인접 정점 순회 |
+|-----------|------|:-----------:|:----------:|
+| 인접 리스트 | $\Theta(V+E)$ | $O(\text{degree})$ | $O(\text{degree})$ |
+| 인접 행렬 | $\Theta(V^2)$ | $O(1)$ | $O(V)$ |
+
+## Path (경로)
+
+그래프 $G$에서 **path**는 정점의 수열 $\langle v_1, v_2, \ldots, v_N \rangle$으로, 모든 $1 \leq i < N$에 대해 $(v_i, v_{i+1}) \in E$를 만족한다. 경로의 **길이(length)**는 간선의 수 $N-1$이다.
+
+## Simple Path (단순 경로)
+
+**Simple path**는 모든 정점이 서로 다른(distinct) 경로이다. 단, **첫 번째 정점과 마지막 정점이 같은 것은 허용**한다.
+
+이 정의에 따라 두 가지 케이스가 분리된다.
+
+- $v_1 \neq v_N$이고 $\forall i \neq j, \; v_i \neq v_j$ — 일반적인 simple path
+- $v_1 = v_N$이고 $v_1, v_2, \ldots, v_{N-1}$은 모두 서로 다름 — simple cycle
+
+후자의 케이스를 허용함으로써, cycle을 별도 객체로 정의하지 않고 simple path의 특수 케이스로 포섭할 수 있다.
+
+## Cycle (순환)
+
+**방향 그래프**에서 cycle은 길이가 최소 1인 경로로, $v_1 = v_N$을 만족한다.
+
+길이 $\geq 1$ 조건은 정점 하나만 있고 이동이 없는 trivial한 경우(length = 0)를 배제하는 장치이다.
+
+- **Self-loop** ($v_1 \to v_1$): 길이 1인 cycle. $\checkmark$
+- **$v_1 \to v_2 \to v_1$**: 방향 그래프에서는 $e_1 = (v_1, v_2)$와 $e_2 = (v_2, v_1)$이 서로 다른 간선이므로 유효한 cycle. $\checkmark$
+
+## 관련 정의 요약
+
+**DAG (Directed Acyclic Graph):** cycle이 없는 방향 그래프.
+
+**Connected:** 비방향 그래프에서 모든 정점 쌍 사이에 경로가 존재.
+
+**Strongly Connected:** 방향 그래프에서 모든 정점 쌍 $(u,v)$에 대해 $u \rightsquigarrow v$와 $v \rightsquigarrow u$ 모두 존재.
+
+**Complete Graph:** 모든 정점 쌍 사이에 간선이 존재하는 그래프.
+
+
+# BFS 알고리즘 (Ch.22.2)
+
+## 개요 및 핵심 특성
+
+BFS(Breadth-First Search)는 소스 정점 $s$로부터 그래프의 간선을 체계적으로 탐색하여, $s$에서 도달 가능한 모든 정점을 발견하는 알고리즘이다.
+
+핵심 특성은 **frontier를 균등하게 확장(uniformly across the breadth)**하는 것이다. 거리 $k$의 모든 정점을 발견한 후에야 거리 $k+1$의 정점들을 발견한다.
+
+## 정점 상태와 Frontier
+
+| 색깔 | 의미 | 위치 |
+|------|------|------|
+| **White** | 미발견 (undiscovered) | Queue 밖 |
+| **Gray** | 발견됨, 인접 정점 탐색 미완료 | Queue 안 = **Frontier** |
+| **Black** | 발견됨, 인접 정점 탐색 완료 | Queue 밖, 집합 $S$에 포함 |
+
+**Frontier** = Gray 정점들의 집합 = Queue $Q$. 이 등식은 Loop Invariant로 보장된다.
+
+## 최단경로 거리 정의
+
+$$\delta(s,v) = \begin{cases} \min\{\text{path } s \to v \text{의 간선 수}\} & \text{if } v \text{ is reachable from } s \\ \infty & \text{otherwise} \end{cases}$$
+
+## BFS 의사코드
+
+```
+BFS(G, s)
+ 1.  for each vertex u ∈ G.V - {s}
+ 2.      u.color = WHITE
+ 3.      u.d = ∞
+ 4.      u.π = NIL
+ 5.  s.color = GRAY
+ 6.  s.d = 0
+ 7.  s.π = NIL
+ 8.  Q = ∅
+ 9.  ENQUEUE(Q, s)
+10.  while Q ≠ ∅
+11.      u = DEQUEUE(Q)
+12.      for each v ∈ G.Adj[u]
+13.          if v.color == WHITE
+14.              v.color = GRAY
+15.              v.d = u.d + 1
+16.              v.π = u
+17.              ENQUEUE(Q, v)
+18.      u.color = BLACK
+```
+
+## Loop Invariant (직접 증명에 사용되지 않으나 동작 이해의 핵심)
+
+> Line 10의 조건 검사 시점에서, Queue $Q$는 정확히 Gray 정점들의 집합으로 구성된다.
+> $$Q = \{v \in V \mid v.\text{color} = \text{GRAY}\}$$
+
+이 invariant가 보장하는 세 가지 사실:
+
+1. **탐색 경계가 Queue 하나로 완전히 표현된다:** Frontier = $Q$ (등호).
+2. **중복 처리 불가능:** Gray인 정점만 Queue에 존재하므로, 이미 발견된 정점은 다시 enqueue되지 않는다.
+3. **Layer 단위 탐색 보장:** FIFO + invariant에 의해, 거리 $k$인 정점들이 전부 처리된 후 거리 $k+1$인 정점들이 처리된다.
+
+## 시간 복잡도
+
+각 정점은 최대 한 번 enqueue/dequeue되므로 queue 연산에 $O(|V|)$. 각 정점의 인접 리스트는 해당 정점이 dequeue될 때 한 번만 순회되므로 인접 리스트 총 탐색에 $O(|E|)$.
+
+$$T(n) = O(|V| + |E|)$$
+
+
+# BFS 정확성 증명을 위한 Lemma / Corollary 체계
+
+## Lemma 22.1 — 삼각부등식 (그래프 버전)
+
+::: {.callout-important}
+## Lemma 22.1
+
+$G = (V,E)$를 방향 또는 비방향 그래프, $s \in V$를 임의의 정점이라 하자. 임의의 간선 $(u,v) \in E$에 대해:
+
+$$\delta(s,v) \leq \delta(s,u) + 1$$
+:::
+
+### 증명
+
+**Case 1 — $u$가 $s$로부터 reachable:** $u$에 도달 가능하고 $(u,v) \in E$이므로 $v$도 도달 가능하다. 경로 $s \rightsquigarrow u \to v$의 길이는 $\delta(s,u) + 1$이다. $\delta(s,v)$는 $s$에서 $v$로의 모든 경로 중 최솟값이므로 $\delta(s,v) \leq \delta(s,u) + 1$. $\square$
+
+**Case 2 — $u$가 $s$로부터 unreachable:** $\delta(s,u) = \infty$이므로 부등식 우변이 $\infty$가 되어 trivially 성립. $\square$
+
+### 역할
+이후 Lemma 22.2의 증명에서 핵심 도구로 사용된다.
+
+
+## Lemma 22.2 — Upper-bound Property (BFS 버전)
+
+::: {.callout-important}
+## Lemma 22.2
+
+$G = (V,E)$에서 BFS를 소스 정점 $s$에서 실행할 때, BFS 실행 중 모든 시점에서 다음이 성립한다:
+
+$$v.d \geq \delta(s,v) \quad \forall v \in V$$
+:::
+
+### 핵심 의미
+
+BFS가 계산하는 $v.d$ 값은 실제 최단거리보다 **절대 작아질 수 없다.** $v.d$는 항상 $\delta(s,v)$의 **상한(upper bound)**이다.
+
+### 역할
+
+Theorem 22.5 증명에서, "$v.d \neq \delta(s,v)$이면 $v.d > \delta(s,v)$"를 이끌어내는 근거이다. 등호가 불가능한 상황에서 $v.d \geq \delta(s,v)$만으로 부등호 방향이 유일하게 결정된다.
+
+
+## Lemma 22.3 — Queue 내 $d$-값 단조성
+
+::: {.callout-important}
+## Lemma 22.3
+
+BFS 실행 중 Queue $Q$에 정점 $\langle v_1, v_2, \ldots, v_r \rangle$이 들어있다고 하자 ($v_1$이 head, $v_r$이 tail). 이때:
+
+$$v_r.d \leq v_1.d + 1 \quad \text{그리고} \quad v_i.d \leq v_{i+1}.d \quad (i = 1, 2, \ldots, r-1)$$
+:::
+
+### 의미
+
+Queue 내의 $d$ 값은 **단조 비감소(non-decreasing)**이며, 최대 차이가 1을 넘지 않는다. 즉, Queue에는 항상 최대 두 개의 서로 다른 $d$ 값(연속된 layer $k$와 $k+1$)만 존재한다.
+
+### 증명 (귀납법)
+
+Queue 연산 횟수에 대한 귀납법으로 증명한다.
+
+**Basis:** Queue에 $s$만 있을 때, $s.d = 0$이므로 자명하게 성립.
+
+**Inductive Step:** dequeue와 enqueue 각각에 대해 성질이 유지됨을 보인다.
+
+- **Dequeue:** $v_1$을 제거하면 $v_2$가 새 head. $v_1.d \leq v_2.d$이므로, $v_r.d \leq v_1.d + 1 \leq v_2.d + 1$. 나머지 부등식도 유지. $\checkmark$
+- **Enqueue:** 새 정점 $v_{r+1}$은 현재 처리 중인 정점 $u$의 인접 정점이므로 $v_{r+1}.d = u.d + 1$. $u$가 dequeue된 head이므로 $u.d \leq v_r.d$. 따라서 $v_{r+1}.d = u.d + 1 \leq v_r.d + 1 \leq v_1.d + 1 + 1$. $v_r.d \leq v_{r+1}.d$도 성립. $\checkmark$
+
+$\square$
+
+
+## Corollary 22.4 — Dequeue 순서에 따른 $d$-값 비감소
+
+::: {.callout-important}
+## Corollary 22.4
+
+BFS 실행 중 정점 $v_i$와 $v_j$가 enqueue되었고, $v_i$가 $v_j$보다 먼저 enqueue되었다면, $v_j$가 enqueue되는 시점에:
+
+$$v_i.d \leq v_j.d$$
+:::
+
+### 증명
+
+Lemma 22.3에서 Queue 내부의 $d$ 값이 단조 비감소라는 사실과, 각 정점이 유한한 $d$ 값을 BFS 실행 중 최대 한 번만 받는다는 사실로부터 즉시 따라온다. $\square$
+
+### 역할
+
+Theorem 22.5 증명에서 Black/Gray case의 핵심 도구이다:
+
+- **Black case:** $v$가 $u$보다 먼저 dequeue됨 → $v.d \leq u.d$
+- **Gray case:** $v$를 enqueue시킨 $w$가 $u$보다 먼저 dequeue됨 → $w.d \leq u.d$
+
+
+# Theorem 22.5 — BFS의 정확성 (핵심 정리)
+
+::: {.callout-warning}
+## Theorem 22.5 (Correctness of BFS)
+
+$G = (V,E)$에서 소스 정점 $s \in V$로부터 BFS를 실행하면, BFS는 $s$에서 도달 가능한 모든 정점 $v \in V$를 발견하며, 종료 시:
+
+$$v.d = \delta(s,v) \quad \forall v \in V$$
+
+또한 $v \neq s$이고 $v$가 $s$에서 도달 가능하면, $s$에서 $v.\pi$까지의 최단경로에 간선 $(v.\pi, v)$를 이어 붙인 것이 $s$에서 $v$까지의 최단경로 중 하나이다.
+:::
+
+## 증명 (귀류법 — Proof by Contradiction)
+
+### Step 1 — 귀류법 가정 및 반례 정점 설정
+
+어떤 정점이 incorrect한 $d$ 값을 받는다고 가정한다. 그러한 정점들 중 $\delta(s,v)$가 **최소**인 것을 $v$로 선택한다.
+
+$$v = \arg\min\{\delta(s,x) \mid x.d \neq \delta(s,x)\}$$
+
+이 선택의 의미: $v$보다 $s$에 더 가까운 정점들은 **전부 정확한 $d$ 값을 받았다.**
+
+### Step 2 — $v.d > \delta(s,v)$ 확립
+
+$v.d \neq \delta(s,v)$이고 Lemma 22.2에 의해 $v.d \geq \delta(s,v)$이므로:
+
+$$v.d > \delta(s,v)$$
+
+### Step 3 — $v$의 reachability 확인
+
+$v$가 unreachable이면 $\delta(s,v) = \infty$이고 $v.d \geq \infty$이므로 $v.d = \infty = \delta(s,v)$ → incorrect라는 가정에 모순. 따라서 $v$는 반드시 $s$에서 reachable하다.
+
+### Step 4 — 전임자 $u$ 설정
+
+$s$에서 $v$로의 최단경로에서 $v$ 바로 직전 정점을 $u$라 하면:
+
+$$\delta(s,v) = \delta(s,u) + 1$$
+
+### Step 5 — $u.d = \delta(s,u)$ (선택 방식에 의한 보장)
+
+$\delta(s,u) = \delta(s,v) - 1 < \delta(s,v)$이므로, $u$는 "$v$보다 $\delta$가 작은 정점"이다. $v$를 incorrect 정점 중 $\delta$ 최솟값으로 골랐으므로, $u$는 incorrect 정점 목록에 포함될 수 없다.
+
+$$u.d = \delta(s,u)$$
+
+### Step 6 — 모순 목표 설정
+
+$$v.d > \delta(s,v) = \delta(s,u) + 1 = u.d + 1$$
+
+$$\boxed{v.d > u.d + 1}$$
+
+### Step 7 — $u$ dequeue 시점 Case 분석
+
+$u$가 Queue에서 dequeue될 때, 인접 정점 $v$의 색깔은 White, Black, Gray 중 하나이다.
+
+#### Case 1: $v$가 White
+
+BFS 알고리즘 line 15에 의해 $v.d = u.d + 1$ → $v.d > u.d + 1$에 직접 모순. $\bot$
+
+#### Case 2: $v$가 Black
+
+$v$가 Black이면 $v$는 이미 $u$보다 먼저 dequeue됨. Corollary 22.4에 의해 $v.d \leq u.d$.
+
+$$v.d \leq u.d < u.d + 1$$
+
+→ $v.d > u.d + 1$에 모순. $\bot$
+
+**주의:** $v$가 Black이라는 것은 "$u$를 통해 발견됐다"는 뜻이 아니라, **다른 더 짧은 경로로 이미 먼저 발견되고 처리됐다**는 뜻이다.
+
+#### Case 3: $v$가 Gray
+
+$v$가 Gray이면, 어떤 정점 $w$가 dequeue될 때 $v$가 Gray로 칠해진 것이므로:
+
+$$v.d = w.d + 1$$
+
+$w$는 $u$보다 먼저 dequeue되었으므로, Corollary 22.4에 의해 $w.d \leq u.d$.
+
+$$v.d = w.d + 1 \leq u.d + 1$$
+
+→ $v.d > u.d + 1$에 모순. $\bot$
+
+### 결론
+
+$$\text{White} \Rightarrow v.d = u.d+1 \quad \bot \qquad \text{Black} \Rightarrow v.d \leq u.d \quad \bot \qquad \text{Gray} \Rightarrow v.d \leq u.d+1 \quad \bot$$
+
+모든 case에서 $v.d > u.d+1$에 모순이 발생하므로, 처음의 가정이 거짓이다.
+
+$$\boxed{v.d = \delta(s,v) \quad \forall v \in V} \qquad \square$$
+
+## 증명 완결부
+
+### Reachable한 정점은 반드시 발견됨
+
+Reachable한 정점 $v$가 발견되지 않았다면 $v.d = \infty$이다. 그런데 $\delta(s,v) < \infty$이므로 $v.d = \infty > \delta(s,v)$. 이는 $v.d = \delta(s,v)$에 모순. 따라서 reachable한 모든 정점은 반드시 BFS에 의해 발견된다.
+
+### Predecessor chain = 최단경로
+
+$v.\pi = u$이면 BFS가 $u$를 dequeue할 때 $v$를 발견한 것이므로 $v.d = u.d + 1$. 이미 $v.d = \delta(s,v)$, $u.d = \delta(s,u)$이므로:
+
+$$\delta(s,v) = \delta(s,u) + 1$$
+
+따라서 $s$에서 $v.\pi$까지의 최단경로에 간선 $(v.\pi, v)$를 이어 붙이면 $s$에서 $v$까지의 최단경로가 된다.
+
+## 증명 구조도
+
+```
+증명 전략: Lemma 22.2 (하한) + Case Analysis (상한) → 등호
+
+Lemma 22.2: v.d ≥ δ(s,v)  ← 하한 방향 (별도 증명)
+                ↓
+Case Analysis:  v.d ≤ u.d+1 = δ(s,v)  ← 상한 방향
+                ↓
+결합: v.d ≥ δ(s,v) ∧ v.d ≤ δ(s,v)  →  v.d = δ(s,v)
+```
+
+증명 의존관계:
+
+```
+Lemma 22.1 (삼각부등식)
+    ↓
+Lemma 22.2 (Upper-bound Property)
+    ↓                                      Lemma 22.3 (Queue 단조성)
+    ↓                                          ↓
+    ↓                                      Corollary 22.4 (dequeue 순서 → d 비감소)
+    ↓                                          ↓
+    └──────────── Theorem 22.5 ────────────────┘
+```
+
+
+# Lemma 22.6 — BFS Predecessor Subgraph는 BFS Tree
+
+::: {.callout-important}
+## Lemma 22.6
+
+방향 또는 비방향 그래프 $G = (V,E)$에서 BFS를 적용하면, predecessor subgraph $G_\pi = (V_\pi, E_\pi)$는 **BFS Tree(너비 우선 트리)**를 형성한다.
+:::
+
+### 증명
+
+1. BFS는 $v.\pi = u$를 $(u,v) \in E$이고 $\delta(s,v) < \infty$인 경우에만 설정하므로, $V_\pi$는 $s$에서 도달 가능한 정점들로 구성된다.
+2. $G_\pi$가 tree이므로 (Theorem B.2), $s$에서 각 $v \in V_\pi$로의 유일한 경로가 존재한다.
+3. Theorem 22.5를 귀납적으로 적용하면, 이 유일한 경로 각각이 최단경로임이 보장된다.
+
+$\square$
+
+
+# 시험 대비 — 핵심 증명 패턴 정리
+
+## 귀류법 + 최솟값 선택 패턴
+
+Theorem 22.5의 핵심 기법은 알고리즘 정확성 증명에서 반복적으로 등장하는 패턴이다:
+
+1. **가정:** 알고리즘이 틀린 답을 내는 정점이 존재한다.
+2. **최솟값 선택:** 그런 정점 중 특정 기준(여기서는 $\delta$)으로 최솟값을 골라 $v$로 설정.
+3. **선택의 효과:** $v$보다 기준값이 작은 모든 정점은 자동으로 correct → 전임자 $u$의 정확성 확보.
+4. **모순 도출:** 확보된 전임자 정보를 이용해 모든 case에서 모순을 보임.
+5. **결론:** 가정 기각.
+
+이 패턴은 Dijkstra 정확성 증명에서도 동일하게 적용된다.
+
+## Lemma → Corollary → Theorem 의존 구조 암기
+
+시험에서 증명 문제가 출제될 경우, 각 Lemma/Corollary를 **참조(cite)**하며 사용해야 한다. 증명 작성 시 반드시 다음 순서를 따른다:
+
+1. 사용하는 Lemma/Corollary를 명시적으로 선언 (e.g., "By Lemma 22.2, ...")
+2. 해당 Lemma의 조건이 현재 상황에서 충족됨을 확인
+3. 결론을 적용
+
+## Upper-bound / Lower-bound 결합 패턴
+
+$v.d = \delta(s,v)$를 증명하는 구조는 두 방향의 부등식을 결합하는 것이다:
+
+$$\underbrace{v.d \geq \delta(s,v)}_{\text{Lemma 22.2 (별도 증명)}} + \underbrace{v.d \leq \delta(s,v)}_{\text{Case Analysis (귀류법)}} = v.d = \delta(s,v)$$
+
+이 "두 부등식 결합" 패턴은 CLRS 전체에서 등호 증명의 표준 기법이다.
+
+## Corollary 22.4 활용 패턴
+
+BFS Queue에서 먼저 처리된 정점의 $d$ 값이 나중에 처리된 정점보다 작거나 같다는 것은, **Black/Gray case에서 모순을 도출하는 핵심 도구**이다. 이 Corollary 없이는 Theorem 22.5의 case analysis가 완성되지 않는다.
