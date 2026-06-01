@@ -1,0 +1,242 @@
+---
+title: "단일 출발점 최단 경로: 기초와 Relaxation의 성질"
+date: "2026-06-02"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    html-math-method: mathjax
+    theme: cosmo
+---
+
+# 단일 출발점 최단 경로 문제
+
+가중치 방향 그래프 $G=(V,E)$와 가중치 함수 $w:E\to\mathbb{R}$가 주어질 때, 주어진 출발점 $s$에서 정점 $v$까지의 **최소 가중치 경로**를 찾는 문제이다.
+
+경로 $p=\langle v_0,v_1,\dots,v_k\rangle$의 가중치는 구성 간선들의 합이다.
+
+$$
+w(p)=\sum_{i=1}^{k} w(v_{i-1},v_i)
+$$
+
+**최단 경로 가중치(shortest-path weight)** $\delta(s,v)$는 다음과 같이 정의한다.
+
+$$
+\delta(s,v)=
+\begin{cases}
+\min_{p}\{\,w(p):s\rightsquigarrow v\,\} & s\text{에서 }v\text{로 가는 경로가 존재할 때}\\[4pt]
+\infty & \text{그렇지 않을 때}
+\end{cases}
+$$
+
+여기서 $\delta$는 **값**이고 최단 경로는 그 값을 달성하는 **경로**이다. 이후 모든 증명에서 둘의 구분이 중요하다.
+
+## 문제의 변형
+
+- **단일 쌍(single-pair)**: 특정 $u\to v$. 출발점을 $u$로 두고 단일 출발점 문제를 풀면 자동으로 해결된다. 점근적 worst-case 측면에서 이 문제만 더 빨리 푸는 알려진 방법이 없다.
+- **모든 쌍(all-pairs)**: 모든 $u,v$ 쌍. 각 정점에서 단일 출발점 알고리즘을 한 번씩 돌려도 되지만, 보통 전용 알고리즘이 더 빠르다.
+
+# 최적 부분구조 (Lemma 24.1)
+
+::: {.callout-note title="Lemma 24.1 (최단 경로의 부분 경로는 최단 경로이다)"}
+최단 경로 $p=\langle v_0,\dots,v_k\rangle$가 주어졌을 때, $1\le i\le j\le k$인 임의의 부분 경로 $p_{ij}=\langle v_i,\dots,v_j\rangle$ 역시 $v_i\to v_j$의 최단 경로이다.
+:::
+
+**증명 (Cut-and-Paste / 귀류법).** 경로 $p$를 세 조각으로 분해한다.
+
+$$
+v_0 \xrightarrow{\,p_{0i}\,} v_i \xrightarrow{\,p_{ij}\,} v_j \xrightarrow{\,p_{jk}\,} v_k,
+\qquad
+w(p)=w(p_{0i})+w(p_{ij})+w(p_{jk}).
+$$
+
+$p_{ij}$가 최단이 **아니라고 가정**하면, $v_i\to v_j$에 대해 $w(p_{ij}')<w(p_{ij})$인 다른 경로 $p_{ij}'$가 존재한다. 원래 경로의 $p_{ij}$ 자리를 $p_{ij}'$로 **잘라 붙이면(cut-and-paste)** $v_0\to v_k$의 새 경로가 만들어지고 그 가중치는
+
+$$
+w(p_{0i})+w(p_{ij}')+w(p_{jk}) < w(p_{0i})+w(p_{ij})+w(p_{jk}) = w(p)
+$$
+
+가 된다. 이는 $p$가 $v_0\to v_k$ 최단 경로라는 전제에 **모순**이다. 따라서 $p_{ij}$는 최단 경로여야 한다. $\blacksquare$
+
+이 cut-and-paste 구조("더 좋은 부분 경로가 있으면 갈아 끼워 전체를 더 좋게 만든다")는 이후 삼각부등식, 수렴성, 정확성 증명에 반복적으로 등장한다.
+
+# 음수 가중치와 사이클
+
+간선 가중치는 음수일 수 있으며, 이때 $\delta$의 well-defined 여부가 갈린다.
+
+- $s$에서 도달 가능한 **음수 사이클이 없으면**, 음수 간선이 있어도 모든 $v$에 대해 $\delta(s,v)$는 (음수일지언정) 잘 정의된다.
+- $s$에서 도달 가능한 **음수 사이클이 있으면**, 그 사이클 위 정점 $v$에 대한 $\delta(s,v)$는 정의되지 않는다. 사이클을 한 바퀴 더 돌 때마다 경로 가중치를 계속 낮출 수 있어 하한이 없기 때문이다. 관례적으로 $\delta(s,v)=-\infty$로 둔다.
+
+## 최단 경로는 사이클을 포함할 수 있는가
+
+세 종류의 사이클은 지위가 서로 다르다.
+
+- **음수 사이클**: 포함되면 경로 가중치가 발산하므로($\delta=-\infty$) 최단 경로가 될 수 없다. 진짜로 *금지*된다.
+- **양수 사이클**: 제거하면 가중치가 **엄격히** 줄어들므로 최단 경로에 *절대 나타나지 않는다*. 즉 양수 가중치만 있으면 모든 최단 경로는 자동으로 simple이 강제된다.
+- **0-가중치 사이클**: 제거해도 가중치가 동일하므로 *나타나도 무방*하다(금지 아님). 다만 포함한 버전이 최단이면 제거한 simple 버전도 똑같이 최단이다.
+
+::: {.callout-important title="0-cycle: '허용'이 아니라 '무시해도 됨'"}
+"$0$-cycle만 있으면 간선 $|V|-1$개 이하 경로로 한정해도 된다"는 진술은 $0$-cycle을 해(solution)에 *허용*한다는 뜻이 아니다. 정반대로, **$0$-cycle을 포함한 비-simple 최단 경로는 안 봐도 된다**(동등한 simple 버전이 항상 존재하므로)는 뜻이다. 즉 고려 대상을 simple path로 *좁히는* 진술이다.
+
+정리하면, 금지되는 것은 음수 사이클 하나뿐이며, $0$-cycle은 "허용/금지"의 문제가 아니라 "simple 버전으로 대체 가능하니 탐색 범위에서 빼도 손해 없다"의 문제이다.
+:::
+
+따라서 일반성을 잃지 않고(WLOG) 최단 경로는 **사이클이 없다(simple)**고 가정할 수 있다. simple 경로는 정점을 최대 $|V|$개 거치므로 간선은 최대 $|V|-1$개이다. 이 사실이 이후 Bellman-Ford가 각 간선을 $|V|-1$번 relax하는 근거가 된다.
+
+# 최단 경로의 표현: Shortest-Path Tree
+
+각 정점에 선행자(predecessor) $v.\pi$를 두고 선행자 부분그래프 $G_\pi=(V_\pi,E_\pi)$를 구성한다.
+
+$$
+V_\pi=\{v\in V: v.\pi\neq \text{NIL}\}\cup\{s\},
+\qquad
+E_\pi=\{(v.\pi,\,v): v\in V_\pi-\{s\}\}.
+$$
+
+음수 사이클이 없다는 전제 하에, $s$를 루트로 하는 **최단 경로 트리(shortest-path tree)** $G'=(V',E')$는 다음을 만족하는 방향 부분그래프이다.
+
+- $V'$는 $s$에서 도달 가능한 정점들의 집합이다.
+- $G'$는 $s$를 루트로 하는 트리이다.
+- 모든 $v\in V'$에 대해 $G'$ 안의 $s\to v$ 유일 단순 경로가 $G$에서의 최단 경로이다.
+
+같은 $\delta$ 값을 주는 트리가 여러 개일 수 있으므로 최단 경로 트리는 유일하지 않다.
+
+# Relaxation
+
+모든 알고리즘은 추정값 $v.d$(shortest-path estimate)를 유지한다. $v.d$는 항상 $s\to v$ 최단 경로 가중치의 **상한(upper bound)**이다.
+
+```
+INITIALIZE-SINGLE-SOURCE(G, s)
+1  for each vertex v ∈ G.V
+2      v.d  = ∞
+3      v.π  = NIL
+4  s.d = 0
+```
+
+```
+RELAX(u, v, w)
+1  if v.d > u.d + w(u,v)
+2      v.d = u.d + w(u,v)
+3      v.π = u
+```
+
+RELAX는 $O(1)$이며, "$u$를 거쳐 $v$로 가면 지금까지의 추정값을 개선할 수 있는가? 그렇다면 갱신한다"는 의미이다.
+
+## $v.d$는 왜 하한이 아니라 상한인가
+
+핵심은 $v.d$가 추상적 추정치가 아니라 **우리가 실제로 발견한 어떤 구체적 경로의 가중치**라는 점이다. 어느 시점이든 $v.d$의 값은 $\infty$(아직 경로 미발견)이거나, RELAX로 실제 간선 가중치를 누적해 만든 현존 경로 $p$의 가중치 $w(p)$이다. $\delta(s,v)$는 모든 경로에 대한 최소값이므로,
+
+$$
+v.d = w(p) \ge \min_{p'}\{w(p')\} = \delta(s,v).
+$$
+
+즉 $v.d$는 **달성 가능한 값**이며, 달성 가능한 값은 최소값보다 작을 수 없다. 만약 $v.d<\delta(s,v)$라면 "최단 경로보다 더 짧은 실제 경로를 찾았다"는 모순이 된다. RELAX가 값을 계속 *감소*시키지만, $v.d$는 $\infty$에서 $\delta$를 향해 **위에서 아래로** 수렴할 뿐 결코 $\delta$ 밑으로는 내려가지 않는다. 알고리즘이 하는 일은 이 과대추정(상한)을 진짜 값까지 조여 내리는 것이다.
+
+(참고: 하한은 A\* 탐색의 휴리스틱 $h(v)$처럼 "앞으로 갈 거리의 과소추정"에 해당한다. $v.d$는 "이미 찾아낸 경로의 길이"라 성격이 정반대이다.)
+
+## 예시
+
+$u.d=5,\ v.d=9,\ w(u,v)=2$이면 $9>5+2=7$이 참이므로 $v.d \leftarrow 7$로 갱신된다. 반면 $u.d=5,\ v.d=5,\ w(u,v)=2$이면 $5>7$이 거짓이므로 변화가 없다.
+
+# 최단 경로와 Relaxation의 성질
+
+이 성질들의 목적은 "RELAX를 적절한 순서로 호출하면 추정값이 진짜 $\delta$로 수렴한다"를 보장하는 재사용 가능한 보조정리를 쌓는 것이다. 의존 관계가 중요하다: 삼각부등식·상한 성질이 토대가 되고, 그 위에 수렴 성질, 다시 그 위에 경로-완화 성질이 올라간다.
+
+## 삼각부등식 (Lemma 24.10)
+
+::: {.callout-note title="Lemma 24.10"}
+모든 간선 $(u,v)\in E$에 대해 $\delta(s,v)\le \delta(s,u)+w(u,v)$.
+:::
+
+**증명.** $s\to v$ 최단 경로가 존재하는 경우, 그 경로는 *어떤* $s\to v$ 경로보다도 무겁지 않다. 특히 "$s$에서 $u$까지 최단으로 간 뒤 간선 $(u,v)$를 타는 경로"보다 무겁지 않으므로 부등식이 성립한다.
+
+$s\to v$ 경로가 없는 경우($\delta(s,v)=\infty$)는 단순히 좌변이 $\infty$여서 자명한 것이 **아니다**. $\infty\le(\text{우변})$은 우변도 $\infty$일 때만 성립하기 때문이다. 올바른 근거는 다음과 같다.
+
+$s\to v$ 경로가 없다면 $s\to u$ 경로도 없다. 만약 $s\rightsquigarrow u$ 경로가 존재한다면 간선 $(u,v)$를 이어 붙여 $s\to v$ 경로가 생겨 전제에 모순이기 때문이다. 따라서 $\delta(s,u)=\infty$이고 우변 $=\delta(s,u)+w(u,v)=\infty$이므로
+
+$$
+\delta(s,v)=\infty \le \infty = \delta(s,u)+w(u,v)
+$$
+
+가 (등호로) 성립한다. 즉 부등식이 유지되는 것은 간선 $(u,v)$의 존재 때문에 우변도 강제로 $\infty$가 되기 때문이다. ($\delta(s,v)=-\infty$인 음수 사이클 경우는 좌변이 $-\infty$라 진짜로 자명하게 성립한다.) $\blacksquare$
+
+## 상한 성질 (Lemma 24.11)
+
+::: {.callout-note title="Lemma 24.11"}
+초기화 후 모든 $v$에 대해 항상 $v.d\ge\delta(s,v)$가 유지되며, 한 번 $v.d=\delta(s,v)$에 도달하면 다시는 변하지 않는다.
+:::
+
+**증명 (relaxation 횟수에 대한 귀납).**
+
+- *기저(0회):* $s.d=0=\delta(s,s)$, 나머지는 $v.d=\infty\ge\delta(s,v)$.
+- *귀납 단계:* 간선 $(u,v)$ relax로 바뀔 수 있는 것은 $v.d$뿐이다. 바뀐다면
+
+$$
+v.d=u.d+w(u,v)\ \underset{\text{귀납가정}}{\ge}\ \delta(s,u)+w(u,v)\ \underset{\text{24.10}}{\ge}\ \delta(s,v).
+$$
+
+- *불변성:* $v.d$는 $\delta$ 아래로 못 내려가고(상한), RELAX는 값을 절대 증가시키지 않으므로 한 번 $\delta$에 닿으면 고정된다. $\blacksquare$
+
+## 무경로 성질 (Corollary 24.12)
+
+::: {.callout-note title="Corollary 24.12"}
+$s\to v$ 경로가 하나도 없으면, 초기화 직후부터 어떤 relax 시퀀스를 거쳐도 항상 $v.d=\delta(s,v)=\infty$이다.
+:::
+
+여기엔 두 등식이 들어 있다. $\delta(s,v)=\infty$는 $\delta$의 정의에서 곧장 나오며, $v.d=\infty$가 진짜 주장이다.
+
+**형식 증명.** 상한 성질에 의해 항상 $v.d\ge\delta(s,v)$. 그런데 $\delta(s,v)=\infty$이므로 $\infty=\delta(s,v)\le v.d$. $v.d$가 $\infty$를 초과할 수 없으므로 끼임으로 $v.d=\infty$. 새로운 논증 없이 상한 성질의 즉각적 결과라서 corollary이다. $\blacksquare$
+
+**기계적 직관 (relax가 왜 손도 못 대는가).** $v.d$를 낮출 유일한 사건은 들어오는 간선 $(u,v)$에 대한 $\text{RELAX}(u,v,w)$이며, 유한 값으로 내려가려면 $u.d$가 유한해야 한다. 그런데 $v$의 임의의 선행 이웃 $u$가 $s$에서 도달 가능하다면 간선 $(u,v)$로 $s\to v$ 경로가 생겨 모순이다. 따라서 $v$의 모든 선행 이웃 $u$는 도달 불가능 → $\delta(s,u)=\infty$ → 상한 성질로 항상 $u.d=\infty$. 결국 모든 $u$에 대해 $u.d+w(u,v)=\infty$이고 RELAX 조건 $v.d>\infty$는 결코 참이 될 수 없어 $v.d$는 영영 움직이지 않는다.
+
+## Lemma 24.13 (RELAX 직후 부등식)
+
+::: {.callout-note title="Lemma 24.13"}
+$\text{RELAX}(u,v,w)$ 직후 항상 $v.d\le u.d+w(u,v)$이다.
+:::
+
+**증명.** relax 직전 $v.d>u.d+w(u,v)$였다면 직후 $v.d=u.d+w(u,v)$가 되어 등호가 성립한다. 직전에 이미 $v.d\le u.d+w(u,v)$였다면 아무것도 바뀌지 않으므로 그대로 성립한다. $\blacksquare$
+
+## 수렴 성질 (Lemma 24.14)
+
+::: {.callout-note title="Lemma 24.14"}
+$s\rightsquigarrow u\to v$가 최단 경로일 때, $(u,v)$를 relax하기 이전 어느 시점에 $u.d=\delta(s,u)$였다면, relax 이후 항상 $v.d=\delta(s,v)$이다.
+:::
+
+**증명.** $u.d=\delta(s,u)$는 상한 성질에 의해 그 뒤로 유지된다. $(u,v)$ relax 직후 Lemma 24.13에 의해
+
+$$
+v.d\le u.d+w(u,v)=\delta(s,u)+w(u,v)=\delta(s,v)
+$$
+
+(마지막 등호는 $s\rightsquigarrow u\to v$가 최단이라는 가정 + 최적 부분구조). 한편 상한 성질로 $v.d\ge\delta(s,v)$. 두 부등식을 합치면 $v.d=\delta(s,v)$, 이후 유지된다. "최단 경로상의 마지막 간선만 제대로 풀면 도착점이 확정된다"는 핵심 보조정리이다. $\blacksquare$
+
+## 경로-완화 성질 (Lemma 24.15)
+
+::: {.callout-note title="Lemma 24.15"}
+최단 경로 $p=\langle v_0,\dots,v_k\rangle$의 간선들을 $(v_0,v_1),(v_1,v_2),\dots,(v_{k-1},v_k)$ **순서대로** relax하면 $v_k.d=\delta(s,v_k)$이다. 사이에 다른 relax가 끼어들어도 무관하다.
+:::
+
+**증명 (간선 인덱스 $i$에 대한 귀납).**
+
+- *기저($i=0$):* 초기화로 $v_0.d=s.d=0=\delta(s,s)$, 상한 성질로 유지.
+- *귀납 단계:* $v_{i-1}.d=\delta(s,v_{i-1})$를 가정하고 $(v_{i-1},v_i)$를 relax하면, 수렴 성질에 의해 직후 $v_i.d=\delta(s,v_i)$로 확정된다. $\blacksquare$
+
+"순서만 맞으면 중간에 무엇이 끼어도 상관없다"는 점이 결정적이며, 이후 Bellman-Ford의 정당성 근거가 된다.
+
+## 선행자-부분그래프 성질 (Lemma 24.17)
+
+::: {.callout-note title="Lemma 24.17"}
+음수 사이클이 없고, 어떤 relax 시퀀스가 모든 $v$에 대해 $v.d=\delta(s,v)$를 만들면, 선행자 부분그래프 $G_\pi$는 $s$를 루트로 한 최단 경로 트리이다.
+:::
+
+# 의존 관계 요약
+
+$$
+\underbrace{\text{삼각부등식(24.10)}}_{}+\underbrace{\text{상한 성질(24.11)}}_{}
+\ \Rightarrow\ \text{수렴 성질(24.14)}
+\ \Rightarrow\ \text{경로-완화 성질(24.15)}
+$$
+
+무경로 성질(24.12)은 상한 성질의 따름정리, Lemma 24.13은 수렴 성질의 디딤돌, 선행자-부분그래프 성질(24.17)은 모든 $v.d=\delta$가 달성된 뒤 트리 구조를 보장한다. 이 도구 상자가 각 알고리즘의 정확성 증명 재료가 된다.

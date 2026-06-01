@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.36">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-06-02">
+
+<title>Bellman-Ford 알고리즘 – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-845c23b38eaddc0f92fda52bfe77a8c8.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-2c169b83e1fc2996b25bcc8774810429.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#알고리즘" id="toc-알고리즘" class="nav-link active" data-scroll-target="#알고리즘"><span class="header-section-number">1</span> 알고리즘</a></li>
+  <li><a href="#정확성-도달-가능-정점-lemma-24.2" id="toc-정확성-도달-가능-정점-lemma-24.2" class="nav-link" data-scroll-target="#정확성-도달-가능-정점-lemma-24.2"><span class="header-section-number">2</span> 정확성: 도달 가능 정점 (Lemma 24.2)</a>
+  <ul class="collapse">
+  <li><a href="#핵심-패스-순서와-경로-정점-순서는-달라도-된다" id="toc-핵심-패스-순서와-경로-정점-순서는-달라도-된다" class="nav-link" data-scroll-target="#핵심-패스-순서와-경로-정점-순서는-달라도-된다"><span class="header-section-number">2.1</span> 핵심: “패스 순서”와 “경로 정점 순서”는 달라도 된다</a></li>
+  <li><a href="#최악의-경우로-확인" id="toc-최악의-경우로-확인" class="nav-link" data-scroll-target="#최악의-경우로-확인"><span class="header-section-number">2.2</span> 최악의 경우로 확인</a></li>
+  </ul></li>
+  <li><a href="#corollary-24.3" id="toc-corollary-24.3" class="nav-link" data-scroll-target="#corollary-24.3"><span class="header-section-number">3</span> Corollary 24.3</a></li>
+  <li><a href="#전체-정확성-theorem-24.4" id="toc-전체-정확성-theorem-24.4" class="nav-link" data-scroll-target="#전체-정확성-theorem-24.4"><span class="header-section-number">4</span> 전체 정확성 (Theorem 24.4)</a>
+  <ul class="collapse">
+  <li><a href="#음수-사이클이-없는-경우" id="toc-음수-사이클이-없는-경우" class="nav-link" data-scroll-target="#음수-사이클이-없는-경우"><span class="header-section-number">4.1</span> 음수 사이클이 없는 경우</a></li>
+  <li><a href="#음수-사이클이-있는-경우-귀류법" id="toc-음수-사이클이-있는-경우-귀류법" class="nav-link" data-scroll-target="#음수-사이클이-있는-경우-귀류법"><span class="header-section-number">4.2</span> 음수 사이클이 있는 경우 (귀류법)</a></li>
+  </ul></li>
+  <li><a href="#조기-종료-최적화" id="toc-조기-종료-최적화" class="nav-link" data-scroll-target="#조기-종료-최적화"><span class="header-section-number">5</span> 조기 종료 최적화</a>
+  <ul class="collapse">
+  <li><a href="#조기-종료가-옳은-이유" id="toc-조기-종료가-옳은-이유" class="nav-link" data-scroll-target="#조기-종료가-옳은-이유"><span class="header-section-number">5.1</span> 조기 종료가 옳은 이유</a></li>
+  <li><a href="#그-고정점이-정답delta이라는-보장" id="toc-그-고정점이-정답delta이라는-보장" class="nav-link" data-scroll-target="#그-고정점이-정답delta이라는-보장"><span class="header-section-number">5.2</span> 그 고정점이 정답(<span class="math inline">\(=\delta\)</span>)이라는 보장</a></li>
+  <li><a href="#v-1은-최악의-경우-여전히-필요하다" id="toc-v-1은-최악의-경우-여전히-필요하다" class="nav-link" data-scroll-target="#v-1은-최악의-경우-여전히-필요하다"><span class="header-section-number">5.3</span> <span class="math inline">\(|V|-1\)</span>은 최악의 경우 여전히 필요하다</a></li>
+  <li><a href="#구현" id="toc-구현" class="nav-link" data-scroll-target="#구현"><span class="header-section-number">5.4</span> 구현</a></li>
+  </ul></li>
+  <li><a href="#논리-사슬-요약" id="toc-논리-사슬-요약" class="nav-link" data-scroll-target="#논리-사슬-요약"><span class="header-section-number">6</span> 논리 사슬 요약</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Bellman-Ford 알고리즘</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">June 2, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="알고리즘" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 알고리즘</h1>
+<p>Bellman-Ford는 음수 간선을 <strong>허용</strong>하고, <span class="math inline">\(s\)</span>에서 도달 가능한 음수 사이클의 존재 여부까지 <strong>판별</strong>하는 단일 출발점 최단 경로 알고리즘이다.</p>
+<pre><code>BELLMAN-FORD(G, w, s)
+1  INITIALIZE-SINGLE-SOURCE(G, s)
+2  for i = 1 to |G.V| - 1
+3      for each edge (u,v) ∈ G.E
+4          RELAX(u, v, w)
+5  for each edge (u,v) ∈ G.E          // 음수 사이클 검출
+6      if v.d &gt; u.d + w(u,v)
+7          return FALSE
+8  return TRUE</code></pre>
+<p>구조는 <strong><span class="math inline">\(|V|-1\)</span>번의 패스(pass)</strong>(각 패스마다 모든 간선을 relax)와 <strong>마지막 검출 루프</strong>로 이루어진다.</p>
+<p><strong>수행 시간:</strong> 초기화 <span class="math inline">\(O(V)\)</span>, 메인 이중 루프 <span class="math inline">\(O(VE)\)</span>, 검출 루프 <span class="math inline">\(O(E)\)</span> → 전체 <span class="math inline">\(O(VE)\)</span>.</p>
+</section>
+<section id="정확성-도달-가능-정점-lemma-24.2" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> 정확성: 도달 가능 정점 (Lemma 24.2)</h1>
+<div class="callout callout-style-default callout-note callout-titled" title="Lemma 24.2">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Lemma 24.2
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(s\)</span>에서 도달 가능한 음수 사이클이 없으면, 라인 2–4의 <span class="math inline">\(|V|-1\)</span>번 패스 후 도달 가능한 모든 <span class="math inline">\(v\)</span>에 대해 <span class="math inline">\(v.d=\delta(s,v)\)</span>이다.</p>
+</div>
+</div>
+<p><strong>증명.</strong> <span class="math inline">\(s\to v\)</span> 최단 경로 <span class="math inline">\(p=\langle v_0,\dots,v_k\rangle\)</span>를 잡으면, 최단 경로는 simple이므로 <span class="math inline">\(k\le|V|-1\)</span>이다. 각 패스가 모든 간선을 relax하므로 <span class="math inline">\(i\)</span>번째 패스에서 간선 <span class="math inline">\((v_{i-1},v_i)\)</span>가 (다른 간선들과 함께) 반드시 relax된다. 따라서 경로 순서대로 relax되고, <strong>경로-완화 성질</strong>에 의해 <span class="math inline">\(v_k.d=\delta(s,v_k)\)</span>. <span class="math inline">\(\blacksquare\)</span></p>
+<section id="핵심-패스-순서와-경로-정점-순서는-달라도-된다" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="핵심-패스-순서와-경로-정점-순서는-달라도-된다"><span class="header-section-number">2.1</span> 핵심: “패스 순서”와 “경로 정점 순서”는 달라도 된다</h2>
+<p>증명의 가장 헷갈리는 지점은 “간선 <span class="math inline">\((v_{i-1},v_i)\)</span>가 <span class="math inline">\(i\)</span>번째 iteration에서 relax된다”는 문장이다. 루프가 두 겹임을 분리하면 명확해진다.</p>
+<pre><code>2  for i = 1 to |V|-1          ← (A) 바깥 루프: "패스"
+3      for each edge (u,v)∈E   ← (B) 안쪽 루프: 모든 간선을 어떤 고정 순서로 훑음</code></pre>
+<p>“<span class="math inline">\(i\)</span>-th iteration”은 바깥 루프 (A)의 <span class="math inline">\(i\)</span>번째 <strong>패스</strong>를 가리키며, 안쪽 (B)의 간선 순서가 아니다. 한 패스는 <span class="math inline">\(E\)</span>의 모든 간선을 한 번씩 relax한다. 따라서 “간선 <span class="math inline">\((v_{i-1},v_i)\)</span>가 <span class="math inline">\(i\)</span>번째 패스에서 relax된다”는 거의 자명한 진술이다 — 그 간선도 <span class="math inline">\(E\)</span>의 한 원소이므로 <span class="math inline">\(i\)</span>번째 패스 도중 언젠가 반드시 풀린다. 패스 안에서 몇 번째로 풀리는지는 주장하지 않는다.</p>
+<div class="callout callout-style-default callout-important callout-titled" title="안쪽 순서가 어긋나도 괜찮은 이유">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>안쪽 순서가 어긋나도 괜찮은 이유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>안쪽 (B)의 간선 순서가 경로 순서와 정반대일 수도 있다. 그러나 경로-완화 성질이 요구하는 것은 <strong>경로 간선들끼리의 <em>상대적</em> 순서</strong>뿐이고, 그 사이에 다른 relax가 아무리 끼어들어도 무방하다.</p>
+<p>그 상대 순서는 <strong>패스가 순차적</strong>이라는 사실이 보장한다. 패스 1 <em>전체</em>가 패스 2 <em>전체</em>보다 앞서 일어나므로, “패스 1의 <span class="math inline">\((v_0,v_1)\)</span>”은 설령 패스 1의 맨 마지막에 풀리고 “패스 2의 <span class="math inline">\((v_1,v_2)\)</span>”가 패스 2의 맨 처음에 풀리더라도 무조건 먼저 일어난다. 즉 전체 relax 시퀀스 속에는</p>
+<p><span class="math display">\[
+\underbrace{(v_0,v_1)}_{\text{패스 1}},\ \dots,\ \underbrace{(v_1,v_2)}_{\text{패스 2}},\ \dots,\ \underbrace{(v_{k-1},v_k)}_{\text{패스 }k}
+\]</span></p>
+<p>라는 <strong>올바른 순서의 부분수열</strong>이 (다른 relax들에 섞인 채) 항상 박혀 있다. 경로-완화 성질은 정확히 이것을 요구한다.</p>
+</div>
+</div>
+</section>
+<section id="최악의-경우로-확인" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="최악의-경우로-확인"><span class="header-section-number">2.2</span> 최악의 경우로 확인</h2>
+<p><span class="math inline">\(s=v_0\to v_1\to v_2\to v_3\)</span>(<span class="math inline">\(k=3\)</span>)인 최단 경로에서, 안쪽 순서가 가장 적대적으로 경로 역순 <span class="math inline">\((v_2,v_3)\to(v_1,v_2)\to(v_0,v_1)\)</span>로 푼다고 하자.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>패스</th>
+<th>효과</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td><span class="math inline">\((v_0,v_1)\)</span>만 효과: <span class="math inline">\(v_1.d=\delta(s,v_1)\)</span> 확정</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td><span class="math inline">\((v_1,v_2)\)</span> 효과: <span class="math inline">\(v_2.d=\delta(s,v_2)\)</span> 확정</td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td><span class="math inline">\((v_2,v_3)\)</span> 효과: <span class="math inline">\(v_3.d=\delta(s,v_3)\)</span> 확정</td>
+</tr>
+</tbody>
+</table>
+<p>적대적 순서에서도 <strong>패스마다 확정된 정점의 경계(frontier)가 정확히 하나씩 전진</strong>한다. 그래서 <span class="math inline">\(k\)</span>개 간선 경로는 늦어도 <span class="math inline">\(k\)</span>번째 패스 끝에 도착점이 확정되며, <span class="math inline">\(k\le|V|-1\)</span>이므로 <span class="math inline">\(|V|-1\)</span>번 패스면 어떤 도달 가능 정점이든 확정된다. (반대로 안쪽 순서가 경로 순서와 같다면 단 한 패스에 모두 확정될 수도 있으나, 그런 행운을 가정할 수 없으므로 최악의 경우로 증명한다.)</p>
+</section>
+</section>
+<section id="corollary-24.3" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Corollary 24.3</h1>
+<div class="callout callout-style-default callout-note callout-titled" title="Corollary 24.3">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Corollary 24.3
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>음수 사이클이 없으면, 각 <span class="math inline">\(v\)</span>에 대해 <span class="math inline">\(s\to v\)</span> 경로가 존재하는 것과 종료 시 <span class="math inline">\(v.d&lt;\infty\)</span>인 것은 동치이다.</p>
+</div>
+</div>
+</section>
+<section id="전체-정확성-theorem-24.4" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> 전체 정확성 (Theorem 24.4)</h1>
+<div class="callout callout-style-default callout-note callout-titled" title="Theorem 24.4">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Theorem 24.4
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><span class="math inline">\(s\)</span>에서 도달 가능한 음수 사이클이 <strong>없으면</strong>: 알고리즘은 TRUE를 반환하고, 모든 <span class="math inline">\(v\)</span>에 대해 <span class="math inline">\(v.d=\delta(s,v)\)</span>이며, <span class="math inline">\(G_\pi\)</span>는 최단 경로 트리이다.</li>
+<li><span class="math inline">\(s\)</span>에서 도달 가능한 음수 사이클이 <strong>있으면</strong>: 알고리즘은 FALSE를 반환한다.</li>
+</ul>
+</div>
+</div>
+<section id="음수-사이클이-없는-경우" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="음수-사이클이-없는-경우"><span class="header-section-number">4.1</span> 음수 사이클이 없는 경우</h2>
+<p>도달 가능 정점은 Lemma 24.2로 <span class="math inline">\(v.d=\delta\)</span>가 확정되고, 도달 불가능 정점은 무경로 성질로 <span class="math inline">\(v.d=\infty=\delta\)</span>가 유지된다. 둘을 합치면 모든 <span class="math inline">\(v\)</span>에 대해 <span class="math inline">\(v.d=\delta(s,v)\)</span>이고, 선행자-부분그래프 성질로 <span class="math inline">\(G_\pi\)</span>는 최단 경로 트리이다.</p>
+<p>TRUE 반환 이유: 종료 시 모든 간선 <span class="math inline">\((u,v)\)</span>에 대해</p>
+<p><span class="math display">\[
+v.d=\delta(s,v)\ \underset{\text{24.10}}{\le}\ \delta(s,u)+w(u,v)=u.d+w(u,v)
+\]</span></p>
+<p>이므로 라인 6의 검사가 한 번도 FALSE를 띄우지 않는다.</p>
+</section>
+<section id="음수-사이클이-있는-경우-귀류법" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="음수-사이클이-있는-경우-귀류법"><span class="header-section-number">4.2</span> 음수 사이클이 있는 경우 (귀류법)</h2>
+<p>도달 가능한 음수 사이클 <span class="math inline">\(c=\langle v_0,\dots,v_k\rangle\)</span>(<span class="math inline">\(v_0=v_k\)</span>)에서</p>
+<p><span class="math display">\[
+\sum_{i=1}^k w(v_{i-1},v_i)&lt;0. \tag{24.1}
+\]</span></p>
+<p>알고리즘이 <strong>TRUE를 반환한다고 가정</strong>하면 라인 6 검사를 모두 통과했으므로, 사이클의 모든 간선에 대해</p>
+<p><span class="math display">\[
+v_i.d \le v_{i-1}.d + w(v_{i-1},v_i),\quad i=1,\dots,k.
+\]</span></p>
+<p>사이클을 한 바퀴 <strong>합산</strong>하면</p>
+<p><span class="math display">\[
+\sum_{i=1}^k v_i.d \;\le\; \sum_{i=1}^k v_{i-1}.d \;+\; \sum_{i=1}^k w(v_{i-1},v_i).
+\]</span></p>
+<p><span class="math inline">\(v_0=v_k\)</span>이므로 두 합 <span class="math inline">\(\sum_{i=1}^k v_i.d\)</span>와 <span class="math inline">\(\sum_{i=1}^k v_{i-1}.d\)</span>는 같은 정점 집합을 정확히 한 번씩 더한 것이라 <strong>동일</strong>하다. 또 Corollary 24.3에 의해 (사이클이 도달 가능하므로) 모든 <span class="math inline">\(v_i.d\)</span>가 유한하여 양변에서 안전하게 소거할 수 있다. 남는 것은</p>
+<p><span class="math display">\[
+0 \;\le\; \sum_{i=1}^k w(v_{i-1},v_i),
+\]</span></p>
+<p>인데 이는 (24.1)에 <strong>모순</strong>이다. 따라서 가정이 틀렸고 알고리즘은 FALSE를 반환한다. <span class="math inline">\(\blacksquare\)</span></p>
+<div class="callout callout-style-default callout-tip callout-titled" title="이 귀류법의 두 전제">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>이 귀류법의 두 전제
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>정점 항 <span class="math inline">\(\sum v_i.d\)</span>와 <span class="math inline">\(\sum v_{i-1}.d\)</span>의 소거가 가능한 것은 (a) 사이클이라 <span class="math inline">\(v_0=v_k\)</span>, (b) <span class="math inline">\(v_i.d\)</span>가 모두 유한, 이 두 조건 덕분이다. 시험에서 이 두 조건을 명시하는 것이 좋다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="조기-종료-최적화" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> 조기 종료 최적화</h1>
+<p><strong>어떤 한 패스 동안 단 하나의 <span class="math inline">\(v.d\)</span>도 갱신되지 않으면 즉시 종료해도 된다.</strong> <span class="math inline">\(|V|-1\)</span>은 최악의 경우를 위한 상한이며 항상 채워야 하는 횟수가 아니다.</p>
+<section id="조기-종료가-옳은-이유" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="조기-종료가-옳은-이유"><span class="header-section-number">5.1</span> 조기 종료가 옳은 이유</h2>
+<p>RELAX는 현재 <span class="math inline">\(d\)</span> 값들의 <strong>결정론적 함수</strong>이다. 한 패스에서 아무 갱신도 없었다면 패스 끝 상태가 시작 때와 완전히 동일하므로, 다음 패스도 똑같은 상태에 똑같은 연산을 적용해 아무것도 바꾸지 못한다. 귀납적으로 이후 모든 패스가 무변화이며, 현재 <span class="math inline">\(d\)</span> 값들이 최종 고정점(fixed point)이다.</p>
+</section>
+<section id="그-고정점이-정답delta이라는-보장" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="그-고정점이-정답delta이라는-보장"><span class="header-section-number">5.2</span> 그 고정점이 정답(<span class="math inline">\(=\delta\)</span>)이라는 보장</h2>
+<p>무변화 패스는 곧 <strong>모든 간선에서</strong> <span class="math inline">\(v.d\le u.d+w(u,v)\)</span>가 성립한다는 증명서이다. 이 조건이 갖춰지면 도달 가능한 <span class="math inline">\(v\)</span>에 대해 <span class="math inline">\(v.d=\delta(s,v)\)</span>가 따라온다. <span class="math inline">\(s\to v\)</span> 최단 경로 <span class="math inline">\(s=v_0\to\dots\to v_k=v\)</span>를 따라</p>
+<p><span class="math display">\[
+v_i.d \le v_{i-1}.d + w(v_{i-1},v_i)=\delta(s,v_{i-1})+w(v_{i-1},v_i)=\delta(s,v_i)
+\]</span></p>
+<p>를 차례로 적용하면 <span class="math inline">\(v_i.d\le\delta(s,v_i)\)</span>이고, 상한 성질 <span class="math inline">\(v_i.d\ge\delta(s,v_i)\)</span>와 합치면 <span class="math inline">\(v_i.d=\delta(s,v_i)\)</span>이다. 또한 무변화 패스가 나왔다는 사실 자체가 도달 가능한 음수 사이클이 없음을 증명한다(음수 사이클이 도달 가능하면 <span class="math inline">\(d\)</span>가 영원히 줄어들어 고정점에 닿지 못하므로). 따라서 조기 종료 시 바로 TRUE를 반환해도 된다.</p>
+</section>
+<section id="v-1은-최악의-경우-여전히-필요하다" class="level2" data-number="5.3">
+<h2 data-number="5.3" class="anchored" data-anchor-id="v-1은-최악의-경우-여전히-필요하다"><span class="header-section-number">5.3</span> <span class="math inline">\(|V|-1\)</span>은 최악의 경우 여전히 필요하다</h2>
+<p>조기 종료 가능성과 “<span class="math inline">\(|V|-1\)</span> 상한을 줄일 수 있다”는 다른 얘기이다. 일자형 경로 <span class="math inline">\(s\to v_1\to\dots\to v_{|V|-1}\)</span>에서 안쪽 간선 순서가 경로 역순이면, frontier가 패스당 하나씩만 전진해 정확히 <span class="math inline">\(|V|-1\)</span>번의 갱신 패스가 필요하다. 이 경우 조기 종료가 발동하지 않는다.</p>
+<ul>
+<li><strong>인스턴스별로는</strong> 갱신 없는 패스가 나오는 즉시 종료 가능(보통 훨씬 빨리 끝남).</li>
+<li><strong>최악의 경우 보장으로는</strong> <span class="math inline">\(|V|-1\)</span>이 줄지 않음(어떤 그래프든 <span class="math inline">\(|V|-1\)</span>번이면 충분하다는 안전판).</li>
+</ul>
+</section>
+<section id="구현" class="level2" data-number="5.4">
+<h2 data-number="5.4" class="anchored" data-anchor-id="구현"><span class="header-section-number">5.4</span> 구현</h2>
+<pre><code>for i = 1 to |V|-1
+    changed = FALSE
+    for each edge (u,v) ∈ E
+        if v.d &gt; u.d + w(u,v)
+            v.d = u.d + w(u,v); v.π = u
+            changed = TRUE
+    if not changed
+        return TRUE          // 고정점 도달, 음수 사이클 없음
+for each edge (u,v) ∈ E      // |V|-1 패스로도 안 끝났을 때 음수 사이클 판별
+    if v.d &gt; u.d + w(u,v)
+        return FALSE
+return TRUE</code></pre>
+<div class="callout callout-style-default callout-warning callout-titled" title="주의">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>주의
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>조기 종료 판정은 반드시 <strong>한 패스를 완주한 뒤</strong> 내려야 한다. 패스 중간에 “아직 갱신 없네”라며 끊으면 안 된다 — 아직 안 본 간선이 갱신을 일으킬 수 있다. 올바른 종료 조건은 “전체 간선을 다 봤는데 아무것도 안 바뀜”이다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="논리-사슬-요약" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> 논리 사슬 요약</h1>
+<p><span class="math display">\[
+\text{삼각부등식 + 상한 성질}\Rightarrow\text{수렴 성질}\Rightarrow\text{경로-완화 성질}
+\Rightarrow\text{Lemma 24.2}\Rightarrow\text{정확성}
+\]</span></p>
+<p>Bellman-Ford의 “각 간선 <span class="math inline">\(|V|-1\)</span>번 relax” 설계는 결국 “임의의 최단 경로(<span class="math inline">\(\le|V|-1\)</span> 간선)의 간선들이 순서대로 풀리는 것을 보장”하려는 것이며, 그 정당성이 경로-완화 성질 한 줄에 응축되어 있다.</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
