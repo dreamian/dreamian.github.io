@@ -1,0 +1,239 @@
+---
+title: "DAG 최단 경로와 Dijkstra 알고리즘"
+date: "2026-06-02"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    html-math-method: mathjax
+---
+
+# 개요
+
+단일 출발점 최단 경로(single-source shortest paths) 문제를 두 가지 구조적 가정 아래에서 다룬다.
+
+- **비순환(acyclic)** 가정 → DAG 전용 알고리즘 (위상 정렬 활용, $\Theta(|V|+|E|)$)
+- **비음수 가중치(non-negative weights)** 가정 → Dijkstra 알고리즘 (그리디)
+
+두 알고리즘 모두 relaxation 성질(upper-bound, convergence, path-relaxation property)을 어떻게 활용하는가가 핵심이며, 마지막에 일반 그래프용 알고리즘과의 적용 범위·비용 트레이드오프를 정리한다.
+
+---
+
+# DAG에서의 단일 출발점 최단 경로
+
+## 동기
+
+일반 그래프용 알고리즘은 $O(|V||E|)$가 든다. 그래프가 **방향성 비순환 그래프(DAG)**라면 위상 정렬을 이용해 더 빠르게 풀 수 있다.
+
+## 알고리즘
+
+```text
+DAG-SHORTEST-PATHS(G, w, s)
+1. topologically sort the vertices of G
+2. INITIALIZE-SINGLE-SOURCE(G, s)
+3. for each vertex u, taken in topologically sorted order
+4.     for each vertex v ∈ G.Adj[u]
+5.         RELAX(u, v, w)
+```
+
+## 실행 시간
+
+$$
+\underbrace{\Theta(|V|+|E|)}_{\text{위상 정렬}} + \underbrace{\Theta(|V|)}_{\text{초기화}} + \underbrace{\Theta(|V|+|E|)}_{\text{이중 루프}} = \Theta(|V|+|E|)
+$$
+
+이중 루프는 각 정점을 한 번씩, 각 간선을 정확히 한 번씩만 relax하므로 $\Theta(|V|+|E|)$이다.
+
+## 정당성 — Path-Relaxation Property
+
+::: {.callout-note}
+## 핵심 직관
+
+왜 **단 한 번의 패스**(각 간선 1회 relax)로 정답이 나오는가?
+:::
+
+정점 $v$로 가는 최단 경로 $p = \langle v_0 = s, v_1, \dots, v_k = v \rangle$를 생각하자. DAG에서는 간선 $(u, w)$가 존재하면 위상 순서상 $u$가 $w$보다 반드시 앞에 온다. 따라서 임의의 경로 위의 간선들 $(v_0, v_1), (v_1, v_2), \dots$는 **경로 등장 순서 그대로** relax된다.
+
+**Path-relaxation property**에 의해, 최단 경로상의 간선들이 그 순서대로 relax되면 그 즉시 $v.d = \delta(s, v)$가 확정된다. 음수 간선이 있어도 **사이클만 없으면** 성립한다는 점이 DAG의 강점이며, 임계 경로(critical path) 분석 등에 활용된다.
+
+---
+
+# 위상 정렬의 시간 복잡도
+
+위상 정렬의 비용은 사실상 **DFS 한 번의 비용**과 같다.
+
+```text
+TOPOLOGICAL-SORT(G)
+1. DFS(G)를 호출하여 각 정점 v의 종료 시각 v.f 를 계산
+2. 정점이 종료될(finished) 때마다 연결 리스트의 맨 앞에 삽입
+3. 정점들의 연결 리스트를 반환
+```
+
+2번의 삽입은 정점당 $O(1)$, 전체 $O(|V|)$로 무시할 수준이므로 비용은 DFS가 지배한다. 따라서 질문은 "왜 DFS가 $\Theta(|V|+|E|)$인가"로 환원된다.
+
+## Aggregate Analysis
+
+비용을 두 부분으로 분해해 각각 합산한다. (개별 호출을 $O(\cdot)$로 묶으면 오히려 부정확해진다.)
+
+### DFS-VISIT 호출 자체 — $\Theta(|V|)$
+
+DFS-VISIT는 **WHITE 정점에 대해서만** 호출되고, 호출 즉시 GRAY로 칠해진다. 한 번 GRAY/BLACK이 된 정점은 다시 WHITE가 되지 않으므로, DFS-VISIT는 **각 정점에 대해 정확히 한 번씩** 실행된다. 인접 리스트 순회를 제외한 본체 작업은 정점당 상수 시간이므로 합산하면 $\Theta(|V|)$이다. 초기화(모든 정점을 WHITE로) $\Theta(|V|)$가 더해진다.
+
+### 인접 리스트 순회 — $\Theta(|E|)$
+
+정점 $u$에 대한 DFS-VISIT 안의 for 루프는 $\mathrm{Adj}[u]$를 훑으므로 $|\mathrm{Adj}[u]|$번 반복한다. DFS-VISIT가 각 정점당 한 번만 실행되므로 이 순회는 그래프 전체에서 정확히 한 번씩만 일어난다. 모든 정점에 대해 합산하면
+
+$$
+\sum_{u \in V} |\mathrm{Adj}[u]| = |E| \quad (\text{방향 그래프})
+$$
+
+따라서 인접 리스트 스캔의 총비용은 $\Theta(|E|)$이다. (무방향 그래프라면 각 간선이 양쪽 리스트에 등장하여 $\sum |\mathrm{Adj}[u]| = 2|E| = \Theta(|E|)$로 동일.)
+
+### 합산
+
+$$
+\Theta(|V|) + \Theta(|E|) = \Theta(|V| + |E|)
+$$
+
+핵심은 "정점당 한 번, 간선당 한 번"이라는 **분할상환적(amortized) 합산** 논리이다. 한 정점의 인접 리스트가 아무리 길어도 그 비용은 그 정점의 간선들에 분배되어 전체적으로 $|E|$를 넘지 않는다.
+
+## 두 가지 주의점
+
+::: {.callout-important}
+## 자료구조 의존성
+
+$\Theta(|V|+|E|)$는 **인접 리스트** 표현을 전제한다. 인접 행렬을 쓰면 정점 $u$의 이웃을 찾는 데 매번 $\Theta(|V|)$가 들어 전체가 $\Theta(|V|^2)$가 된다.
+:::
+
+**대안 알고리즘.** in-degree가 0인 정점을 반복 제거하는 Kahn 알고리즘도 $\Theta(|V|+|E|)$이다. 각 정점을 큐에 한 번 넣고 빼며($O(|V|)$), 제거 시 나가는 간선을 한 번씩 훑어 이웃의 in-degree를 감소시키므로($O(|E|)$) 동일한 합산 논리가 적용된다.
+
+---
+
+# Dijkstra 알고리즘
+
+## 전제와 그리디 아이디어
+
+**전제: 모든 간선 가중치가 비음수.** 이것이 정당성의 핵심 가정이다.
+
+이 알고리즘은 **그리디**다. 이미 최단 거리가 확정된 정점 집합 $S$를 유지하고, $V - S$ 중 $d$값이 최소인 정점을 매번 탐욕적으로 선택해 $S$에 편입시킨다.
+
+## 알고리즘
+
+```text
+DIJKSTRA(G, w, s)
+1. INITIALIZE-SINGLE-SOURCE(G, s)
+2. S = ∅
+3. Q = G.V                      // min-priority queue, key = v.d
+4. while Q ≠ ∅
+5.     u = EXTRACT-MIN(Q)
+6.     S = S ∪ {u}
+7.     for each vertex v ∈ G.Adj[u]
+8.         RELAX(u, v, w)
+```
+
+## 실행 시간
+
+EXTRACT-MIN은 $|V|$번, DECREASE-KEY(RELAX 내부)는 최대 $|E|$번 호출된다.
+
+| Q 구현 | EXTRACT-MIN | DECREASE-KEY | 총 실행 시간 |
+|---|---|---|---|
+| 단순 배열 | $O(|V|)$ | $O(1)$ | $O(|V|^2)$ |
+| 이진 최소 힙 | $O(\lg|V|)$ | $O(\lg|V|)$ | $O((|V|+|E|)\lg|V|)$ |
+| 피보나치 힙 | $O(\lg|V|)$ 분할상환 | $O(1)$ 분할상환 | $O(|V|\lg|V|+|E|)$ |
+
+이진 힙은 그래프가 충분히 희소할 때($|E| = o(|V|^2 / \lg|V|)$) 배열보다 유리하다. 피보나치 힙은 DECREASE-KEY가 빈번한 밀집 그래프에서 점근적으로 최선이다.
+
+## Theorem 24.6 (Dijkstra의 정당성)
+
+::: {.callout-tip}
+## 정리
+
+비음수 가중치 함수 $w$와 출발점 $s$를 갖는 $G = (V, E)$에 대해 Dijkstra를 실행하면, 종료 시 모든 정점 $u$에 대해 $u.d = \delta(s, u)$이다.
+:::
+
+**Loop Invariant:** while 루프의 각 반복 시작 시점에, $S$에 속한 모든 정점 $v$에 대해 $v.d = \delta(s, v)$이다.
+
+### 초기화 (Initialization)
+
+$S = \emptyset$ 이므로 공허하게 참.
+
+### 유지 (Maintenance) — 귀류법
+
+$S$에 편입될 때 $u.d \neq \delta(s, u)$가 되는 **최초의 정점**을 $u$라 가정한다 (모순을 유도할 대상).
+
+1. $u \neq s$. 왜냐하면 $s$가 가장 먼저 편입되고 그 시점에 $s.d = \delta(s, s) = 0$이기 때문이다. 따라서 $u$ 편입 직전에 $S \neq \emptyset$이다.
+2. $s \to u$ 경로가 반드시 존재한다. 없다면 no-path property에 의해 $u.d = \delta(s, u) = \infty$가 되어 가정($u.d \neq \delta$)에 모순이다. 그러므로 최단 경로 $p$가 존재한다.
+3. $p$는 $S$(에 속한 $s$)에서 $V - S$(에 속한 $u$)로 건너간다. $p$ 위에서 $V - S$에 속하는 **첫 정점**을 $y$, 그 직전 정점($S$에 속함)을 $x$라 하자. 경로를 $p:\ s \rightsquigarrow x \to y \rightsquigarrow u$로 분해한다.
+
+**Claim: $u$ 편입 시점에 $y.d = \delta(s, y)$.**
+
+- $x$는 $u$보다 먼저 $S$에 편입되었고, $u$가 "최초의 위반 정점"이므로 $x.d = \delta(s, x)$였다.
+- $x$ 편입 당시 간선 $(x, y)$가 relax되었으므로, **convergence property**에 의해 $y.d = \delta(s, y)$가 확정된다.
+
+이제 모순을 만든다.
+
+$$
+y.d = \delta(s, y) \le \delta(s, u) \le u.d
+$$
+
+- 첫 부등식 $\delta(s, y) \le \delta(s, u)$: $y$가 $s \to u$ 최단 경로상에서 $u$보다 앞에 있고, **모든 간선 가중치가 비음수**이므로 부분 경로의 거리가 전체보다 클 수 없다. ← **여기서 비음수 가정이 결정적으로 쓰인다.**
+- 둘째 부등식 $\delta(s, u) \le u.d$: upper-bound property.
+
+한편 $u$와 $y$가 모두 $V - S$에 있을 때 EXTRACT-MIN이 $u$를 선택했으므로 $u.d \le y.d$이다.
+
+두 결과를 결합하면 $y.d \le u.d$와 $u.d \le y.d$가 동시에 성립하여
+
+$$
+y.d = \delta(s, y) = \delta(s, u) = u.d.
+$$
+
+즉 $u.d = \delta(s, u)$가 되어, $u$를 "위반 정점"으로 잡은 가정과 **모순**이다. 따라서 그런 $u$는 존재하지 않으며 불변량이 유지된다.
+
+### 종료 (Termination)
+
+종료 시 $Q = \emptyset$이고 불변식 $Q = V - S$에 의해 $S = V$이다. 따라서 모든 $u \in V$에 대해 $u.d = \delta(s, u)$. $\qquad \blacksquare$
+
+---
+
+# 일반 그래프용 알고리즘과의 비교
+
+## 적용 범위 — 비순환 가정이 깨질 때
+
+DAG-SHORTEST-PATHS는 **비순환 전제가 깨지면 실행 자체가 불가능**하다. 알고리즘 1번 줄의 위상 정렬은 DAG에만 존재하기 때문이다. 사이클이 하나라도 있으면 유효한 위상 순서가 정의되지 않는다.
+
+근본적으로, DAG 알고리즘의 단일 패스 정당성은 "위상 순서가 임의 경로의 등장 순서를 포함한다"는 사실에 의존한다. 사이클 $u \to v \to u$는 $u$를 $v$보다 먼저 처리하면서 동시에 $v$를 $u$보다 먼저 처리하라고 요구하므로, 단일 패스로는 해결할 수 없다.
+
+일반 방향 그래프(사이클·음수 간선 허용)에서 동작하며 음수 사이클까지 검출하는 알고리즘은 $|V| - 1$번의 패스를 돌려 이 문제를 해결한다.
+
+## 비교 표
+
+| | DAG-SHORTEST-PATHS | 일반 그래프용 ($|V|-1$ 패스) | Dijkstra |
+|---|---|---|---|
+| 사이클 | 불가 (전제 위반) | 가능 | 가능 |
+| 음수 간선 | 가능 | 가능 | 불가 |
+| 음수 사이클 검출 | 해당 없음 | 가능 | 해당 없음 |
+| 시간 복잡도 | $\Theta(|V|+|E|)$ | $O(|V||E|)$ | $O(V^2)$ ~ $O(V\lg V + E)$ |
+
+## 비용 차이의 근원
+
+DAG는 위상 순서 덕분에 **단 한 번의 패스**로 모든 최단 경로 간선을 올바른 순서로 relax한다. 반면 일반 그래프용 알고리즘은 그런 순서가 없으므로 **$|V| - 1$번의 패스**를 무차별적으로 돌린다.
+
+이 $|V| - 1$이라는 횟수는 다음에서 나온다: 음수 사이클이 없으면 최단 경로는 단순 경로이고 최대 $|V| - 1$개의 간선을 가진다. 각 패스가 임의 최단 경로의 "확정된 접두부"를 간선 하나씩 늘리므로 $|V| - 1$번이면 충분하다. 패스 $|V| - 1$번 $\times$ 간선 $|E|$개 $= O(|V||E|)$이다.
+
+::: {.callout-note}
+## 트레이드오프 요약
+
+일반 그래프용 알고리즘의 장점은 **일반성**(사이클 허용 + 음수 사이클 판정)이고, 그 대가는 **속도**($\Theta(|V|+|E|) \to O(|V||E|)$)이다. 그래프 구조에 대한 사전 지식(DAG인가? 음수 간선이 있는가?)이 알고리즘 선택을 결정한다.
+:::
+
+---
+
+# 정리
+
+핵심 질문은 항상 **"어떤 순서로 간선을 relax하면 최단 거리가 확정되는가"**이다.
+
+- **DAG**: 위상 순서가 모든 경로의 등장 순서를 자동으로 포함 → 단일 패스(path-relaxation property), $\Theta(|V|+|E|)$.
+- **Dijkstra**: 그리디 선택이 안전함을 **비음수 가정 + 귀류법**으로 보장. 비음수 가정이 깨지면 $\delta(s, y) \le \delta(s, u)$ 단계가 무너진다.
+- **일반 그래프**: 사용 가능한 순서가 없어 $|V| - 1$번 패스로 대체, 음수 사이클까지 검출.
