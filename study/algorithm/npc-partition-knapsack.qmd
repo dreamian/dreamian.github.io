@@ -1,0 +1,220 @@
+---
+title: "NP-완전성: PARTITION과 KNAPSACK"
+date: "2026-06-07"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    html-math-method: katex
+    code-fold: false
+---
+
+# 개요
+
+이 문서는 다음 환원 사슬에서 **PARTITION**과 **KNAPSACK**의 NP-완전성 증명을 다룬다.
+SUBSET-SUM의 NP-완전성은 이미 확립되었다고 전제하고, 이를 *출발 문제*로만 사용한다.
+
+$$
+\text{3-CNF-SAT} \le_P \text{SUBSET-SUM} \le_P \text{PARTITION} \le_P \text{KNAPSACK}
+$$
+
+어떤 문제 $X$가 NP-완전임을 보이는 표준 절차는 두 단계로 구성된다.
+
+1. **$X \in \text{NP}$**: 다항 크기의 인증서(certificate)를 다항 시간에 검증할 수 있음을 보인다.
+2. **NP-난해성(NP-hardness)**: 이미 NP-완전임이 알려진 문제 $Y$에 대해 $Y \le_P X$인 다항 시간 환원을 구성한다. 이때 환원의 정당성은 반드시 **양방향 동치**(iff)로 증명한다.
+
+> 환원 방향에 유의한다. PARTITION이 SUBSET-SUM의 특수 형태처럼 보여도, 증명은
+> $\text{SUBSET-SUM} \le_P \text{PARTITION}$, 즉 **SUBSET-SUM을 PARTITION으로** 환원하는 방향으로 진행한다.
+> 방향을 뒤집으면 의도와 반대되는 명제를 증명하게 된다.
+
+---
+
+# PARTITION 문제
+
+## 문제 정의
+
+- **입력**: 양의 정수들의 유한 집합 $S$
+- **질문**: $S$를 두 부분집합 $S_1$과 $S_2 = S \setminus S_1$로 분할하여
+  $\displaystyle\sum_{x \in S_1} x = \sum_{x \in S_2} x$가 되도록 할 수 있는가?
+
+**예시.** $S = \{1, 2, 7, 10\}$, 전체 합 $20$. $S_1 = \{1,2,7\}$(합 10), $S_2 = \{10\}$(합 10)이 균등 분할이다.
+
+전체 합을 $H = \sum_{x\in S} x$라 하면, PARTITION은 본질적으로 "합이 정확히 $H/2$인 부분집합이 존재하는가"를 묻는다.
+
+## PARTITION $\in$ NP
+
+::: {.callout-note title="NP 멤버십"}
+**인증서**: 분할 $(S_1, S_2)$.
+**검증**: $\sum_{x \in S_1} x = \sum_{x \in S_2} x$인지 확인하는 것은 원소 수에 선형인 시간에 가능하다.
+따라서 PARTITION $\in$ NP. $\qquad\blacksquare$
+:::
+
+## SUBSET-SUM $\le_P$ PARTITION
+
+목표: SUBSET-SUM 인스턴스 $(S, t)$가 주어졌을 때, "합이 $t$인 부분집합 존재 여부"를 "균등 분할 존재 여부"로 옮긴다.
+$a = \sum_{x \in S} x$로 둔다.
+
+### 첫 번째 시도와 그 결함
+
+다음과 같이 단 하나의 보조 원소를 추가해 본다.
+
+$$
+S' = S \cup \{a - 2t\}
+$$
+
+이때 $\sum_{x\in S'} x = a + (a - 2t) = 2a - 2t$이고, 균등 분할이라면 각 쪽이 $a - t$가 되어야 한다.
+$B' \subseteq S$가 $\sum_{x\in B'} x = t$를 만족하면 $C' = B' \cup \{a - 2t\}$의 합은 $t + (a - 2t) = a - t$로 맞는다.
+
+::: {.callout-warning title="결함 (Oops)"}
+이 구성은 **추가 원소 $a - 2t$가 기존 원소와 겹치지 않음을 보장하지 못한다.**
+
+- $a - 2t$가 이미 $S$의 원소이면, 집합에 같은 값을 중복해 넣을 수 없다.
+- $t > a/2$이면 $a - 2t \le 0$이 되어 "양의 정수 집합" 전제와 충돌한다.
+
+따라서 환원이 항상 유효한 인스턴스를 생성한다고 말할 수 없다.
+:::
+
+### 수정된 구성
+
+보조 원소를 $a$의 배수 스케일로 키워 기존 원소와의 충돌을 원천 차단한다.
+$S$의 어떤 원소도 $a$를 넘지 못하므로, 아래 세 원소는 항상 $S$의 모든 원소보다 크고 서로 구별된다.
+
+$$
+S' = S \cup \{\, 2a,\; 3a,\; 4a + 2t \,\}, \qquad a = \sum_{x \in S} x
+$$
+
+전체 합은
+
+$$
+\sum_{x \in S'} x = a + 2a + 3a + (4a + 2t) = 10a + 2t
+$$
+
+이므로, 균등 분할이라면 각 쪽이 $5a + t$가 되어야 한다. 이 환원은 명백히 다항 시간에 수행된다.
+
+### 정당성 증명 (양방향)
+
+#### ($\rightarrow$) SUBSET-SUM이 yes $\Rightarrow$ PARTITION이 yes
+
+$B' \subseteq S$가 $\sum_{x \in B'} x = t$라 하자. $C' = B' \cup \{2a, 3a\}$로 정의하면
+
+$$
+\sum_{x \in C'} x = t + 2a + 3a = 5a + t,
+$$
+$$
+\sum_{x \in S' \setminus C'} x = (10a + 2t) - (5a + t) = 5a + t.
+$$
+
+양쪽 합이 같으므로 $(C',\, S'\setminus C')$는 $S'$의 균등 분할이다. $\qquad\blacksquare\ (\rightarrow)$
+
+#### ($\leftarrow$) PARTITION이 yes $\Rightarrow$ SUBSET-SUM이 yes
+
+$S'$의 균등 분할 $(C', S'\setminus C')$가 존재한다고 하자(각 합 $5a + t$).
+세 큰 원소 $2a,\ 3a,\ 4a+2t$가 어느 쪽에 놓이는지를 **귀류법**으로 결정한다.
+
+- **가정 1**: $4a+2t$와 $3a$가 같은 쪽이라 하자. 그 쪽의 합은 적어도 $(4a+2t) + 3a = 7a + 2t > 5a + t$.
+  이는 한 쪽 합이 정확히 $5a+t$여야 한다는 사실에 모순. 따라서 $4a+2t$와 $3a$는 **반대쪽**.
+- **가정 2**: $4a+2t$와 $2a$가 같은 쪽이라 하자. 그 쪽의 합은 적어도 $(4a+2t) + 2a = 6a + 2t > 5a + t$. 모순.
+  따라서 $4a+2t$와 $2a$도 **반대쪽**.
+
+두 결론으로부터 $2a$와 $3a$는 **같은 쪽**에, $4a+2t$는 **혼자 다른 쪽**에 놓인다.
+
+$2a, 3a$가 있는 쪽을 보면, 그 쪽에 속한 $S$의 원소들의 합은
+
+$$
+(5a + t) - (2a + 3a) = t.
+$$
+
+이 부분집합이 곧 $\sum = t$인 SUBSET-SUM의 해 $B'$이다. $\qquad\blacksquare\ (\leftarrow)$
+
+::: {.callout-tip title="결론"}
+양방향이 성립하고 환원이 다항 시간이므로 $\text{SUBSET-SUM} \le_P \text{PARTITION}$이 성립한다.
+PARTITION $\in$ NP와 결합하면 **PARTITION은 NP-완전**이다.
+:::
+
+---
+
+# KNAPSACK 문제
+
+## 문제 정의 (결정 버전)
+
+- **입력**: 유한 집합 $U = \{u_1, \dots, u_m\}$, 각 $u_i$에 대해
+  - 크기 $s(u_i) \in \mathbb{Z}^+$
+  - 가치 $v(u_i) \in \mathbb{Z}^+$
+  - 용량 상수 $B \in \mathbb{Z}^+$
+  - 가치 목표 $K \in \mathbb{Z}^+$
+- **질문**: 다음을 만족하는 부분집합 $U' \subseteq U$가 존재하는가?
+  $$
+  \sum_{u_i \in U'} s(u_i) \le B \quad\text{이고}\quad \sum_{u_i \in U'} v(u_i) \ge K
+  $$
+
+> 흔히 보는 최적화 배낭문제("최대 가치를 구하라")가 아니라 **결정 문제** 형태임에 유의한다.
+> NP-완전성은 결정 문제에 대해 정의되기 때문이다.
+
+## KNAPSACK $\in$ NP
+
+::: {.callout-note title="NP 멤버십"}
+**인증서**: 부분집합 $U' \subseteq U$.
+**검증**: $U' \subseteq U$ 여부, 크기 합 $\le B$ 여부, 가치 합 $\ge K$ 여부를 모두 $O(|U|)$ 시간에 확인할 수 있다.
+따라서 KNAPSACK $\in$ NP. $\qquad\blacksquare$
+:::
+
+## PARTITION $\le_P$ KNAPSACK
+
+### 환원 구성
+
+PARTITION 인스턴스 $S = \{s_1, \dots, s_n\}$이 주어졌을 때 $H = \sum_{i} s_i$라 하고, 다음과 같이 KNAPSACK 인스턴스를 만든다.
+
+$$
+s(u_i) = v(u_i) = s_i \quad (i = 1, \dots, n), \qquad B = K = \frac{H}{2}.
+$$
+
+**핵심 트릭**: 각 원소에서 **크기와 가치를 동일하게**($s = v$) 설정한다.
+그러면 임의의 $U'$에 대해 크기 합과 가치 합이 항상 같아지고, 두 부등식 $(\le B,\ \ge K)$이 하나의 등식으로 붕괴한다. 이 환원은 다항 시간에 수행된다.
+
+### 정당성 증명 (양방향)
+
+#### ($\rightarrow$) PARTITION이 yes $\Rightarrow$ KNAPSACK이 yes
+
+$S$가 $S_1, S_2$로 균등 분할되어 각 합이 $H/2$라 하자. $S_1$에 대응하는 $U'$를 택하면
+
+$$
+\sum_{u_i \in U'} s(u_i) = \frac{H}{2} \le B, \qquad
+\sum_{u_i \in U'} v(u_i) = \frac{H}{2} \ge K.
+$$
+
+두 조건을 모두 만족하므로 KNAPSACK의 해가 된다. $\qquad\blacksquare\ (\rightarrow)$
+
+#### ($\leftarrow$) KNAPSACK이 yes $\Rightarrow$ PARTITION이 yes
+
+$U'$가 $\sum_{u_i\in U'} s(u_i) \le B = H/2$이고 $\sum_{u_i\in U'} v(u_i) \ge K = H/2$를 만족한다고 하자.
+$s(u_i) = v(u_i)$이므로 두 합은 같다. 그 공통값을 $W$라 하면
+
+$$
+W \le \frac{H}{2} \quad\text{그리고}\quad W \ge \frac{H}{2}
+\;\;\Longrightarrow\;\; W = \frac{H}{2}.
+$$
+
+따라서 $U'$에 대응하는 $S_1$의 합은 $H/2$이고, 나머지 $S_2 = S \setminus S_1$의 합은 $H - H/2 = H/2$이다.
+즉 $(S_1, S_2)$는 균등 분할이다. $\qquad\blacksquare\ (\leftarrow)$
+
+::: {.callout-tip title="결론"}
+양방향이 성립하고 환원이 다항 시간이므로 $\text{PARTITION} \le_P \text{KNAPSACK}$이 성립한다.
+KNAPSACK $\in$ NP와 결합하면 **KNAPSACK은 NP-완전**이다.
+:::
+
+---
+
+# 핵심 정리
+
+| 문제 | 환원 출처 | 트릭의 본질 |
+|------|-----------|-------------|
+| PARTITION | SUBSET-SUM | 큰 보조 원소 $\{2a, 3a, 4a+2t\}$로 균등 절반 $5a+t$를 강제하여 "합 $=t$ 부분집합"을 추출. 보조 원소를 $a$ 배수로 키워 기존 원소와의 충돌을 회피 |
+| KNAPSACK | PARTITION | $s = v$ 설정으로 두 부등식을 등식으로 붕괴 → 용량의 절반을 정확히 채우는 것이 곧 균등 분할 |
+
+## 시험 대비 체크포인트
+
+1. **PARTITION 첫 시도가 실패하는 이유**를 정확히 진술할 수 있어야 한다: 추가 원소 $a-2t$가 기존 원소와 겹치거나 비양수가 될 수 있다는 점.
+2. **보조 원소를 $a$ 배수로 키우는 동기**: $S$의 원소가 $a$ 이하이므로 $2a, 3a, 4a+2t$는 항상 더 크고 서로 구별되어 유효한 집합 인스턴스를 보장한다.
+3. **KNAPSACK 환원에서 $s=v$의 역할**: 부등식 두 개를 $W = H/2$라는 등식으로 강제로 좁히는 것이 ($\leftarrow$) 방향의 핵심.
+4. **($\leftarrow$) 방향의 필수성**: 두 환원 모두 역방향을 명시적으로 분리하여 증명해야 한다. 특히 PARTITION의 역방향은 귀류법으로 큰 원소들의 배치를 결정하는 단계가 생략되기 쉽다.
