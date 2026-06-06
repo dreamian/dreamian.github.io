@@ -1,0 +1,419 @@
+---
+title: "정보이론 · 최적화 · 일반화 — 시험 대비 정리"
+subtitle: "Deep Learning Foundations (2026-03-16)"
+author: ""
+date: "2026-03-16"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: false
+    theme: cosmo
+    html-math-method: katex
+    fig-cap-location: bottom
+    smooth-scroll: true
+---
+
+## 한눈에 보는 시험 포인트 {.unnumbered}
+
+::: {.callout-important}
+## 반드시 외울 핵심 (강조된 부분)
+1. **머신러닝의 목표는 "일반화(generalization)"** — 단 한 단어를 외우라면 이것.
+2. **KL divergence는 방향이 있다.** $D_{KL}(p\,\|\,q)\neq D_{KL}(q\,\|\,p)$. 따라서 **거리(metric)가 아니다** (대칭성·삼각부등식 위배).
+3. **Forward KL = mean-seeking(mode-covering)**, **Reverse KL = mode-seeking(zero-forcing)**. 메커니즘까지 설명할 수 있어야 함.
+4. **Metric의 4가지 공리**: 비음수성, 동일성, 대칭성, 삼각부등식.
+5. **표기 약속**: $\hat{x}$ = (어떤) 해(solution), $x^{*}$ = 최적해(optimal).
+6. **Convex 함수면 전역 최소(global minimum) 보장.** 실제 손실함수는 대부분 non-convex.
+7. **제약 최적화 변환**: 등식 제약 → **Lagrange multiplier**, 부등식 제약 → **KKT 조건**.
+8. **학습률(step size) 선택은 "art"** — 너무 크면 발산/진동, 너무 작으면 느림.
+9. **신경망은 가장 일반화가 안 되는 모델인데도 쓴다 → "포기하고 스케일을 키운다" (benign overfitting → 대규모 모델/LLM).**
+10. **Bias–variance trade-off는 머신러닝의 중심 개념.**
+:::
+
+---
+
+# 정보이론 (Information Theory)
+
+## Self-information (자기정보량)
+
+확률 $p(x)$인 사건 $x$의 **자기정보량(self-information)** 은
+
+$$
+I(x) = -\log p(x).
+$$
+
+- 흔한 사건($p$ 큼) → 정보량 작음, 드문 사건($p$ 작음) → 정보량 큼.
+- 깊은 이론에서 유도된 것이 아니라 **직관적으로 정의**된 양이다 (Shannon).
+- 단위: 자연로그($\ln$)면 **nats**, $\log_2$면 **bits**.
+
+::: {.callout-note}
+## 직관
+"얼마나 놀라운가(surprise)"의 척도. 당연한 일이 일어나면 정보가 거의 없고, 거의 일어나지 않을 일이 일어나면 정보가 크다.
+:::
+
+## Entropy (엔트로피)
+
+엔트로피는 **자기정보량의 기댓값**이다.
+
+$$
+H(X) = \mathbb{E}_{x\sim p}\big[-\log p(x)\big] = -\sum_{x\in\mathcal{X}} p(x)\log p(x).
+$$
+
+- 어원은 **열역학(thermodynamics)** 의 무질서도. 다만 여기엔 입자/물질 개념이 없고, 오직 **확률변수의 무작위성(randomness)·무질서도(disorder)** 만을 잰다.
+- 확률변수가 더 무작위 → 엔트로피 높음 / 덜 무작위 → 엔트로피 낮음.
+- 표기는 보통 $H$ 또는 $\mathbb{H}$.
+
+**연속 확률변수**의 경우 합이 적분으로 바뀐 **미분 엔트로피(differential entropy)**:
+
+$$
+h(X) = -\int_{\mathcal{X}} p(x)\log p(x)\,dx.
+$$
+
+::: {.callout-tip}
+## "왜 differential인가?"
+$x$가 연속이면 확률변수를 **미분(differentiate)** 할 수 있기 때문에 미분 엔트로피라 부른다. 이산일 때는 그냥 엔트로피.
+:::
+
+## KL Divergence (쿨백–라이블러 발산)
+
+두 분포 $p, q$ 사이의 "거리 비슷한" 양:
+
+$$
+D_{KL}(p\,\|\,q) = \sum_{x} p(x)\log\frac{p(x)}{q(x)}
+= \mathbb{E}_{x\sim p}\!\left[\log\frac{p(x)}{q(x)}\right].
+$$
+
+- 이름은 **Kullback–Leibler**(두 사람 이름).
+- **방향(direction)이 있다.** "$p$에서 $q$로의 발산" $D_{KL}(p\,\|\,q)$ 와 "$q$에서 $p$로" $D_{KL}(q\,\|\,p)$ 는 **다르다**.
+- 표기는 화살표($\to$)가 아니라 **두 줄($\|$)** 을 쓴다.
+- 성질: $D_{KL}(p\,\|\,q)\ge 0$ (Gibbs 부등식), 등호는 $p=q$일 때만.
+
+::: {.callout-warning}
+## 자주 틀리는 포인트
+KL은 "거리"라고 부르지만 **진짜 거리(metric)가 아니다.** 비대칭이고 삼각부등식도 만족하지 않는다. 방향을 바꿔 쓰면 다른 양이 된다.
+:::
+
+## Metric(거리함수)의 4가지 공리
+
+거리함수 $d(\cdot,\cdot)$의 또 다른 이름은 **metric**. 어떤 함수가 거리가 되려면 다음 **4가지 공리**를 만족해야 한다.
+
+| # | 공리 | 수식 | 의미 |
+|---|------|------|------|
+| 1 | 비음수성 (non-negativity) | $d(s,d)\ge 0$ | 거리는 음수가 될 수 없다 |
+| 2 | 동일성 (identity) | $d(s,d)=0 \iff s=d$ | 0이면 같은 점 |
+| 3 | 대칭성 (symmetry) | $d(s,d)=d(d,s)$ | 갈 때나 올 때나 같다 |
+| 4 | 삼각부등식 (triangle ineq.) | $d(s,d)\le d(s,m)+d(m,d)$ | 직행이 경유보다 짧거나 같다 |
+
+> **Metric learning**: 머신러닝에서 우리가 하는 많은 일이 결국 "벡터 공간에서의 적절한 거리함수(공간)를 학습"하는 것이다. 가까워야 할 점은 가깝게, 멀어야 할 점은 멀게 만드는 임베딩 공간을 학습한다.
+
+**KL이 metric이 아닌 이유**: 위 공리 중 **3(대칭성)과 4(삼각부등식)** 를 위배. (1, 2는 만족.)
+
+::: {.callout-note}
+## 비대칭 "거리"의 실제 예시 (직관 강화)
+- **등산 에너지**: 산을 올라갈 때 쓰는 에너지 > 내려올 때 쓰는 에너지. 경로는 같아도 방향에 따라 "비용"이 다르다.
+- **계곡 너머 바라보기**: 두 봉우리 정상에 각각 선 두 사람이 서로를 바라볼 때, 중간에 큰 렌즈/장애물이 있으면 "보이는 거리"가 서로 다를 수 있다.
+- **내비게이션(GPS)**: 일방통행 도로/교통량 때문에 $S\to D$ 최단경로와 $D\to S$ 최단경로가 다르다.
+:::
+
+## KL을 대칭화하기: Symmetric KL & Jensen–Shannon
+
+KL이 비대칭이라 불편하므로 대칭 버전을 만든다.
+
+**대칭 KL (Symmetric KL):**
+$$
+D_{\text{SKL}}(p,q) = D_{KL}(p\,\|\,q) + D_{KL}(q\,\|\,p).
+$$
+
+**Jensen–Shannon divergence (JSD):** 중간 분포 $m=\tfrac12(p+q)$ 를 두고
+$$
+D_{\text{JS}}(p,q) = \tfrac12 D_{KL}(p\,\|\,m) + \tfrac12 D_{KL}(q\,\|\,m).
+$$
+
+- $p,q$의 순서를 바꿔도 값이 같다 → **대칭**.
+- 이 외에도 대칭화 방법은 여러 가지가 있다(원하면 직접 정의해 이름 붙일 수도 있다).
+
+---
+
+# KL을 손실함수로: 분류와 Cross-Entropy
+
+::: {.callout-important}
+KL divergence는 **분류(classification)에서 가장 널리 쓰이는 손실함수**의 핵심이다. 정답 분포 $p$(고정)에 대해 모델 분포 $q$를 학습한다.
+:::
+
+## Cross-Entropy 분해
+
+정답(원-핫) 분포 $p$, 예측 분포 $q$에 대한 **cross-entropy**:
+
+$$
+H(p,q) = -\sum_{x} p(x)\log q(x) = \mathbb{E}_{p}[-\log q].
+$$
+
+핵심 관계:
+
+$$
+\boxed{\,H(p,q) = H(p) + D_{KL}(p\,\|\,q)\,}
+$$
+
+- $p$가 고정(정답)이면 $H(p)$ 는 **상수**.
+- 따라서 **CE 최소화 = KL 최소화 = 최대우도(MLE)**.
+
+## Mean-seeking vs Mode-seeking (★ 강조)
+
+$q$를 학습변수로, $p$를 고정으로 두고 KL을 최소화할 때, **방향에 따라 해의 성격이 완전히 달라진다.**
+
+$$
+D_{KL}(p\,\|\,q) = \sum_x p(x)\big[\log p(x) - \log q(x)\big].
+$$
+
+- $p(x)>0$ 인 곳에서 $q(x)\to 0$ 이면 $-\log q(x)\to +\infty$ → KL이 폭발.
+- 그래서 $q$는 **$p$가 존재하는 모든 영역을 덮으려(cover)** 한다 → 여러 모드를 평균적으로 덮는 넓은 해.
+
+반대로
+
+$$
+D_{KL}(q\,\|\,p) = \sum_x q(x)\big[\log q(x) - \log p(x)\big].
+$$
+
+- $p(x)\approx 0$ 인 곳에서 $q(x)>0$ 이면 폭발 → $q$는 **$p$가 0인 곳을 피해** $q$ 자신을 0으로 만든다(zero-forcing).
+- 그래서 $q$는 **하나의 모드(peak)에 집중**한다.
+
+| | Forward KL $D_{KL}(p\,\|\,q)$ | Reverse KL $D_{KL}(q\,\|\,p)$ |
+|---|---|---|
+| 별명 | **mean-seeking / mass-covering** | **mode-seeking / peak-seeking** |
+| 행동 | $p$의 전 영역을 덮음 | 하나의 봉우리에 집중 |
+| 메커니즘 | **zero-avoiding** ($p>0$인데 $q=0$이면 발산) | **zero-forcing** ($p=0$인데 $q>0$이면 발산) |
+| MLE와의 관계 | **MLE는 forward KL** $D_{KL}(\hat p\,\|\,q_\theta)$ | — |
+
+::: {.callout-warning}
+## 시험 함정
+"MLE에서 쓰는 KL 방향은?" → **$D_{KL}(\hat{p}\,\|\,p_\theta)$ (forward)**. 반대로 쓰면 데이터가 관측되지 않은 영역에서 $p_\theta$가 질량을 가질 때 발산하는 문제가 생긴다. (즉 reverse는 데이터 밖 영역을 벌주지 못함.)
+:::
+
+## (보충) Cross-Entropy가 인기 있는 이유
+
+분류 손실로 CE가 MSE보다 선호되는 두 가지 이유:
+
+**1) Gradient vanishing이 덜하다.** 시그모이드 출력 $q=\sigma(z)$ 에서
+
+- **MSE**: $\dfrac{\partial L}{\partial w} = (q-y)\,\underbrace{\sigma'(z)}_{\text{포화 시 } \to 0}\,x$ → 출력이 포화하면 기울기 소실.
+- **CE** (이진): $\dfrac{\partial L}{\partial w} = (q-y)\,x$ → $\sigma'(z)$ 항이 사라져 **소실이 덜함**.
+
+**2) CE = 로지스틱 회귀(Bernoulli)의 최대 로그우도.**
+
+$$
+\text{Bernoulli: } P(y)=p^{y}(1-p)^{1-y},\quad
+\log L(\theta)=\sum_i\big[y_i\log p_i + (1-y_i)\log(1-p_i)\big].
+$$
+
+이 로그우도의 음수가 곧 이진 cross-entropy.
+
+**다른 비용함수의 해석** (참고):
+
+| 비용함수 | 최적 예측 $f^{*}(x)$ |
+|---|---|
+| Mean Squared Error (MSE) | 조건부 **평균** $\mathbb{E}[y\mid x]$ |
+| Mean Absolute Error (MAE) | 조건부 **중앙값(median)** |
+
+---
+
+# 최적화 (Optimization)
+
+## argmin / argmax, 그리고 ML의 정의
+
+- $\min_x f(x)$: 함수의 **최소값**.
+- $\arg\min_x f(x)$: 그 최소값을 만드는 **$x$ 값**.
+
+예: $f(x)=(x-2)^2+3$ → $\min = 3$, $\arg\min = 2$.
+
+::: {.callout-important}
+**머신러닝은 결국 $\displaystyle \arg\min_{\theta} \mathcal{L}(\theta)$ 를 푸는 일.** 손실(loss)을 최소화하는 **파라미터 값**이 곧 "학습된 모델(지식)".
+:::
+
+::: {.callout-note}
+## Parameter vs Argument (CS 용어 정리)
+- **Parameter**: 값을 담는 **그릇(container)** — 함수 정의에 쓰인 형식 인자.
+- **Argument**: 함수를 호출할 때 실제로 넣는 **값**.
+
+예: `def D(s, d): ...` 에서 `s, d`는 parameter, `D(2, 3)`의 `2, 3`은 argument.
+:::
+
+## 목적함수 용어 정리
+
+| 방향 | 함수 이름 |
+|---|---|
+| **최소화(minimize)** | cost / loss / error / objective function |
+| **최대화(maximize)** | reward / value / benefit / profit function |
+
+표기 약속:
+
+- $\hat{x}$ : 어떤 문제의 **해(solution)**.
+- $x^{*}$ : **최적해(optimal solution)** — "별표는 좋은 것/최적"을 강조.
+- $\displaystyle \min_{x} f(x,y,z)$ 처럼 **아래 첨자 변수만 제어변수(control variable)**, 나머지는 상수 취급.
+
+## Convex vs Concave
+
+| | Convex (볼록) | Concave (오목) |
+|---|---|---|
+| 모양 | $\cup$ (예: $(x-2)^2+3$) | $\cap$ (예: $-(x-2)^2+3$) |
+| 최소/최대 | **전역 최소** 존재 | 전역 최대 존재 |
+
+::: {.callout-important}
+**Convex 함수는 전 영역에서 유일한 전역 최소(global minimum)를 갖는다.** 하지만 실제 목적함수는 대부분 **non-convex**(국소적으로만 볼록)라서 전역 최소를 찾기가 매우 어렵다.
+:::
+
+## 계산 복잡도 관점: 모든 문제는 탐색(search)
+
+- 컴퓨터 입장에서 문제 풀이는 **평가함수(evaluation function)로 모든 후보를 탐색**하는 것.
+- 따라서 비용은 **탐색 공간(solution space)의 크기**에 비례 → 다항시간(polynomial)에 못 풀면 사실상 못 푸는 것.
+- **NP-hard / NP-complete**: 합리적 시간 안에 못 푸는 문제군(조합 폭발). 현실적 시간 제약 때문에 **근사해(suboptimal)** 로 만족.
+- 전략: **탐색 공간을 제약(restrict)** → 더 빨리 풀리지만 **최적은 보장 못 함(suboptimal)**.
+
+## 제약 최적화 (Constrained Optimization)
+
+$$
+\min_x f(x)\quad \text{subject to (s.t.)}\quad g(x)=0.
+$$
+
+- 제약식은 "subject to / such that(s.t.)" 뒤에 붙인다.
+- 제약이 있으면 매 최적화 스텝마다 조건을 확인해야 해서 비싸다 → **제약을 없애고(unconstrained) 풀고 싶다.**
+
+**등식 제약 → Lagrange multiplier:**
+$$
+\mathcal{L}(x,\lambda) = f(x) - \lambda\, g(x).
+$$
+
+- 보조변수 $\lambda$(Lagrange multiplier)로 제약을 목적함수에 흡수.
+- $g(x)=10$ 같은 제약은 $g'(x)=g(x)-10=0$ 으로 항상 **=0 형태**로 변환 가능(equality constraint).
+- 단, **근사해**를 주며 정확해는 아닐 수 있음.
+
+**부등식 제약 → KKT 조건:**
+$$
+g(x)\le 0 \;\Rightarrow\; \textbf{Karush–Kuhn–Tucker (KKT)} \text{ 조건으로 변환}.
+$$
+
+- 세 수학자 Karush, Kuhn, Tucker의 이름.
+- KKT multiplier(라그랑주 $\lambda$의 일반화)를 도입해 **부등식 제약 문제를 무제약 문제로** 바꾼다.
+
+> 더 깊이: **Convex Optimization** (Stephen Boyd, Stanford) — 볼록이면 쉬워 보여도 1000쪽짜리 책일 만큼 깊은 분야.
+
+## 닫힌 해 vs 경사하강
+
+**선형 최소제곱(linear least squares)** 처럼 **볼록**하면, 기울기를 0으로 놓아 **닫힌 해(closed form)** 를 바로 얻는다:
+
+$$
+\min_w \|Xw-y\|_2^2 \;\Rightarrow\; \nabla_w = 0 \;\Rightarrow\; w^{*} = (X^\top X)^{-1}X^\top y.
+$$
+
+닫힌 해가 없거나 비싸면 **경사하강(gradient descent)**:
+
+$$
+x_{t+1} = x_t - \eta\,\nabla f(x_t).
+$$
+
+- **기울기**가 내리막 **방향**을 알려줌. 기울기가 0이면 **극점(extreme point)** = (국소) 최소/최대.
+- $\eta$ = **step size / learning rate** = 한 번에 얼마나 이동할지.
+
+::: {.callout-warning}
+## 학습률은 "art"
+- $\eta$ **너무 크면**: 최소점 주위를 진동(wandering)하거나 발산.
+- $\eta$ **너무 작으면**: 너무 느림.
+- 힌트: **2차 미분(Hessian)** 을 이용하면 적절한 보폭을 추정할 수 있다(뉴턴법 계열) → $x_{t+1}=x_t-[\nabla^2 f]^{-1}\nabla f$. 그러나 실제로 최적의 $\eta$ 찾기는 여전히 어렵다.
+:::
+
+---
+
+# 일반화 (Generalization)
+
+::: {.callout-important}
+**머신러닝의 목표 = 일반화(generalization).** "한 단어만 기억하라면 generalization."
+:::
+
+## Overfitting의 정의
+
+**직관적 정의**: 학습 데이터를 너무 많이 들여다봐서, **보지 못한 데이터(unseen)** 에 일반화되지 않는 것.
+
+**형식적 정의**: 데이터가 **데이터 생성 분포(data-generating distribution)** $\mathcal{D}$ 에서 나온다고 가정. 가설공간(hypothesis space) $\mathcal{H}$, 가설(=모델) $h\in\mathcal{H}$.
+
+- **Training error** $\hat{R}(h)$: 학습셋에서의 오차(계산 가능).
+- **True error** $R(h)$: 진짜 분포에서의 오차(작을수록 일반화 잘 됨).
+
+> 모델 $h$가 **overfit**: 어떤 $h'\in\mathcal{H}$ 가 존재해서
+> $$\hat{R}(h) < \hat{R}(h') \quad\text{이지만}\quad R(h) > R(h').$$
+> 즉 **학습오차는 더 낮은데 참오차는 더 높은** 경우.
+
+::: {.callout-note}
+## 왜 overfitting 판정이 어려운가
+정의상 **모든 $h'$** 를 검사해야 하나라도 위 조건을 만족하는지 알 수 있다 → 실제로는 불가능. 그래서 논문들도 "내 모델이 overfit이라고 **가정/추정**한다"고 쓰지 단정하지 않는다. (판정 신호들은 추후 다룸.)
+:::
+
+## "신경망은 최악의 일반화 모델인데 왜 쓰는가?" (★ 강조 토론)
+
+- 신경망은 학습셋에 **아주 잘 과적합**되는, 즉 **일반화가 잘 안 되는** 모델로 악명 높다.
+- 과거엔 **SVM(support vector machine)** 처럼 **이론적으로 일반화가 잘 보장된** 모델을 썼다.
+- 그런데도 지금은 신경망을 쓴다. **왜?**
+
+**핵심 답**: 일반화는 너무 어려우니 **사실상 포기**하고, 대신
+
+> "**현실과 거의 같은 거대한 학습셋을 모아** 거기에 완벽히 맞춰버리자." → 마치 일반화한 것처럼 보임.
+
+- 이것이 **benign overfitting**, 그리고 **대규모 데이터 + 거대 모델 = 대규모(LLM) 접근**의 본질.
+- 신경망의 장점: **스케일 업이 쉽다** (파라미터를 더해 **capacity**를 쉽게 키운다 → 거대한 정보를 담을 수 있음).
+
+## Capacity & Bias–Variance Trade-off
+
+::: {.callout-important}
+**Bias–variance trade-off는 머신러닝의 중심 개념.** 이것으로 overfitting/underfitting/capacity를 한꺼번에 이해한다.
+:::
+
+| 상태 | 의미 | 결과 |
+|---|---|---|
+| **High bias** | 모델이 너무 **경직(rigid)·비유연** | 정보를 충분히 못 담음 → **underfitting** |
+| **High variance** | 모델이 너무 **유연(flexible)** | 학습셋의 편차까지 맞춤 → **overfitting** |
+
+- **Capacity(용량)**: 모델이 담을 수 있는 정보량/복잡도.
+  - SVM: capacity 작음 → 학습셋이 용량보다 커지면 실패.
+  - 신경망: capacity를 쉽게 키울 수 있어(파라미터 추가) 대규모에 유리.
+
+> **다음 시간 예고**: capacity, bias–variance, **MLE / MAP**, linear regression 등.
+
+---
+
+# 무선통신·신호처리로 보는 직관 (전공 연결)
+
+::: {.callout-tip}
+## 전공(무선통신/신호처리) 대응표
+정보이론·추정·최적화 개념은 통신 이론과 1:1로 맞닿아 있다. 시험에서 직관을 잡는 데 유용.
+:::
+
+| 본 강의 개념 | 무선통신/신호처리 대응 | 메모 |
+|---|---|---|
+| Entropy $H(X)$ | **소스 엔트로피 / 채널 용량(Shannon)** | 같은 Shannon. 압축 한계·용량의 토대 |
+| KL divergence $D_{KL}(p\|q)$ | **상대 엔트로피 / 검파의 오류지수(Stein’s lemma)** | 가설검정 오류확률의 지수가 KL |
+| Mutual information $I(X;Y)$ | **$=D_{KL}\big(p(x,y)\,\|\,p(x)p(y)\big)$** | 채널 용량 $=\max_{p(x)} I(X;Y)$ |
+| Cross-entropy / MLE | **ML 검파(ML detection)** | 우도 최대화 = 정답 분포에 맞춤 |
+| MSE 비용 → 조건부 평균 $\mathbb{E}[y\|x]$ | **MMSE 추정기 $\hat{x}=\mathbb{E}[x\|y]$** | 정확히 일치하는 결과 |
+| Gradient descent의 step size $\eta$ | **LMS 적응필터의 스텝 $\mu$** | $\mu$ 너무 크면 발산 — 수렴/안정 trade-off |
+| Convex optimization + KKT | **전력 할당(water-filling)** | water-filling은 전력 제약하 KKT로 유도 |
+| Bias–variance trade-off | **추정기의 bias–variance (CRLB, MVUE)** | 불편추정 vs 분산의 균형 |
+| Forward(mean) vs Reverse(mode) KL | **MMSE(평균) vs MAP(모드) 추정** | 손실 형태에 따른 추정점 차이와 유사 직관 |
+
+---
+
+# 막판 1분 치트시트 {.unnumbered}
+
+::: {.callout-important}
+## 시험장 들어가기 전 마지막 점검
+- $I(x)=-\log p(x)$ → $H(X)=\mathbb{E}_p[-\log p]$ (연속이면 적분 = 미분 엔트로피).
+- $D_{KL}(p\|q)=\sum p\log\frac{p}{q}\ge 0$, **비대칭**, metric 아님(대칭·삼각부등식 위배).
+- Metric 4공리: 비음수 / 동일성 / **대칭** / **삼각부등식**.
+- 대칭화: Symmetric KL, **JSD**($m=\frac{p+q}{2}$).
+- $H(p,q)=H(p)+D_{KL}(p\|q)$ → **CE 최소화 = KL 최소화 = MLE**.
+- **Forward KL = mean/mass-covering(zero-avoiding)**, **Reverse KL = mode/peak(zero-forcing)**. MLE는 forward.
+- CE가 MSE보다: gradient vanishing 덜함, Bernoulli MLE와 동치. MSE→평균, MAE→중앙값.
+- $\arg\min$ vs $\min$; $\hat{x}$(해) vs $x^{*}$(최적).
+- Convex → 전역 최소. 제약: 등식→**Lagrange**, 부등식→**KKT**. 볼록 최소제곱은 $\nabla=0$ 닫힌 해.
+- GD: $x_{t+1}=x_t-\eta\nabla f$; $\eta$ 선택은 art, 2차 미분(Hessian) 힌트.
+- **일반화가 목표.** Overfit 형식정의(학습오차↓ 참오차↑ 인 $h'$ 존재). NN은 과적합형이지만 스케일로 극복(LLM). **Bias–variance**가 중심.
+:::
