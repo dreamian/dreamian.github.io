@@ -1,0 +1,519 @@
+---
+title: "Machine Learning Basics — Part I"
+subtitle: "Capacity · Bias–Variance · VC Dimension · Inductive Bias · MLE · MAP"
+date: "2026-03-23"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    highlight-style: github
+    code-fold: false
+    theme: cosmo
+    fig-cap-location: bottom
+    callout-appearance: simple
+execute:
+  echo: true
+  warning: false
+---
+
+# 학습 목표 {#sec-goals}
+
+딥러닝을 깊이 이해하기 위해 반드시 필요한 통계적 추론·일반화 이론을 정리한다. 큰 축은 두 개다.
+
+1. **일반화(generalization)의 이론** — capacity, bias–variance tradeoff, VC dimension, inductive bias, Occam's razor, No Free Lunch.
+2. **모수 추정(parameter estimation)** — Maximum Likelihood Estimation(MLE)과 Maximum a Posteriori(MAP), 그리고 그 사이를 잇는 Bayesian 관점.
+
+::: {.callout-note}
+## 한 줄 요약
+"좋은 모델"이란 *training data를 잘 맞추는* 모델이 아니라 *보지 못한 데이터(test)에서 잘 동작하는* 모델이다. 이 노트의 거의 모든 개념은 이 한 문장의 변주다.
+:::
+
+무선통신 전공자를 위한 직관: 이 노트의 추정 이론은 **수신기 설계에서의 검출/추정 이론과 1:1로 대응**된다. MLE ↔ ML detection, MAP ↔ MAP detection, prior ↔ a priori 심볼 확률 또는 채널 통계, bias–variance ↔ 추정기 MSE 분해. 각 절 끝의 *무선통신 대응* 박스에서 연결한다.
+
+---
+
+# Capacity, Overfitting, 그리고 Bias–Variance Tradeoff {#sec-bv}
+
+## 세 가지 오차: training / true / test {#sec-errors}
+
+선형 기저함수 모델 $f(\mathbf{x};\mathbf{w}) = \sum_i w_i h_i(\mathbf{x})$를 생각하자. 회귀에서 squared error(L2)를 쓰면 **training error**는
+
+$$
+\mathrm{error}_{\text{train}}(\mathbf{w}) \;=\; \frac{1}{N_{\text{train}}}\sum_{j=1}^{N_{\text{train}}}\Big(t(\mathbf{x}_j) - \sum_i w_i h_i(\mathbf{x}_j)\Big)^2 .
+$$
+
+우리가 학습으로 얻는 것은 이 training error를 최소화하는 모수다.
+
+$$
+\mathbf{w}^{*} = \arg\min_{\mathbf{w}} \sum_j \Big(t(\mathbf{x}_j) - \sum_i w_i h_i(\mathbf{x}_j)\Big)^2 .
+$$
+
+그러나 우리가 *진짜로* 신경 쓰는 것은 가능한 모든 입력에 대한 **true error(prediction error)**다.
+
+$$
+\mathrm{error}_{\text{true}}(\mathbf{w}) \;=\; \mathbb{E}_{(\mathbf{x},t)\sim p}\Big[\big(t(\mathbf{x}) - f(\mathbf{x};\mathbf{w})\big)^2\Big]
+\;=\; \int \big(t(\mathbf{x}) - f(\mathbf{x};\mathbf{w})\big)^2 \, p(\mathbf{x})\, d\mathbf{x}.
+$$
+
+이 적분은 일반적으로 계산 불가능하다. $t(\mathbf{x})$를 모든 $\mathbf{x}$에서 알 수 없고, 입력 분포 $p(\mathbf{x})$도 모르기 때문이다. 따라서 i.i.d. 표본 $\{\mathbf{x}_1,\dots,\mathbf{x}_M\}\sim p(\mathbf{x})$로 **Monte Carlo 근사**한다.
+
+$$
+\mathrm{error}_{\text{true}}(\mathbf{w}) \;\approx\; \frac{1}{M}\sum_{m=1}^{M}\big(t(\mathbf{x}_m) - f(\mathbf{x}_m;\mathbf{w})\big)^2 .
+$$
+
+## 왜 training error는 true error를 과소평가하는가 {#sec-optimistic}
+
+Training error의 식과 Monte Carlo로 근사한 true error의 식은 **형태가 거의 같다**. 그런데도 training error가 true error의 나쁜 추정치인 이유는 핵심적이다.
+
+::: {.callout-important}
+## Optimistically biased estimate
+- 고정된 하나의 $\mathbf{w}$에 대해서는 training error가 true error의 **불편(unbiased) 추정치**다.
+- 그러나 우리는 *바로 그 training set에 대해* $\mathbf{w}$를 최적화했다. 즉 그 표본에 가장 잘 맞는 $\mathbf{w}^{*}$를 골랐다.
+- 따라서 같은 데이터로 측정한 training error는 **낙관적으로 편향(optimistically biased)**된다. 모델이 "정답을 보고 시험을 친" 셈이다.
+:::
+
+해결책은 데이터를 **training set과 test set으로 분리**하는 것이다. $\mathbf{w}^{*}$를 training set으로 구한 뒤, 한 번도 최적화에 쓰지 않은 test set에서 오차를 측정하면 일반화 성능(generalization error)의 **비편향 추정치**를 얻는다.
+
+| 오차 추정기 | 성격 | 용도 |
+|---|---|---|
+| Ground truth (true error) | 이상적 기준 (계산 불가) | 우리가 진짜 원하는 값 |
+| Training error | 낙관적으로 편향됨 | 학습의 목적 함수 |
+| Test error | 최종 측정치 (비편향) | 일반화 성능의 보고값 |
+
+## Bias–Variance Tradeoff {#sec-tradeoff}
+
+가설 클래스(hypothesis class)를 고르는 행위 자체가 **학습 편향(learning bias)**을 도입한다.
+
+- **더 복잡한 클래스 → bias 감소**: 표현할 수 있는 함수가 많아져 진짜 함수에 더 가까이 갈 수 있다.
+- **더 복잡한 클래스 → variance 증가**: 데이터의 작은 변동(노이즈)에도 해가 크게 흔들린다.
+
+모델 복잡도를 키우면 training error는 단조 감소하지만, true/test error는 **U자 곡선**을 그린다. 왼쪽은 underfitting(높은 bias), 오른쪽은 overfitting(높은 variance), 골짜기가 최적 복잡도다.
+
+::: {.callout-tip}
+## Overfitting의 형식적 정의
+데이터 분포 $D(X,Y)$와 가설 공간 $H$가 있을 때, 가설 $h\in H$가 다음을 만족하는 $h'\in H$를 가지면 $h$는 **overfit**한다.
+$$
+\mathrm{error}_{\text{train}}(h) < \mathrm{error}_{\text{train}}(h') \quad\text{이면서}\quad \mathrm{error}_{\text{true}}(h) > \mathrm{error}_{\text{true}}(h').
+$$
+즉 *training에서는 더 좋지만 true에서는 더 나쁜* 다른 가설이 존재한다는 뜻이다.
+:::
+
+::: {.callout-note}
+## Benign overfitting (최근 현상)
+전통적 bias–variance 관점에서는 모수가 지나치게 많으면 성능이 나빠져야 한다. 그러나 심하게 과매개변수화(over-parameterized)된 딥뉴럴넷은 **노이즈가 있는 데이터를 완벽히 보간(zero training error)하면서도** unseen data에서 거의 최적의 일반화 오차를 낸다. 이를 *benign overfitting*이라 하며, 전통적 tradeoff를 도전한다. 대비되는 개념으로 *tempered overfitting*, *catastrophic(전통적) overfitting*이 있다.
+:::
+
+### 무선통신 대응 {.unnumbered}
+
+::: {.callout-tip icon=false}
+## 📡 Bias–Variance ↔ 추정기 MSE 분해
+추정기 $\hat\theta$의 평균제곱오차는 정확히 같은 분해를 따른다.
+$$
+\mathrm{MSE}(\hat\theta) = \underbrace{\big(\mathbb{E}[\hat\theta]-\theta\big)^2}_{\text{bias}^2} + \underbrace{\mathrm{Var}(\hat\theta)}_{\text{variance}}.
+$$
+
+- **LS 채널 추정기 vs MMSE 채널 추정기**: LS는 unbiased지만 variance가 크다. MMSE는 채널 통계를 prior로 써서 *일부러 bias를 넣어* variance를 줄인다 — 모델 복잡도를 낮추는 정규화와 같은 원리.
+- **MVDR 빔포밍의 diagonal loading**: 스냅샷이 적을 때 공분산 추정의 variance가 폭증한다. 대각 로딩 $\hat{\mathbf{R}}+\epsilon\mathbf{I}$은 bias를 감수하고 variance를 억제하는 정규화다.
+- **AR/채널 탭 차수 선택**: 탭 수(모델 차수)를 늘리면 training fit은 좋아지나 노이즈까지 모델링해 overfit한다. 차수 선택 = capacity 선택.
+:::
+
+---
+
+# Capacity의 정량화: VC Dimension {#sec-vc}
+
+Capacity는 "모델이 얼마나 다양한 함수를 맞출 수 있는가"이다. 이를 통제하는 방법이 가설 공간 선택(예: 1차 다항식 = 선형, 2차 다항식 = 2차곡선)이며, 정량화 지표가 **Vapnik–Chervonenkis(VC) dimension**이다.
+
+## 정의: shattering {#sec-shatter}
+
+분류기 $f$의 VC dimension $h$는 **$f$가 산산이 분리(shatter)할 수 있는 점의 최대 개수**다. 여기서 "shatter"란 그 점들에 대한 *모든 가능한 이진 레이블 배정*을 $f$가 오차 없이 실현할 수 있음을 뜻한다. 즉 $h$ = 정확히 분류할 수 있는 training point의 최대 수.
+
+- 2차원 평면의 **직선 분류기**: $h = 3$ (어떤 위치의 점 3개든 8가지 ± 배정을 모두 실현 가능하지만, 일반적 4점은 불가).
+
+## 일반화 경계 (Vapnik, 1971) {#sec-vc-bound}
+
+가정: 모든 training/test 표본이 같은 분포에서 i.i.d.로 추출된다. 그러면 확률 $1-\eta$로
+
+$$
+\underbrace{\mathrm{TESTERR}}_{\text{일반화 오차}} \;\le\; \mathrm{TRAINERR} \;+\; \sqrt{\dfrac{h\big(\log(2R/h)+1\big) - \log(\eta/4)}{R}},
+$$
+
+여기서 $h$는 VC dimension, $R$은 training 표본 수다. 두 번째 항이 *capacity penalty*이며, $h$가 크면(복잡한 모델) 커지고 $R$이 크면(데이터 많음) 작아진다. **데이터가 많을수록 복잡한 모델을 안전하게 쓸 수 있다**는 직관의 수학적 근거다.
+
+| 분류기 | VC dimension |
+|---|---|
+| $d$차원 선형 분류기 (+ 상수항 $b$) | $d+1$ |
+| 신경망 | $\approx$ 모수 개수 |
+| 1-nearest neighbor | $\infty$ |
+
+::: {.callout-note}
+1-NN의 VC dimension이 무한대라는 것은, 임의의 레이블 배정도 항상 0 training error로 외워버릴 수 있음을 뜻한다 — 전형적 overfitting 기계.
+:::
+
+### 무선통신 대응 {.unnumbered}
+
+::: {.callout-tip icon=false}
+## 📡 VC bound ↔ 모델 차수 선택 / 표본 복잡도
+일반화 경계의 $R$(표본 수)는 채널 추정의 **파일럿(training symbol) 수**와 같은 역할이다. massive MIMO에서 추정해야 할 채널 차원 $h$가 커지면, 같은 성능을 위해 필요한 파일럿 수 $R$이 비례해 늘어난다 — 이것이 곧 *curse of dimensionality*이자 표본 복잡도(sample complexity)다.
+:::
+
+---
+
+# Inductive Bias와 일반화 {#sec-ind}
+
+제한된 training 표본으로 *미래(test)*를 더 잘 예측하려면, 모델에 가정을 더해 규제(regularize)해야 한다. 이 가정이 **inductive bias(귀납 편향)**이며, regularizer의 형태로 들어간다.
+
+## 대표적인 inductive bias {#sec-ind-examples}
+
+| 원리 | 내용 | 사용처 |
+|---|---|---|
+| Maximum conditional independence | 조건부 독립을 최대로 가정 | Naïve Bayes |
+| Minimum cross-validation error | CV 오차 최소 가설 선택 | 일반 모델 선택 |
+| Maximum margin | 결정 경계의 여유(margin) 최대화 | SVM |
+| Minimum description length | 더 짧은 설명 선호 (Occam) | Decision tree |
+| Minimum features | 쓸모없는 특징 제거 | Feature selection |
+| Nearest neighbor | 이웃의 다수결 레이블 부여 | k-NN |
+
+## Occam's Razor {#sec-occam}
+
+> "Pluralitas non est ponenda sine necessitate" — 필요 없이 복잡하게 만들지 말라.
+
+- **짧은 가설을 선호하는 논거**: 짧은 가설이 우연히 데이터에 맞을 확률이 낮다(긴 가설은 우연히 맞을 여지가 크다).
+- **반론**: 가설 공간이 작다고 가정하는 것일 뿐, 가설의 길이 자체에 본질적 특별함은 없다.
+
+## No Free Lunch Theorem {#sec-nfl}
+
+::: {.callout-important}
+## 정리 (Wolpert & Macready, 1997)
+*가능한 모든 데이터 생성 분포에 대해 평균을 내면*, 모든 분류 알고리즘은 본 적 없는 점을 분류할 때 동일한 오차율을 가진다.
+$\Rightarrow$ **보편적으로 다른 모든 알고리즘보다 우월한 머신러닝 알고리즘은 없다.**
+:::
+
+따라서 우리는 **특정 과제(task)에 잘 동작하도록** 알고리즘을 설계해야 한다. 과제마다 가장 적합한 모델이 다르므로, 새 과제를 만날 때마다 그에 맞는 모델을 설계/구축하게 된다.
+
+::: {.callout-note}
+## Foundation model은 NFL을 어기는가?
+하나의 거대한 사전학습 모델(foundation model)을 여러 과제에 재사용하는 흐름은 NFL과 모순처럼 보이지만 그렇지 않다. Foundation model도 특정 과제에 잘 쓰려면 **fine-tuning(또는 그 정교한 변형)**이라는 과정을 거쳐 해당 과제에 맞춰 규제·적응시켜야 한다. NFL은 수학적으로 증명된 정리이며, 실무에서는 "그 평균"이 우리가 마주치는 분포와 다르기 때문에 foundation model이 *실용적으로* 효과적인 것이다.
+:::
+
+---
+
+# Hyperparameter와 검증 {#sec-hyper}
+
+## Parameter vs Hyperparameter {#sec-param-vs-hyper}
+
+- **Parameter**: 데이터로부터 *학습되는* 값 (예: 가중치 $\mathbf{w}$, 동전 예제의 $p$). 학습 = parameter tuning.
+- **Hyperparameter**: 사람이 *지정하는* 값으로 모델/학습을 통제한다. 예: 정규화 계수 $\lambda$, learning rate, 층 수, 층의 폭(plane/space 크기) 등.
+
+핵심 질문: **hyperparameter는 어떻게 고르는가?** 목표는 모델을 unseen data에 대해 *최대한 일반화*시키는 것이므로, 학습에 쓰지 않은 데이터로 평가하며 골라야 한다.
+
+## Held-out(validation/development) data {#sec-heldout}
+
+Training 중 사용하지 않는 별도 데이터를 떼어 두고(held-out), 학습 도중 모델의 일반화 성능을 *엿보는(sneak peek)* 용도로 쓴다. 같은 데이터를 가리키는 여러 이름이 있다.
+
+| 이름 | 강조점 |
+|---|---|
+| Held-out set | 학습에서 *떼어 두었다*는 점 |
+| Validation set | 일반화를 *검증(validate)*한다는 점 |
+| Development set | 모델을 *개발(develop)*하며 본다는 점 |
+
+::: {.callout-warning}
+## Held-out의 단점
+이 데이터는 *training에 쓰이지 않는다*. 데이터가 비싸고 적을 때, 일부를 검증용으로 빼는 것은 귀중한 자원을 낭비하는 일이다.
+:::
+
+## k-fold Cross-Validation {#sec-cv}
+
+낭비 문제를 완화하려고, 명시적 held-out 없이도 검증하는 기법이 **교차검증(cross-validation)**이다.
+
+1. Training data를 $k$개의 부분집합(fold)으로 나눈다. 예: $\{1,2,3,4,5\}$.
+2. **1라운드**: fold $\{2,3,4,5\}$로 학습하고 fold $\{1\}$로 검증 → 하나의 hyperparameter 후보를 평가.
+3. **2라운드**: fold $\{1,3,4,5\}$로 학습하고 fold $\{2\}$로 검증 → 또 다른 후보.
+4. 모든 fold가 한 번씩 검증셋이 되도록 회전한다.
+5. $k$개의 결과를 **다수결(majority voting)/평균**으로 종합해 hyperparameter를 정한다.
+
+이렇게 하면 *모든 데이터를 학습에 활용하면서도* held-out 검증의 이점을 유지한다.
+
+### 무선통신 대응 {.unnumbered}
+
+::: {.callout-tip icon=false}
+## 📡 Validation ↔ 파일럿/데이터 심볼, CV ↔ 자원 재사용
+프레임의 파일럿 심볼로 채널을 추정(=학습)하고 데이터 심볼로 성능을 본다. 파일럿이 비쌀수록(오버헤드) "검증에 쓰는 데이터 낭비" 문제와 동일한 trade-off가 생긴다. CV의 fold 회전은 한정된 파일럿 자원을 최대로 재활용하려는 발상과 같다.
+:::
+
+---
+
+# Maximum Likelihood Estimation (MLE) {#sec-mle}
+
+## Likelihood란 무엇인가 {#sec-likelihood-def}
+
+**Likelihood**는 "당신의 이론적 모델이 관측(데이터)에 얼마나 잘 들어맞는가"의 양이다. 우리는 모델이 관측과 최대한 닮도록(fit) 모델의 *parameter*를 조정하고 싶다(이 조정이 곧 *learning*).
+
+회귀 직관: 데이터 점들에 직선 모델을 맞출 때, 데이터와 모델 사이의 *적합도*를 확률적으로 정의하고 그것을 최대화하면 모델의 모양이 데이터의 모양과 최대한 같아진다. "적합의 양을 확률로 잰다"가 likelihood의 본질이다.
+
+## 동전 던지기 예제 {#sec-coin}
+
+치우친(biased) 동전이 있다. $p$ = 앞면이 나올 확률. $n$번 던져 앞면이 $k$번 나왔다. 직관적으로 $\hat p = k/n$이지만, 이를 *수학적으로* 정당화하는 것이 MLE다.
+
+모델링: 각 던지기를 **i.i.d.**로 가정하고 Bernoulli/binomial로 본다.
+
+$$
+P(\text{Head}) = p,\qquad P(\text{Tail}) = 1-p,\qquad \text{flips are i.i.d.}
+$$
+
+앞면 $\alpha_H=k$번, 뒷면 $\alpha_T=n-k$번 관측한 수열 $\mathcal{D}$의 확률(=likelihood)은
+
+$$
+P(\mathcal{D}\mid p) \;=\; \binom{n}{\alpha_H}\, p^{\alpha_H}(1-p)^{\alpha_T}.
+$$
+
+::: {.callout-note}
+## Likelihood vs Posterior — 조건의 방향에 주의
+- **Likelihood** $P(\mathcal{D}\mid p)$: *모델(파라미터)을 가정*하고, 그 모델이 데이터를 얼마나 잘 설명하는지. "모델 → 데이터"의 부분적 그림.
+- **Posterior** $P(p\mid \mathcal{D})$: *데이터를 주고* 파라미터의 전체 분포를 본다. 파라미터 공간 전체에 대한 *완전한 그림*이며, 이로부터 데이터를 생성할 수도 있다 → **generative** 관점.
+
+조건 변수의 방향이 바뀌면 의미가 완전히 달라진다. MLE는 likelihood를, MAP/Bayesian은 posterior를 최대화한다.
+:::
+
+## 왜 log-likelihood인가 {#sec-loglik}
+
+likelihood 대신 **log-likelihood**를 최대화한다.
+
+$$
+\ell(p) \;=\; \log P(\mathcal{D}\mid p) \;=\; \alpha_H\log p + \alpha_T\log(1-p) + \text{const}.
+$$
+
+이유는 세 가지다.
+
+1. **Argmax 불변**: $\log$는 단조증가(monotonically increasing) 함수다. 단조증가 함수를 합성해도 극값의 *위치*는 바뀌지 않는다. 따라서 $\arg\max_p P(\mathcal{D}\mid p) = \arg\max_p \ell(p)$. (값의 크기는 바뀌어도 최적 $p$는 그대로.)
+2. **곱 → 합**: i.i.d.이면 likelihood가 *곱*인데, $\log$를 취하면 *합*이 된다. 곱셈보다 덧셈이 계산적으로 싸고 안정적이다.
+3. **Underflow/overflow 방지**: 작은 확률들의 곱은 매우 작은 수가 되어 컴퓨터의 부동소수점 범위를 벗어난다(underflow). $\log$는 이런 값을 다루기 쉬운 범위로 "포화"시켜 수치 안정성을 준다.
+
+::: {.callout-warning}
+$p\to 0$이면 $\log p \to -\infty$라는 부작용이 있으나, 현실적 추정에서 확률이 정확히 0이 되는 경우는 드물어 큰 문제가 되지 않는다.
+:::
+
+## MLE 해 유도 {#sec-mle-solve}
+
+목적함수가 $p$에 대해 (이 예제에서는) concave이므로, 1차 도함수를 0으로 두어 극값(maximum)을 찾는다.
+
+$$
+\frac{d\ell}{dp} = \frac{\alpha_H}{p} - \frac{\alpha_T}{1-p} = 0
+\;\Longrightarrow\; (1-p)\,\alpha_H = p\,\alpha_T
+\;\Longrightarrow\; \boxed{\;\hat p_{\text{MLE}} = \frac{\alpha_H}{\alpha_H + \alpha_T} = \frac{k}{n}\;}
+$$
+
+직관적 추측 $k/n$이 *유도되어* 나온다. (이는 면접 단골 문제이기도 하다.)
+
+::: {.callout-important}
+## 현실에서는 닫힌 해가 거의 없다
+이 동전 예제는 closed-form 해가 존재하는 *희귀한* 경우다. 실제 목적함수는 99%가 **convex도 concave도 아니어서** 도함수를 0으로 두는 것만으로는 풀리지 않는다. 그래서 **gradient descent**(언덕을 한 걸음씩 내려가는 반복법)로 근사 최적해를 찾는다.
+:::
+
+## Conditional Log-Likelihood (지도학습 일반형) {#sec-cond-loglik}
+
+대부분의 지도학습은 입력 $x$가 주어졌을 때 레이블 $y$의 확률 $P(y\mid x;\theta)$를 모델링한다. 표본이 i.i.d.이면
+
+$$
+\theta^{*} = \arg\max_\theta \prod_{i=1}^{N} P(y_i\mid x_i;\theta)
+= \arg\max_\theta \sum_{i=1}^{N} \log P(y_i\mid x_i;\theta).
+$$
+
+::: {.callout-note}
+## 세미콜론 표기 $P(y\mid x;\theta)$
+$\theta$는 조건이면서 동시에 *모델의 파라미터*다. 이 이중성을 드러내려 쉼표 대신 세미콜론을 쓰기도 한다: $P(y\mid x;\theta)$. 의미는 같다.
+:::
+
+### 왜 $p(x)$가 아니라 $p(y\mid x)$를 모델링하는가 {#sec-why-conditional}
+
+레이블 공간 $y$가 입력 공간 $x$보다 **의미적으로 훨씬 단순**하기 때문이다.
+
+- 예: 4K 이미지 한 장 ≈ $3840\times2160\times3 \approx 2.4\times10^7$ 픽셀. 영상은 초당 60–120 프레임. 입력 공간 $x$의 차원은 천문학적이다.
+- 반면 $y$는 "고양이/개" 같은 소수의 개념. $P(y\mid x)$를 푸는 편이 훨씬 다루기 쉽다(discriminative).
+
+반대로 $p(x)$ 자체(입력의 완전한 분포)를 모델링하면 이미지·영상·오디오를 **생성(generate)**할 수 있다 → generative model. (이후 강의의 생성모델로 이어지는 갈래.)
+
+### 무선통신 대응 {.unnumbered}
+
+::: {.callout-tip icon=false}
+## 📡 MLE ↔ ML detection, log-likelihood 합 ↔ MRC
+- **ML 심볼 검출**: $\hat{s}_{\text{ML}}=\arg\max_s p(\mathbf{y}\mid s)$. 심볼이 등확률이라는 *암묵적 prior* 하에서 likelihood만 최대화 — 정확히 MLE다.
+- **곱 → 합 = 다이버시티 합성**: 독립 수신 브랜치 $L$개의 결합 likelihood는 곱이고, log를 취하면 합이 된다. AWGN에서 이 log-likelihood 합을 최대화하는 것이 곧 **MRC(maximal-ratio combining)**의 결정 통계와 같은 구조다.
+- **Discriminative vs Generative**: 결정만 내리는 검출기는 $p(s\mid \mathbf{y})$(discriminative), 수신신호의 전체 분포 $p(\mathbf{y})$를 모델링하는 것은 채널·간섭의 생성 모델링에 해당.
+:::
+
+---
+
+# Bayesian 학습과 MAP {#sec-map}
+
+## 동기: 사전지식을 쓰자 {#sec-map-motivation}
+
+동전이 대략 "50–50"이라는 **사전지식(prior)**이 있다고 하자. 관측이 적을 때 MLE는 위험하다. 10번 던져 앞면 3번이면 MLE는 $\hat p=0.3$이라 말하지만, 우리는 이것이 부정확함을 안다. 관측이 제한적일수록, *이미 아는 지식*으로 추정을 안정화하고 싶다.
+
+> 관측에만 끌려가지(hook) 말고, 내가 *믿는 것*과 *본 것*을 함께 저울질해 더 나은 결정을 내리자 — 이것이 MAP/Bayesian의 철학.
+
+## Bayes 정리 {#sec-bayes}
+
+단일 $p$ 값 대신, $p$에 대한 *분포 전체*를 얻는다.
+
+$$
+\underbrace{P(p\mid\mathcal{D})}_{\text{Posterior}}
+= \frac{\overbrace{P(\mathcal{D}\mid p)}^{\text{Likelihood}}\,\overbrace{P(p)}^{\text{Prior}}}{\underbrace{P(\mathcal{D})}_{\text{Evidence (normalization)}}},
+\qquad
+P(\mathcal{D}) = \int P(\mathcal{D}\mid p)\,P(p)\,dp .
+$$
+
+- **Likelihood** $P(\mathcal{D}\mid p)$: 보통 쉽게 얻는다(모델·파라미터를 주면 데이터 확률을 PDF에서 읽음).
+- **Prior** $P(p)$: 전문가 지식. 종종 얻기 쉽다.
+- **Evidence** $P(\mathcal{D})$: 데이터 공간 전체에 대한 적분/Monte Carlo가 필요해 *매우 어렵다*. (예: "개 이미지 데이터의 확률"을 어떻게 계산하나?)
+
+## MAP는 Evidence를 피한다 {#sec-map-trick}
+
+다행히 우리가 원하는 것은 posterior를 최대화하는 $\hat p$뿐이다. Evidence $P(\mathcal{D})$는 $p$의 함수가 아니라 단지 상수이므로, $\arg\max$에서 **소거된다**.
+
+$$
+\hat p_{\text{MAP}} = \arg\max_p P(p\mid\mathcal{D})
+= \arg\max_p P(\mathcal{D}\mid p)\,P(p).
+$$
+
+::: {.callout-important}
+## MAP가 MLE로 환원되는 경우
+Prior가 없으면(=모름) prior를 **균등(uniform)**으로 둔다. 균등분포는 상수이므로 $\arg\max$에 영향을 주지 않는다.
+$$
+P(p)=\text{const}\;\Longrightarrow\; \arg\max_p P(\mathcal{D}\mid p)P(p) = \arg\max_p P(\mathcal{D}\mid p).
+$$
+즉 **MLE는 "prior를 균등하게 가정한 MAP"의 특수한 경우**다. (MLE가 prior를 *무시*하는 것이 아니라, *균등 prior를 가정*하는 것이라는 점이 정확한 표현.)
+:::
+
+## Conjugate Prior와 Beta 분포 {#sec-conjugate}
+
+Posterior를 닫힌 형태로 얻으려면 prior를 잘 골라야 한다. **Conjugate prior**는 *posterior가 prior와 같은 분포족(family)에 속하게 만드는* prior다.
+
+- **장점**: 대수적 편의 — posterior가 닫힌 형태로 나온다.
+- **교육적 장점**: likelihood가 prior를 어떻게 갱신하는지(분포족은 같고 *모수만* 바뀜) 명확히 보여준다.
+
+Binomial likelihood의 conjugate prior는 **Beta 분포**다(Beta는 exponential family에 속함).
+
+$$
+P(p) = \frac{p^{\beta_H-1}(1-p)^{\beta_T-1}}{B(\beta_H,\beta_T)} \sim \mathrm{Beta}(\beta_H,\beta_T).
+$$
+
+모양 직관: $\mathrm{Beta}(1,1)$은 **균등분포**, $\mathrm{Beta}(2,2)$·$\mathrm{Beta}(3,2)$는 봉우리가 생기고, $\mathrm{Beta}(30,20)$은 좁고 뾰족해 *치우친(skewed) Gaussian*처럼 보인다.
+
+## Posterior와 MAP 추정량 {#sec-map-estimator}
+
+Beta prior를 binomial likelihood에 곱하면, 지수가 더해져 posterior가 다시 Beta가 된다(conjugacy).
+
+$$
+P(p\mid\mathcal{D}) = \frac{p^{\alpha_H+\beta_H-1}(1-p)^{\alpha_T+\beta_T-1}}{B(\beta_H+\alpha_H,\ \beta_T+\alpha_T)} \sim \mathrm{Beta}(\beta_H+\alpha_H,\ \beta_T+\alpha_T).
+$$
+
+이 posterior를 최대화(앞서와 같은 미분 트릭)하면 MAP 추정량을 얻는다.
+
+$$
+\boxed{\;\hat p_{\text{MAP}} = \arg\max_p P(p\mid\mathcal{D}) = \frac{\alpha_H+\beta_H-1}{\alpha_H+\beta_H+\alpha_T+\beta_T-2}\;}
+$$
+
+::: {.callout-tip}
+## Prior = "상상의 추가 관측"
+MAP 식을 MLE 식 $\frac{\alpha_H}{\alpha_H+\alpha_T}$와 비교하면, prior의 $\beta_H,\beta_T$가 **실제로 던지지 않았지만 경험으로 가진 가상의 던지기 횟수(extra/pseudo tosses)**처럼 작용한다. 즉 prior는 "이전 생애의 경험치"를 관측에 더해 주는 것.
+
+- **데이터 폭증($N\to\infty$)**: $\alpha_H,\alpha_T \gg \beta_H,\beta_T$가 되어 prior는 *잊힌다(forgotten)* → MAP $\to$ MLE.
+- **소표본**: 예컨대 10번 관측 vs prior가 1000번 분량이면 prior가 추정을 지배 → 안정적 추정.
+:::
+
+::: {.callout-note}
+## 대규모 학습과의 연결
+관측이 사실상 무한할 때(예: 수십억 토큰으로 학습하는 대형 모델)는 prior를 잊고 데이터에 의존한다. 반대로 데이터가 적은 초기 단계·소규모 문제에서는 prior(사전지식)에 의존해야 안정적이다. "데이터가 충분하면 데이터를, 부족하면 사전지식을"이라는 원리가 현대 대규모 학습의 철학적 바탕이다.
+:::
+
+### 무선통신 대응 {.unnumbered}
+
+::: {.callout-tip icon=false}
+## 📡 MAP ↔ MAP detection, Beta pseudo-count ↔ Bayesian 채널추정
+- **MAP 심볼 검출**: $\hat{s}_{\text{MAP}}=\arg\max_s p(\mathbf{y}\mid s)\,P(s)$. 심볼의 a priori 확률 $P(s)$가 prior다. **심볼이 등확률이면 $P(s)$가 상수가 되어 MAP = ML** — 본문의 "uniform prior → MAP = MLE"와 정확히 같은 구조.
+- **Prior ↔ 채널 통계**: MMSE/Bayesian 채널 추정은 채널의 사전 통계 $\mathbf{R}_h$를 prior로 써서 적은 파일럿으로도 안정적 추정을 얻는다. Beta의 pseudo-count가 "가상 관측"이듯, MMSE는 prior 공분산이 "가상 측정"처럼 추정을 끌어당긴다.
+- **소표본 ↔ 적은 스냅샷**: 파일럿/스냅샷이 적을수록 prior(채널 통계)의 비중이 커지고, 많을수록 측정 데이터가 지배한다 — $N\to\infty$에서 prior가 잊히는 것과 동일.
+:::
+
+---
+
+# 종합 정리 {#sec-summary}
+
+```{mermaid}
+%%| label: fig-overview
+%%| fig-cap: "일반화 이론과 추정 이론의 큰 그림"
+flowchart TD
+    A[일반화의 목표:<br/>unseen data 성능] --> B[Bias-Variance Tradeoff]
+    B --> C[Capacity 통제]
+    C --> C1[VC dimension]
+    C --> C2[Inductive bias / 정규화]
+    C2 --> C3[Occam's Razor]
+    A --> D[No Free Lunch:<br/>task별 모델 설계]
+    A --> E[Hyperparameter 선택]
+    E --> E1[Held-out / Validation]
+    E --> E2[k-fold Cross-Validation]
+    F[모수 추정] --> G[MLE: max likelihood]
+    F --> H[MAP: max posterior]
+    G -. uniform prior .-> H
+    H --> H1[Conjugate prior / Beta]
+    H --> H2[prior = 가상 관측]
+```
+
+## 핵심 대비표 {#sec-final-table}
+
+| 항목 | MLE | MAP |
+|---|---|---|
+| 최대화 대상 | $P(\mathcal{D}\mid\theta)$ | $P(\theta\mid\mathcal{D})\propto P(\mathcal{D}\mid\theta)P(\theta)$ |
+| Prior | 균등(암묵적) | 명시적 사용 |
+| Evidence $P(\mathcal{D})$ | 불필요 | $\arg\max$에서 소거됨 |
+| 동전 예제 해 | $\dfrac{\alpha_H}{\alpha_H+\alpha_T}$ | $\dfrac{\alpha_H+\beta_H-1}{\alpha_H+\beta_H+\alpha_T+\beta_T-2}$ |
+| 소표본 거동 | 불안정(관측에 끌려감) | prior가 안정화 |
+| $N\to\infty$ | — | MAP $\to$ MLE (prior 잊힘) |
+| 통신 대응 | ML detection | MAP detection |
+
+## 한눈에 보는 결론 {#sec-takeaways}
+
+1. **Bias–variance tradeoff**는 일반화를 이해하는 중심 개념이다.
+2. **Inductive bias**(특히 Occam's razor)는 overfitting을 막는 보편적 도구다.
+3. **VC dimension**은 분류기 capacity의 정량적 척도이며, 일반화 경계로 데이터 양과 모델 복잡도의 관계를 설명한다.
+4. **No Free Lunch**: 보편 최강 알고리즘은 없다 — 과제에 맞춰 설계하라.
+5. **Hyperparameter**는 (cross-validation 등으로) 반드시 튜닝해야 한다.
+6. **MLE**는 널리 쓰이는 추정 도구이고, **MAP**는 prior의 도움으로 더 나은 추정을 주는, 실무에서 더 널리 쓰이는 일반화다.
+
+---
+
+# 부록: 동전 예제 수치 실험 {#sec-appendix}
+
+MLE와 MAP가 소표본에서 어떻게 다른지, prior가 어떻게 "잊히는지"를 직접 확인한다.
+
+```{python}
+#| label: fig-mle-vs-map
+#| fig-cap: "표본 수에 따른 MLE vs MAP 추정값 (참값 p=0.5, prior Beta(beta_H=beta_T=10))"
+import numpy as np
+import matplotlib.pyplot as plt
+
+rng = np.random.default_rng(0)
+p_true = 0.5
+beta_H = beta_T = 10.0          # prior: 약 18번의 가상 관측에 해당 (beta_H+beta_T-2)
+Ns = np.unique(np.round(np.logspace(0, 3.5, 40)).astype(int))
+
+mle_vals, map_vals = [], []
+for N in Ns:
+    flips = rng.random(N) < p_true
+    aH = flips.sum(); aT = N - aH
+    mle = aH / N if N > 0 else np.nan
+    mapv = (aH + beta_H - 1) / (aH + beta_H + aT + beta_T - 2)
+    mle_vals.append(mle); map_vals.append(mapv)
+
+plt.figure(figsize=(7,4))
+plt.axhline(p_true, color='k', ls='--', lw=1, label='true p = 0.5')
+plt.semilogx(Ns, mle_vals, 'o-', ms=3, label='MLE  =  $\\alpha_H/(\\alpha_H+\\alpha_T)$')
+plt.semilogx(Ns, map_vals, 's-', ms=3, label='MAP (Beta(10,10) prior)')
+plt.xlabel('number of tosses  $N$'); plt.ylabel('estimated  $p$')
+plt.title('MLE vs MAP: prior is forgotten as N grows')
+plt.legend(); plt.grid(alpha=0.3); plt.tight_layout()
+plt.show()
+```
+
+소표본에서는 MAP가 prior($p\approx0.5$) 쪽으로 끌려가 안정적이고, $N$이 커질수록 MLE와 MAP가 모두 참값으로 수렴하며 둘의 차이가 사라진다(=prior가 잊힘). 이것이 본문 @sec-map-estimator 의 "$N\to\infty$이면 prior가 forgotten"을 수치로 보인 것이다.
