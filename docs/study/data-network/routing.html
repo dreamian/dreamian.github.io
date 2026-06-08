@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.35">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-06-08">
+
+<title>라우팅: 최단경로 알고리즘과 최적 라우팅 – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script><script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-46f66b053e56abd73bb6e954d61a315b.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-2c169b83e1fc2996b25bcc8774810429.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script src="../../site_libs/quarto-diagram/mermaid.min.js"></script>
+<script src="../../site_libs/quarto-diagram/mermaid-init.js"></script>
+<link href="../../site_libs/quarto-diagram/mermaid.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/requirejs@2.3.6/require.min.js" integrity="sha384-c9c+LnTbwQ3aujuU7ULEPVvgLs+Fn6fJUvIGTsuu1ZcCf11fiEubah0ttpca4ntM sha384-6V1/AdqZRWk1KAlWbKBlGhN7VG4iE/yAZcO6NZPMF8od0vukrvr0tg4qY6NSrItx" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#sec-overview" id="toc-sec-overview" class="nav-link active" data-scroll-target="#sec-overview"><span class="header-section-number">1</span> 큰 그림</a></li>
+  <li><a href="#sec-shortest" id="toc-sec-shortest" class="nav-link" data-scroll-target="#sec-shortest"><span class="header-section-number">2</span> 줄기 A. 최단경로 라우팅</a>
+  <ul class="collapse">
+  <li><a href="#sec-optprinciple" id="toc-sec-optprinciple" class="nav-link" data-scroll-target="#sec-optprinciple"><span class="header-section-number">2.1</span> Optimality Principle 와 Sink Tree</a></li>
+  <li><a href="#sec-bf" id="toc-sec-bf" class="nav-link" data-scroll-target="#sec-bf"><span class="header-section-number">2.2</span> Distance Vector = Bellman–Ford</a>
+  <ul class="collapse">
+  <li><a href="#예제-토폴로지" id="toc-예제-토폴로지" class="nav-link" data-scroll-target="#예제-토폴로지"><span class="header-section-number">2.2.1</span> 예제 토폴로지</a></li>
+  <li><a href="#sec-countinf" id="toc-sec-countinf" class="nav-link" data-scroll-target="#sec-countinf"><span class="header-section-number">2.2.2</span> Count-to-Infinity</a></li>
+  </ul></li>
+  <li><a href="#sec-dijkstra" id="toc-sec-dijkstra" class="nav-link" data-scroll-target="#sec-dijkstra"><span class="header-section-number">2.3</span> Link State = Dijkstra</a></li>
+  <li><a href="#sec-aux" id="toc-sec-aux" class="nav-link" data-scroll-target="#sec-aux"><span class="header-section-number">2.4</span> 보조 주제</a></li>
+  </ul></li>
+  <li><a href="#sec-optimal" id="toc-sec-optimal" class="nav-link" data-scroll-target="#sec-optimal"><span class="header-section-number">3</span> 줄기 B. 최적 라우팅</a>
+  <ul class="collapse">
+  <li><a href="#sec-formulation" id="toc-sec-formulation" class="nav-link" data-scroll-target="#sec-formulation"><span class="header-section-number">3.1</span> 문제 정식화</a>
+  <ul class="collapse">
+  <li><a href="#링크-비용과-한계지연-시각화" id="toc-링크-비용과-한계지연-시각화" class="nav-link" data-scroll-target="#링크-비용과-한계지연-시각화"><span class="header-section-number">3.1.1</span> 링크 비용과 한계지연 시각화</a></li>
+  </ul></li>
+  <li><a href="#sec-optcond" id="toc-sec-optcond" class="nav-link" data-scroll-target="#sec-optcond"><span class="header-section-number">3.2</span> 최적성 필요조건</a></li>
+  <li><a href="#sec-direction" id="toc-sec-direction" class="nav-link" data-scroll-target="#sec-direction"><span class="header-section-number">3.3</span> Feasible / Descent Direction</a></li>
+  <li><a href="#sec-fw" id="toc-sec-fw" class="nav-link" data-scroll-target="#sec-fw"><span class="header-section-number">3.4</span> Frank–Wolfe (Flow Deviation)</a>
+  <ul class="collapse">
+  <li><a href="#작은-예제" id="toc-작은-예제" class="nav-link" data-scroll-target="#작은-예제"><span class="header-section-number">3.4.1</span> 작은 예제</a></li>
+  </ul></li>
+  <li><a href="#sec-nlp" id="toc-sec-nlp" class="nav-link" data-scroll-target="#sec-nlp"><span class="header-section-number">3.5</span> 비선형 최적화 배경</a></li>
+  <li><a href="#sec-gp" id="toc-sec-gp" class="nav-link" data-scroll-target="#sec-gp"><span class="header-section-number">3.6</span> Gradient Projection 적용</a>
+  <ul class="collapse">
+  <li><a href="#구체-예제" id="toc-구체-예제" class="nav-link" data-scroll-target="#구체-예제"><span class="header-section-number">3.6.1</span> 구체 예제</a></li>
+  <li><a href="#fw-vs-gradient-projection" id="toc-fw-vs-gradient-projection" class="nav-link" data-scroll-target="#fw-vs-gradient-projection"><span class="header-section-number">3.6.2</span> FW vs Gradient Projection</a></li>
+  <li><a href="#통합-알고리즘-골격" id="toc-통합-알고리즘-골격" class="nav-link" data-scroll-target="#통합-알고리즘-골격"><span class="header-section-number">3.6.3</span> 통합 알고리즘 골격</a></li>
+  </ul></li>
+  <li><a href="#sec-twolink" id="toc-sec-twolink" class="nav-link" data-scroll-target="#sec-twolink"><span class="header-section-number">3.7</span> Two-Link 문제: closed form</a>
+  <ul class="collapse">
+  <li><a href="#최적-분할의-부하-의존성" id="toc-최적-분할의-부하-의존성" class="nav-link" data-scroll-target="#최적-분할의-부하-의존성"><span class="header-section-number">3.7.1</span> 최적 분할의 부하 의존성</a></li>
+  <li><a href="#한계지연-균등화-확인" id="toc-한계지연-균등화-확인" class="nav-link" data-scroll-target="#한계지연-균등화-확인"><span class="header-section-number">3.7.2</span> 한계지연 균등화 확인</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#sec-design" id="toc-sec-design" class="nav-link" data-scroll-target="#sec-design"><span class="header-section-number">4</span> 줄기 C. 토폴로지 설계</a>
+  <ul class="collapse">
+  <li><a href="#sec-capacity" id="toc-sec-capacity" class="nav-link" data-scroll-target="#sec-capacity"><span class="header-section-number">4.1</span> Capacity Assignment</a></li>
+  <li><a href="#sec-concentrator" id="toc-sec-concentrator" class="nav-link" data-scroll-target="#sec-concentrator"><span class="header-section-number">4.2</span> Concentrator Location</a></li>
+  </ul></li>
+  <li><a href="#sec-summary" id="toc-sec-summary" class="nav-link" data-scroll-target="#sec-summary"><span class="header-section-number">5</span> 핵심 정리</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="routing.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">라우팅: 최단경로 알고리즘과 최적 라우팅</h1>
+<p class="subtitle lead">Data Networks — Routing</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">June 8, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="sec-overview" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 큰 그림</h1>
+<p>라우팅은 두 개의 서로 다른 질문으로 나뉜다.</p>
+<ul>
+<li><strong>줄기 A — 최단경로 알고리즘</strong>: “경로를 <em>어떻게 찾는가</em>” (Bellman–Ford, Dijkstra). 링크 비용을 <strong>고정값</strong>으로 보고 단일 최단경로를 찾는다.</li>
+<li><strong>줄기 B — 최적 라우팅</strong>: “트래픽을 여러 경로에 <em>어떻게 나눠 흘려</em> 평균 지연을 최소화하는가.” 링크 비용이 <strong>부하에 따라 증가</strong>한다는 사실을 반영한 비선형 최적화 문제다.</li>
+</ul>
+<p>이론적 무게중심은 <strong>줄기 B</strong>에 있다. 줄기 A는 빠르게 정리하고, B를 first-principles로 깊게 다룬다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>핵심 연결고리
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>링크 비용함수 <span class="math inline">D_{ij}(F_{ij}) = \dfrac{F_{ij}}{C_{ij}-F_{ij}}</span> 는 <strong>M/M/1 큐의 평균 시스템 내 패킷 수</strong> <span class="math inline">\rho/(1-\rho)</span> 와 같은 형태다. 따라서 <span class="math inline">\sum_{(i,j)} D_{ij}</span> 를 최소화하는 일은 Little의 법칙을 거쳐 <strong>망 평균 패킷 지연</strong>을 최소화하는 일과 동치다. 큐잉 이론이 라우팅 목적함수로 그대로 들어오는 지점이다.</p>
+</div>
+</div>
+<hr>
+</section>
+<section id="sec-shortest" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> 줄기 A. 최단경로 라우팅</h1>
+<section id="sec-optprinciple" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="sec-optprinciple"><span class="header-section-number">2.1</span> Optimality Principle 와 Sink Tree</h2>
+<blockquote class="blockquote">
+<p>라우터 <span class="math inline">J</span> 가 <span class="math inline">I \to K</span> 의 최적 경로 위에 있다면, <span class="math inline">J \to K</span> 의 최적 경로도 같은 경로를 따른다.</p>
+</blockquote>
+<p>직접적인 따름정리: <strong>한 목적지 <span class="math inline">K</span> 로 향하는 모든 출발지의 최적 경로 집합은 <span class="math inline">K</span> 를 뿌리로 하는 트리(sink tree)를 이룬다.</strong> 두 최적 경로가 갈라졌다 다시 만나면 루프가 생기거나 둘 중 하나가 더 짧다는 모순이 되므로, 목적지별로 사이클 없는 트리가 된다(유일하지는 않음). 모든 라우팅 프로토콜의 목표는 결국 이 sink tree를 발견하고 사용하는 것이다.</p>
+<p>이 성질은 동적 프로그래밍(Bellman 방정식)의 최적 부분구조와 같으며, 그래서 Bellman–Ford가 성립한다.</p>
+<div class="cell" data-layout-align="center">
+<details class="code-fold">
+<summary>코드 보기</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode default code-with-copy"><code class="sourceCode default"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>graph LR</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  S1((source A)) --&gt; J((node J))</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  S2((source B)) --&gt; J</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  J --&gt; K((dest K))</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  S3((source C)) --&gt; K</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">graph LR
+  S1((source A)) --&gt; J((node J))
+  S2((source B)) --&gt; J
+  J --&gt; K((dest K))
+  S3((source C)) --&gt; K
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+</section>
+<section id="sec-bf" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="sec-bf"><span class="header-section-number">2.2</span> Distance Vector = Bellman–Ford</h2>
+<p>각 라우터가 <code>(목적지, 거리)</code> 테이블을 유지하고 <strong>이웃까지의 거리만</strong> 안다는 가정에서 출발한다. 목적지를 노드 1로 고정하면:</p>
+<ul>
+<li><span class="math inline">d_{ij} = \infty</span> : <span class="math inline">(i,j)</span> 가 arc가 아니면</li>
+<li><span class="math inline">D_i^{h}</span> : 노드 <span class="math inline">i</span> 에서 1까지 <strong>최대 <span class="math inline">h</span> 개 arc</strong> 로 가는 최단거리</li>
+<li>초기조건 <span class="math inline">D_1^{h} = 0\ (\forall h)</span>, <span class="math inline">D_i^{0} = \infty\ (\forall i \ne 1)</span></li>
+</ul>
+<p><span class="math display">
+D_i^{h+1} = \min_{j}\big[\, d_{ij} + D_j^{h} \,\big], \qquad \forall i \ne 1
+</span></p>
+<p><strong>직관</strong>: “다음 hop <span class="math inline">j</span> 로 한 걸음(<span class="math inline">d_{ij}</span>) + 거기서 <span class="math inline">h</span> hop 이내로 도착(<span class="math inline">D_j^h</span>)” 을 모든 이웃에 대해 최소화한다. hop 수를 단계 변수로 둔 DP이며, 음의 사이클이 없으면 <span class="math inline">h = N-1</span> 에서 수렴한다.</p>
+<section id="예제-토폴로지" class="level3" data-number="2.2.1">
+<h3 data-number="2.2.1" class="anchored" data-anchor-id="예제-토폴로지"><span class="header-section-number">2.2.1</span> 예제 토폴로지</h3>
+<p>목적지는 노드 1. 화살표 위 숫자는 1 방향으로의 링크 비용이다.</p>
+<div class="cell" data-layout-align="center">
+<details class="code-fold">
+<summary>코드 보기</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode default code-with-copy"><code class="sourceCode default"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>graph LR</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  N2((2)) --&gt;|1| N1((1 dest))</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  N3((3)) --&gt;|4| N1</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  N3 --&gt;|1| N2</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  N4((4)) --&gt;|8| N2</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  N5((5)) --&gt;|2| N3</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  N5 --&gt;|4| N4</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">graph LR
+  N2((2)) --&gt;|1| N1((1 dest))
+  N3((3)) --&gt;|4| N1
+  N3 --&gt;|1| N2
+  N4((4)) --&gt;|8| N2
+  N5((5)) --&gt;|2| N3
+  N5 --&gt;|4| N4
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<p>반복을 직접 돌려 수렴을 확인한다.</p>
+<div id="cell-fig-bf-table" class="cell" data-execution_count="1">
+<details class="code-fold">
+<summary>코드 보기</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> math</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>nodes <span class="op">=</span> [<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">5</span>]</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 목적지(1) 방향 out-arc:  i -&gt; (j, 비용 d_ij)</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>arcs <span class="op">=</span> {<span class="dv">1</span>: [], <span class="dv">2</span>: [(<span class="dv">1</span>, <span class="dv">1</span>)], <span class="dv">3</span>: [(<span class="dv">1</span>, <span class="dv">4</span>), (<span class="dv">2</span>, <span class="dv">1</span>)], <span class="dv">4</span>: [(<span class="dv">2</span>, <span class="dv">8</span>)], <span class="dv">5</span>: [(<span class="dv">3</span>, <span class="dv">2</span>), (<span class="dv">4</span>, <span class="dv">4</span>)]}</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>INF <span class="op">=</span> math.inf</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>D <span class="op">=</span> {i: (<span class="dv">0</span> <span class="cf">if</span> i <span class="op">==</span> <span class="dv">1</span> <span class="cf">else</span> INF) <span class="cf">for</span> i <span class="kw">in</span> nodes}</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>history <span class="op">=</span> [<span class="bu">dict</span>(h<span class="op">=</span><span class="dv">0</span>, <span class="op">**</span>{<span class="ss">f"D</span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">"</span>: D[i] <span class="cf">for</span> i <span class="kw">in</span> nodes})]</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">1</span>, <span class="dv">5</span>):</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    newD <span class="op">=</span> {i: (<span class="dv">0</span> <span class="cf">if</span> i <span class="op">==</span> <span class="dv">1</span> <span class="cf">else</span> INF) <span class="cf">for</span> i <span class="kw">in</span> nodes}</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> nodes:</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> i <span class="op">==</span> <span class="dv">1</span>:</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        cands <span class="op">=</span> [d_ij <span class="op">+</span> D[j] <span class="cf">for</span> (j, d_ij) <span class="kw">in</span> arcs[i]]</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        newD[i] <span class="op">=</span> <span class="bu">min</span>(cands) <span class="cf">if</span> cands <span class="cf">else</span> INF</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    D <span class="op">=</span> newD</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    history.append(<span class="bu">dict</span>(h<span class="op">=</span>h, <span class="op">**</span>{<span class="ss">f"D</span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">"</span>: D[i] <span class="cf">for</span> i <span class="kw">in</span> nodes}))</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>pd.DataFrame(history).set_index(<span class="st">"h"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div id="fig-bf-table" class="cell-output cell-output-display quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="9">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-bf-table-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">D1</th>
+<th data-quarto-table-cell-role="th">D2</th>
+<th data-quarto-table-cell-role="th">D3</th>
+<th data-quarto-table-cell-role="th">D4</th>
+<th data-quarto-table-cell-role="th">D5</th>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">h</th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>0</td>
+<td>inf</td>
+<td>inf</td>
+<td>inf</td>
+<td>inf</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>0</td>
+<td>1.0</td>
+<td>4.0</td>
+<td>inf</td>
+<td>inf</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>0</td>
+<td>1.0</td>
+<td>2.0</td>
+<td>9.0</td>
+<td>6.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>0</td>
+<td>1.0</td>
+<td>2.0</td>
+<td>9.0</td>
+<td>4.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>0</td>
+<td>1.0</td>
+<td>2.0</td>
+<td>9.0</td>
+<td>4.0</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-bf-table-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1
+</figcaption>
+</figure>
+</div>
+</div>
+<p><span class="math inline">h=1</span> 에서 직접 이웃만, <span class="math inline">h=2</span> 에서 노드 3이 2를 경유해 <span class="math inline">4\to2</span> 로 개선, <span class="math inline">h=3</span> 에서 노드 5가 3을 경유해 <span class="math inline">6\to4</span> 로 개선되며 <span class="math inline">h=3</span> 에 수렴한다. <strong>“좋은 소식”이 한 hop씩 전파</strong>되는 그림이다.</p>
+</section>
+<section id="sec-countinf" class="level3" data-number="2.2.2">
+<h3 data-number="2.2.2" class="anchored" data-anchor-id="sec-countinf"><span class="header-section-number">2.2.2</span> Count-to-Infinity</h3>
+<p>좋은 소식(거리 감소)은 빠르게 퍼지지만 <strong>나쁜 소식(링크 단절)은 느리게 퍼진다.</strong> 링크 <span class="math inline">A\!-\!B</span> 가 끊겼는데 이웃 <span class="math inline">C</span> 가 (이미 끊긴 <span class="math inline">A</span> 를 경유하는 stale 정보로) “나는 <span class="math inline">B</span> 까지 2면 간다”고 광고하면, <span class="math inline">A</span> 는 “<span class="math inline">C</span> 거쳐 3”으로 착각한다. 그러면 <span class="math inline">C</span> 는 다시 “그럼 4”… 서로의 옛 정보를 믿으며 거리값이 1씩 천천히 <span class="math inline">\infty</span> 로 올라간다.</p>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>DV 라우팅의 본질적 단점
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><strong>느린 수렴</strong> (count-to-infinity): 서로를 다음 hop으로 믿는 상호 의존이 원인.</li>
+<li><strong>링크 용량을 고려하지 않음</strong>: 부하가 몰려도 같은 경로만 고집한다 → 줄기 B로 가는 동기.</li>
+</ol>
+</div>
+</div>
+</section>
+</section>
+<section id="sec-dijkstra" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="sec-dijkstra"><span class="header-section-number">2.3</span> Link State = Dijkstra</h2>
+<p>각 라우터가 (1) 이웃 발견, (2) 이웃까지 비용 측정, (3) 상태 패킷 생성, (4) <strong>전체 broadcast</strong>, (5) 전역 토폴로지로 <strong>Dijkstra</strong> 계산을 한다.</p>
+<ul>
+<li>초기: <span class="math inline">P=\{1\}</span>, <span class="math inline">D_1=0</span>, <span class="math inline">D_j=d_{j1}\ (j\ne1)</span></li>
+<li>Step 1: <span class="math inline">P</span> 밖에서 <span class="math inline">D_i=\min_{j\notin P} D_j</span> 인 <span class="math inline">i</span> 를 <span class="math inline">P</span> 에 추가. 전체면 종료.</li>
+<li>Step 2: <span class="math inline">P</span> 밖 모든 <span class="math inline">j</span> 에 대해 <span class="math inline">D_j := \min\big[D_j,\ d_{ji}+D_i\big]</span>. Step 1로.</li>
+</ul>
+<p><strong>왜 greedy가 통하는가</strong>: arc 길이가 비음수이므로, <span class="math inline">P</span> 밖에서 가장 가까운 <span class="math inline">i</span> 를 고르면 <span class="math inline">i</span> 로 가는 더 짧은 경로는 존재할 수 없다(다른 경로는 더 먼 노드를 경유 → 비음수 가중치로 더 길어짐). 한 번 확정된 노드는 다시 갱신되지 않는다. DV가 hop 수로 DP를 도는 것과 달리 <strong>거리 순서로</strong> 확정한다.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>구분</th>
+<th>Distance Vector (BF)</th>
+<th>Link State (Dijkstra)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>정보 범위</td>
+<td>이웃 정보만, 분산적</td>
+<td>전역 토폴로지</td>
+</tr>
+<tr class="even">
+<td>수렴</td>
+<td>느림, count-to-infinity</td>
+<td>빠름, 안정적</td>
+</tr>
+<tr class="odd">
+<td>갱신 순서</td>
+<td>hop 수 증가</td>
+<td>거리 증가</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="sec-aux" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="sec-aux"><span class="header-section-number">2.4</span> 보조 주제</h2>
+<ul>
+<li><strong>Hierarchical routing</strong>: 망이 커지면 테이블·메모리·CPU·상태보고가 폭증 → 영역 계층화로 완화.</li>
+<li><strong>Flooding</strong>: 들어온 링크 제외 모든 링크로 복사. 중복은 (a) hop counter 0이면 폐기, (b) 같은 패킷 재전달 금지로 제어. <strong>항상 최단경로를 포함</strong>하므로 지연 최소·견고. 분산 DB 등에 유용.</li>
+<li><strong>Multicast</strong>: 그룹(join/leave 관리) 대상 전송, 각 라우터가 spanning tree 계산. 예: DVMRP, Core Based Tree.</li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="sec-optimal" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> 줄기 B. 최적 라우팅</h1>
+<section id="sec-formulation" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="sec-formulation"><span class="header-section-number">3.1</span> 문제 정식화</h2>
+<p><strong>링크 단위</strong>: <span class="math inline">F_{ij}</span>(flow), <span class="math inline">C_{ij}</span>(용량), <span class="math inline">d_{ij}</span>(전파지연), <span class="math inline">D_{ij}</span>(비용함수).</p>
+<p><span class="math display">
+D_{ij}(F_{ij}) \;=\; \frac{F_{ij}}{C_{ij}-F_{ij}} \;+\; d_{ij}F_{ij}
+</span></p>
+<p>첫 항은 M/M/1 평균 패킷 수(<span class="math inline">\rho/(1-\rho)</span>, <span class="math inline">\rho=F_{ij}/C_{ij}</span>), 둘째 항은 Little에 의한 “전파 중 평균 패킷 수”(<span class="math inline">d_{ij}\times F_{ij}</span>). 합은 망 전체의 평균 패킷 수이고, 총 외부 도착률 <span class="math inline">\gamma=\sum_w r_w</span> 로 나누면 <strong>망 평균 지연</strong>이 된다.</p>
+<p><strong>경로 단위</strong>: OD pair 집합 <span class="math inline">W</span>, <span class="math inline">w</span> 를 잇는 경로 집합 <span class="math inline">P_w</span>, 경로 flow <span class="math inline">x_p</span>, 요구 flow <span class="math inline">r_w</span>.</p>
+<p><span class="math display">
+\sum_{p\in P_w} x_p = r_w \ \ (\forall w), \qquad x_p \ge 0, \qquad
+F_{ij} = \!\!\sum_{p \ni (i,j)}\!\! x_p
+</span></p>
+<p><strong>최적 라우팅:</strong></p>
+<p><span class="math display">
+\min_{\{x_p\}}\ D(x) = \sum_{(i,j)} D_{ij}\!\Big(\sum_{p \ni (i,j)} x_p\Big)
+\quad \text{s.t.}\quad \sum_{p\in P_w} x_p = r_w,\ \ x_p \ge 0
+</span></p>
+<p>해야 할 일: (1) 경로별 flow 결정, (2) 비용함수 선택, (3) 트래픽을 여러 경로로 <strong>분할(splitting)</strong>. 단일 최단경로가 아니라 <strong>분할 라우팅</strong>이 일반적으로 최적이라는 점이 줄기 A와의 결정적 차이다.</p>
+<section id="링크-비용과-한계지연-시각화" class="level3" data-number="3.1.1">
+<h3 data-number="3.1.1" class="anchored" data-anchor-id="링크-비용과-한계지연-시각화"><span class="header-section-number">3.1.1</span> 링크 비용과 한계지연 시각화</h3>
+<div id="cell-fig-mm1-cost" class="cell" data-execution_count="2">
+<details class="code-fold">
+<summary>코드 보기</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>C <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>F <span class="op">=</span> np.linspace(<span class="dv">0</span>, <span class="fl">0.98</span> <span class="op">*</span> C, <span class="dv">400</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>D <span class="op">=</span> F <span class="op">/</span> (C <span class="op">-</span> F)</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>Dp <span class="op">=</span> C <span class="op">/</span> (C <span class="op">-</span> F) <span class="op">**</span> <span class="dv">2</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="fl">3.8</span>))</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">0</span>].plot(F <span class="op">/</span> C, D, lw<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">0</span>].<span class="bu">set</span>(xlabel<span class="op">=</span><span class="vs">r"utilization </span><span class="dv">$</span><span class="ch">\r</span><span class="vs">ho=F/C</span><span class="dv">$</span><span class="vs">"</span>, ylabel<span class="op">=</span><span class="vs">r"</span><span class="dv">$</span><span class="vs">D</span><span class="kw">(</span><span class="vs">F</span><span class="kw">)</span><span class="vs">=F/</span><span class="kw">(</span><span class="vs">C-F</span><span class="kw">)</span><span class="dv">$</span><span class="vs">"</span>,</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>          title<span class="op">=</span><span class="st">"Link cost (mean # in system)"</span>)</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">0</span>].grid(alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">1</span>].plot(F <span class="op">/</span> C, Dp, lw<span class="op">=</span><span class="dv">2</span>, color<span class="op">=</span><span class="st">"C3"</span>)</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">1</span>].<span class="bu">set</span>(xlabel<span class="op">=</span><span class="vs">r"utilization </span><span class="dv">$</span><span class="ch">\r</span><span class="vs">ho=F/C</span><span class="dv">$</span><span class="vs">"</span>, ylabel<span class="op">=</span><span class="vs">r"</span><span class="dv">$</span><span class="vs">D'</span><span class="kw">(</span><span class="vs">F</span><span class="kw">)</span><span class="vs">=C/</span><span class="kw">(</span><span class="vs">C-F</span><span class="kw">)</span><span class="dv">^</span><span class="vs">2</span><span class="dv">$</span><span class="vs">"</span>,</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>          title<span class="op">=</span><span class="st">"Marginal delay (per-link DFDL term)"</span>)</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">1</span>].grid(alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-mm1-cost" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-mm1-cost-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="routing_files/figure-html/fig-mm1-cost-output-1.png" width="948" height="353" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mm1-cost-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: M/M/1 링크 비용 D(F)와 한계지연 D’(F). 사용률이 1에 가까워지면 폭발한다.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="sec-optcond" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="sec-optcond"><span class="header-section-number">3.2</span> 최적성 필요조건</h2>
+<p><strong>경로 <span class="math inline">p</span> 의 First Derivative Length (DFDL, 1차 미분 길이):</strong></p>
+<p><span class="math display">
+\frac{\partial D(x)}{\partial x_p} \;=\; \sum_{(i,j)\,\in\, p} D'_{ij}(F_{ij})
+</span></p>
+<p>이것은 “경로 <span class="math inline">p</span> 에 flow 한 단위를 더 얹을 때 늘어나는 총 비용”, 즉 그 경로의 <strong>한계 지연(marginal delay)</strong> 이다. 고정 길이가 아니라 <strong>현재 부하에서의 미분값을 가중치로 한 길이</strong>라는 점이 핵심이다.</p>
+<p><strong>도출</strong>: <span class="math inline">x^*</span> 가 최적이면 같은 OD pair 안에서 경로 <span class="math inline">p</span> 의 flow <span class="math inline">\delta</span> 를 다른 경로 <span class="math inline">p'</span> 로 옮겨도 비용이 줄지 않아야 한다. 1차 근사로</p>
+<p><span class="math display">
+\delta\,\frac{\partial D(x^*)}{\partial x_{p'}} - \delta\,\frac{\partial D(x^*)}{\partial x_p} \;\ge\; 0.
+</span></p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>최적 라우팅 필요조건
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>각 OD pair <span class="math inline">w</span> 와 양수 flow 경로 <span class="math inline">p\in P_w</span> 에 대해 <span class="math display">
+x_p^* &gt; 0 \ \Longrightarrow\ \frac{\partial D(x^*)}{\partial x_p} \le \frac{\partial D(x^*)}{\partial x_{p'}}, \quad \forall p' \in P_w.
+</span> 즉 <strong>flow를 실어 나르는 모든 경로의 한계 지연(DFDL)은 동일한 최소값이고, flow가 0인 경로의 DFDL은 그 값 이상이다.</strong></p>
+</div>
+</div>
+<p><strong>직관</strong>: 물이 수위를 맞추듯, 한계 지연이 더 낮은 경로가 있으면 거기로 트래픽을 옮겨 이득을 본다. 평형(최적)에서는 사용 중인 모든 경로의 한계 지연이 같아진다 — 경제학의 한계효용 균등화, 교통공학의 Wardrop 평형, 최적화의 KKT 조건과 같은 형태다. <strong>평균</strong> 지연이 아니라 <strong>한계</strong> 지연을 균등화한다는 점(system optimal)에 유의.</p>
+</section>
+<section id="sec-direction" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="sec-direction"><span class="header-section-number">3.3</span> Feasible / Descent Direction</h2>
+<p>현재점 <span class="math inline">x</span> 에서 움직일 방향 <span class="math inline">\Delta x</span>:</p>
+<ul>
+<li><strong>Feasible</strong>: <span class="math inline">x+\alpha\Delta x</span> 가 작은 <span class="math inline">\alpha&gt;0</span> 에서 제약 만족 → OD pair마다 <span class="math inline">\sum_{p\in P_w}\Delta x_p = 0</span>, 그리고 <span class="math inline">x_p=0</span> 인 경로는 <span class="math inline">\Delta x_p \ge 0</span>.</li>
+<li><strong>Descent</strong>: 비용이 줄어드는 방향</li>
+</ul>
+<p><span class="math display">
+\sum_{w\in W}\sum_{p\in P_w} \frac{\partial D(x)}{\partial x_p}\,\Delta x_p &lt; 0,
+\qquad \frac{\partial D(x)}{\partial x_p} = \!\!\sum_{(i,j)\ \text{on}\ p}\!\! D'_{ij}(F_{ij}).
+</span></p>
+<p>이후 step size <span class="math inline">\alpha&gt;0</span> 를 찾아 <span class="math inline">D(x+\alpha\Delta x)&lt;D(x)</span>. 모든 1차 방법이 “feasible + descent 방향 + step size” 골격을 공유한다.</p>
+</section>
+<section id="sec-fw" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="sec-fw"><span class="header-section-number">3.4</span> Frank–Wolfe (Flow Deviation)</h2>
+<p>현재점 <span class="math inline">x=\{x_p\}</span> 에서:</p>
+<ol type="1">
+<li>각 OD pair마다 <strong>MFDL(Min First Derivative Length) 경로</strong>를 찾는다 (<span class="math inline">D'_{ij}</span> 를 링크 가중치로 한 Dijkstra).</li>
+<li>모든 트래픽을 MFDL 경로로 몰아넣은 극단점 <span class="math inline">\bar{x}=\{\bar{x}_p\}</span> 구성.</li>
+<li>직선탐색: <span class="math inline">\displaystyle \alpha^* \in [0,1]:\ D\big[x+\alpha^*(\bar{x}-x)\big]=\min_{\alpha\in[0,1]} D\big[x+\alpha(\bar{x}-x)\big].</span></li>
+<li>갱신: <span class="math inline">x_p := x_p + \alpha^*(\bar{x}_p - x_p)\ \ (\forall p).</span></li>
+</ol>
+<p><strong>직관</strong>: 비선형 <span class="math inline">D</span> 를 현재점에서 1차 선형화하면, 선형 목적함수를 단체(simplex) 제약 위에서 최소화하는 해는 항상 꼭짓점(“전부 MFDL로”)이다. 그 방향의 직선 위에서만 최적 비율 <span class="math inline">\alpha^*</span> 를 찾는다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>특징
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>비최단 경로에서 MFDL 경로로 <strong>같은 비율 <span class="math inline">\alpha^*</span></strong> 만큼 이동(equal-ratio shift). 단순하지만 최적점 근처에서 지그재그로 수렴이 느리다.</p>
+</div>
+</div>
+<section id="작은-예제" class="level3" data-number="3.4.1">
+<h3 data-number="3.4.1" class="anchored" data-anchor-id="작은-예제"><span class="header-section-number">3.4.1</span> 작은 예제</h3>
+<p><span class="math display">
+D(x)=\tfrac12\big(x_1^2+x_2^2+0.1x_3^2\big)+0.55x_3,\qquad x_1+x_2+x_3=1,\ x_i\ge0
+</span> <span class="math display">
+\frac{\partial D}{\partial x_1}=x_1,\quad \frac{\partial D}{\partial x_2}=x_2,\quad \frac{\partial D}{\partial x_3}=0.1x_3+0.55
+</span></p>
+<p>링크 3은 상수항 <span class="math inline">0.55</span> 때문에 한계비용 시작값이 높아, 쓰면 손해다. 최적성 조건을 위반하지 않는 해는 <span class="math inline">x_3^*=0,\ x_1^*=x_2^*=\tfrac12</span> 뿐이며, 두 경로의 한계비용이 같아지는 지점이다.</p>
+</section>
+</section>
+<section id="sec-nlp" class="level2" data-number="3.5">
+<h2 data-number="3.5" class="anchored" data-anchor-id="sec-nlp"><span class="header-section-number">3.5</span> 비선형 최적화 배경</h2>
+<p><strong>무제약 — steepest descent</strong> (<span class="math inline">\nabla^2 f</span> 양반정부호): <span class="math display">
+x^{k+1}=x^k-\alpha^k\nabla f(x^k),\qquad
+\frac{f(x^{k+1})-f^*}{f(x^k)-f^*}\le\Big(\frac{M-m}{M+m}\Big)^2
+</span> <span class="math inline">M,m</span> 은 Hessian의 최대·최소 고유값. <strong>조건수 <span class="math inline">M/m</span> 가 클수록(등고선이 길쭉할수록) 느리다.</strong> 이를 고치려 양정부호 스케일링 <span class="math inline">B^k</span> 를 도입: <span class="math display">
+x^{k+1}=x^k-\alpha^k B^k\nabla f(x^k)
+</span> <span class="math inline">B^k=[\nabla^2 f(x^k)]^{-1}</span> 이면 <strong>Newton’s method</strong>(가장 빠르나 역행렬 비용 큼). 절충으로 Hessian의 <strong>대각 성분만</strong> 역수로 사용: <span class="math display">
+x_i^{k+1}=x_i^k-\alpha^k\Big[\frac{\partial^2 f(x^k)}{\partial x_i^2}\Big]^{-1}\frac{\partial f(x^k)}{\partial x_i}
+</span></p>
+<p><strong>Positive orthant 제약</strong> (<span class="math inline">x\ge0</span>): 음수면 0으로 잘라내는 projection <span class="math inline">[\cdot]^+=\max\{0,\cdot\}</span>: <span class="math display">
+x_i^{k+1}=\max\Big\{0,\ x_i^k-\alpha^k\Big[\frac{\partial^2 f(x^k)}{\partial x_i^2}\Big]^{-1}\frac{\partial f(x^k)}{\partial x_i}\Big\}
+</span></p>
+</section>
+<section id="sec-gp" class="level2" data-number="3.6">
+<h2 data-number="3.6" class="anchored" data-anchor-id="sec-gp"><span class="header-section-number">3.6</span> Gradient Projection 적용</h2>
+<p>핵심 트릭: 등식 제약 <span class="math inline">\sum_p x_p=r_w</span> 를 없애기 위해 <strong>MFDL 경로 <span class="math inline">p_w</span> 의 flow를 종속변수</strong>로 둔다. <span class="math display">
+x_{p_w}=r_w-\!\!\sum_{\substack{p\in P_w\\ p\ne p_w}}\!\! x_p
+</span> 그러면 비최단 경로 flow만 독립변수가 되어 무제약 + positive orthant 문제로 환원된다.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>비최단 경로 flow 갱신식
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math display">
+x_p^{k+1}=\max\Big\{0,\ x_p^k-\alpha^k H_p^{-1}\big(d_p-d_{p_w}\big)\Big\}
+</span> <span class="math display">
+d_p=\!\!\sum_{(i,j)\in p}\!\! D'_{ij}(F_{ij}),\quad
+d_{p_w}=\!\!\sum_{(i,j)\in p_w}\!\! D'_{ij}(F_{ij}),\quad
+H_p=\!\!\sum_{(i,j)\in L_p}\!\! D''_{ij}(F_{ij})
+</span> <span class="math inline">L_p</span> = 경로 <span class="math inline">p</span> 와 <span class="math inline">p_w</span> 중 <strong>한쪽에만</strong> 속하는 링크(대칭차집합). 공통 링크는 flow 이동 시 상쇄되어 빠진다.</p>
+</div>
+</div>
+<p><strong>직관</strong>: <span class="math inline">(d_p-d_{p_w})</span> 는 “비최단 경로가 최단보다 한계 지연이 얼마나 더 큰가”이며, 그만큼 비례해서 flow를 줄이고 <span class="math inline">H_p^{-1}</span> 로 곡률(2차 정보)을 반영해 step을 조절한다. FW와 달리 <strong>경로마다 다른 양을 옮긴다</strong>(unequal shift) → 빠른 수렴.</p>
+<section id="구체-예제" class="level3" data-number="3.6.1">
+<h3 data-number="3.6.1" class="anchored" data-anchor-id="구체-예제"><span class="header-section-number">3.6.1</span> 구체 예제</h3>
+<div class="cell" data-layout-align="center">
+<details class="code-fold">
+<summary>코드 보기</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode default code-with-copy"><code class="sourceCode default"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>graph LR</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  N1((1)) --&gt; N3((3))</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  N1 --&gt; N4((4))</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  N2((2)) --&gt; N3</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  N2 --&gt; N4</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  N3 --&gt; N4</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  N4 --&gt; N5((5 dest))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">graph LR
+  N1((1)) --&gt; N3((3))
+  N1 --&gt; N4((4))
+  N2((2)) --&gt; N3
+  N2 --&gt; N4
+  N3 --&gt; N4
+  N4 --&gt; N5((5 dest))
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<p>OD (1,5): <span class="math inline">r_1=4</span>, OD (2,5): <span class="math inline">r_2=8</span>. 비용 <span class="math inline">D_{ij}(F_{ij})=\tfrac12 F_{ij}^2</span> → <span class="math inline">D'_{ij}=F_{ij},\ D''_{ij}=1</span>.</p>
+<p>경로 <span class="math inline">p_1(1)=\{1,4,5\},\ p_2(1)=\{1,3,4,5\}</span> / <span class="math inline">p_1(2)=\{2,4,5\},\ p_2(2)=\{2,3,4,5\}</span>. 초기 링크 flow <span class="math inline">F_{13}=4,\ F_{14}=0,\ F_{23}=8,\ F_{24}=0,\ F_{34}=12,\ F_{45}=12</span>.</p>
+<p><span class="math display">
+d_{p_1(1)}=F_{14}+F_{45}=0+12=12,\qquad d_{p_2(1)}=F_{13}+F_{34}+F_{45}=4+12+12=28
+</span></p>
+<p>MFDL은 <span class="math inline">p_1(1)</span>(=12). 그런데 flow는 더 긴 <span class="math inline">p_2(1)</span> 에 4가 실려 있으니 옮겨야 한다. <span class="math inline">L_p=\{(1,3),(3,4)\}\cup\{(1,4)\}=\{(1,3),(3,4),(1,4)\}</span> → <span class="math inline">H_p=1+1+1=3</span>.</p>
+<p><span class="math display">
+x_{p_2(1)} := \max\Big\{0,\ 4-\frac{\alpha^k}{3}(28-12)\Big\}=\max\Big\{0,\ 4-\frac{16\alpha^k}{3}\Big\},
+\qquad x_{p_1(1)} := r_1-x_{p_2(1)}
+</span></p>
+</section>
+<section id="fw-vs-gradient-projection" class="level3" data-number="3.6.2">
+<h3 data-number="3.6.2" class="anchored" data-anchor-id="fw-vs-gradient-projection"><span class="header-section-number">3.6.2</span> FW vs Gradient Projection</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>Frank–Wolfe</th>
+<th>Gradient Projection</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>사용 정보</td>
+<td>1차 (DFDL)</td>
+<td>1·2차 (<span class="math inline">H_p</span>)</td>
+</tr>
+<tr class="even">
+<td>flow 이동</td>
+<td>MFDL로 <strong>같은 비율</strong></td>
+<td>경로별 <strong>다른 양</strong></td>
+</tr>
+<tr class="odd">
+<td>수렴</td>
+<td>느림(지그재그)</td>
+<td>빠름</td>
+</tr>
+<tr class="even">
+<td>구현</td>
+<td>단순(LP+직선탐색)</td>
+<td>약간 복잡(대각 Hessian)</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="통합-알고리즘-골격" class="level3" data-number="3.6.3">
+<h3 data-number="3.6.3" class="anchored" data-anchor-id="통합-알고리즘-골격"><span class="header-section-number">3.6.3</span> 통합 알고리즘 골격</h3>
+<div class="cell" data-layout-align="center">
+<details class="code-fold">
+<summary>코드 보기</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode default code-with-copy"><code class="sourceCode default"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>flowchart TD</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  A["현재 flow x"] --&gt; B["각 링크 한계비용 D'(F_ij) 계산"]</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  B --&gt; C["각 OD pair에서 MFDL 경로 탐색"]</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  C --&gt; Dn{"방법 선택"}</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  Dn --&gt;|"Frank-Wolfe"| E["트래픽을 MFDL로 몰아 x̄ 구성&lt;br/&gt;[0,1] 직선탐색으로 α*"]</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  Dn --&gt;|"Gradient Projection"| F["비최단 경로 flow를&lt;br/&gt;H_p⁻¹(d_p − d_pw) 만큼 이동"]</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  E --&gt; G["x 갱신"]</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  F --&gt; G</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  G --&gt; H{"수렴?"}</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  H --&gt;|"No"| A</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  H --&gt;|"Yes"| I["최적 라우팅 달성"]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart TD
+  A["현재 flow x"] --&gt; B["각 링크 한계비용 D'(F_ij) 계산"]
+  B --&gt; C["각 OD pair에서 MFDL 경로 탐색"]
+  C --&gt; Dn{"방법 선택"}
+  Dn --&gt;|"Frank-Wolfe"| E["트래픽을 MFDL로 몰아 x̄ 구성&lt;br/&gt;[0,1] 직선탐색으로 α*"]
+  Dn --&gt;|"Gradient Projection"| F["비최단 경로 flow를&lt;br/&gt;H_p⁻¹(d_p − d_pw) 만큼 이동"]
+  E --&gt; G["x 갱신"]
+  F --&gt; G
+  G --&gt; H{"수렴?"}
+  H --&gt;|"No"| A
+  H --&gt;|"Yes"| I["최적 라우팅 달성"]
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="sec-twolink" class="level2" data-number="3.7">
+<h2 data-number="3.7" class="anchored" data-anchor-id="sec-twolink"><span class="header-section-number">3.7</span> Two-Link 문제: closed form</h2>
+<p>OD 한 쌍, 두 평행 링크(고용량 <span class="math inline">C_1</span>, 저용량 <span class="math inline">C_2</span>), 요구 <span class="math inline">r</span>.</p>
+<div class="cell" data-layout-align="center">
+<details class="code-fold">
+<summary>코드 보기</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode default code-with-copy"><code class="sourceCode default"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>graph LR</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  O((1 origin)) --&gt;|"x1  (high cap C1)"| Dst((2 dest))</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  O --&gt;|"x2  (low cap C2)"| Dst</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">graph LR
+  O((1 origin)) --&gt;|"x1  (high cap C1)"| Dst((2 dest))
+  O --&gt;|"x2  (low cap C2)"| Dst
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<p><span class="math display">
+D(x)=D_1(x_1)+D_2(x_2),\quad D_i(x_i)=\frac{x_i}{C_i-x_i},\quad x_1^*+x_2^*=r,\ x_i^*\ge0
+</span></p>
+<p>한계 지연을 직접 계산(몫의 미분): <span class="math display">
+D'_i(x_i)=\frac{d}{dx_i}\frac{x_i}{C_i-x_i}
+=\frac{(C_i-x_i)+x_i}{(C_i-x_i)^2}=\frac{C_i}{(C_i-x_i)^2}
+</span></p>
+<p><strong>Case 1 — 고용량 링크만 사용</strong> (<span class="math inline">x_1^*=r,\ x_2^*=0</span>): 사용 경로(1)의 DFDL ≤ 미사용 경로(2)의 DFDL: <span class="math display">
+\frac{C_1}{(C_1-r)^2}\le\frac{C_2}{C_2^2}=\frac{1}{C_2}
+\ \Rightarrow\ C_1C_2\le(C_1-r)^2
+\ \Rightarrow\ \boxed{\,r\le C_1-\sqrt{C_1C_2}\,}
+</span></p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>반직관적 결과
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>부하 <span class="math inline">r</span> 이 충분히 작으면 두 링크에 나누지 않고 <strong>빠른 링크 하나에 다 몰아넣는 것이 최적</strong>이다. 저용량 링크는 비어 있어도 한계 지연 시작값 <span class="math inline">1/C_2</span> 가 크기 때문에, <span class="math inline">r</span> 이 문턱 <span class="math inline">r^*=C_1-\sqrt{C_1C_2}</span> 를 넘기 전까지는 손대지 않는 편이 이득이다.</p>
+</div>
+</div>
+<p><strong>Case 2 — 두 링크 모두 사용</strong> (<span class="math inline">x_1^*,x_2^*&gt;0</span>): 사용 경로들의 DFDL이 <strong>같아야</strong> 한다. <span class="math display">
+\frac{C_1}{(C_1-x_1^*)^2}=\frac{C_2}{(C_2-x_2^*)^2}
+\ \Rightarrow\ \frac{\sqrt{C_1}}{C_1-x_1^*}=\frac{\sqrt{C_2}}{C_2-x_2^*}
+</span> <span class="math inline">x_2^*=r-x_1^*</span> 대입, 교차곱 후 <span class="math inline">x_1^*</span> 로 정리: <span class="math display">
+x_1^*(\sqrt{C_1}+\sqrt{C_2})=\sqrt{C_1}\big[r-(C_2-\sqrt{C_1C_2})\big]
+</span></p>
+<p><span class="math display">
+\boxed{\,x_1^*=\frac{\sqrt{C_1}\big[r-(C_2-\sqrt{C_1C_2})\big]}{\sqrt{C_1}+\sqrt{C_2}},\qquad
+x_2^*=\frac{\sqrt{C_2}\big[r-(C_1-\sqrt{C_1C_2})\big]}{\sqrt{C_1}+\sqrt{C_2}}\,}
+\quad\big(r&gt;C_1-\sqrt{C_1C_2}\big)
+</span></p>
+<p>(문턱 <span class="math inline">r=r^*</span> 에서 <span class="math inline">x_2^*=0,\ x_1^*=r^*</span> 로 Case 1과 연속적으로 이어진다.)</p>
+<section id="최적-분할의-부하-의존성" class="level3" data-number="3.7.1">
+<h3 data-number="3.7.1" class="anchored" data-anchor-id="최적-분할의-부하-의존성"><span class="header-section-number">3.7.1</span> 최적 분할의 부하 의존성</h3>
+<div id="cell-fig-twolink-split" class="cell" data-execution_count="3">
+<details class="code-fold">
+<summary>코드 보기</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>C1, C2 <span class="op">=</span> <span class="fl">10.0</span>, <span class="fl">4.0</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>r_star <span class="op">=</span> C1 <span class="op">-</span> np.sqrt(C1 <span class="op">*</span> C2)</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> split(r):</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> r <span class="op">&lt;=</span> r_star:</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> r, <span class="fl">0.0</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    s1, s2 <span class="op">=</span> np.sqrt(C1), np.sqrt(C2)</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>    x1 <span class="op">=</span> s1 <span class="op">*</span> (r <span class="op">-</span> (C2 <span class="op">-</span> np.sqrt(C1 <span class="op">*</span> C2))) <span class="op">/</span> (s1 <span class="op">+</span> s2)</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    x2 <span class="op">=</span> s2 <span class="op">*</span> (r <span class="op">-</span> (C1 <span class="op">-</span> np.sqrt(C1 <span class="op">*</span> C2))) <span class="op">/</span> (s1 <span class="op">+</span> s2)</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x1, x2</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>rs <span class="op">=</span> np.linspace(<span class="dv">0</span>, <span class="fl">0.95</span> <span class="op">*</span> (C1 <span class="op">+</span> C2), <span class="dv">400</span>)</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>X1 <span class="op">=</span> np.array([split(r)[<span class="dv">0</span>] <span class="cf">for</span> r <span class="kw">in</span> rs])</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>X2 <span class="op">=</span> np.array([split(r)[<span class="dv">1</span>] <span class="cf">for</span> r <span class="kw">in</span> rs])</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">7</span>, <span class="fl">4.2</span>))</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>plt.plot(rs, X1, lw<span class="op">=</span><span class="dv">2</span>, label<span class="op">=</span><span class="vs">r"</span><span class="dv">$</span><span class="vs">x_1</span><span class="dv">^</span><span class="op">*</span><span class="dv">$</span><span class="vs">  </span><span class="kw">(</span><span class="vs">high cap </span><span class="dv">$</span><span class="vs">C_1=10</span><span class="dv">$</span><span class="kw">)</span><span class="vs">"</span>)</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>plt.plot(rs, X2, lw<span class="op">=</span><span class="dv">2</span>, label<span class="op">=</span><span class="vs">r"</span><span class="dv">$</span><span class="vs">x_2</span><span class="dv">^</span><span class="op">*</span><span class="dv">$</span><span class="vs">  </span><span class="kw">(</span><span class="vs">low cap </span><span class="dv">$</span><span class="vs">C_2=4</span><span class="dv">$</span><span class="kw">)</span><span class="vs">"</span>)</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>plt.axvline(r_star, ls<span class="op">=</span><span class="st">"--"</span>, color<span class="op">=</span><span class="st">"gray"</span>)</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>plt.text(r_star <span class="op">+</span> <span class="fl">0.15</span>, <span class="fl">8.4</span>, <span class="vs">rf"</span><span class="dv">$</span><span class="vs">r</span><span class="dv">^</span><span class="op">*</span><span class="vs">=</span><span class="sc">{</span>r_star<span class="sc">:.2f}</span><span class="dv">$</span><span class="vs">"</span>, color<span class="op">=</span><span class="st">"gray"</span>)</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"total demand  r"</span>)</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"optimal path flow"</span>)</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Two-link optimal routing"</span>)</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>plt.legend()</span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>plt.grid(alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-twolink-split" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-twolink-split-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="routing_files/figure-html/fig-twolink-split-output-1.png" width="662" height="394" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-twolink-split-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3: 두 링크 최적 분할. 저용량 링크는 r이 문턱 r*를 넘을 때까지 비어 있다가 켜진다.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="한계지연-균등화-확인" class="level3" data-number="3.7.2">
+<h3 data-number="3.7.2" class="anchored" data-anchor-id="한계지연-균등화-확인"><span class="header-section-number">3.7.2</span> 한계지연 균등화 확인</h3>
+<div id="cell-fig-twolink-cost" class="cell" data-execution_count="4">
+<details class="code-fold">
+<summary>코드 보기</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>C1, C2, r <span class="op">=</span> <span class="fl">10.0</span>, <span class="fl">4.0</span>, <span class="fl">6.0</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>x1 <span class="op">=</span> np.linspace(r <span class="op">-</span> C2 <span class="op">+</span> <span class="fl">1e-3</span>, <span class="bu">min</span>(r, C1) <span class="op">-</span> <span class="fl">1e-3</span>, <span class="dv">400</span>)</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>x2 <span class="op">=</span> r <span class="op">-</span> x1</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>Dtot <span class="op">=</span> x1 <span class="op">/</span> (C1 <span class="op">-</span> x1) <span class="op">+</span> x2 <span class="op">/</span> (C2 <span class="op">-</span> x2)</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>s1, s2 <span class="op">=</span> np.sqrt(C1), np.sqrt(C2)</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>x1_opt <span class="op">=</span> s1 <span class="op">*</span> (r <span class="op">-</span> (C2 <span class="op">-</span> np.sqrt(C1 <span class="op">*</span> C2))) <span class="op">/</span> (s1 <span class="op">+</span> s2)</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="co"># 최적점에서 두 한계지연이 같은지 수치 확인</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>g1 <span class="op">=</span> C1 <span class="op">/</span> (C1 <span class="op">-</span> x1_opt) <span class="op">**</span> <span class="dv">2</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>g2 <span class="op">=</span> C2 <span class="op">/</span> (C2 <span class="op">-</span> (r <span class="op">-</span> x1_opt)) <span class="op">**</span> <span class="dv">2</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"x1* = </span><span class="sc">{</span>x1_opt<span class="sc">:.4f}</span><span class="ss">,  x2* = </span><span class="sc">{</span>r <span class="op">-</span> x1_opt<span class="sc">:.4f}</span><span class="ss">"</span>)</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"DFDL link1 = </span><span class="sc">{</span>g1<span class="sc">:.5f}</span><span class="ss">,  DFDL link2 = </span><span class="sc">{</span>g2<span class="sc">:.5f}</span><span class="ss">  (거의 동일)"</span>)</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">7</span>, <span class="fl">4.2</span>))</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>plt.plot(x1, Dtot, lw<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>plt.axvline(x1_opt, ls<span class="op">=</span><span class="st">"--"</span>, color<span class="op">=</span><span class="st">"C3"</span>, label<span class="op">=</span><span class="vs">rf"</span><span class="dv">$</span><span class="vs">x_1</span><span class="dv">^</span><span class="op">*</span><span class="vs">=</span><span class="sc">{</span>x1_opt<span class="sc">:.3f}</span><span class="dv">$</span><span class="vs">"</span>)</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="vs">r"</span><span class="dv">$</span><span class="vs">x_1</span><span class="dv">$</span><span class="vs">  </span><span class="kw">(</span><span class="vs">with </span><span class="dv">$</span><span class="vs">x_2 = r - x_1</span><span class="dv">$</span><span class="kw">)</span><span class="vs">"</span>)</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="vs">r"total cost  </span><span class="dv">$</span><span class="vs">D</span><span class="kw">(</span><span class="vs">x_1</span><span class="kw">)</span><span class="op">+</span><span class="vs">D</span><span class="kw">(</span><span class="vs">x_2</span><span class="kw">)</span><span class="dv">$</span><span class="vs">"</span>)</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="ss">f"Total delay vs split at r=</span><span class="sc">{</span>r<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>plt.legend()</span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>plt.grid(alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>x1* = 5.0994,  x2* = 0.9006
+DFDL link1 = 0.41639,  DFDL link2 = 0.41639  (거의 동일)</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div id="fig-twolink-cost" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-twolink-cost-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="routing_files/figure-html/fig-twolink-cost-output-2.png" width="660" height="392" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-twolink-cost-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4: 고정 r에서 분할 x1에 따른 총 비용. 최소점은 두 링크의 한계지연이 같아지는 곳.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>다중 링크로의 확장
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>세 개 이상의 평행 경로(각 <span class="math inline">D_p(x_p)=\dfrac{x_p}{C_p-x_p}</span>)도 동일 전략으로 푼다. (1) <span class="math inline">D'_p(x_p)=\dfrac{C_p}{(C_p-x_p)^2}</span> 계산 → (2) 최적성 조건으로 “어떤 경로가 켜지는가” case 분석 → (3) 켜진 경로들의 DFDL을 모두 같게 놓고 <span class="math inline">\sum_p x_p=r</span> 과 연립. <span class="math inline">C_1&gt;C_2&gt;C_3</span> 이면 <span class="math inline">r</span> 이 커질수록 빠른 링크부터 차례로 켜진다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+</section>
+<section id="sec-design" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> 줄기 C. 토폴로지 설계</h1>
+<section id="sec-capacity" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="sec-capacity"><span class="header-section-number">4.1</span> Capacity Assignment</h2>
+<p>노드 위치와 OD별 flow <span class="math inline">F_{ij}</span> 가 주어졌을 때, 단가 <span class="math inline">p_{ij}</span> 로 용량을 사서 평균지연을 <span class="math inline">T</span> 이하로 맞추며 비용 최소화: <span class="math display">
+\min \sum_{(i,j)} p_{ij}C_{ij}\quad \text{s.t.}\quad \frac{1}{\gamma}\sum_{(i,j)}\frac{F_{ij}}{C_{ij}-F_{ij}}\le T
+</span> Lagrangian <span class="math inline">L=\sum_{(i,j)}\big(p_{ij}C_{ij}+\dfrac{\beta F_{ij}}{\gamma(C_{ij}-F_{ij})}\big)</span> 에서 <span class="math inline">\partial L/\partial C_{ij}=0</span>: <span class="math display">
+C_{ij}=F_{ij}+\sqrt{\frac{\beta F_{ij}}{\gamma p_{ij}}},\qquad
+\beta=\Big(\frac{1}{T\gamma}\sum_{(i,j)}\sqrt{p_{ij}F_{ij}}\Big)^2
+</span></p>
+<p><strong>해석</strong>: 최적 용량 = “flow 자체 + 여유분”이고, 여유분이 <span class="math inline">\sqrt{F_{ij}/p_{ij}}</span> 에 비례한다 — 트래픽 많은 링크엔 더, 비싼 링크엔 덜(<strong>square-root capacity assignment</strong>).</p>
+</section>
+<section id="sec-concentrator" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="sec-concentrator"><span class="header-section-number">4.2</span> Concentrator Location</h2>
+<p>소스 <span class="math inline">i</span> 를 집중기 <span class="math inline">j</span> 에 연결할지 <span class="math inline">x_{ij}\in\{0,1\}</span>: <span class="math display">
+\min \sum_i\sum_j a_{ij}x_{ij}\quad \text{s.t.}\quad \sum_j x_{ij}=1\ (\forall i),\ \ \sum_i x_{ij}\le K_j
+</span> 는 simplex로 풀고, 집중기 설치 여부 <span class="math inline">y_j\in\{0,1\}</span> 와 설치비 <span class="math inline">b_j</span> 까지 넣으면 정수계획(facility location) 문제가 된다.</p>
+<hr>
+</section>
+</section>
+<section id="sec-summary" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> 핵심 정리</h1>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>반드시 손에 익혀야 할 것
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><strong>최적성 필요조건</strong>: “사용 경로의 한계 지연(DFDL)은 모두 같고 최소, 미사용 경로는 그 이상.” 한 문장으로 정확히 진술·도출.</li>
+<li><strong>Two/three-link M/M/1 라우팅 closed form</strong>: <span class="math inline">D'_p=\dfrac{C_p}{(C_p-x_p)^2}</span> → case 분석 → 연립의 흐름을 손으로 완주.</li>
+<li><strong>FW vs Gradient Projection</strong>: 같은 비율 vs 다른 양, 1차 vs 2차, MFDL 개념.</li>
+<li><strong>DV vs LS</strong>: 정보 범위·수렴·count-to-infinity 원인.</li>
+<li><strong>M/M/1 비용함수 ↔︎ Little ↔︎ 평균지연</strong> 의 논리 다리.</li>
+</ol>
+</div>
+</div>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>주제</th>
+<th>한 줄 요약</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Optimality principle</td>
+<td>최적 경로의 부분경로도 최적 → sink tree</td>
+</tr>
+<tr class="even">
+<td>Bellman–Ford</td>
+<td>hop 수 DP, <span class="math inline">D_i^{h+1}=\min_j[d_{ij}+D_j^h]</span>, count-to-infinity</td>
+</tr>
+<tr class="odd">
+<td>Dijkstra</td>
+<td>거리 순서로 greedy 확정(비음수 가중치)</td>
+</tr>
+<tr class="even">
+<td>최적 라우팅</td>
+<td>부하 의존 비용의 비선형 최적화, 분할 라우팅</td>
+</tr>
+<tr class="odd">
+<td>DFDL 조건</td>
+<td>사용 경로 한계지연 균등화</td>
+</tr>
+<tr class="even">
+<td>Frank–Wolfe</td>
+<td>선형화 → MFDL 극단점 → 직선탐색(equal-ratio)</td>
+</tr>
+<tr class="odd">
+<td>Gradient projection</td>
+<td>2차 정보로 경로별 unequal shift, 빠름</td>
+</tr>
+<tr class="even">
+<td>Two-link</td>
+<td><span class="math inline">r\le C_1-\sqrt{C_1C_2}</span> 이면 빠른 링크 단독 사용</td>
+</tr>
+<tr class="odd">
+<td>Capacity assignment</td>
+<td>square-root 용량 배분</td>
+</tr>
+</tbody>
+</table>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

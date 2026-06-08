@@ -1,0 +1,528 @@
+---
+title: "Multi Access Analysis"
+subtitle: "Pure ALOHA · Slotted ALOHA · Stabilized ALOHA · CSMA"
+date: "2026-06-08"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "목차"
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+    highlight-style: github
+    math: mathjax
+    self-contained: true
+    fig-align: center
+    page-layout: article
+lang: ko
+---
+
+```{python}
+#| echo: false
+#| warning: false
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.rcParams['figure.dpi'] = 130
+matplotlib.rcParams['font.size'] = 11
+```
+
+## 문제 설정: Multi-Access Channel
+
+브로드캐스트 채널에서 $m$개 노드가 **하나의 공유 채널**을 나눠 쓴다.
+한 슬롯에 전송 수에 따라 세 가지 결과가 나온다.
+
+| 전송 수 | 결과 |
+|:---:|:---|
+| 0개 | **Idle** — 낭비 |
+| 1개 | **Success** — 성공 |
+| ≥2개 | **Collision** — 충돌, 모두 깨짐 |
+
+**backlog**: 충돌로 깨진 패킷을 들고 재전송 대기 중인 노드 수. 이 값 하나가 시스템의 혼잡도를 요약한다.
+
+$$
+n = \text{현재 backlogged 노드 수} \quad \Rightarrow \quad \text{DTMC의 상태}
+$$
+
+---
+
+## Pure ALOHA
+
+### 동작 원리
+
+- 새 패킷이 도착하면 **즉시** 전송 (슬롯·채널 상태 무관)
+- 충돌 시 랜덤 지연 후 재전송
+- 전송 시작 시점이 연속 시간축 어디에나 올 수 있음 → **비동기(unslotted)**
+
+### 파라미터 정의
+
+| 기호 | 의미 |
+|:---:|:---|
+| $x$ | 한 backlogged 노드의 재전송 시도 rate (1/sec) |
+| $xe^{-x\tau}$ | 재전송 시도 간격(period)의 PDF — exponential 분포 |
+| $\lambda$ | 새 패킷 도착 rate |
+| $G(n) = \lambda + nx$ | **총 전송 시도율** (새 도착 + 재전송 합계) |
+
+::: {.callout-note}
+## $xe^{-x\tau}$가 PDF인 이유
+$x$를 rate 파라미터로 하는 exponential 분포의 확률밀도함수.  
+"다음 재전송이 시간 $\tau$ 근처에서 일어날 확률밀도"를 의미한다.
+$$\int_0^T xe^{-xt}\,dt = 1-e^{-xT} \quad \text{(누적 확률)}$$
+:::
+
+### Throughput 유도
+
+길이 $\tau$인 프레임이 $t_0$에 시작할 때, **vulnerable period** = $[t_0-\tau,\; t_0+\tau]$ = 길이 $2\tau$.
+이 구간에 다른 전송이 하나라도 시작하면 충돌이다.
+
+총 시도가 Poisson($G$)이면 vulnerable period 안에 시도가 0개일 확률:
+
+$$
+P_{\text{succ}} = e^{-2G\tau}
+$$
+
+따라서 **throughput**:
+
+$$
+\boxed{S = G\,e^{-2G\tau}}
+$$
+
+최대화: $\dfrac{dS}{dG} = 0 \Rightarrow G = \dfrac{1}{2\tau}$, 정규화($\tau=1$)하면 $G=\tfrac12$, $S_{\max} = \dfrac{1}{2e} \approx 0.184$.
+
+```{python}
+#| label: fig-pure-aloha
+#| fig-cap: "Pure ALOHA vs Slotted ALOHA throughput 비교"
+
+G = np.linspace(0.01, 5, 500)
+S_pure = G * np.exp(-2*G)
+S_slot = G * np.exp(-G)
+
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.plot(G, S_pure, color='#e74c3c', lw=2.2, label=r'Pure ALOHA:  $Ge^{-2G}$')
+ax.plot(G, S_slot, color='#2980b9', lw=2.2, label=r'Slotted ALOHA:  $Ge^{-G}$')
+
+ax.axvline(0.5, color='#e74c3c', lw=1, ls='--', alpha=0.6)
+ax.axvline(1.0, color='#2980b9', lw=1, ls='--', alpha=0.6)
+ax.axhline(1/(2*np.e), color='#e74c3c', lw=1, ls=':', alpha=0.7)
+ax.axhline(1/np.e,     color='#2980b9', lw=1, ls=':', alpha=0.7)
+
+ax.text(0.52, 1/(2*np.e)+0.01, f'$1/(2e)≈{1/(2*np.e):.3f}$', color='#e74c3c', fontsize=9)
+ax.text(1.02, 1/np.e+0.01,     f'$1/e≈{1/np.e:.3f}$',         color='#2980b9', fontsize=9)
+
+ax.set_xlabel('Attempted transmission rate $G$')
+ax.set_ylabel('Throughput $S$')
+ax.set_xlim(0, 5); ax.set_ylim(0, 0.45)
+ax.legend(frameon=False)
+ax.spines[['top','right']].set_visible(False)
+plt.tight_layout()
+plt.show()
+```
+
+---
+
+## Slotted ALOHA
+
+### 슬롯 도입의 효과
+
+모든 노드가 **슬롯 경계에서만** 전송 시작.
+
+- Vulnerable period: **1 slot** (Pure ALOHA의 절반)
+- $S_{\max} = 1/e \approx 0.368$ (Pure ALOHA의 2배)
+
+$$
+S = G\,e^{-G}, \quad \max \text{ at } G=1
+$$
+
+| $G$ | 결과 |
+|:---:|:---|
+| $G < 1$ | idle 슬롯 과다 — 낭비 |
+| $G = 1$ | 최적 |
+| $G > 1$ | 충돌 과다 |
+
+### 기본 확률 파라미터
+
+$$
+q_a = 1 - e^{-\lambda/m}
+\quad\text{: unbacklogged 노드 하나가 한 슬롯에 전송할 확률}
+$$
+
+::: {.callout-note}
+## $q_a$ 유도
+노드 하나에 들어오는 새 패킷 수 $\sim \text{Poisson}(\lambda/m)$.  
+전송 = 새 도착이 **1개 이상** = $P(\geq 1) = 1 - e^{-\lambda/m}$.  
+부하가 낮으면 $q_a \approx \lambda/m$ (선형 근사).
+:::
+
+$$
+q_r \quad\text{: backlogged 노드 하나가 재전송할 확률 (설계 파라미터)}
+$$
+
+::: {.callout-important}
+## $q_r$을 왜 랜덤하게?
+충돌한 노드들이 모두 **다음 슬롯에 동시 재전송** → 또 충돌(deadlock).  
+각자 독립적으로 확률 $q_r$로 재전송 시점을 흩뿌려야 충돌이 해소된다.  
+$q_r$ 크면 공격적(충돌↑), 작으면 소극적(지연↑).
+:::
+
+### 이항분포 $Q_a,\; Q_r$
+
+$m-n$개 unbacklogged 중 $i$개가 전송할 확률:
+
+$$
+Q_a(i,n) = \binom{m-n}{i}q_a^{\,i}(1-q_a)^{m-n-i}
+$$
+
+$n$개 backlogged 중 $i$개가 재전송할 확률:
+
+$$
+Q_r(i,n) = \binom{n}{i}q_r^{\,i}(1-q_r)^{n-i}
+$$
+
+자주 쓰이는 특수값:
+
+$$
+Q_a(0,n)=(1-q_a)^{m-n}, \quad Q_a(1,n)=(m-n)q_a(1-q_a)^{m-n-1}
+$$
+
+$$
+Q_r(0,n)=(1-q_r)^{n}, \quad Q_r(1,n)=nq_r(1-q_r)^{n-1}
+$$
+
+### DTMC 전이확률 $P_{n,n+i}$
+
+상태 = backlog $n$. 한 슬롯 후 $n+i$로 전이.
+
+$$
+P_{n,n+i} =
+\begin{cases}
+Q_a(i,n) & 2 \le i \le m-n \\[4pt]
+Q_a(1,n)\,[1-Q_r(0,n)] & i=1 \\[4pt]
+Q_a(1,n)Q_r(0,n)+Q_a(0,n)[1-Q_r(1,n)] & i=0 \\[4pt]
+Q_a(0,n)\,Q_r(1,n) & i=-1
+\end{cases}
+$$
+
+각 case의 논리:
+
+| $i$ | 사건 | 해석 |
+|:---:|:---|:---|
+| $\geq 2$ | 새 노드 $i$개 동시 전송 | 무조건 충돌 → $i$개 backlog 편입 |
+| $1$ | 새 1개 + backlogged ≥1 | 충돌 → 새 패킷 1개 backlog 편입 |
+| $0$ | (새 1개 성공) or (새 0개, backlogged ≠1) | backlog 불변 |
+| $-1$ | 새 0개 + backlogged 정확히 1개 | 성공 → backlog 1 감소 |
+
+::: {.callout-important}
+## 비대칭성이 불안정성의 씨앗
+backlog는 **최대 1만 감소**(성공은 슬롯당 최대 1건),  
+하지만 충돌로 **한꺼번에 $i$개 증가** 가능 ($i$ 최대 $m-n$).  
+"느린 후퇴, 빠른 전진" → 한번 막히면 좀처럼 회복하지 못함.
+:::
+
+### 성공 확률과 Drift
+
+**성공 확률** = 전체에서 정확히 한 노드만 전송:
+
+$$
+P_{\text{succ}} = \underbrace{Q_a(1,n)Q_r(0,n)}_{\text{새 1개 성공}} + \underbrace{Q_a(0,n)Q_r(1,n)}_{\text{backlogged 1개 성공}}
+$$
+
+**Drift** = 한 슬롯 동안 backlog의 기대 변화량:
+
+$$
+\boxed{D_n = (m-n)q_a - P_{\text{succ}}} \quad \text{(유입 - 유출)}
+$$
+
+$$
+D_n > 0 \Rightarrow \text{증가},\quad D_n < 0 \Rightarrow \text{감소},\quad D_n = 0 \Rightarrow \text{평형}
+$$
+
+### Poisson 근사와 최대 Throughput
+
+총 시도율:
+
+$$
+G(n) = (m-n)q_a + nq_r
+$$
+
+$q_a, q_r \ll 1$일 때 두 가지 근사를 적용한다.
+
+**Step 1.** $(1-q)^k \approx e^{-qk}$:
+
+$$
+(1-q_a)^{m-n}(1-q_r)^n \approx e^{-q_a(m-n)}\cdot e^{-q_r n} = e^{-G(n)}
+$$
+
+**Step 2.** $\dfrac{q}{1-q} \approx q$:
+
+$$
+\frac{(m-n)q_a}{1-q_a} + \frac{nq_r}{1-q_r} \approx (m-n)q_a + nq_r = G(n)
+$$
+
+따라서:
+
+$$
+\boxed{P_{\text{succ}} \approx G(n)\,e^{-G(n)}}
+$$
+
+최대 throughput: $\dfrac{d}{dG}[Ge^{-G}]=0 \Rightarrow G=1$, $S_{\max} = e^{-1} \approx 0.368$.
+
+### 안정성: 세 평형점과 bistability
+
+```{python}
+#| label: fig-bistability
+#| fig-cap: "Drift 분석 — desired stable point, unstable equilibrium, runaway region"
+
+from scipy.optimize import brentq
+
+g = np.linspace(0.01, 5, 500)
+S = g * np.exp(-g)
+lam = 0.25
+
+f = lambda x: x*np.exp(-x) - lam
+g1 = brentq(f, 1e-4, 1.0)
+g2 = brentq(f, 1.0, 5.0)
+
+fig, ax = plt.subplots(figsize=(7.5, 4.4))
+ax.plot(g, S, color='#1f3a93', lw=2.4, label=r'departure rate  $G(n)e^{-G(n)}$')
+ax.axhline(lam, color='#c0392b', lw=2.0, ls='--', label=r'arrival rate  $\lambda$')
+
+ax.plot([g1],[lam],'o', color='#27ae60', ms=11, zorder=5)
+ax.plot([g2],[lam],'o', color='#e67e22', ms=11, zorder=5)
+
+ax.annotate("desired\nstable point", (g1,lam),
+            textcoords="offset points", xytext=(-4,30), ha="center",
+            fontsize=9.5, color='#1e8449',
+            arrowprops=dict(arrowstyle="->", color='#1e8449'))
+ax.annotate("unstable\nequilibrium", (g2,lam),
+            textcoords="offset points", xytext=(22,30), ha="center",
+            fontsize=9.5, color='#b9770e',
+            arrowprops=dict(arrowstyle="->", color='#b9770e'))
+
+# drift arrows
+for gx, direction in [(g1/2, +1), (0.5*(g1+g2), -1), (g2+0.7, +1)]:
+    dx = 0.28*direction
+    ax.annotate("", xy=(gx+dx, 0.04), xytext=(gx, 0.04),
+                arrowprops=dict(arrowstyle="-|>", color='#555', lw=1.6))
+
+ax.fill_between(g, 0, S, where=(g>g2), color='#e74c3c', alpha=0.07)
+ax.text(3.8, 0.28, "runaway region\n(backlog→∞)", fontsize=9, color='#c0392b', ha='center')
+ax.axhline(1/np.e, color='gray', lw=0.8, ls=':')
+ax.text(0.1, 1/np.e+0.007, r'max $=1/e$', fontsize=8.5, color='gray')
+
+ax.set_xlabel(r'$G(n) = \lambda + nq_r$ (backlog $n$ 증가 → $G$ 증가)')
+ax.set_ylabel('rate per slot')
+ax.set_xlim(0,5); ax.set_ylim(0,0.42)
+ax.legend(loc='upper right', frameon=False, fontsize=10)
+ax.spines[['top','right']].set_visible(False)
+plt.tight_layout()
+plt.show()
+```
+
+유출 곡선 $Ge^{-G}$는 $G=1$에서 최대인 **hump 형태**. 수평 유입선 $\lambda$와 두 번 교차:
+
+| 평형점 | 위치 | 특성 |
+|:---|:---:|:---|
+| Desired stable | $G < 1$ (저backlog) | 살짝 벗어나도 drift가 되돌림 |
+| Unstable equilibrium | $G > 1$ (중간) | 오른쪽으로 조금만 넘으면 폭주 |
+| Runaway | $G \gg 1$ (고backlog) | $P_{\text{succ}}\to 0$, throughput 붕괴 |
+
+::: {.callout-warning}
+## Slotted ALOHA의 본질적 불안정성
+고정 $q_r$로는 **임의의 작은 요동**이 시스템을 unstable point 너머로 밀어 runaway에 빠뜨린다.  
+충분히 오래 돌리면 반드시 붕괴 → 안정화 알고리즘이 필요.
+:::
+
+---
+
+## Stabilized Slotted ALOHA (Pseudo-Bayesian)
+
+### 핵심 아이디어
+
+$G(\hat{n}) \approx 1$을 항상 유지 → throughput $\approx 1/e$ 안정적으로 유지.
+
+실제 $n$을 알 수 없으므로 **추정값 $\hat{n}$** 을 매 슬롯 업데이트.
+
+### 적응형 재전송 확률
+
+$$
+q_r(\hat{n}) = \min\!\left[1,\;\frac{1}{\hat{n}}\right]
+\quad \Rightarrow \quad G = nq_r \approx \frac{n}{\hat{n}} \approx 1
+$$
+
+성공 확률 ($n$개 backlogged 중 정확히 1개 재전송):
+
+$$
+Q_r(1,n) = nq_r(1-q_r)^{n-1}
+$$
+
+### $\hat{n}$ 업데이트 규칙
+
+$$
+\hat{n}_{k+1} =
+\begin{cases}
+\max\!\bigl[\lambda,\; \hat{n}_k + \lambda - 1\bigr] & \text{idle or success} \\[6pt]
+\hat{n}_k + \lambda + \dfrac{1}{e-2} & \text{collision}
+\end{cases}
+$$
+
+| 결과 | 해석 | $\hat{n}$ 조정 |
+|:---:|:---|:---|
+| Idle | $G$가 너무 작음 | $\hat{n}$ 감소 → $q_r$ 증가 |
+| Success | 정상 | $\hat{n}$ 소폭 감소 |
+| Collision | $G$가 너무 큼 | $\hat{n}$ 증가 → $q_r$ 감소 |
+
+### $(e-2)^{-1}$의 유도
+
+충돌 관측 시, $G=1$ 가정 하에 실제 전송 수의 **조건부 기댓값** (Bayesian):
+
+$$
+E[k \mid k \geq 2] = \frac{E[k \cdot \mathbf{1}_{k\geq 2}]}{P(k \geq 2)}
+= \frac{1 - e^{-1}}{1 - 2e^{-1}}
+$$
+
+backlog 증가분:
+
+$$
+E[k \mid k \geq 2] - 1 = \frac{1-e^{-1}}{1-2e^{-1}} - 1
+= \frac{e^{-1}}{1-2e^{-1}}
+= \frac{1}{e-2}
+$$
+
+::: {.callout-note}
+## 직관
+충돌이 났다는 사실은 "실제 시도 수 $\geq 2$"라는 정보를 준다.  
+Bayes 정리로 조건부 기댓값을 구하면 평균보다 $\tfrac{1}{e-2}\approx 1.39$ 더 많이 시도했다고 추정 — 그만큼 $\hat{n}$을 올린다.
+:::
+
+---
+
+## CSMA (Carrier Sense Multiple Access)
+
+### 핵심 아이디어
+
+"**보내기 전에 먼저 듣는다**" — 채널이 비었을 때만 전송.
+
+### 핵심 파라미터 $\beta$
+
+$$
+\beta = \frac{\text{end-to-end 전파지연} \times C}{L}
+= \frac{\text{전파지연}}{\text{패킷 전송시간}}
+$$
+
+- $\beta \ll 1$: 전파지연이 패킷 전송시간보다 훨씬 짧음 → CSMA 효과 극대화
+- $\beta \to 0$: vulnerable period $\to 0$, throughput $\to 1$
+- $\beta$ 클수록: ALOHA와 성능 차이 없어짐
+
+**직관:** 내가 전송을 시작해도 다른 노드가 감지하기까지 $\beta$ 시간이 걸린다. 이 사이에 다른 노드도 전송 시작하면 충돌. 따라서 **vulnerable period = $\beta$** (Slotted ALOHA의 1 slot보다 훨씬 작음).
+
+### CSMA 유형
+
+| 유형 | 채널 busy일 때 | 특징 |
+|:---|:---:|:---|
+| **Non-persistent** | 랜덤 대기 후 재시도 | 충돌↓, idle 낭비 있음 |
+| **1-persistent** | 계속 감청, idle 즉시 전송 | 충돌↑ |
+| **p-persistent** | idle 시 확률 $p$로 전송 | 중간 타협 |
+
+### Non-persistent CSMA 분석
+
+전이 구간 구조:
+
+- **Idle mini-slot**: 길이 $\beta$
+- **Busy slot**: 길이 $1 + \beta$ (데이터 1 + 뒤따르는 idle $\beta$)
+
+상태 $n$에서 **mini-slot 끝에 아무도 전송 안 할 확률**:
+
+$$
+e^{-\lambda\beta}(1-q_r)^n
+$$
+
+**기대 전이 시간**:
+
+$$
+E[\text{interval}] = \beta + 1\cdot\bigl[1 - e^{-\lambda\beta}(1-q_r)^n\bigr]
+$$
+
+$g(n) = \lambda\beta + q_r n$ 으로 정의하면, **Drift**:
+
+$$
+D_n \approx \lambda\bigl(\beta + 1 - e^{-g(n)}\bigr) - g(n)e^{-g(n)}
+$$
+
+### ALOHA vs CSMA 비교
+
+```{python}
+#| label: fig-csma-vs-aloha
+#| fig-cap: "β 값에 따른 CSMA throughput 비교 (Non-persistent, Poisson 근사)"
+
+G = np.linspace(0.01, 5, 500)
+
+fig, ax = plt.subplots(figsize=(7.5, 4.5))
+
+# Slotted ALOHA (β=1)
+ax.plot(G, G*np.exp(-G), color='#7f8c8d', lw=2, ls='--', label='Slotted ALOHA ($β=1$)')
+
+# CSMA: throughput ≈ Ge^{-Gβ} / (β + 1·(1-e^{-G})) (simplified bound)
+for beta, color in [(0.01,'#1abc9c'),(0.05,'#2980b9'),(0.1,'#8e44ad'),(0.2,'#e74c3c')]:
+    # throughput = Psucc / E[interval] (Poisson approx)
+    Psucc = G * np.exp(-G*beta) * np.exp(-G)
+    E_int = beta + 1*(1 - np.exp(-G*beta)*np.exp(-G))
+    S = np.where(E_int > 0, Psucc/E_int, 0)
+    ax.plot(G, S, color=color, lw=2.2, label=f'CSMA $β={beta}$')
+
+ax.set_xlabel('Attempted transmission rate $G$')
+ax.set_ylabel('Throughput $S$')
+ax.set_xlim(0, 5); ax.set_ylim(0, 1.05)
+ax.legend(frameon=False, fontsize=9.5, loc='upper right')
+ax.spines[['top','right']].set_visible(False)
+ax.axhline(1/np.e, color='gray', lw=0.8, ls=':', alpha=0.6)
+ax.text(4.5, 1/np.e+0.02, '$1/e$', color='gray', fontsize=9)
+plt.tight_layout()
+plt.show()
+```
+
+| | Slotted ALOHA | CSMA |
+|:---|:---:|:---:|
+| Vulnerable period | 1 slot | $\beta$ |
+| 최대 throughput | $1/e \approx 0.37$ | $\beta\to 0$이면 $\to 1$ |
+| 조건 | 항상 | $\beta \ll 1$ 필요 |
+
+::: {.callout-tip}
+## 핵심 한 줄
+CSMA는 **vulnerable period를 1 slot → $\beta$로 축소**해 throughput을 높인다.  
+$\beta$가 작을수록(전파지연 $\ll$ 패킷 전송시간) 효과가 극대화된다.
+:::
+
+---
+
+## 전체 요약
+
+```{python}
+#| label: fig-summary
+#| fig-cap: "프로토콜별 최대 throughput 비교"
+
+protocols = ['Pure\nALOHA', 'Slotted\nALOHA', 'Stabilized\nALOHA', 'CSMA\n(β→0)']
+values    = [1/(2*np.e), 1/np.e, 1/np.e, 0.95]
+colors    = ['#e74c3c','#e67e22','#f1c40f','#2ecc71']
+
+fig, ax = plt.subplots(figsize=(7, 4))
+bars = ax.bar(protocols, values, color=colors, edgecolor='white', linewidth=1.5, width=0.55)
+for bar, val in zip(bars, values):
+    ax.text(bar.get_x()+bar.get_width()/2, bar.get_height()+0.008,
+            f'{val:.3f}', ha='center', va='bottom', fontsize=10.5, fontweight='bold')
+
+ax.set_ylabel('Maximum Throughput')
+ax.set_ylim(0, 1.1)
+ax.spines[['top','right']].set_visible(False)
+ax.axhline(1.0, color='gray', lw=0.8, ls=':', alpha=0.5)
+ax.text(3.5, 1.01, '이론 최대 = 1.0', color='gray', fontsize=8.5)
+plt.tight_layout()
+plt.show()
+```
+
+| 프로토콜 | 핵심 아이디어 | 최대 Throughput |
+|:---|:---|:---:|
+| Pure ALOHA | 즉시 전송, vulnerable period = $2\tau$ | $1/(2e) \approx 0.184$ |
+| Slotted ALOHA | 슬롯 동기화, vulnerable period = $1$ | $1/e \approx 0.368$ (불안정) |
+| Stabilized ALOHA | $G\approx 1$ 피드백 제어 | $1/e \approx 0.368$ (안정) |
+| CSMA | 전송 전 채널 감청, vulnerable period = $\beta$ | $\to 1$ ($\beta\to 0$) |

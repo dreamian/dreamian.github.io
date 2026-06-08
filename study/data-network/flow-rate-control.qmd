@@ -1,0 +1,516 @@
+---
+title: "Flow and Rate Control"
+subtitle: "Window Flow Control · Token Bucket · 최적 Rate Control · Max-Min · Proportional Fair"
+date: "2026-06-08"
+lang: ko
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    theme: cosmo
+    fig-width: 7
+    fig-height: 4.2
+  pdf:
+    pdf-engine: xelatex
+    toc: true
+    number-sections: true
+    include-in-header:
+      text: |
+        \usepackage{kotex}
+        \usepackage{amsmath,amssymb}
+execute:
+  echo: true
+  warning: false
+jupyter: python3
+---
+
+# 큰 그림: 통제 변수 세 가지 {#sec-overview}
+
+이 장 전체는 **"네트워크에 들어가는 트래픽을 무엇으로, 어떤 목표로 통제할 것인가"** 라는 하나의 질문을 세 층위에서 다룬다.
+
+| 접근 | 통제 변수 | 핵심 도구 | 목표 |
+|---|---|---|---|
+| Window flow control | 미해결(outstanding) 패킷 수 $W$ | round-trip 관계식 | 파이프라인 점유 제어 |
+| Rate control (token bucket) | permit 생성률 $r$, 버킷 크기 $W$ | 이산시간 Markov chain | 평균률·버스트 평활화 |
+| 최적/공정 rate control | 세션별 허용률 $r_w$ | 볼록최적화, max-min / proportional fair | 비용 최소화 · 공정성 |
+
+앞의 둘은 **메커니즘**, 마지막은 그 메커니즘이 지향할 **목표(목적함수·공정성)** 이다.
+
+::: {.callout-important title="이 문서를 보는 핵심 원칙"}
+일반해는 *이차방정식*, 시험 문제는 그 일반해의 가장 단순한 인스턴스인 *일차방정식*이다.
+각 절 끝의 **[시험 포인트]** 콜아웃이 "일차방정식 버전"이 무엇인지 정리한다.
+:::
+
+---
+
+# Window Flow Control {#sec-window}
+
+## 전송률 관계식
+
+End-to-end window 방식은 ACK를 못 받은 채 동시에 띄울 수 있는 패킷 수를 $W$로 제한한다.
+
+- $d$: round-trip delay (sec)
+- $X$: 패킷 한 개의 전송시간 (sec) $=$ 링크 속도의 역수
+- $W$: window size (패킷)
+
+한 window가 한 바퀴 도는 데 $d$초, 그 동안 최대 $W$개를 보내므로 window 제약 시 전송률은 $W/d$, 링크 물리 한계는 $1/X$. 실제 전송률은 둘 중 작은 값:
+
+$$
+r = \min\!\left[\frac{1}{X},\ \frac{W}{d}\right]\quad[\text{packets/sec}]
+$$
+
+- $d \le WX$ : $r = 1/X$ (full speed, window는 제약이 아님)
+- $d > WX$ : $r = W/d$ (이 지점부터 window가 throttle = flow control 작동)
+
+```{python}
+#| label: fig-window
+#| fig-cap: "RTT($d$)에 따른 전송률. $d=WX$에서 full-speed가 깨지고 flow control이 시작된다."
+import numpy as np
+import matplotlib.pyplot as plt
+
+X, W = 1.0, 4.0
+d = np.linspace(0.01, 20, 500)
+r = np.minimum(1/X, W/d)
+
+fig, ax = plt.subplots()
+ax.plot(d, r, lw=2.2, color="#2c3e80")
+ax.axvline(W*X, ls="--", color="gray")
+ax.axhline(1/X, ls=":", color="gray")
+ax.annotate("full speed\n$r=1/X$", xy=(W*X/2, 1/X),
+            xytext=(W*X/2, 0.78), ha="center")
+ax.annotate("$r=W/d$", xy=(12, W/12), xytext=(13, 0.5),
+            arrowprops=dict(arrowstyle="->"))
+ax.annotate("flow control\nbegins ($d=WX$)", xy=(W*X, 0.55),
+            xytext=(7, 0.7), arrowprops=dict(arrowstyle="->"))
+ax.set_xlabel("Round-trip delay $d$"); ax.set_ylabel("Transmission rate $r$")
+ax.set_ylim(0, 1.15); plt.tight_layout()
+```
+
+## 시스템적 함의
+
+두 가지 직관이 핵심이다.
+
+1. **긴 경로 세션이 불리하다.** $d$가 클수록 같은 $W$로 얻는 $r=W/d$가 작아진다 → window 방식은 RTT에 대해 공정하지 않다 (뒤의 공정성 절이 등장하는 동기).
+2. **고속 전송은 큰 버퍼를 요구한다.** full speed 유지 조건 $W \ge d/X = d\cdot(\text{link rate})$, 즉 **bandwidth–delay product** 만큼의 패킷이 항상 in-flight 여야 한다.
+
+## 변형
+
+- **Node-by-node (hop-by-hop):** 인접 노드쌍마다 window → **backpressure** 효과, end-to-end보다 필요 버퍼 적음.
+- **Isarithmic:** 전역 permit 총수 고정 → 전역 부하는 통제하나 **국소 혼잡은 못 막음**.
+
+::: {.callout-tip title="[시험 포인트] Window"}
+- 외워서 쓸 식은 단 하나: $r=\min[1/X,\ W/d]$.
+- 묻는 형태: 주어진 $d,X,W$로 $r$ 계산, full-speed 조건 $d\le WX$ 판정, 또는 그래프 해석.
+- "긴 경로 불리", "BDP 만큼 버퍼" 두 문장은 서술형 단골.
+:::
+
+---
+
+# Rate Control — Token(Leaky) Bucket {#sec-bucket}
+
+여기서부터가 계산 비중이 가장 크다. 모델 → 상태정의 → DTMC → 정상상태 → 지연 순으로 간다.
+
+## 모델
+
+- 패킷은 **permit(token)** 을 받아야 네트워크로 나간다.
+- Token은 **$1/r$초마다 1개** 생성되어 버킷(용량 $W$)에 쌓인다. 가득 차면 이후 token은 버려진다.
+- token을 못 받은 패킷은 대기한다.
+
+## 상태 정의 (부호 규약)
+
+token 생성 시점을 embedding 시점으로 하는 이산시간 Markov chain. 상태 $i$:
+
+- $i=0,1,\dots,W$ : 대기 패킷 없음, token이 $(W-i)$개 남음. ($i=0$ = 버킷 가득, $i=W$ = token 0개)
+- $i=W+1, W+2,\dots$ : token 0개, 패킷 $(i-W)$개 대기.
+
+$\lambda$가 Poisson 도착률이면 한 slot($1/r$초) 동안 $k$개 도착할 확률은
+
+$$
+a_k=\frac{(\lambda/r)^k}{k!}\,e^{-\lambda/r},\qquad k=0,1,2,\dots
+$$
+
+평균 $\lambda/r=\rho$ 의 Poisson.
+
+## 전이확률 (동역학에서 직접)
+
+한 slot에서 token $-1$, 도착 $+A$. $j\ge1$이면 token이 늘 소비되므로 $i=j-1+A$, 즉 $A=i-j+1$:
+
+$$
+P_{ji}=a_{\,i-j+1}\quad(j\le i+1),\qquad 0\ \text{otherwise}.
+$$
+
+상태 0(버킷 가득)에서는 경계 효과: $A=0$(token 버려짐)·$A=1$(바로 소비) 둘 다 0 유지:
+
+$$
+P_{0i}=\begin{cases}a_0+a_1,& i=0\\ a_{\,i+1},& i\ge1\end{cases}
+$$
+
+이 $a_0+a_1$ 항이 버킷 용량 $W$ 상한을 인코딩한다. 구조는 M/G/1 임베디드 chain과 동일한 *skip-free to the left* 형태.
+
+```{mermaid}
+%%| label: fig-mc
+%%| fig-cap: "Token bucket DTMC (대표 전이만 표시). 좌향은 항상 $a_0$, 자기/우향은 $a_1,a_2,\\dots$"
+flowchart LR
+    S0((0)) -->|a0+a1| S0
+    S0 -->|a2| S1((1))
+    S1 -->|a0| S0
+    S1 -->|a1| S1
+    S1 -->|a2| S2((2))
+    S2 -->|a0| S1
+    S2 -->|a1| S2
+    S2 -->|a2| S3((3))
+    S3 -->|a0| S2
+    S3 -->|a1| S3
+    S3 -->|a2| S4(("..."))
+```
+
+## 정상상태 (balance → 재귀)
+
+$j=0$ 항도 $a_{i+1}=a_{i-0+1}$로 같은 형태에 흡수되므로,
+
+$$
+p_0=a_0p_1+(a_0+a_1)p_0,\qquad p_i=\sum_{j=0}^{i+1}a_{\,i-j+1}\,p_j\ \ (i\ge1).
+$$
+
+상태 0 식에서
+
+$$
+p_0(1-a_0-a_1)=a_0p_1 \;\Rightarrow\; p_1=\frac{1-a_0-a_1}{a_0}\,p_0,
+$$
+
+이후 $p_2,p_3,\dots$ 를 차례로 $p_0$에 비례해 구한다.
+
+## $p_0$: 보존(conservation) 논증
+
+정규화 대신 물리 보존을 쓰면 한 줄이다. Token은 율 $r$로 생성되고, **유일하게 낭비되는 경우는 상태 0에서 도착이 없을 때($a_0$)** 뿐이므로 출력률 = $r(1-p_0a_0)$. 정상상태 throughput = $\lambda$ :
+
+$$
+r(1-p_0a_0)=\lambda \;\Rightarrow\; \boxed{\,p_0=\dfrac{r-\lambda}{r\,a_0}\,}
+$$
+
+::: {.callout-note title="안정성"}
+$p_0>0 \Leftrightarrow \lambda<r$. 평균 token 생성률이 평균 도착률보다 커야 한다 ($\rho=\lambda/r<1$).
+:::
+
+## 평균 permit 대기시간
+
+대기 패킷 수 $=\max(0,i-W)$, 평균 $N_w=\sum_{j>W}p_j(j-W)$. **Little의 법칙** $N_w=\lambda T$ :
+
+$$
+\boxed{\,T=\frac{1}{\lambda}\sum_{j=W+1}^{\infty}p_j\,(j-W)\,}
+$$
+
+::: {.callout-warning title="분모는 r이 아니라 λ"}
+대기 큐의 Little 법칙은 분모로 **도착률 $\lambda$** 를 요구한다(서비스율 $r$ 아님). 둘은 $\lambda\to r$ 극한에서만 일치하므로, "average packet delay"는 $N_w/\lambda$ 로 답한다.
+:::
+
+## 버킷 크기 $W$의 trade-off
+
+- $W$ 작음 → 버스트가 permit 기다리며 대기 (평활화 강, 지연 증가)
+- $W$ 큼 → 긴 버스트가 한꺼번에 진입 (내부 혼잡 위험)
+
+$r$은 평균률, $W$는 버스트 크기를 통제하는 두 손잡이.
+
+## 워크드 예제 (일차방정식 버전) {#sec-bucket-example}
+
+가장 단순한 인스턴스: **버킷 용량 $W=0$**(token 저장 없음), 도착은 slot당 최대 2개로 한정.
+
+$$
+a_0=0.4,\quad a_1=0.4,\quad a_2=0.2,\qquad \rho=\mathbb{E}[A]=0.4+2(0.2)=0.8<1.
+$$
+
+$W=0$이므로 상태 $n$ = 대기 패킷 수.
+
+**Balance 방정식 (작은 선형계)**
+
+$$
+\begin{aligned}
+p_0&=(a_0+a_1)p_0+a_0p_1=0.8p_0+0.4p_1 &&\Rightarrow\ p_1=0.5\,p_0\\
+p_1&=a_2p_0+a_1p_1+a_0p_2=0.2p_0+0.4p_1+0.4p_2 &&\Rightarrow\ p_2=0.25\,p_0\\
+p_2&=a_2p_1+a_1p_2+a_0p_3 &&\Rightarrow\ p_3=0.125\,p_0
+\end{aligned}
+$$
+
+공비 $0.5$의 등비: $p_n=p_0(0.5)^n$. 정규화 $\sum p_n=2p_0=1$ → $p_0=0.5$, 즉
+
+$$
+p_n=(0.5)^{\,n+1}.
+$$
+
+보존식 검증: $p_0=\dfrac{r-\lambda}{r a_0}=\dfrac{1-\rho}{a_0}=\dfrac{0.2}{0.4}=0.5$. ✔
+
+**지연.** $W=0$이라 $N_w=\mathbb{E}[n]=\sum_n n\,(0.5)^{n+1}=1$. Little :
+
+$$
+T=\frac{N_w}{\lambda}=\frac{1}{0.8\,r}=\frac{1.25}{r}\ \text{초}\ (=1.25\ \text{slot}).
+$$
+
+```{python}
+#| label: fig-bucket
+#| fig-cap: "워크드 예제의 정상상태 분포 $p_n=(0.5)^{n+1}$ (등비)."
+import numpy as np, matplotlib.pyplot as plt
+n = np.arange(0, 9)
+p = 0.5**(n+1)
+fig, ax = plt.subplots()
+ax.bar(n, p, color="#2c7a55", width=0.6)
+for xi, pi in zip(n, p):
+    ax.text(xi, pi+0.008, f"{pi:.3f}", ha="center", fontsize=8)
+ax.set_xlabel("state $n$ (waiting packets)"); ax.set_ylabel("$p_n$")
+ax.set_title(r"$p_0=0.5,\ \rho=0.8,\ \bar N_w=1,\ T=1.25/r$")
+plt.tight_layout()
+```
+
+::: {.callout-tip title="[시험 포인트] Token bucket — 풀이 순서"}
+1. **상태 정의**를 부호 규약대로 명확히 (token 수 ↔ 대기 패킷 수).
+2. 전이확률 $P_{ji}=a_{i-j+1}$, 경계 $P_{00}=a_0+a_1$ 로 **작은 MC를 그린다**.
+3. balance를 **선형 점화식**으로 풀어 등비/소수 상태 확률을 구한다.
+4. $p_0=\dfrac{r-\lambda}{r a_0}$ 로 교차검증.
+5. 지연은 **$N_w/\lambda$** (Little).
+
+"관찰 시점(token 도착 직전 vs 직후)"이 상태 개수를 바꾼다 — 직전 관찰이면 그 slot의 도착이 아직 반영 안 돼 상태 공간이 더 단순해진다. (a)·(c) 가 이 차이를 묻는다.
+:::
+
+---
+
+# 최적화 기반 Rate Control {#sec-opt}
+
+## 목적함수
+
+세션 class $w$의 제공부하 $\bar r_w$, 허용률 $r_w\le\bar r_w$:
+
+$$
+\min\ \sum_{(i,j)}D_{ij}(F_{ij})+\sum_{w}e_w(r_w)
+\quad\text{s.t.}\quad \sum_{p\in P_w}x_p=r_w,\ x_p\ge0,\ 0\le r_w\le\bar r_w.
+$$
+
+- $\sum D_{ij}(F_{ij})$ : 링크 지연 비용(routing 비용과 동일).
+- $\sum e_w(r_w)$ : 트래픽 **거절 페널티** ($r_w$ 작을수록 큰 비용 → "다 막아버리는" 자명해 방지).
+
+많이 받으면 지연 ↑, 적게 받으면 거절 페널티 ↑. 그 균형이 최적 허용률.
+
+## Overflow 재정식화
+
+거절량 $y_w=\bar r_w-r_w\ge0$ 도입 → 부등식 제약 제거:
+
+$$
+\min\sum D_{ij}(F_{ij})+\sum_w E_w(y_w),\quad
+\sum_{p}x_p+y_w=\bar r_w,\ x_p,y_w\ge0,
+$$
+$E_w(y_w)=e_w(\bar r_w-y_w)$, 제안형 $e_w'(r_w)=-(a_w/r_w)^{b_w}$.
+
+## 최적성 조건 (KKT의 흐름 해석)
+
+경로 한계비용 $d_p^*=\sum_{(i,j)\in p}D_{ij}'(F_{ij}^*)$ 로 두면,
+
+$$
+\begin{aligned}
+x_p^*>0 &\Rightarrow d_p^*\le d_{p'}^*\ (\forall p'\in P_w)\ \text{and}\ d_p^*\le -e_w'(r_w^*),\\
+r_w^*<\bar r_w &\Rightarrow -e_w'(r_w^*)\le d_p^*\ (\forall p\in P_w).
+\end{aligned}
+$$
+
+해석: 흐름이 실리는 경로는 **모두 같은(최소) 한계비용**(= 최적 routing 조건), 그리고 그 값이 **거절의 한계페널티 $-e_w'$ 와 균형**을 이루는 지점에서 수용량이 결정된다.
+
+## 단일 링크 예제 — 완전 유도
+
+용량 $C$, 제공부하 $\bar r$, 허용률 $r$, $y=\bar r-r$. M/M/1 근사 $D(r)=\dfrac{r}{C-r}$, 페널티 $\dfrac{a}{r}$ :
+
+$$
+J(r)=\frac{r}{C-r}+\frac{a}{r},\qquad
+J'(r)=\frac{C}{(C-r)^2}-\frac{a}{r^2}.
+$$
+
+**내부 최적해** $J'=0$ :
+
+$$
+\frac{\sqrt C}{C-r}=\frac{\sqrt a}{r}\Rightarrow r(\sqrt C+\sqrt a)=C\sqrt a
+\Rightarrow \boxed{\,r^*=\dfrac{C\sqrt a}{\sqrt a+\sqrt C}\,}
+$$
+
+**flow control 불필요 조건** ($r=\bar r$에서 아직 감소):
+
+$$
+\frac{C}{(C-\bar r)^2}<\frac{a}{\bar r^2}\ \Longleftrightarrow\ \bar r<\frac{C\sqrt a}{\sqrt a+\sqrt C}=r^*.
+$$
+
+::: {.callout-warning title="표기 정밀성"}
+정확한 형태는 제곱근이 들어간 $r^*=\dfrac{C\sqrt a}{\sqrt a+\sqrt C}$ 이다. $\dfrac{a}{a+C}$ 식은 $\dfrac{\sqrt a}{\sqrt a+\sqrt C}$ 의 축약으로 보아야 맞다.
+:::
+
+## 3-병렬-링크 예제 (시험 단골) {#sec-three-link}
+
+단일 OD, 용량 $C_1,C_2,C_3$ 인 세 one-hop 경로, 총률 $r$ :
+
+$$
+\min\sum_{i=1}^{3}\frac{f_i}{C_i-f_i}\quad\text{s.t.}\ \sum_i f_i=r,\ f_i\ge0.
+$$
+
+Lagrangian $\mathcal L=\sum\frac{f_i}{C_i-f_i}-\nu(\sum f_i-r)$, 활성 링크에서
+
+$$
+\frac{C_i}{(C_i-f_i)^2}=\nu
+\Rightarrow C_i-f_i=\sqrt{C_i/\nu}
+\Rightarrow f_i=C_i-\sqrt{\tfrac{C_i}{\nu}}.
+$$
+
+$\sum f_i=r$ 대입:
+
+$$
+\sqrt\nu=\frac{\sum_i\sqrt{C_i}}{\sum_i C_i-r},\qquad
+\boxed{\,f_i=C_i-\sqrt{C_i}\,\frac{\sum_j C_j-r}{\sum_j\sqrt{C_j}}\,}
+$$
+
+(어떤 $f_i<0$ 이 나오면 그 링크는 비활성 $f_i=0$ 으로 두고 나머지로 재계산.)
+
+```{python}
+#| label: fig-threelink
+#| fig-cap: "총률 $r$에 따른 최적 분배. 용량이 큰 링크가 더 많이, 모든 활성 링크의 한계비용이 같아진다. ($C=[3,2,1]$)"
+import numpy as np, matplotlib.pyplot as plt
+
+C = np.array([3.0, 2.0, 1.0])
+def opt_flows(r):
+    active = np.array([True, True, True])
+    for _ in range(3):
+        Ca = C[active]
+        s = np.sum(np.sqrt(Ca)) / (np.sum(Ca) - r)
+        f = np.zeros(3)
+        f[active] = Ca - np.sqrt(Ca)/s
+        if np.all(f[active] >= -1e-9):
+            f[f < 0] = 0; return f
+        active = f > 1e-9
+    return np.clip(f, 0, None)
+
+R = np.linspace(0.3, 5.5, 200)
+F = np.array([opt_flows(r) for r in R])
+fig, ax = plt.subplots()
+for i, c in enumerate(C):
+    ax.plot(R, F[:, i], lw=2, label=f"$f_{i+1}$ (link $C={c:g}$)")
+ax.set_xlabel("total rate $r$"); ax.set_ylabel("path flow $f_i$")
+ax.legend(); plt.tight_layout()
+```
+
+::: {.callout-tip title="[시험 포인트] 최적 rate/routing"}
+- 핵심 동작은 **한계비용 등화**: $\dfrac{C_i}{(C_i-f_i)^2}$ 를 모두 같게 + $\sum f_i=r$.
+- 단일/소수 링크라 사실상 **대수 계산 한 번**이면 끝 (일차방정식 수준).
+- 음수 flow → 그 링크 비활성 처리, 라는 경계 케이스 한 줄 챙기기.
+:::
+
+---
+
+# Max-Min Fairness {#sec-maxmin}
+
+목표가 비용이 아니라 **공정성**으로 바뀐다. 고정·단일경로, 세션 율 $r_p$, 링크 부하 $F_a=\sum_{p\ni a}r_p\le C_a$.
+
+## 정의
+
+> $r$이 feasible이고, 어떤 $r_p$ 도 — 자신보다 작거나 같은 다른 $r_{p'}\le r_p$ 를 줄이지 않고는 — 더 늘릴 수 없으면 **max-min fair**.
+
+직관: 가장 작은 율부터 최대한 끌어올리는 lexicographic 최대화.
+
+## Bottleneck과 명제
+
+> 링크 $a$가 세션 $p$의 **bottleneck**: $F_a=C_a$ (포화) 이고 $a$ 위 모든 세션 중 $p$가 최대 율 ($r_p\ge r_{p'}$).
+
+> **Proposition:** $r$이 max-min fair $\Leftrightarrow$ 모든 세션이 적어도 하나의 bottleneck을 가짐.
+
+## Water-filling 알고리즘
+
+모든 링크에서 율을 같은 속도로 올리다 포화 링크가 생기면 그 위 세션을 동결, 반복.
+
+초기: $k=1,\ F_a^0=0,\ r_p^0=0,\ P^1=P,\ A^1=A$.
+
+1. $n_a^k$ = 링크 $a$ 위 미동결 세션 수.
+2. $\displaystyle \tilde r^k=\min_{a\in A^k}\frac{C_a-F_a^{k-1}}{n_a^k}$ → 다음 bottleneck.
+3. $r_p^k=r_p^{k-1}+\tilde r^k$ (활성 $p$), 나머지 유지.
+4. $F_a^k=\sum_{p\ni a}r_p^k$.
+5. $A^{k+1}=\{a:C_a-F_a^k>0\}$.
+6. $P^{k+1}=\{p:p$가 포화 링크를 지나지 않음$\}$.
+7. $k\!\leftarrow\!k+1$. 8. $P$ 비면 정지.
+
+## 예제
+
+```{mermaid}
+%%| label: fig-maxmin
+%%| fig-cap: "직렬 두 링크(용량 1). 세션 0,1,2는 첫 링크 공유, 세션 3은 둘째 링크만 사용."
+flowchart LR
+    A((A)) -->|"link1, C=1"| B((B))
+    B -->|"link2, C=1"| D((C))
+    S012["세션 0,1,2"] -.-> A
+    S3["세션 3"] -.-> B
+```
+
+첫 링크는 0·1·2가 균등 분할 → 각 $1/3$. 둘째 링크는 세션 3 혼자라 남은 $1-1/3=2/3$ 전부 → $r_3=2/3$. **남는 용량을 낭비하지 않는 것**이 max-min의 특징(단순 균등분배 아님).
+
+::: {.callout-tip title="[시험 포인트] Max-Min"}
+- 정의(증가시키려면 ≤인 누군가를 깎아야)와 bottleneck 명제(iff)를 정확히.
+- 계산은 작은 토폴로지에서 **water-filling 손계산** 몇 단계.
+- "max-min ≠ 균등분배" — 여유 용량을 독점 세션이 흡수하는 예가 단골.
+:::
+
+---
+
+# Proportional Fair Scheduling {#sec-pf}
+
+무선 시변 채널에서의 공정성. **throughput과 fairness의 절충**(max-min의 절대 보호와 대비).
+
+## 스케줄링 규칙
+
+순시 데이터율 $\mathrm{DRC}_k(t)$, 지수평균률 $R_k(t)$. 매 slot
+
+$$
+k^*=\arg\max_k\frac{\mathrm{DRC}_k(t)}{R_k(t)},
+$$
+$$
+R_k(t+1)=\begin{cases}
+\left(1-\tfrac1{t_c}\right)R_k(t)+\tfrac1{t_c}\,\mathrm{DRC}_k(t),& k\ \text{선택}\\[4pt]
+\left(1-\tfrac1{t_c}\right)R_k(t),& k\ \text{미선택}
+\end{cases}
+$$
+
+"순시채널이 **자기 평균 대비** 얼마나 좋은가"가 최대인 사용자에게 준다.
+
+## 왜 proportional fair인가
+
+이 규칙은 다음을 (점근적으로) 최대화한다:
+
+$$
+P=\arg\max\sum_{k\in U}\log R_k.
+$$
+
+$\partial(\log R_k)/\partial R_k=1/R_k$ — 이미 평균률 높은 사용자에게 1단위 더 주는 가치는 작고, 낮은 사용자에게 주는 가치는 크다. 그래서 매 slot $\mathrm{DRC}_k/R_k$ 최대화가 곧 $\sum\log R_k$ 의 상승 방향(gradient).
+
+정의적 성질: 어떤 재할당도 $\sum_k \Delta R_k/R_k\le0$ (한 사용자를 비례적으로 키우면 다른 누군가가 더 줄어듦).
+
+## 3-사용자 해석 + Multiuser diversity
+
+채널이 가장 좋은 사용자에게 전 대역을 주면 시스템 throughput은 최대이나, 평균 채널이 나쁜(셀 경계) 사용자는 굶는다. PF는 $R_k$ 로 정규화해 **각 사용자를 자기 채널이 상대적 peak일 때** 서비스 → fading을 공정성 손상 없이 throughput으로 활용(**multiuser diversity**).
+
+| 기준 | Max-Min | Proportional Fair |
+|---|---|---|
+| 공정성 | 절대적(최소 율 보호) | 상대적(비례) |
+| 채널 변동 활용 | 안 함 | 기회적으로 활용 |
+| throughput | 손해 가능 | throughput–fairness 절충 |
+
+::: {.callout-tip title="[시험 포인트] Proportional Fair"}
+- 목적함수 $\sum\log R_k$ 와 규칙 $\arg\max \mathrm{DRC}_k/R_k$ 를 쓰고, 3 사용자로 "좋은 채널 순간에 각자 서비스된다"를 서술하면 핵심 득점.
+- max-min과의 1줄 대비(절대 vs 비례, 변동 활용 여부)를 덧붙인다.
+:::
+
+---
+
+# 시험 우선순위 종합 {#sec-priority}
+
+::: {.callout-important title="이차방정식(일반) → 일차방정식(시험)"}
+| 주제 | 일반해(슬라이드) | 시험에서 묻는 단순 인스턴스 |
+|---|---|---|
+| Window | $r=\min[1/X,W/d]$ 의 그래프·BDP | 숫자 대입 / full-speed 판정 |
+| Token bucket | 무한상태 chain + Little 일반식 | **작은 MC** 그려 선형계 풀고 $p_0,T$ 계산 |
+| 최적 rate/routing | 다중경로 KKT 한계비용 | 단일·소수 링크 **한계비용 등화** 대수 |
+| Max-Min | bottleneck iff 명제 | 작은 토폴로지 **water-filling 손계산** |
+| Proportional Fair | $\sum\log R_k$ 최적성 | 규칙 + 3-사용자 **서술** |
+:::
+
+가장 계산량이 큰 둘은 **token bucket**(@sec-bucket-example)과 **소수 링크 최적 분배**(@sec-three-link)이며, 나머지는 정의·규칙·작은 손계산 또는 서술형이다. token bucket은 "상태 정의 → 작은 MC → 선형 balance → $N_w/\lambda$" 의 4단계를, 최적 분배는 "한계비용 등화 + $\sum f_i=r$" 한 줄을 반복 숙달하는 것이 핵심이다.
