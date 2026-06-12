@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.36">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-03-30">
+
+<title>다층 퍼셉트론(MLP)과 역전파, 그리고 교차 엔트로피 – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-845c23b38eaddc0f92fda52bfe77a8c8.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-da17d83626a3727898eb25bb9d1cdf08.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script src="../../site_libs/quarto-diagram/mermaid.min.js"></script>
+<script src="../../site_libs/quarto-diagram/mermaid-init.js"></script>
+<link href="../../site_libs/quarto-diagram/mermaid.css" rel="stylesheet">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#전체-그림" id="toc-전체-그림" class="nav-link active" data-scroll-target="#전체-그림"><span class="header-section-number">1</span> 전체 그림</a></li>
+  <li><a href="#고전-분류기-마무리" id="toc-고전-분류기-마무리" class="nav-link" data-scroll-target="#고전-분류기-마무리"><span class="header-section-number">2</span> 고전 분류기 마무리</a>
+  <ul class="collapse">
+  <li><a href="#k-최근접-이웃-k-nearest-neighbor" id="toc-k-최근접-이웃-k-nearest-neighbor" class="nav-link" data-scroll-target="#k-최근접-이웃-k-nearest-neighbor"><span class="header-section-number">2.1</span> k-최근접 이웃 (k-Nearest Neighbor)</a></li>
+  <li><a href="#결정-트리-decision-tree" id="toc-결정-트리-decision-tree" class="nav-link" data-scroll-target="#결정-트리-decision-tree"><span class="header-section-number">2.2</span> 결정 트리 (Decision Tree)</a></li>
+  <li><a href="#랜덤-포레스트-random-forest" id="toc-랜덤-포레스트-random-forest" class="nav-link" data-scroll-target="#랜덤-포레스트-random-forest"><span class="header-section-number">2.3</span> 랜덤 포레스트 (Random Forest)</a></li>
+  </ul></li>
+  <li><a href="#퍼셉트론-perceptron" id="toc-퍼셉트론-perceptron" class="nav-link" data-scroll-target="#퍼셉트론-perceptron"><span class="header-section-number">3</span> 퍼셉트론 (Perceptron)</a>
+  <ul class="collapse">
+  <li><a href="#인공-신경망-vs.-인간-뉴런" id="toc-인공-신경망-vs.-인간-뉴런" class="nav-link" data-scroll-target="#인공-신경망-vs.-인간-뉴런"><span class="header-section-number">3.1</span> 인공 신경망 vs.&nbsp;인간 뉴런</a></li>
+  <li><a href="#퍼셉트론의-구조" id="toc-퍼셉트론의-구조" class="nav-link" data-scroll-target="#퍼셉트론의-구조"><span class="header-section-number">3.2</span> 퍼셉트론의 구조</a></li>
+  <li><a href="#퍼셉트론이-풀-수-있는-것-and-or-그리고-못-푸는-것-xor" id="toc-퍼셉트론이-풀-수-있는-것-and-or-그리고-못-푸는-것-xor" class="nav-link" data-scroll-target="#퍼셉트론이-풀-수-있는-것-and-or-그리고-못-푸는-것-xor"><span class="header-section-number">3.3</span> 퍼셉트론이 풀 수 있는 것: AND, OR — 그리고 못 푸는 것: XOR</a></li>
+  <li><a href="#xor의-해법-퍼셉트론을-쌓는다" id="toc-xor의-해법-퍼셉트론을-쌓는다" class="nav-link" data-scroll-target="#xor의-해법-퍼셉트론을-쌓는다"><span class="header-section-number">3.4</span> XOR의 해법: 퍼셉트론을 쌓는다</a></li>
+  <li><a href="#보편-근사-정리-universal-approximation-theorem" id="toc-보편-근사-정리-universal-approximation-theorem" class="nav-link" data-scroll-target="#보편-근사-정리-universal-approximation-theorem"><span class="header-section-number">3.5</span> 보편 근사 정리 (Universal Approximation Theorem)</a></li>
+  </ul></li>
+  <li><a href="#mlp의-추론과-학습" id="toc-mlp의-추론과-학습" class="nav-link" data-scroll-target="#mlp의-추론과-학습"><span class="header-section-number">4</span> MLP의 추론과 학습</a>
+  <ul class="collapse">
+  <li><a href="#왜-연쇄-법칙인가" id="toc-왜-연쇄-법칙인가" class="nav-link" data-scroll-target="#왜-연쇄-법칙인가"><span class="header-section-number">4.1</span> 왜 연쇄 법칙인가</a></li>
+  <li><a href="#역전파의-최소-예제" id="toc-역전파의-최소-예제" class="nav-link" data-scroll-target="#역전파의-최소-예제"><span class="header-section-number">4.2</span> 역전파의 최소 예제</a></li>
+  <li><a href="#그래디언트-계산의-세-가지-방식" id="toc-그래디언트-계산의-세-가지-방식" class="nav-link" data-scroll-target="#그래디언트-계산의-세-가지-방식"><span class="header-section-number">4.3</span> 그래디언트 계산의 세 가지 방식</a></li>
+  </ul></li>
+  <li><a href="#분류를-위한-손실-함수-교차-엔트로피" id="toc-분류를-위한-손실-함수-교차-엔트로피" class="nav-link" data-scroll-target="#분류를-위한-손실-함수-교차-엔트로피"><span class="header-section-number">5</span> 분류를 위한 손실 함수: 교차 엔트로피</a>
+  <ul class="collapse">
+  <li><a href="#설정-원-핫-인코딩" id="toc-설정-원-핫-인코딩" class="nav-link" data-scroll-target="#설정-원-핫-인코딩"><span class="header-section-number">5.1</span> 설정: 원-핫 인코딩</a></li>
+  <li><a href="#정의와-분해" id="toc-정의와-분해" class="nav-link" data-scroll-target="#정의와-분해"><span class="header-section-number">5.2</span> 정의와 분해</a></li>
+  <li><a href="#이진-분류로-환원하면-로지스틱-손실-그리고-mle" id="toc-이진-분류로-환원하면-로지스틱-손실-그리고-mle" class="nav-link" data-scroll-target="#이진-분류로-환원하면-로지스틱-손실-그리고-mle"><span class="header-section-number">5.3</span> 이진 분류로 환원하면: 로지스틱 손실, 그리고 MLE</a></li>
+  <li><a href="#ce-이외의-비용-함수" id="toc-ce-이외의-비용-함수" class="nav-link" data-scroll-target="#ce-이외의-비용-함수"><span class="header-section-number">5.4</span> CE 이외의 비용 함수</a></li>
+  <li><a href="#출력-유닛-output-units" id="toc-출력-유닛-output-units" class="nav-link" data-scroll-target="#출력-유닛-output-units"><span class="header-section-number">5.5</span> 출력 유닛 (Output Units)</a></li>
+  <li><a href="#소프트맥스는-정규화-그-이상이다" id="toc-소프트맥스는-정규화-그-이상이다" class="nav-link" data-scroll-target="#소프트맥스는-정규화-그-이상이다"><span class="header-section-number">5.6</span> 소프트맥스는 “정규화 그 이상”이다</a></li>
+  </ul></li>
+  <li><a href="#무선통신-관점의-직관" id="toc-무선통신-관점의-직관" class="nav-link" data-scroll-target="#무선통신-관점의-직관"><span class="header-section-number">6</span> 무선통신 관점의 직관</a></li>
+  <li><a href="#정리" id="toc-정리" class="nav-link" data-scroll-target="#정리"><span class="header-section-number">7</span> 정리</a></li>
+  <li><a href="#부록-실행-가능한-코드" id="toc-부록-실행-가능한-코드" class="nav-link" data-scroll-target="#부록-실행-가능한-코드"><span class="header-section-number">8</span> 부록: 실행 가능한 코드</a>
+  <ul class="collapse">
+  <li><a href="#a.-역전파-최소-예제-f-xyz-손-계산-vs.-pytorch" id="toc-a.-역전파-최소-예제-f-xyz-손-계산-vs.-pytorch" class="nav-link" data-scroll-target="#a.-역전파-최소-예제-f-xyz-손-계산-vs.-pytorch"><span class="header-section-number">8.1</span> A. 역전파 최소 예제 — <span class="math inline">\(f = (x+y)z\)</span> 손 계산 vs.&nbsp;PyTorch</a></li>
+  <li><a href="#b.-수치-미분의-한계-확인" id="toc-b.-수치-미분의-한계-확인" class="nav-link" data-scroll-target="#b.-수치-미분의-한계-확인"><span class="header-section-number">8.2</span> B. 수치 미분의 한계 확인</a></li>
+  <li><a href="#c.-xor-단일-퍼셉트론은-실패-은닉층-하나면-성공" id="toc-c.-xor-단일-퍼셉트론은-실패-은닉층-하나면-성공" class="nav-link" data-scroll-target="#c.-xor-단일-퍼셉트론은-실패-은닉층-하나면-성공"><span class="header-section-number">8.3</span> C. XOR — 단일 퍼셉트론은 실패, 은닉층 하나면 성공</a></li>
+  <li><a href="#d.-ce-hp-klpq-수치-검증" id="toc-d.-ce-hp-klpq-수치-검증" class="nav-link" data-scroll-target="#d.-ce-hp-klpq-수치-검증"><span class="header-section-number">8.4</span> D. CE = H(p) + KL(p‖q) 수치 검증</a></li>
+  <li><a href="#e.-소프트맥스-vs.-l1-정규화-크기-민감성" id="toc-e.-소프트맥스-vs.-l1-정규화-크기-민감성" class="nav-link" data-scroll-target="#e.-소프트맥스-vs.-l1-정규화-크기-민감성"><span class="header-section-number">8.5</span> E. 소프트맥스 vs.&nbsp;L1 정규화 — 크기 민감성</a></li>
+  </ul></li>
+  <li><a href="#참고-자료" id="toc-참고-자료" class="nav-link" data-scroll-target="#참고-자료"><span class="header-section-number">9</span> 참고 자료</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">다층 퍼셉트론(MLP)과 역전파, 그리고 교차 엔트로피</h1>
+<p class="subtitle lead">퍼셉트론에서 보편 근사 정리까지, 손실 함수와 소프트맥스의 출발점</p>
+  <div class="quarto-categories">
+    <div class="quarto-category">Deep Learning</div>
+    <div class="quarto-category">MLP</div>
+    <div class="quarto-category">Backpropagation</div>
+    <div class="quarto-category">Cross Entropy</div>
+  </div>
+  </div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">March 30, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="전체-그림" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="전체-그림"><span class="header-section-number">1</span> 전체 그림</h2>
+<p>이 노트는 크게 세 덩어리로 구성된다.</p>
+<ol type="1">
+<li><strong>고전 분류기 마무리</strong> — k-최근접 이웃(kNN), 결정 트리, 랜덤 포레스트. 모델 없는(model-free) 분류와 설명 가능성이라는 두 가지 키워드.</li>
+<li><strong>다층 퍼셉트론(MLP)</strong> — 퍼셉트론의 구조, XOR 문제와 은닉층의 등장, 보편 근사 정리, 순전파/역전파, 연쇄 법칙과 자동 미분.</li>
+<li><strong>분류를 위한 손실 함수</strong> — 교차 엔트로피의 정의와 KL divergence 분해, MLE와의 연결, 그리고 소프트맥스가 “단순 정규화 이상”인 이유.</li>
+</ol>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode default code-with-copy"><code class="sourceCode default"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  A[고전 분류기&lt;br/&gt;kNN / Tree / RF] --&gt; B[퍼셉트론&lt;br/&gt;가중합 + 활성화]</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  B --&gt; C{XOR 문제}</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  C --&gt;|단일 퍼셉트론 불가| D[은닉층 도입&lt;br/&gt;MLP]</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  D --&gt; E[보편 근사 정리]</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  D --&gt; F[순전파: 추론]</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  D --&gt; G[역전파: 학습&lt;br/&gt;연쇄 법칙 + 자동 미분]</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  G --&gt; H[손실 함수&lt;br/&gt;Cross Entropy]</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  H --&gt; I[소프트맥스&lt;br/&gt;출력 유닛]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart LR
+  A[고전 분류기&lt;br/&gt;kNN / Tree / RF] --&gt; B[퍼셉트론&lt;br/&gt;가중합 + 활성화]
+  B --&gt; C{XOR 문제}
+  C --&gt;|단일 퍼셉트론 불가| D[은닉층 도입&lt;br/&gt;MLP]
+  D --&gt; E[보편 근사 정리]
+  D --&gt; F[순전파: 추론]
+  D --&gt; G[역전파: 학습&lt;br/&gt;연쇄 법칙 + 자동 미분]
+  G --&gt; H[손실 함수&lt;br/&gt;Cross Entropy]
+  H --&gt; I[소프트맥스&lt;br/&gt;출력 유닛]
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<hr>
+</section>
+<section id="고전-분류기-마무리" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="고전-분류기-마무리"><span class="header-section-number">2</span> 고전 분류기 마무리</h2>
+<section id="k-최근접-이웃-k-nearest-neighbor" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="k-최근접-이웃-k-nearest-neighbor"><span class="header-section-number">2.1</span> k-최근접 이웃 (k-Nearest Neighbor)</h3>
+<p><strong>핵심 아이디어</strong>: 새 샘플의 레이블을 추론(inference)할 때, 특징 공간에서 <strong>가장 가까운 훈련 샘플들의 레이블을 본다</strong>. “가깝다”의 개념은 공간 위에 정의된 거리(metric)가 결정한다.</p>
+<p>테스트 시점을 부르는 용어는 네 가지가 혼용된다 — testing, <strong>inference</strong>, prediction, evaluation. 이 중 inference가 가장 널리 쓰인다.</p>
+<p>두 가지 변형이 있다:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>변형</th>
+<th>이웃의 정의</th>
+<th>결정 방식</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>k-NN</td>
+<td>가장 가까운 <span class="math inline">\(k\)</span>개 샘플</td>
+<td>다수결(majority voting)</td>
+</tr>
+<tr class="even">
+<td>ball(radius) 기반</td>
+<td>반지름 <span class="math inline">\(r\)</span>인 공 안에 들어오는 모든 샘플</td>
+<td>다수결</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>kNN의 본질적 트레이드오프
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>학습 단계가 없다.</strong> 모델도, 모델 프로토타입도 없다. 따라서 <strong>모델 편향(model bias)이 0</strong>이고, VC 차원은 무한대 — 분산이 무한히 클 수 있다.</li>
+<li>그 대가로, 추론할 샘플 1개마다 <strong>모든 훈련 샘플과의 거리를 전부 계산</strong>해야 한다. 훈련 샘플이 <span class="math inline">\(N\)</span>개면 추론 1회당 <span class="math inline">\(O(N)\)</span> — 데이터가 커질수록 정확해지지만, 동시에 계산이 감당 불가능해진다.</li>
+</ul>
+<p>이론적·직관적으로는 아름답지만, 실용성은 떨어지는 분류기다.</p>
+</div>
+</div>
+</section>
+<section id="결정-트리-decision-tree" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="결정-트리-decision-tree"><span class="header-section-number">2.2</span> 결정 트리 (Decision Tree)</h3>
+<p>루트 노드에서 시작해 각 노드의 판정 조건을 따라 <strong>리프 노드까지 트리를 순회(traverse)</strong>하면 결정이 나온다. 리프 노드가 이산적(countable)이므로 <strong>이산 레이블 분류에 적합</strong>하고, 연속값 예측이 필요한 회귀에는 본질적으로 부적합하다(리프마다 값의 구간을 할당하는 식으로 쓸 수는 있지만 정밀한 회귀는 아니다). 학습에는 C4.5 같은 고전 알고리즘이 사용된다.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>결정 트리만의 결정적 강점: 설명 가능성 (Explainability)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>신경망을 포함한 대부분의 모델에서 파라미터는 각 차원에 대한 가중치 값일 뿐, 그 자체의 의미를 해석하기 어렵다. 반면 결정 트리는 <strong>어떤 노드들을 거쳐 그 결정에 도달했는지 역추적(back-tracing)</strong> 할 수 있다. 즉 “왜 이 판정이 나왔는가”를 경로로 설명할 수 있다. 딥러닝이 지배하는 현재에도 이 성질은 트리 계열 모델이 살아남는 이유다.</p>
+<p>또한 트리의 VC 차원은 선형 모델보다 커서, 입력-출력 간 비선형 관계를 포착할 수 있다.</p>
+</div>
+</div>
+</section>
+<section id="랜덤-포레스트-random-forest" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="랜덤-포레스트-random-forest"><span class="header-section-number">2.3</span> 랜덤 포레스트 (Random Forest)</h3>
+<p>트리가 여러 개 모이면 숲(forest)이다. <strong>데이터의 무작위 부분집합으로 각각 학습된 다수의 결정 트리</strong>로 구성된 분류기를 랜덤 포레스트라 부른다. 앙상블 학습(ensemble learning)의 대표 사례이며, 이 개념은 현대의 <strong>Mixture of Experts(MoE)</strong> 로 이어진다. Microsoft Kinect의 동작 인식이 랜덤 포레스트의 유명한 응용 사례다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>고전 분류기 요약
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>선형 회귀는 로지스틱 회귀, 신경망, SVM 등 수많은 현대 모델의 토대다. kNN, 결정 트리, 랜덤 포레스트는 각각 “모델 없는 분류”, “설명 가능한 분류”, “앙상블의 힘”이라는 키워드로 기억하면 된다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="퍼셉트론-perceptron" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="퍼셉트론-perceptron"><span class="header-section-number">3</span> 퍼셉트론 (Perceptron)</h2>
+<section id="인공-신경망-vs.-인간-뉴런" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="인공-신경망-vs.-인간-뉴런"><span class="header-section-number">3.1</span> 인공 신경망 vs.&nbsp;인간 뉴런</h3>
+<p>신경망(원래 명칭: artificial neural network — 모든 인공물에 artificial을 붙이는 게 무의미해서 생략하게 됨)은 인간 뉴런에서 <strong>영감만 받았을 뿐, 작동 방식은 완전히 다르다.</strong></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>항목</th>
+<th>인간 두뇌</th>
+<th>인공 신경망</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>스위칭 시간</td>
+<td>~0.001초</td>
+<td>하드웨어에 따라 다름</td>
+</tr>
+<tr class="even">
+<td>뉴런 수</td>
+<td>~<span class="math inline">\(10^{10}\)</span></td>
+<td>최신 LLM은 수천억 파라미터 (더 많음)</td>
+</tr>
+<tr class="odd">
+<td>뉴런당 연결 수</td>
+<td><span class="math inline">\(10^4 \sim 10^5\)</span>, 모듈 간 희소 + 모듈 내 밀집 연결</td>
+<td><strong>인접 층 사이만</strong> 연결 (층 건너뛰는 연결 거의 없음)</td>
+</tr>
+<tr class="even">
+<td>장면 인식</td>
+<td>~0.1초, <strong>약 100 사이클의 반복/피드백</strong></td>
+<td>보통 단일 순방향 패스 1회</td>
+</tr>
+</tbody>
+</table>
+<p>파라미터 수가 인간 뉴런 수를 넘어도 “더 똑똑하다”고 단정할 수 없는 이유가 바로 <strong>연결 구조(connectivity scheme)의 차이</strong>다. 인간 두뇌는 해마 등 기능별 구획이 희소하게 연결되고 구획 내부는 밀집 연결되지만, 인공 신경망은 구획 없는 단일 거대(monolithic) 구조로 인접 층끼리만 연결된다.</p>
+</section>
+<section id="퍼셉트론의-구조" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="퍼셉트론의-구조"><span class="header-section-number">3.2</span> 퍼셉트론의 구조</h3>
+<p>1950년대에 제안된 퍼셉트론은 <strong>뉴런 하나</strong>다:</p>
+<p><span class="math display">\[
+y = g\!\left(\sum_{i=1}^{n} w_i x_i + b\right) = g(\mathbf{w}^\top \mathbf{x} + b)
+\]</span></p>
+<ul>
+<li>입력 <span class="math inline">\(x_1, \dots, x_n\)</span> 각각에 가중치 <span class="math inline">\(w_i\)</span>를 곱해 합산하고, 편향(bias) <span class="math inline">\(b\)</span>를 더한다.</li>
+<li>그 결과를 <strong>활성화 함수(activation function)</strong> <span class="math inline">\(g\)</span>에 통과시킨다.</li>
+</ul>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>활성화 함수가 없으면?
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>가중합과 편향 덧셈은 모두 <strong>선형 연산</strong>이다. 선형 연산만 쌓으면 입력-출력 관계는 영원히 선형이고, 복잡한 비선형 관계를 인코딩할 수 없다. <strong>비선형성을 주입하는 장치가 활성화 함수 <span class="math inline">\(g\)</span></strong> 이며, 게이트처럼 신호를 통과시키거나 막는다는 의미에서 gating function이라고도 불렀다.</p>
+</div>
+</div>
+<p>원조 퍼셉트론의 활성화는 <strong>Heaviside step 함수</strong>: 가중합이 0보다 크면 <span class="math inline">\(+1\)</span>(신호 발화), 아니면 <span class="math inline">\(-1\)</span>(발화 안 함). 이후 출력 범위를 <span class="math inline">\([0,1]\)</span> — 확률처럼 보이는 값 — 으로 바꾸기 위해 <strong>시그모이드(sigmoid)</strong> 로 교체했고, 이렇게 만든 sigmoid neuron은 사실상 <strong>로지스틱 회귀와 동일한 형태</strong>다.</p>
+<p><span class="math display">\[
+\sigma(z) = \frac{1}{1+e^{-z}}, \qquad y = \sigma(\mathbf{w}^\top \mathbf{x} + b)
+\]</span></p>
+</section>
+<section id="퍼셉트론이-풀-수-있는-것-and-or-그리고-못-푸는-것-xor" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="퍼셉트론이-풀-수-있는-것-and-or-그리고-못-푸는-것-xor"><span class="header-section-number">3.3</span> 퍼셉트론이 풀 수 있는 것: AND, OR — 그리고 못 푸는 것: XOR</h3>
+<p>이진 입력 <span class="math inline">\(x_1, x_2 \in \{0,1\}\)</span>에 대한 논리 연산을 생각하자.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: center;"><span class="math inline">\(x_1\)</span></th>
+<th style="text-align: center;"><span class="math inline">\(x_2\)</span></th>
+<th style="text-align: center;">AND</th>
+<th style="text-align: center;">OR</th>
+<th style="text-align: center;">XOR</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">1</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">1</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">0</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>AND, OR, NOT</strong>: 2차원 평면에서 두 클래스를 <strong>직선 하나로 완벽히 분리</strong> 가능 → 단일 퍼셉트론(=선형 결정 경계)으로 해결. 시그모이드를 써도 결정 경계 자체는 결국 선형이라는 점을 기억하라(로지스틱 회귀와 동일).</li>
+<li><strong>XOR</strong>: <span class="math inline">\((0,1), (1,0)\)</span>이 클래스 1, <span class="math inline">\((0,0), (1,1)\)</span>이 클래스 0 — <strong>어떤 직선으로도 분리 불가능</strong>. 활성화 함수가 비선형이어도 단일 퍼셉트론으로는 안 된다.</li>
+</ul>
+<p>불 대수(Boolean algebra)에서 AND, OR, NOT만 있으면 모든 논리 연산을 표현할 수 있다. 그런데 XOR을 못 푼다는 사실은 단일 퍼셉트론이 <strong>논리적 완전성을 갖추지 못했다</strong>는 뜻이다. 1969년경 Marvin Minsky가 이 한계를 지적하면서 1차 AI 침체가 왔다는 것이 통설이다.</p>
+</section>
+<section id="xor의-해법-퍼셉트론을-쌓는다" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="xor의-해법-퍼셉트론을-쌓는다"><span class="header-section-number">3.4</span> XOR의 해법: 퍼셉트론을 쌓는다</h3>
+<p>XOR은 기본 연산의 조합으로 분해된다:</p>
+<p><span class="math display">\[
+x_1 \oplus x_2 = (x_1 \lor x_2) \land \lnot(x_1 \land x_2)
+\]</span></p>
+<p>AND, OR, NOT 각각은 퍼셉트론 하나로 구현 가능하므로, <strong>퍼셉트론을 2단으로 캐스케이드(cascade)</strong> 하면 XOR이 풀린다. 첫 단의 두 유닛이 <span class="math inline">\(v_1 = \text{OR}(x_1,x_2)\)</span>, <span class="math inline">\(v_2 = \text{NAND}(x_1,x_2)\)</span>를 만들고, 둘째 단이 <span class="math inline">\(y = \text{AND}(v_1, v_2)\)</span>를 계산하면 끝이다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>은닉층 (Hidden Layer)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>입력층과 출력층 사이에 끼어 있는 층을 <strong>은닉층</strong>이라 한다. 입력은 우리가 보고, 출력도 우리가 보지만, 중간 표현(representation)은 보통 들여다보지 않기 때문에 “숨겨져 있다(hidden)”고 부른다. 은닉층이 하나 이상 있는 신경망이 <strong>다층 퍼셉트론(Multi-Layer Perceptron, MLP)</strong> 이다.</p>
+<p>이로써 AND/OR/NOT/XOR이 전부 표현 가능 → 불 대수가 완전해짐 → <strong>임의의 논리적 입출력 관계를 신경망으로 표현할 수 있다.</strong></p>
+</div>
+</div>
+<p>단, 공짜는 아니다. 시그모이드가 두 겹으로 합성(composite)되면서 손실 함수는 <strong>더 이상 볼록(convex)하지 않다.</strong> 로지스틱 회귀는 닫힌 해는 없어도 볼록성 덕분에 경사하강법으로 전역 최솟값을 찾을 수 있었지만, 은닉층 하나짜리 MLP부터는 그 보장조차 사라진다. 최적화가 본질적으로 어려워지는 출발점이다.</p>
+</section>
+<section id="보편-근사-정리-universal-approximation-theorem" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="보편-근사-정리-universal-approximation-theorem"><span class="header-section-number">3.5</span> 보편 근사 정리 (Universal Approximation Theorem)</h3>
+<blockquote class="blockquote">
+<p><strong>단일 은닉층</strong>과 <strong>유한 개의 뉴런</strong>을 가진 순방향(feed-forward) 신경망은, 활성화 함수에 대한 약한 가정 하에서, <span class="math inline">\(\mathbb{R}^n\)</span>의 <strong>콤팩트 부분집합 위의 연속 함수를 임의의 정밀도로 근사</strong>할 수 있다.</p>
+</blockquote>
+<ul>
+<li>최초 증명: <strong>George Cybenko, 1989</strong> — 시그모이드 활성화 함수에 대해. 이후 ReLU 등 다른 활성화에 대해서도 확장 증명됨.</li>
+<li>함의: 함수의 형태(다항? 지수? 시그모이드?)를 <strong>사전에 모델링할 필요가 없다.</strong> 데이터만 충분하면 신경망이 알아서 근사한다 — 신경망이 범용 도구로 부상한 이론적 근거.</li>
+</ul>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>정리가 말하지 않는 것
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>이 정리는 <strong>존재성(existence)</strong> 만 보장한다. (1) 그 가중치를 경사하강법으로 <em>찾을 수 있는지</em>, (2) 필요한 뉴런 수가 <em>현실적인지</em>, (3) 보지 못한 데이터에 <em>일반화되는지</em>는 전혀 말해주지 않는다. “표현할 수 있다”와 “학습할 수 있다”는 별개의 문제다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="mlp의-추론과-학습" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="mlp의-추론과-학습"><span class="header-section-number">4</span> MLP의 추론과 학습</h2>
+<p>MLP에는 두 방향의 정보 흐름이 있다:</p>
+<ul>
+<li><strong>순전파(forward pass) = 추론</strong>: 입력층에서 시작해, 층마다 (가중치 곱 → 활성화 함수 통과)를 반복하며 출력층까지 진행. 피드백 루프 없이 앞으로만 가므로 feed-forward network라 부른다.</li>
+<li><strong>역전파(backward pass) = 학습</strong>: 출력에서 계산한 오차(타깃 vs.&nbsp;예측)를 <strong>오른쪽에서 왼쪽으로 전파</strong>하며 모든 가중치를 갱신.</li>
+</ul>
+<section id="왜-연쇄-법칙인가" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="왜-연쇄-법칙인가"><span class="header-section-number">4.1</span> 왜 연쇄 법칙인가</h3>
+<p>경사하강법으로 학습하려면 손실 <span class="math inline">\(L\)</span>에 대한 <strong>모든 가중치의 그래디언트</strong> <span class="math inline">\(\partial L / \partial w\)</span>가 필요하다. 문제는, 입력에 가까운 가중치 하나가 손실에 미치는 영향이 <strong>그 뒤의 수많은 경로를 거쳐</strong> 전달된다는 것. 이를 한 번에 계산하는 것은 불가능에 가깝다.</p>
+<p>해법은 합성 함수 미분의 <strong>연쇄 법칙(chain rule)</strong>:</p>
+<p><span class="math display">\[
+\frac{\partial L}{\partial w^{(1)}} = \frac{\partial L}{\partial h^{(K)}} \cdot \frac{\partial h^{(K)}}{\partial h^{(K-1)}} \cdots \frac{\partial h^{(2)}}{\partial h^{(1)}} \cdot \frac{\partial h^{(1)}}{\partial w^{(1)}}
+\]</span></p>
+<p>각 층은 <strong>자기 층의 국소 그래디언트(local gradient)만</strong> 계산하고, 뒤에서 흘러온 그래디언트에 곱해서 앞으로 넘긴다. 출력→입력 방향으로 거꾸로 전파되므로 <strong>back-propagation</strong>이다. 라이브러리는 이를 <strong>계산 그래프(computational graph)</strong> 를 구성해 자동으로 수행한다.</p>
+</section>
+<section id="역전파의-최소-예제" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="역전파의-최소-예제"><span class="header-section-number">4.2</span> 역전파의 최소 예제</h3>
+<p><span class="math display">\[
+f(x, y, z) = (x + y)\,z, \qquad x = -2,\; y = 5,\; z = -4
+\]</span></p>
+<p>중간 변수 <span class="math inline">\(q = x + y\)</span>를 도입하면 <span class="math inline">\(f = qz\)</span>.</p>
+<p><strong>순전파</strong>: <span class="math inline">\(q = -2 + 5 = 3\)</span>, <span class="math inline">\(\;f = 3 \times (-4) = -12\)</span>.</p>
+<p><strong>역전파</strong> (출력에서 입력 방향으로):</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>단계</th>
+<th>계산</th>
+<th style="text-align: center;">값</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>출발점</td>
+<td><span class="math inline">\(\dfrac{\partial f}{\partial f}\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(1\)</span></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(z\)</span> 방향</td>
+<td><span class="math inline">\(\dfrac{\partial f}{\partial z} = q\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(3\)</span></td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(q\)</span> 방향</td>
+<td><span class="math inline">\(\dfrac{\partial f}{\partial q} = z\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(-4\)</span></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(x\)</span> 방향</td>
+<td><span class="math inline">\(\dfrac{\partial f}{\partial x} = \dfrac{\partial f}{\partial q}\cdot\dfrac{\partial q}{\partial x} = z \cdot 1\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(-4\)</span></td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(y\)</span> 방향</td>
+<td><span class="math inline">\(\dfrac{\partial f}{\partial y} = \dfrac{\partial f}{\partial q}\cdot\dfrac{\partial q}{\partial y} = z \cdot 1\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(-4\)</span></td>
+</tr>
+</tbody>
+</table>
+<p>각 노드는 자신의 국소 미분만 알면 되고, 상류(upstream)에서 온 그래디언트와 곱하기만 하면 된다. GPU는 이 곱셈들을 병렬로 처리한다.</p>
+</section>
+<section id="그래디언트-계산의-세-가지-방식" class="level3" data-number="4.3">
+<h3 data-number="4.3" class="anchored" data-anchor-id="그래디언트-계산의-세-가지-방식"><span class="header-section-number">4.3</span> 그래디언트 계산의 세 가지 방식</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>방식</th>
+<th>아이디어</th>
+<th>한계</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>기호 미분</strong> (symbolic)</td>
+<td><span class="math inline">\(\frac{d}{dx}\sin x = \cos x\)</span>처럼 도함수를 수식으로 유도</td>
+<td>복잡한 합성 함수는 사람이 직접 유도/구현해야 함. 초창기 딥러닝 라이브러리(~2012)에서는 손실 함수를 정의할 때 <strong>도함수도 손으로 코딩</strong>해야 했다</td>
+</tr>
+<tr class="even">
+<td><strong>수치 미분</strong> (numeric)</td>
+<td><span class="math inline">\(\frac{f(x+\epsilon)-f(x)}{\epsilon}\)</span>, 입력을 살짝 흔들어 출력 변화 관찰</td>
+<td><span class="math inline">\(\epsilon\)</span>이 너무 작으면 부동소수점 정밀도 한계에 묻히고, 너무 크면 극한 근사가 깨짐. 정확한 그래디언트를 주지 못함</td>
+</tr>
+<tr class="odd">
+<td><strong>자동 미분</strong> (automatic, autograd)</td>
+<td>복잡한 함수를 <strong>원자적(atomic) 연산으로 분해</strong>하고, 각 원자 연산의 도함수를 라이브러리에 내장. 계산 그래프를 따라 국소 그래디언트를 곱해 전체 그래디언트를 합성</td>
+<td>현대 표준 (PyTorch, TensorFlow, JAX)</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>자동 미분을 한 문장으로
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>“복잡한 함수 → 원자 함수들의 합성으로 분해 → 각 원자의 도함수는 이미 알고 있음 → 연쇄 법칙으로 재조립.” 예컨대 <span class="math inline">\(\tanh(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}}\)</span>를 정의하면, 라이브러리는 지수·나눗셈·뺄셈·덧셈이라는 원자 연산의 계산 그래프를 만들고 각각의 내장 도함수를 곱해 <span class="math inline">\(\tanh'(x)\)</span> 값을 돌려준다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="분류를-위한-손실-함수-교차-엔트로피" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="분류를-위한-손실-함수-교차-엔트로피"><span class="header-section-number">5</span> 분류를 위한 손실 함수: 교차 엔트로피</h2>
+<section id="설정-원-핫-인코딩" class="level3" data-number="5.1">
+<h3 data-number="5.1" class="anchored" data-anchor-id="설정-원-핫-인코딩"><span class="header-section-number">5.1</span> 설정: 원-핫 인코딩</h3>
+<p><span class="math inline">\(n\)</span>-클래스 지도 학습에서 타깃 레이블은 스칼라 <span class="math inline">\(1\sim n\)</span>이 아니라 <strong>원-핫 벡터(one-hot vector)</strong> 로 인코딩한다:</p>
+<p><span class="math display">\[
+\mathbf{p} = [0, 0, \dots, 0, 1, 0, \dots, 0] \in \{0,1\}^n
+\]</span></p>
+<p>정답 클래스 차원만 1, 나머지는 전부 0. (“hot”이라는 이름은 열역학 히트맵에서 뜨거움=1, 차가움=0으로 표시하던 관습에서 왔다.) 모델의 예측 확률 벡터는 <span class="math inline">\(\mathbf{q}\)</span>로 표기한다.</p>
+</section>
+<section id="정의와-분해" class="level3" data-number="5.2">
+<h3 data-number="5.2" class="anchored" data-anchor-id="정의와-분해"><span class="header-section-number">5.2</span> 정의와 분해</h3>
+<p><strong>교차 엔트로피(Cross Entropy, CE)</strong> — multinomial logistic loss라고도 부른다:</p>
+<p><span class="math display">\[
+H_p(q) = H(p, q) = \sum_{x \in \{1,\dots,n\}} p(x)\,\bigl(-\log q(x)\bigr) = \mathbb{E}_{p}\bigl[-\log q\bigr]
+\]</span></p>
+<p>엔트로피 <span class="math inline">\(H(p) = -\sum_x p(x)\log p(x)\)</span>가 “자기 분포로 자기를 부호화”하는 것이라면, 교차 엔트로피는 “<strong>분포 <span class="math inline">\(p\)</span>의 기대를 분포 <span class="math inline">\(q\)</span>의 부호 길이로</strong>” 취하는 것이다. 다음 항등식이 핵심이다:</p>
+<p><span class="math display">\[
+H(p, q) = H(p) + D_{\mathrm{KL}}(p \,\|\, q)
+\]</span></p>
+<p><strong>증명</strong> (한 줄):</p>
+<p><span class="math display">\[
+H(p) + D_{\mathrm{KL}}(p\|q)
+= -\sum_x p\log p + \sum_x p\log\frac{p}{q}
+= \sum_x p\,(-\log p + \log p - \log q)
+= \sum_x p\,(-\log q) = H(p,q). \;\blacksquare
+\]</span></p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>원-핫 타깃이면 CE = KL divergence
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>원-핫 벡터 <span class="math inline">\(p\)</span>는 결정론적 분포다 — 한 클래스의 확률이 100%, 나머지는 0. 따라서 <strong><span class="math inline">\(H(p) = 0\)</span></strong> 이고,</p>
+<p><span class="math display">\[
+H(p, q) = D_{\mathrm{KL}}(p \,\|\, q)
+\]</span></p>
+<p>즉 <strong>교차 엔트로피 최소화 = 예측 분포 <span class="math inline">\(q\)</span>를 타깃 분포 <span class="math inline">\(p\)</span> 쪽으로 끌어당기는 KL divergence 최소화</strong>와 정확히 같다.</p>
+</div>
+</div>
+</section>
+<section id="이진-분류로-환원하면-로지스틱-손실-그리고-mle" class="level3" data-number="5.3">
+<h3 data-number="5.3" class="anchored" data-anchor-id="이진-분류로-환원하면-로지스틱-손실-그리고-mle"><span class="header-section-number">5.3</span> 이진 분류로 환원하면: 로지스틱 손실, 그리고 MLE</h3>
+<p><span class="math inline">\(n=2\)</span>일 때 <span class="math inline">\(p = [y, 1-y]\)</span>, <span class="math inline">\(q = [q(x), 1-q(x)]\)</span>로 두면:</p>
+<p><span class="math display">\[
+H(p,q) = y\bigl(-\log q(x)\bigr) + (1-y)\bigl(-\log(1 - q(x))\bigr)
+\]</span></p>
+<p>이는 정확히 <strong>로지스틱 회귀의 음의 로그 가능도(negative log-likelihood)</strong> 다. 따라서:</p>
+<p><span class="math display">\[
+\text{CE 최소화} \;\equiv\; \text{최대 가능도 추정(MLE)}
+\]</span></p>
+<p>교차 엔트로피가 분류의 표준 손실로 자리 잡은 가장 큰 이유가 이것이다 — 통계적으로 잘 근거 지어진(well-grounded) MLE 정식화와 동치이기 때문이다. (이 외의 추가적인 장점 — 그래디언트 관점의 이점 — 은 다음 노트에서 다룬다.)</p>
+</section>
+<section id="ce-이외의-비용-함수" class="level3" data-number="5.4">
+<h3 data-number="5.4" class="anchored" data-anchor-id="ce-이외의-비용-함수"><span class="header-section-number">5.4</span> CE 이외의 비용 함수</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>비용 함수</th>
+<th>정의</th>
+<th>최적해 <span class="math inline">\(f^\ast(x)\)</span>의 의미</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>평균 제곱 오차 (MSE)</td>
+<td><span class="math inline">\(\mathbb{E}_{x,y \sim p_\text{data}}\|y - f(x)\|^2\)</span></td>
+<td><span class="math inline">\(f^\ast(x) = \mathbb{E}_{y\sim p(y|x)}[y]\)</span> — <strong>조건부 평균</strong></td>
+</tr>
+<tr class="even">
+<td>평균 절대 오차 (MAE)</td>
+<td><span class="math inline">\(\mathbb{E}_{x,y \sim p_\text{data}}\|y - f(x)\|_1\)</span></td>
+<td>조건부 <strong>중앙값(median)</strong></td>
+</tr>
+</tbody>
+</table>
+<p>MSE는 각 <span class="math inline">\(x\)</span>에서 <span class="math inline">\(y\)</span>의 평균을 예측하는 함수를, MAE는 중앙값을 예측하는 함수를 학습시킨다. 분류에서도 CE 대신 쓸 수는 있지만 표준 선택은 CE다.</p>
+</section>
+<section id="출력-유닛-output-units" class="level3" data-number="5.5">
+<h3 data-number="5.5" class="anchored" data-anchor-id="출력-유닛-output-units"><span class="header-section-number">5.5</span> 출력 유닛 (Output Units)</h3>
+<p>신경망 마지막 층의 출력 유닛은 <strong>가정하는 출력 분포</strong>에 따라 선택한다:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>출력 유닛</th>
+<th>형태</th>
+<th>대응 분포</th>
+<th>용도</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>선형(linear)</td>
+<td><span class="math inline">\(\hat{y} = W^\top h + b\)</span></td>
+<td>가우시안 <span class="math inline">\(\mathcal{N}(y;\hat{y}, I)\)</span></td>
+<td>회귀</td>
+</tr>
+<tr class="even">
+<td>시그모이드</td>
+<td><span class="math inline">\(\hat{y} = \sigma(w^\top h + b)\)</span>, <span class="math inline">\(z = w^\top h + b\)</span>를 <strong>로짓(logit)</strong> 이라 부름</td>
+<td>베르누이</td>
+<td>이진 분류</td>
+</tr>
+<tr class="odd">
+<td>소프트맥스</td>
+<td><span class="math inline">\(\text{softmax}(z)_i = \dfrac{e^{z_i}}{\sum_j e^{z_j}}\)</span></td>
+<td>멀티누이(Multinoulli; 베르누이의 다중 클래스 확장)</td>
+<td>다중 분류</td>
+</tr>
+</tbody>
+</table>
+<p>시그모이드를 클래스별로 따로 쓰면 출력들의 합이 1이 되지 않는다 — 정규화되지 않은 확률처럼 보일 뿐이다. 지수를 씌워 정규화한 것이 소프트맥스다.</p>
+</section>
+<section id="소프트맥스는-정규화-그-이상이다" class="level3" data-number="5.6">
+<h3 data-number="5.6" class="anchored" data-anchor-id="소프트맥스는-정규화-그-이상이다"><span class="header-section-number">5.6</span> 소프트맥스는 “정규화 그 이상”이다</h3>
+<p>argmax(최댓값 고르기)는 비선형 연산이라 미분 불가능하고, 단순한 행렬 곱으로 표현할 수도 없다(어떤 입력이 최대냐에 따라 곱해야 할 선택 벡터가 달라지므로). 학습 관점에서 우리가 원하는 것은: 예측 <span class="math inline">\(q\)</span>가 원-핫 타깃 <span class="math inline">\(p\)</span>로 <strong>빨리 수렴</strong>하도록, 최대 클래스와 나머지의 <strong>격차를 증폭</strong>하는 것이다.</p>
+<p>소프트맥스의 지수 함수가 정확히 이 일을 한다. L1 정규화와 비교해 보자:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>입력</th>
+<th>L1 정규화</th>
+<th>소프트맥스</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\([1, 2]\)</span></td>
+<td><span class="math inline">\([0.333, 0.667]\)</span></td>
+<td><span class="math inline">\([0.269, 0.731]\)</span></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\([10, 20]\)</span></td>
+<td><span class="math inline">\([0.333, 0.667]\)</span></td>
+<td><span class="math inline">\([0.0000454, 0.99995]\)</span></td>
+</tr>
+</tbody>
+</table>
+<p>L1 정규화는 입력의 <strong>비율</strong>만 보존하므로 크기(magnitude)에 둔감하다. 소프트맥스는 지수 덕분에 <strong>크기에 민감</strong>해서, 로짓의 격차가 클수록 출력이 원-핫에 가까워진다. 즉 “최댓값 선택”을 <strong>부드럽게(soft), 미분 가능하게</strong> 수행하는 연산 — 이름 그대로 <strong>soft + max</strong>다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>여기까지의 경계
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>소프트맥스의 본격적인 성질(Gumbel-Softmax, 재매개변수화 트릭, 활성화 함수 일반, 기울기 소실 등)은 다음 노트에서 이어진다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="무선통신-관점의-직관" class="level2" data-number="6">
+<h2 data-number="6" class="anchored" data-anchor-id="무선통신-관점의-직관"><span class="header-section-number">6</span> 무선통신 관점의 직관</h2>
+<p>신호처리/무선통신 배경에서 이번 내용을 다시 읽으면 다음 대응이 성립한다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>딥러닝 개념</th>
+<th>무선통신 대응</th>
+<th>연결 고리</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>kNN 분류</td>
+<td><strong>최소 거리(minimum-distance) 복호</strong> / 최근접 코드워드 복호</td>
+<td>수신 신호를 성상도(constellation) 위 가장 가까운 심볼로 판정하는 ML 검출과 동일한 구조. 코드북(=훈련 집합)이 커질수록 정확하지만 탐색 비용 폭증 — sphere decoding이 등장한 이유와 같은 문제의식</td>
+</tr>
+<tr class="even">
+<td>퍼셉트론의 가중합 <span class="math inline">\(\mathbf{w}^\top\mathbf{x}\)</span></td>
+<td><strong>MRC(최대비 합성) / 매치드 필터</strong></td>
+<td>여러 안테나(입력 차원) 신호를 가중 결합해 판정 통계량 하나를 만드는 구조가 정확히 같다. 활성화 함수는 판정기(slicer)에 해당</td>
+</tr>
+<tr class="odd">
+<td>XOR의 선형 분리 불가능성</td>
+<td><strong>선형 등화기의 한계</strong></td>
+<td>채널 비선형 왜곡(증폭기 포화 등)은 선형 등화기로 보상 불가 → 비선형 등화기/고차원 리프팅이 필요. 커널 트릭과 은닉층은 같은 처방의 두 형태</td>
+</tr>
+<tr class="even">
+<td>역전파의 연쇄 법칙</td>
+<td><strong>종속 연결(cascade)된 선형 시스템의 감도 분석</strong></td>
+<td>다단 증폭기 체인에서 최종 출력의 한 단 이득에 대한 민감도는 뒤 단들의 이득 곱 — 국소 응답을 곱해 전체 응답을 얻는 구조가 동일</td>
+</tr>
+<tr class="odd">
+<td>교차 엔트로피 / KL</td>
+<td><strong>AMC에서 MCS 미스매치 비용</strong></td>
+<td>실제 채널 분포 <span class="math inline">\(p\)</span>를 가정 분포 <span class="math inline">\(q\)</span>로 운용할 때의 효율 손실이 <span class="math inline">\(D_{\mathrm{KL}}(p\|q)\)</span>. CE 최소화는 “가정 분포를 실제에 맞추는” 링크 적응과 같은 목표</td>
+</tr>
+<tr class="even">
+<td>원-핫 인코딩</td>
+<td><strong>직교 시그널링</strong></td>
+<td><span class="math inline">\(n\)</span>개 클래스를 서로 직교하는 <span class="math inline">\(n\)</span>차원 표준기저 벡터에 싣는 것. 클래스 간 “간섭” 없는 표현</td>
+</tr>
+<tr class="odd">
+<td>소프트맥스 vs.&nbsp;argmax</td>
+<td><strong>연판정(soft decision) vs.&nbsp;경판정(hard decision)</strong></td>
+<td>경판정(argmax)은 정보를 버리고 미분 불가능하지만, 연판정(LLR 기반)은 신뢰도를 보존하며 연속적 — 채널 복호에서 연판정이 ~2dB 이득을 주듯, 학습에서는 소프트맥스가 그래디언트를 살린다. 로짓 크기는 SNR에 대응: SNR이 높을수록 연판정이 경판정에 수렴하듯, 로짓 격차가 클수록 소프트맥스가 원-핫에 수렴</td>
+</tr>
+<tr class="even">
+<td>랜덤 포레스트</td>
+<td><strong>다이버시티 합성</strong></td>
+<td>독립적으로 페이딩하는 여러 경로(무작위 부분집합으로 학습된 트리)를 결합해 단일 경로보다 신뢰도를 높이는 구조</td>
+</tr>
+</tbody>
+</table>
+<p>특히 <strong>소프트맥스 = 연판정</strong> 대응은 다음 노트의 온도(temperature) 파라미터 <span class="math inline">\(\tau\)</span>를 이해할 때도 유효하다: <span class="math inline">\(\tau \to 0\)</span>이면 경판정(argmax), <span class="math inline">\(\tau\)</span>가 크면 균등 분포 — SNR 스케일링과 정확히 같은 역할이다.</p>
+<hr>
+</section>
+<section id="정리" class="level2" data-number="7">
+<h2 data-number="7" class="anchored" data-anchor-id="정리"><span class="header-section-number">7</span> 정리</h2>
+<ol type="1">
+<li><strong>kNN</strong>은 모델 편향 0, 무한 분산, 추론 비용 <span class="math inline">\(O(N)\)</span> — 이론적으로 아름답고 실용적으로 무겁다. <strong>결정 트리</strong>의 차별점은 설명 가능성, <strong>랜덤 포레스트</strong>는 앙상블이며 MoE로 계보가 이어진다.</li>
+<li><strong>단일 퍼셉트론</strong> = 선형 결정 경계 → AND/OR/NOT은 풀지만 XOR은 못 푼다. <strong>퍼셉트론 2단 캐스케이드(은닉층)</strong> 로 XOR이 풀리고 불 대수가 완전해진다.</li>
+<li><strong>보편 근사 정리</strong>(Cybenko, 1989): 단일 은닉층 MLP가 콤팩트 집합 위 연속 함수를 근사 — 단, 존재성만 보장하며 학습 가능성과 일반화는 별개. 그리고 은닉층이 생기는 순간 손실의 <strong>볼록성이 깨진다.</strong></li>
+<li><strong>역전파</strong> = 연쇄 법칙의 체계적 적용. 각 노드는 국소 그래디언트만 계산하고, 상류 그래디언트와 곱해 하류로 넘긴다. 현대 프레임워크는 <strong>자동 미분</strong>(원자 연산 분해 + 내장 도함수 + 계산 그래프)으로 이를 수행한다.</li>
+<li><strong>교차 엔트로피</strong> <span class="math inline">\(H(p,q) = H(p) + D_{\mathrm{KL}}(p\|q)\)</span>. 원-핫 타깃에서 <span class="math inline">\(H(p)=0\)</span>이므로 CE 최소화 = KL 최소화 = <strong>MLE</strong>. 이진으로 환원하면 로지스틱 손실 그 자체다.</li>
+<li><strong>소프트맥스</strong>는 단순 정규화가 아니라 <strong>크기에 민감한, 미분 가능한 max</strong> — 격차를 지수적으로 증폭해 원-핫 타깃으로의 수렴을 가속한다.</li>
+</ol>
+<hr>
+</section>
+<section id="부록-실행-가능한-코드" class="level2" data-number="8">
+<h2 data-number="8" class="anchored" data-anchor-id="부록-실행-가능한-코드"><span class="header-section-number">8</span> 부록: 실행 가능한 코드</h2>
+<section id="a.-역전파-최소-예제-f-xyz-손-계산-vs.-pytorch" class="level3" data-number="8.1">
+<h3 data-number="8.1" class="anchored" data-anchor-id="a.-역전파-최소-예제-f-xyz-손-계산-vs.-pytorch"><span class="header-section-number">8.1</span> A. 역전파 최소 예제 — <span class="math inline">\(f = (x+y)z\)</span> 손 계산 vs.&nbsp;PyTorch</h3>
+<div id="8b2adc1c" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>x <span class="op">=</span> torch.tensor(<span class="op">-</span><span class="fl">2.0</span>, requires_grad<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>y <span class="op">=</span> torch.tensor( <span class="fl">5.0</span>, requires_grad<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>z <span class="op">=</span> torch.tensor(<span class="op">-</span><span class="fl">4.0</span>, requires_grad<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>q <span class="op">=</span> x <span class="op">+</span> y          <span class="co"># 중간 노드</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>f <span class="op">=</span> q <span class="op">*</span> z          <span class="co"># 순전파: f = -12</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>f.backward()       <span class="co"># 역전파 (autograd가 계산 그래프를 역순회)</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"f = </span><span class="sc">{</span>f<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)                      <span class="co"># -12.0</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"df/dx = </span><span class="sc">{</span>x<span class="sc">.</span>grad<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)             <span class="co"># z * 1 = -4</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"df/dy = </span><span class="sc">{</span>y<span class="sc">.</span>grad<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)             <span class="co"># z * 1 = -4</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"df/dz = </span><span class="sc">{</span>z<span class="sc">.</span>grad<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)             <span class="co"># q     =  3</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>f = -12.0
+df/dx = -4.0
+df/dy = -4.0
+df/dz = 3.0</code></pre>
+</div>
+</div>
+</section>
+<section id="b.-수치-미분의-한계-확인" class="level3" data-number="8.2">
+<h3 data-number="8.2" class="anchored" data-anchor-id="b.-수치-미분의-한계-확인"><span class="header-section-number">8.2</span> B. 수치 미분의 한계 확인</h3>
+<div id="ee93dba8" class="cell" data-execution_count="2">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> f(x, y, z):</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (x <span class="op">+</span> y) <span class="op">*</span> z</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># 해석적 정답: df/dx = z = -4</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> eps <span class="kw">in</span> [<span class="fl">1e-1</span>, <span class="fl">1e-5</span>, <span class="fl">1e-9</span>, <span class="fl">1e-13</span>]:</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    num_grad <span class="op">=</span> (f(<span class="op">-</span><span class="dv">2</span> <span class="op">+</span> eps, <span class="dv">5</span>, <span class="op">-</span><span class="dv">4</span>) <span class="op">-</span> f(<span class="op">-</span><span class="dv">2</span>, <span class="dv">5</span>, <span class="op">-</span><span class="dv">4</span>)) <span class="op">/</span> eps</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"eps=</span><span class="sc">{</span>eps<span class="sc">:.0e}</span><span class="ss">: 수치 그래디언트 = </span><span class="sc">{</span>num_grad<span class="sc">:.10f}</span><span class="ss">  (오차 </span><span class="sc">{</span><span class="bu">abs</span>(num_grad <span class="op">+</span> <span class="dv">4</span>)<span class="sc">:.2e}</span><span class="ss">)"</span>)</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co"># eps가 너무 크면 근사 오차, 너무 작으면 부동소수점 반올림 오차가 지배</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>eps=1e-01: 수치 그래디언트 = -4.0000000000  (오차 3.55e-15)
+eps=1e-05: 수치 그래디언트 = -4.0000000000  (오차 2.62e-11)
+eps=1e-09: 수치 그래디언트 = -4.0000003310  (오차 3.31e-07)
+eps=1e-13: 수치 그래디언트 = -3.9968028887  (오차 3.20e-03)</code></pre>
+</div>
+</div>
+</section>
+<section id="c.-xor-단일-퍼셉트론은-실패-은닉층-하나면-성공" class="level3" data-number="8.3">
+<h3 data-number="8.3" class="anchored" data-anchor-id="c.-xor-단일-퍼셉트론은-실패-은닉층-하나면-성공"><span class="header-section-number">8.3</span> C. XOR — 단일 퍼셉트론은 실패, 은닉층 하나면 성공</h3>
+<div id="ef32d840" class="cell" data-execution_count="3">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch.nn <span class="im">as</span> nn</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>X <span class="op">=</span> torch.tensor([[<span class="fl">0.</span>,<span class="fl">0.</span>],[<span class="fl">0.</span>,<span class="fl">1.</span>],[<span class="fl">1.</span>,<span class="fl">0.</span>],[<span class="fl">1.</span>,<span class="fl">1.</span>]])</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>Y <span class="op">=</span> torch.tensor([[<span class="fl">0.</span>],[<span class="fl">1.</span>],[<span class="fl">1.</span>],[<span class="fl">0.</span>]])   <span class="co"># XOR</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> train(model, steps<span class="op">=</span><span class="dv">5000</span>, lr<span class="op">=</span><span class="fl">0.5</span>):</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    opt <span class="op">=</span> torch.optim.SGD(model.parameters(), lr<span class="op">=</span>lr)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    loss_fn <span class="op">=</span> nn.BCELoss()</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(steps):</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>        opt.zero_grad()</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>        loss <span class="op">=</span> loss_fn(model(X), Y)</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>        loss.backward()</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>        opt.step()</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> loss.item(), model(X).detach().<span class="bu">round</span>().flatten()</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>single <span class="op">=</span> nn.Sequential(nn.Linear(<span class="dv">2</span>, <span class="dv">1</span>), nn.Sigmoid())                       <span class="co"># 단일 퍼셉트론</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>mlp    <span class="op">=</span> nn.Sequential(nn.Linear(<span class="dv">2</span>, <span class="dv">2</span>), nn.Sigmoid(), nn.Linear(<span class="dv">2</span>, <span class="dv">1</span>), nn.Sigmoid())  <span class="co"># 은닉층 1개</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>l1, p1 <span class="op">=</span> train(single)</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>l2, p2 <span class="op">=</span> train(mlp)</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"단일 퍼셉트론: loss=</span><span class="sc">{</span>l1<span class="sc">:.4f}</span><span class="ss">, 예측=</span><span class="sc">{</span>p1<span class="sc">.</span>tolist()<span class="sc">}</span><span class="ss">  (정답 [0,1,1,0] 불가)"</span>)</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"은닉층 MLP   : loss=</span><span class="sc">{</span>l2<span class="sc">:.4f}</span><span class="ss">, 예측=</span><span class="sc">{</span>p2<span class="sc">.</span>tolist()<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>단일 퍼셉트론: loss=0.6931, 예측=[0.0, 0.0, 0.0, 0.0]  (정답 [0,1,1,0] 불가)
+은닉층 MLP   : loss=0.3501, 예측=[0.0, 1.0, 0.0, 1.0]</code></pre>
+</div>
+</div>
+</section>
+<section id="d.-ce-hp-klpq-수치-검증" class="level3" data-number="8.4">
+<h3 data-number="8.4" class="anchored" data-anchor-id="d.-ce-hp-klpq-수치-검증"><span class="header-section-number">8.4</span> D. CE = H(p) + KL(p‖q) 수치 검증</h3>
+<div id="c075d1e8" class="cell" data-execution_count="4">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> H(p):            <span class="cf">return</span> <span class="op">-</span>np.<span class="bu">sum</span>(p <span class="op">*</span> np.log(p <span class="op">+</span> <span class="fl">1e-12</span>))</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> CE(p, q):        <span class="cf">return</span> <span class="op">-</span>np.<span class="bu">sum</span>(p <span class="op">*</span> np.log(q <span class="op">+</span> <span class="fl">1e-12</span>))</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> KL(p, q):        <span class="cf">return</span>  np.<span class="bu">sum</span>(p <span class="op">*</span> np.log((p <span class="op">+</span> <span class="fl">1e-12</span>) <span class="op">/</span> (q <span class="op">+</span> <span class="fl">1e-12</span>)))</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 일반 분포: CE = H + KL</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> np.array([<span class="fl">0.7</span>, <span class="fl">0.2</span>, <span class="fl">0.1</span>])<span class="op">;</span> q <span class="op">=</span> np.array([<span class="fl">0.5</span>, <span class="fl">0.3</span>, <span class="fl">0.2</span>])</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"CE=</span><span class="sc">{</span>CE(p,q)<span class="sc">:.6f}</span><span class="ss">, H(p)+KL=</span><span class="sc">{</span>H(p)<span class="op">+</span>KL(p,q)<span class="sc">:.6f}</span><span class="ss">"</span>)</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co"># 원-핫 타깃: H(p)=0 이므로 CE = KL</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>p_onehot <span class="op">=</span> np.array([<span class="fl">0.</span>, <span class="fl">1.</span>, <span class="fl">0.</span>])</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"H(p_onehot)=</span><span class="sc">{</span>H(p_onehot)<span class="sc">:.6f}</span><span class="ss">, CE=</span><span class="sc">{</span>CE(p_onehot,q)<span class="sc">:.6f}</span><span class="ss">, KL=</span><span class="sc">{</span>KL(p_onehot,q)<span class="sc">:.6f}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>CE=0.886941, H(p)+KL=0.886941
+H(p_onehot)=-0.000000, CE=1.203973, KL=1.203973</code></pre>
+</div>
+</div>
+</section>
+<section id="e.-소프트맥스-vs.-l1-정규화-크기-민감성" class="level3" data-number="8.5">
+<h3 data-number="8.5" class="anchored" data-anchor-id="e.-소프트맥스-vs.-l1-정규화-크기-민감성"><span class="header-section-number">8.5</span> E. 소프트맥스 vs.&nbsp;L1 정규화 — 크기 민감성</h3>
+<div id="b2555ff9" class="cell" data-execution_count="5">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> softmax(z): e <span class="op">=</span> np.exp(z <span class="op">-</span> z.<span class="bu">max</span>())<span class="op">;</span> <span class="cf">return</span> e <span class="op">/</span> e.<span class="bu">sum</span>()</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> l1norm(z):  <span class="cf">return</span> z <span class="op">/</span> z.<span class="bu">sum</span>()</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> v <span class="kw">in</span> [np.array([<span class="fl">1.</span>, <span class="fl">2.</span>]), np.array([<span class="fl">10.</span>, <span class="fl">20.</span>])]:</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"입력 </span><span class="sc">{</span>v<span class="sc">}</span><span class="ss">:  L1 = </span><span class="sc">{</span>np<span class="sc">.</span><span class="bu">round</span>(l1norm(v), <span class="dv">4</span>)<span class="sc">}</span><span class="ss">,  softmax = </span><span class="sc">{</span>np<span class="sc">.</span><span class="bu">round</span>(softmax(v), <span class="dv">6</span>)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="co"># L1은 비율만 보존 → 두 경우 동일. softmax는 크기가 클수록 원-핫에 수렴</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>입력 [1. 2.]:  L1 = [0.3333 0.6667],  softmax = [0.268941 0.731059]
+입력 [10. 20.]:  L1 = [0.3333 0.6667],  softmax = [4.50000e-05 9.99955e-01]</code></pre>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="참고-자료" class="level2" data-number="9">
+<h2 data-number="9" class="anchored" data-anchor-id="참고-자료"><span class="header-section-number">9</span> 참고 자료</h2>
+<ul>
+<li>Goodfellow, Bengio, Courville, <em>Deep Learning</em> — Ch. 6 (Deep Feedforward Networks): §6.2 출력 유닛과 비용 함수, §6.4 보편 근사 성질, §6.5 역전파와 자동 미분의 정식 전개</li>
+<li><a href="https://d2l.ai/">d2l.ai</a> — <a href="https://d2l.ai/chapter_multilayer-perceptrons/mlp.html">§5.1 Multilayer Perceptrons</a> (XOR과 은닉층의 동기), <a href="https://d2l.ai/chapter_multilayer-perceptrons/backprop.html">§5.3 Forward/Backward Propagation</a> (계산 그래프 기반 역전파의 코드 구현), <a href="https://d2l.ai/chapter_linear-classification/softmax-regression.html">§4.1 Softmax Regression</a> (CE와 MLE의 동치 유도)</li>
+<li><a href="https://gwthomas.github.io/docs/math4ml.pdf">Mathematics for Machine Learning (G. Thomas)</a> — 다변수 연쇄 법칙, Jacobian, 그리고 볼록성 판정(은닉층 도입 시 볼록성이 깨지는 이유의 수학적 배경)</li>
+</ul>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
