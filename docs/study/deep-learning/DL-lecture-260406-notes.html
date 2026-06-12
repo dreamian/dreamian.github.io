@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.36">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-04-06">
+<meta name="description" content="Newton’s method가 딥러닝에서 쓰이지 않는 이유, 신경망 최적화의 8가지 도전과제(ill-conditioning, saddle point, cliff, surrogate loss 등), 그리고 1차 미분 기반 최적화의 핵심 재료인 Momentum/Nesterov Momentum과 파라미터 초기화(Xavier init) 정리">
+
+<title>신경망 최적화의 도전과제와 1차 미분 기반 기법 (Momentum, 초기화) – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-a06763021a52c43c40a351ac8b799b8f.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-0b9f6f8bd32f16e6dc6c581312f6d492.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script src="../../site_libs/quarto-diagram/mermaid.min.js"></script>
+<script src="../../site_libs/quarto-diagram/mermaid-init.js"></script>
+<link href="../../site_libs/quarto-diagram/mermaid.css" rel="stylesheet">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#전체-구조-개관" id="toc-전체-구조-개관" class="nav-link active" data-scroll-target="#전체-구조-개관"><span class="header-section-number">1</span> 전체 구조 개관</a></li>
+  <li><a href="#출발점-복습-erm과-gd-vs.-sgd" id="toc-출발점-복습-erm과-gd-vs.-sgd" class="nav-link" data-scroll-target="#출발점-복습-erm과-gd-vs.-sgd"><span class="header-section-number">2</span> 출발점 복습: ERM과 GD vs.&nbsp;SGD</a></li>
+  <li><a href="#newtons-method-이론적으로는-최적-실전에서는-폐기" id="toc-newtons-method-이론적으로는-최적-실전에서는-폐기" class="nav-link" data-scroll-target="#newtons-method-이론적으로는-최적-실전에서는-폐기"><span class="header-section-number">3</span> Newton’s method: 이론적으로는 최적, 실전에서는 폐기</a>
+  <ul class="collapse">
+  <li><a href="#아이디어-2차-taylor-근사" id="toc-아이디어-2차-taylor-근사" class="nav-link" data-scroll-target="#아이디어-2차-taylor-근사"><span class="header-section-number">3.1</span> 아이디어: 2차 Taylor 근사</a></li>
+  <li><a href="#왜-딥러닝에서는-안-쓰는가" id="toc-왜-딥러닝에서는-안-쓰는가" class="nav-link" data-scroll-target="#왜-딥러닝에서는-안-쓰는가"><span class="header-section-number">3.2</span> 왜 딥러닝에서는 안 쓰는가</a></li>
+  </ul></li>
+  <li><a href="#신경망-최적화의-8가지-도전과제" id="toc-신경망-최적화의-8가지-도전과제" class="nav-link" data-scroll-target="#신경망-최적화의-8가지-도전과제"><span class="header-section-number">4</span> 신경망 최적화의 8가지 도전과제</a>
+  <ul class="collapse">
+  <li><a href="#sec-illcond" id="toc-sec-illcond" class="nav-link" data-scroll-target="#sec-illcond"><span class="header-section-number">4.1</span> 1. Ill-conditioning</a></li>
+  <li><a href="#local-minima-수렴-판단이-어렵다" id="toc-local-minima-수렴-판단이-어렵다" class="nav-link" data-scroll-target="#local-minima-수렴-판단이-어렵다"><span class="header-section-number">4.2</span> 2. Local minima — 수렴 판단이 어렵다</a></li>
+  <li><a href="#sec-saddle" id="toc-sec-saddle" class="nav-link" data-scroll-target="#sec-saddle"><span class="header-section-number">4.3</span> 3. Saddle point, plateau — 흔한가? 불행히도 그렇다</a></li>
+  <li><a href="#cliff와-exploding-gradient-gradient-clipping" id="toc-cliff와-exploding-gradient-gradient-clipping" class="nav-link" data-scroll-target="#cliff와-exploding-gradient-gradient-clipping"><span class="header-section-number">4.4</span> 4. Cliff와 exploding gradient → gradient clipping</a></li>
+  <li><a href="#long-term-dependency-vanishing-gradient" id="toc-long-term-dependency-vanishing-gradient" class="nav-link" data-scroll-target="#long-term-dependency-vanishing-gradient"><span class="header-section-number">4.5</span> 5. Long-term dependency (vanishing gradient)</a></li>
+  <li><a href="#inexact-gradient-surrogate-loss" id="toc-inexact-gradient-surrogate-loss" class="nav-link" data-scroll-target="#inexact-gradient-surrogate-loss"><span class="header-section-number">4.6</span> 6. Inexact gradient → surrogate loss</a></li>
+  <li><a href="#local-구조와-global-구조의-불일치" id="toc-local-구조와-global-구조의-불일치" class="nav-link" data-scroll-target="#local-구조와-global-구조의-불일치"><span class="header-section-number">4.7</span> 7. Local 구조와 global 구조의 불일치</a></li>
+  <li><a href="#최적화의-이론적-한계" id="toc-최적화의-이론적-한계" class="nav-link" data-scroll-target="#최적화의-이론적-한계"><span class="header-section-number">4.8</span> 8. 최적화의 이론적 한계</a></li>
+  </ul></li>
+  <li><a href="#최적화-디버깅-경로의-시각화" id="toc-최적화-디버깅-경로의-시각화" class="nav-link" data-scroll-target="#최적화-디버깅-경로의-시각화"><span class="header-section-number">5</span> 최적화 디버깅: 경로의 시각화</a>
+  <ul class="collapse">
+  <li><a href="#시각화에서-얻은-교훈" id="toc-시각화에서-얻은-교훈" class="nav-link" data-scroll-target="#시각화에서-얻은-교훈"><span class="header-section-number">5.1</span> 시각화에서 얻은 교훈</a></li>
+  </ul></li>
+  <li><a href="#차-미분-기반-최적화의-재료들" id="toc-차-미분-기반-최적화의-재료들" class="nav-link" data-scroll-target="#차-미분-기반-최적화의-재료들"><span class="header-section-number">6</span> 1차 미분 기반 최적화의 재료들</a>
+  <ul class="collapse">
+  <li><a href="#momentum" id="toc-momentum" class="nav-link" data-scroll-target="#momentum"><span class="header-section-number">6.1</span> Momentum</a></li>
+  <li><a href="#nesterov-momentum" id="toc-nesterov-momentum" class="nav-link" data-scroll-target="#nesterov-momentum"><span class="header-section-number">6.2</span> Nesterov Momentum</a></li>
+  <li><a href="#파라미터-초기화-전략-bias-제외" id="toc-파라미터-초기화-전략-bias-제외" class="nav-link" data-scroll-target="#파라미터-초기화-전략-bias-제외"><span class="header-section-number">6.3</span> 파라미터 초기화 전략 (bias 제외)</a>
+  <ul class="collapse">
+  <li><a href="#기본-선택지와-크기magnitude-문제" id="toc-기본-선택지와-크기magnitude-문제" class="nav-link" data-scroll-target="#기본-선택지와-크기magnitude-문제"><span class="header-section-number">6.3.1</span> 기본 선택지와 “크기(magnitude)” 문제</a></li>
+  <li><a href="#xavier-glorot-initialization-glorot-bengio-2010" id="toc-xavier-glorot-initialization-glorot-bengio-2010" class="nav-link" data-scroll-target="#xavier-glorot-initialization-glorot-bengio-2010"><span class="header-section-number">6.3.2</span> Xavier (Glorot) initialization [Glorot &amp; Bengio, 2010]</a></li>
+  <li><a href="#gain-factor-비선형성에-대한-보정-saxe-et-al.-2013" id="toc-gain-factor-비선형성에-대한-보정-saxe-et-al.-2013" class="nav-link" data-scroll-target="#gain-factor-비선형성에-대한-보정-saxe-et-al.-2013"><span class="header-section-number">6.3.3</span> Gain factor — 비선형성에 대한 보정 [Saxe et al., 2013]</a></li>
+  <li><a href="#sparse-initialization-martens-2010" id="toc-sparse-initialization-martens-2010" class="nav-link" data-scroll-target="#sparse-initialization-martens-2010"><span class="header-section-number">6.3.4</span> Sparse initialization [Martens, 2010]</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#무선통신-관점의-직관" id="toc-무선통신-관점의-직관" class="nav-link" data-scroll-target="#무선통신-관점의-직관"><span class="header-section-number">7</span> 무선통신 관점의 직관</a></li>
+  <li><a href="#python-부록-핵심-현상-재현" id="toc-python-부록-핵심-현상-재현" class="nav-link" data-scroll-target="#python-부록-핵심-현상-재현"><span class="header-section-number">8</span> Python 부록: 핵심 현상 재현</a></li>
+  <li><a href="#분-치트시트" id="toc-분-치트시트" class="nav-link" data-scroll-target="#분-치트시트"><span class="header-section-number">9</span> 1분 치트시트</a></li>
+  <li><a href="#더-보면-좋은-자료" id="toc-더-보면-좋은-자료" class="nav-link" data-scroll-target="#더-보면-좋은-자료"><span class="header-section-number">10</span> 더 보면 좋은 자료</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">신경망 최적화의 도전과제와 1차 미분 기반 기법 (Momentum, 초기화)</h1>
+<p class="subtitle lead">Deep Learning Notes — Optimization II</p>
+  <div class="quarto-categories">
+    <div class="quarto-category">Deep Learning</div>
+    <div class="quarto-category">Optimization</div>
+    <div class="quarto-category">Momentum</div>
+    <div class="quarto-category">Initialization</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    Newton’s method가 딥러닝에서 쓰이지 않는 이유, 신경망 최적화의 8가지 도전과제(ill-conditioning, saddle point, cliff, surrogate loss 등), 그리고 1차 미분 기반 최적화의 핵심 재료인 Momentum/Nesterov Momentum과 파라미터 초기화(Xavier init) 정리
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">April 6, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>이 노트의 핵심 한 줄 요약
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>신경망의 손실 곡면(solution space)은 ill-conditioned이고, saddle point와 cliff로 가득하며, 우리가 쓰는 gradient조차 noisy하다. 그래서 <strong>전역 최적해를 찾는 것은 포기</strong>하고, 충분히 좋은 local minimum을 찾기 위해 Momentum·좋은 초기화·learning rate scheduling 같은 <strong>실용적 장치</strong>들을 동원한다. 이것이 1차 미분 기반 딥러닝 최적화의 본질이다.</p>
+</div>
+</div>
+<section id="전체-구조-개관" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 전체 구조 개관</h1>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart TD
+    A[ERM: 경험적 위험 최소화] --&gt; B{어떻게 최적화?}
+    B --&gt; C[Newton's method&lt;br/&gt;2차 미분 / Hessian]
+    B --&gt; D[Gradient 기반&lt;br/&gt;GD / SGD]
+    C --&gt;|계산량 + saddle point 문제| X[딥러닝에서는 비실용적]
+    D --&gt; E[신경망 최적화의&lt;br/&gt;8가지 도전과제]
+    E --&gt; F[1차 미분 기반 기법의 재료]
+    F --&gt; G[Momentum / Nesterov]
+    F --&gt; H[파라미터 초기화&lt;br/&gt;Xavier init + gain factor]
+    F --&gt; I[Learning rate scheduling&lt;br/&gt;AdaGrad·RMSProp·Adam → 다음 노트]
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<p>이번 노트는 두 부분으로 구성된다.</p>
+<ol type="1">
+<li><strong>왜 신경망 최적화는 어려운가</strong> — Newton’s method의 한계와 8가지 도전과제</li>
+<li><strong>그래서 무엇을 쓰는가</strong> — 1차 미분 기반 최적화의 재료: Momentum, Nesterov Momentum, 파라미터 초기화</li>
+</ol>
+</section>
+<section id="출발점-복습-erm과-gd-vs.-sgd" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> 출발점 복습: ERM과 GD vs.&nbsp;SGD</h1>
+<p>진짜 목표는 데이터 생성 분포 <span class="math inline">\(p_{\text{data}}\)</span>에 대한 <strong>risk</strong> 최소화다.</p>
+<p><span class="math display">\[
+J^*(\theta) = \min_{\theta}\; \mathbb{E}_{(x,y)\sim p_{\text{data}}}\!\left[\, L\big(f(x;\theta),\, y\big) \right]
+\]</span></p>
+<p>그러나 전체 세계의 데이터를 가질 수 없으므로 훈련 집합의 경험 분포 <span class="math inline">\(\hat{p}_{\text{data}}\)</span>에 대한 <strong>empirical risk</strong>를 대신 최소화한다 (ERM, Empirical Risk Minimization).</p>
+<p><span class="math display">\[
+J(\theta) = \mathbb{E}_{(x,y)\sim \hat{p}_{\text{data}}}\!\left[ L\big(f(x;\theta), y\big)\right] = \frac{1}{m}\sum_{i=1}^{m} L\big(f(x^{(i)};\theta),\, y^{(i)}\big)
+\]</span></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th>Gradient Descent (GD)</th>
+<th>Stochastic GD (SGD)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>gradient 계산 단위</td>
+<td>전체 데이터 <span class="math inline">\(m\)</span>개</td>
+<td>mini-batch <span class="math inline">\(k\)</span>개</td>
+</tr>
+<tr class="even">
+<td>gradient 품질</td>
+<td>안정적, noise 적음</td>
+<td>불안정, <strong>noisy</strong></td>
+</tr>
+<tr class="odd">
+<td>중요한 gradient</td>
+<td>서로 상쇄될 수 있음</td>
+<td>보존될 가능성 있음</td>
+</tr>
+<tr class="even">
+<td>계산/메모리 비용</td>
+<td>큼 (전체 로드 필요)</td>
+<td>작음 → <strong>실용적 표준</strong></td>
+</tr>
+<tr class="odd">
+<td>이론적 성질</td>
+<td>명확</td>
+<td>덜 명확</td>
+</tr>
+<tr class="even">
+<td>local minimum 탈출</td>
+<td>자신 있게 빠져 들어감</td>
+<td>randomness 덕에 빠져나오기도 함</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>SGD를 옹호하는 두 가지 추가 논거
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><strong>Solution space에는 local minima가 많다.</strong> loss function이 convex여도, solution space의 모양은 loss가 아니라 <strong>데이터 분포</strong>가 결정한다. GD는 확신을 갖고 local minimum으로 직진하지만, SGD의 randomness는 random walk처럼 빠져나올 기회를 준다.</li>
+<li><strong>병렬화가 쉽다.</strong> 여러 batch를 여러 머신에서 계산해 합산할 수 있다.</li>
+</ol>
+</div>
+</div>
+</section>
+<section id="newtons-method-이론적으로는-최적-실전에서는-폐기" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Newton’s method: 이론적으로는 최적, 실전에서는 폐기</h1>
+<section id="아이디어-2차-taylor-근사" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="아이디어-2차-taylor-근사"><span class="header-section-number">3.1</span> 아이디어: 2차 Taylor 근사</h2>
+<p>손실 <span class="math inline">\(f(x)\)</span>를 2차까지 Taylor 전개하고 고차항을 버리면, 최적 step을 닫힌 형태로 구할 수 있다.</p>
+<p><span class="math display">\[
+f(x) \approx f(x_0) + (x - x_0)^\top g + \frac{1}{2}(x - x_0)^\top H (x - x_0)
+\]</span></p>
+<ul>
+<li><span class="math inline">\(g\)</span>: 1차 미분 (gradient)</li>
+<li><span class="math inline">\(H\)</span>: 2차 미분 행렬 (<strong>Hessian</strong>)</li>
+</ul>
+<p>이를 <span class="math inline">\(x\)</span>에 대해 미분해 0으로 놓으면 update가 나온다.</p>
+<p><span class="math display">\[
+x^{\ast} = x_0 - H^{-1} g
+\]</span></p>
+<p>즉 <strong>step size를 따로 튜닝할 필요 없이</strong> 곡률 정보가 최적 보폭을 알려준다. convex objective라면 적은 iteration으로 전역 최적점에 도달한다.</p>
+</section>
+<section id="왜-딥러닝에서는-안-쓰는가" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="왜-딥러닝에서는-안-쓰는가"><span class="header-section-number">3.2</span> 왜 딥러닝에서는 안 쓰는가</h2>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>Newton’s method가 실패하는 세 가지 이유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><strong>계산 비용</strong>: 파라미터가 <span class="math inline">\(n\)</span>개면 Hessian은 <span class="math inline">\(n \times n\)</span>. 수억~수천억 파라미터에서 계산·저장·역행렬은 불가능에 가깝다.</li>
+<li><strong>곡면이 매끄럽지 않다</strong>: 매우 복잡한 손실 곡면에서는 2차 근사 자체가 의미 있는 step을 주지 못한다. 비싸게 계산해도 최적 보폭이 아니다.</li>
+<li><strong>Saddle point에 끌려간다</strong>: Newton’s method는 gradient가 0인 critical point를 향한다. 그런데 고차원 곡면의 critical point 대부분은 saddle point다(아래 <a href="#sec-saddle" class="quarto-xref">Section&nbsp;4.3</a> 참고). Hessian의 고유값 부호가 섞여 있으면 그 극점은 minimum일 수도, maximum일 수도, saddle일 수도 있다.</li>
+</ol>
+</div>
+</div>
+<p>critical point의 분류는 Hessian 고유값 부호로 결정된다.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Hessian 고유값</th>
+<th>critical point의 종류</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>모두 양수 (positive definite)</td>
+<td>local <strong>minimum</strong></td>
+</tr>
+<tr class="even">
+<td>모두 음수 (negative definite)</td>
+<td>local <strong>maximum</strong></td>
+</tr>
+<tr class="odd">
+<td>양수·음수 혼재</td>
+<td><strong>saddle point</strong></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="신경망-최적화의-8가지-도전과제" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> 신경망 최적화의 8가지 도전과제</h1>
+<section id="sec-illcond" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="sec-illcond"><span class="header-section-number">4.1</span> 1. Ill-conditioning</h2>
+<p><strong>Condition number</strong>는 행렬 <span class="math inline">\(A\)</span>의 가장 큰 고유값과 가장 작은 고유값의 비율이다.</p>
+<p><span class="math display">\[
+\kappa(A) = \max_{i,j}\left|\frac{\lambda_i}{\lambda_j}\right| = \frac{|\lambda_{\max}|}{|\lambda_{\min}|}
+\]</span></p>
+<p>여기서 <span class="math inline">\(A\)</span>로는 보통 feature 공간의 <strong>covariance matrix</strong>(또는 손실 곡면의 Hessian)를 생각한다. 고유값은 각 고유벡터 방향으로 데이터가 얼마나 퍼져 있는지를 말해준다.</p>
+<ul>
+<li><span class="math inline">\(\kappa \approx 1\)</span>: 데이터가 <strong>등방적(isotropic)</strong> 으로 퍼짐 → 어느 방향이든 비슷한 step size가 통함 → 최적화 쉬움</li>
+<li><span class="math inline">\(\kappa \gg 1\)</span> (예: <span class="math inline">\(10^4\)</span>): 어떤 방향은 넓게, 어떤 방향은 빽빽하게 분포 → <strong>step size가 극도로 민감</strong>해짐</li>
+</ul>
+<p>step size가 민감해지는 메커니즘:</p>
+<ol type="1">
+<li>빽빽한(곡률이 큰) 방향 기준으로 step이 <strong>크면</strong> → minimum을 <strong>건너뛰고</strong> 진동(oscillation)</li>
+<li>퍼진(곡률이 작은) 방향 기준으로 step이 <strong>작으면</strong> → minimum에 <strong>도달하기 전에 멈춤</strong></li>
+</ol>
+<p>하나의 learning rate로 두 방향을 동시에 만족시킬 수 없는 상황이 ill-conditioning이다.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>고차원일수록 ill-conditioning은 기본값
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>차원이 높아질수록 고유값 조합의 가짓수가 많아져 <span class="math inline">\(\lambda_{\max}/\lambda_{\min}\)</span> 비율이 커질 가능성이 높다. 실제 데이터는 대부분 고차원이므로, <strong>실전의 solution space는 거의 항상 ill-conditioned라고 가정</strong>하는 것이 안전하다.</p>
+</div>
+</div>
+</section>
+<section id="local-minima-수렴-판단이-어렵다" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="local-minima-수렴-판단이-어렵다"><span class="header-section-number">4.2</span> 2. Local minima — 수렴 판단이 어렵다</h2>
+<p>깊은 신경망은 수렴하지 않을 수 있다. 그 이유들:</p>
+<ul>
+<li><strong>local minimum이 아예 없을 수도 있다.</strong> 전역 minimum 하나에 나머지는 plateau(평탄 지대)의 연속이라면, 최적화는 멈출 기준점 없이 떠돌다 멈춘다.</li>
+<li><strong>“stuck” 상태</strong>: loss가 줄지 않는데도 파라미터는 계속 움직이는 상태. 원인 후보는 ① 나쁜 conditioning, ② 과도한 gradient noise (SGD), ③ overfitting (특히 작은 훈련 데이터), ④ 그 외 미지의 원인.</li>
+<li><strong>critical point에 도달하기 전에 멈추는 것이 보통이다.</strong> learning rate를 점점 줄이는 scheduling을 쓰는데, local minimum에 들어가기 전에 learning rate가 너무 작아지면 <strong>중간 지점에서 학습이 끝나버린다.</strong> 이는 실전에서 매우 자주 일어난다.</li>
+</ul>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>훈련 loss 곡선만으로는 “잘 수렴했는지” 알 수 없다
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>loss 값과 최적화 궤적을 들여다봐도 지금 멈춘 곳이 좋은 minimum인지 판단할 수 없다. 학습이 좋았는지는 결국 <strong>test/validation 데이터로 평가했을 때</strong>에만 드러난다. 훈련 중에는 알기 어렵다.</p>
+</div>
+</div>
+</section>
+<section id="sec-saddle" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="sec-saddle"><span class="header-section-number">4.3</span> 3. Saddle point, plateau — 흔한가? 불행히도 그렇다</h2>
+<p><strong>동전 던지기 논증</strong>: Hessian의 고유값 하나하나에 대해 동전을 던진다고 하자.</p>
+<ul>
+<li>앞면 → 그 고유값은 양수</li>
+<li>뒷면 → 음수</li>
+</ul>
+<p>local <strong>minimum</strong>이 되려면 <strong>모든 고유값이 양수</strong>(전부 앞면)여야 한다. 차원 <span class="math inline">\(n\)</span>이 커질수록 전부 앞면이 나올 확률은 <span class="math inline">\(\sim (1/2)^n\)</span>으로 <strong>지수적으로 희박</strong>해진다. 어떤 방향은 minimum이고 어떤 방향은 maximum인 saddle point가 critical point의 압도적 다수가 된다.</p>
+<p><strong>Random matrix theory의 보정</strong>: 사실 이 동전은 공정하지 않고 <strong>편향(weighted)</strong> 되어 있다. 손실 값 <span class="math inline">\(J\)</span>가 낮은 지점일수록 앞면(양수 고유값)이 나올 확률이 높다. 따라서:</p>
+<ul>
+<li><strong>낮은 <span class="math inline">\(J\)</span>를 가진 critical point</strong> → local minimum일 가능성이 높다</li>
+<li><strong>높은 <span class="math inline">\(J\)</span>를 가진 critical point</strong> → 대부분 saddle point</li>
+</ul>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>실용적 함의
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>“local minimum에 갇히면 어쩌지”라는 걱정은 생각보다 덜 치명적이다. 도달 가능한 local minimum들은 어차피 손실이 낮은 곳에 몰려 있기 때문이다. 진짜 문제는 높은 손실 영역에 널려 있는 <strong>saddle point</strong>들이고, Newton류 방법은 바로 이것들에 끌려간다 — 1차 방법(+noise)을 선호하는 또 하나의 이유다.</p>
+<p>Saddle point 근처의 거동: 한 방향에서는 minimum처럼 보여 수렴하는 듯하다가, 다른 방향의 gradient가 커지는 순간 <strong>다른 골짜기로 굴러떨어진다.</strong> 이때 loss가 갑자기 튀어 오르는(soaring) 현상을 관찰할 수 있다.</p>
+</div>
+</div>
+</section>
+<section id="cliff와-exploding-gradient-gradient-clipping" class="level2" data-number="4.4">
+<h2 data-number="4.4" class="anchored" data-anchor-id="cliff와-exploding-gradient-gradient-clipping"><span class="header-section-number">4.4</span> 4. Cliff와 exploding gradient → gradient clipping</h2>
+<p>손실 곡면에는 <strong>cliff</strong>(절벽) — loss가 급락/급등하는 지점 — 가 존재한다. step size가 충분히 크면 절벽을 <strong>뛰어넘어</strong> 엉뚱하게 높은 loss 지역으로 떨어지고, 한 번의 iteration만에 loss가 크게 튀어 학습이 망가진 것처럼 보인다.</p>
+<ul>
+<li>단순 해법: learning rate를 줄인다 → 그러나 <strong>전체 학습이 느려진다.</strong> 원하지 않는 trade-off.</li>
+<li><strong>Heuristic 해법: gradient clipping.</strong> gradient의 norm이 임계값을 넘으면 잘라낸다.</li>
+</ul>
+<p><span class="math display">\[
+g \leftarrow g \cdot \min\!\left(1,\; \frac{\tau}{\lVert g \rVert}\right)
+\]</span></p>
+<p>“gradient가 비정상적으로 크다 = 지금 매우 불규칙한 지형을 지나는 중”이라는 신호로 받아들이고, 보폭을 강제로 제한해 조심스럽게 내려가는 것이다. 출발은 어이없을 만큼 단순한 heuristic이었지만 실전 성능이 좋아 표준 기법이 되었다.</p>
+</section>
+<section id="long-term-dependency-vanishing-gradient" class="level2" data-number="4.5">
+<h2 data-number="4.5" class="anchored" data-anchor-id="long-term-dependency-vanishing-gradient"><span class="header-section-number">4.5</span> 5. Long-term dependency (vanishing gradient)</h2>
+<p>hidden layer 수가 늘어날수록, 출력에서 입력 방향으로 backprop되는 gradient의 크기가 <strong>지수적으로 감소</strong>한다 (vanishing gradient). 출력층에서 만들어진 학습 신호가 여러 층을 거치며 희석되어, 입력에 가까운 층의 파라미터가 효과적으로 학습되지 않는다. 정보를 보존하거나 노이즈를 줄이는 별도 장치(skip connection, 정규화 등)가 필요해진다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>같은 이름, 다른 축: 시간 축의 long-term dependency
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>여기서 말하는 것은 <strong>하나의 MLP 안에서 입력층–출력층 사이</strong>의(깊이 축) 의존성이다. 시퀀스 데이터에서는 <strong>시간 축</strong>의 long-term dependency가 별도로 존재한다 — 긴 문단을 이해하려면 앞에 나온 단어·문장들의 의미를 기억하고 연결해야 한다.</p>
+<p>현대 Transformer는 이 문맥 정보를 <strong>KV cache</strong>에 저장하는데, 시퀀스가 길어지면 GPU 메모리를 폭발적으로 소모한다. 압축하면 정보가 손실되는 것이 일반적이지만, 최근에는 손실 없이(혹은 거의 없이) 약 6배 압축하는 기법들이 나와 cache 효율을 크게 높이고 있다. 이 주제는 시퀀스 모델링에서 다시 다룬다.</p>
+</div>
+</div>
+</section>
+<section id="inexact-gradient-surrogate-loss" class="level2" data-number="4.6">
+<h2 data-number="4.6" class="anchored" data-anchor-id="inexact-gradient-surrogate-loss"><span class="header-section-number">4.6</span> 6. Inexact gradient → surrogate loss</h2>
+<p>SGD가 쓰는 stochastic gradient는 <strong>참 gradient가 아니다.</strong> mini-batch라는 데이터 일부의 “맛”만 본, noise 섞인 추정치다. 이 noise는 최적화를 엉뚱한 곳으로 끌고 갈 수 있다.</p>
+<p><strong>해법: surrogate loss.</strong> 원래의 복잡한 손실 곡면 대신, ① 그것과 <strong>비슷하면서</strong> ② 훨씬 <strong>매끄럽고 최적화하기 쉬운</strong> 대리 손실을 정의해 그 위에서 최적화한다.</p>
+<ul>
+<li>surrogate의 minimum은 원래 minimum과 약간 다르지만, 적은 iteration으로 <strong>원래 해에 충분히 가까운 점</strong>에 안정적으로 도달한다.</li>
+<li>곡면 자체가 매끄러우므로 <strong>gradient가 noisy해도</strong> 결국 minimum 근처로 수렴한다.</li>
+</ul>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>열린 문제
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>“원래 곡면에 가깝고, 그 minimum이 원래 해와 가까운 surrogate loss를 어떻게 설계하는가”가 핵심 질문이다. 정답은 데이터셋과 목적함수에 따라 달라지며, 일반해는 없다. 좋은 surrogate를 찾으면 noisy gradient를 쓰더라도 최적화가 극적으로 쉬워진다. (분류에서 0-1 loss 대신 cross-entropy를 쓰는 것이 대표적인 surrogate loss의 예다.)</p>
+</div>
+</div>
+</section>
+<section id="local-구조와-global-구조의-불일치" class="level2" data-number="4.7">
+<h2 data-number="4.7" class="anchored" data-anchor-id="local-구조와-global-구조의-불일치"><span class="header-section-number">4.7</span> 7. Local 구조와 global 구조의 불일치</h2>
+<p>1차원으로 단순화한 사고 실험: 어떤 파라미터 구간에서 <strong>loss가 국소적으로 증가</strong>하고 있다고 하자. gradient만 보는 입장에서 가능한 해석은 여러 가지다.</p>
+<ol type="1">
+<li>“지금 있는 골짜기가 좋은 local minimum이고, 언덕을 넘으면 안 된다” → 여기서 멈춤</li>
+<li>“overfitting이 시작됐다” → 학습 중단</li>
+<li>“언덕 <strong>너머에</strong> 훨씬 깊은 minimum이 있다” → 용감하게 넘어가면 더 좋은 해</li>
+</ol>
+<p>문제는 <strong>국소 관측(local observation)만으로는 셋을 구분할 수 없다</strong>는 것이다. local 정보가 global 구조에 대해 알려주는 바가 빈약(poor correspondence)하기 때문에, 학습 곡선을 모니터링하면서 내리는 결정(중단할까, 계속할까)이 본질적으로 어렵다.</p>
+</section>
+<section id="최적화의-이론적-한계" class="level2" data-number="4.8">
+<h2 data-number="4.8" class="anchored" data-anchor-id="최적화의-이론적-한계"><span class="header-section-number">4.8</span> 8. 최적화의 이론적 한계</h2>
+<p>신경망 학습에서 우리는 <strong>함수의 정확한 minimum을 찾는 것을 포기</strong>한다. 곡면이 너무 복잡해서 사실상 불가능하기 때문이다. 대신 목표를 바꾼다:</p>
+<blockquote class="blockquote">
+<p>loss 값을 <strong>충분히</strong> 줄여서 좋은 <strong>generalization 성능</strong>을 얻는다.</p>
+</blockquote>
+<p>“어떤 최적화 알고리즘이 목적(전역 minimum 발견)을 달성할 수 있는가”에 대한 이론적 분석은 극히 어렵다. 따라서 <strong>현실적인 성능 bound</strong>를 유도하는 것 — 예컨대 surrogate 최적화 결과와 진짜 최적해 사이의 gap을 보장하는 이론적 도구 — 이 머신러닝 연구의 중요한 목표로 남아 있다. 이런 보장(guarantee)을 하나 만들어내면 복잡한 곡면 위의 학습에 대한 의미 있는 진전이 된다.</p>
+</section>
+</section>
+<section id="최적화-디버깅-경로의-시각화" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> 최적화 디버깅: 경로의 시각화</h1>
+<p>SGD가 실제로 무엇을 하고 있는지 — local minimum에 갇혔는지, saddle point에 머무는지, 전역 장애물 주변을 낭비하며 맴도는지, 울퉁불퉁한 협곡을 누비는지 — 알아내는 한 방법은 <strong>최적화 경로를 시각화</strong>하는 것이다.</p>
+<p>고차원 공간의 직접 시각화는 불가능하므로 저차원 projection을 쓴다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>방법</th>
+<th>내용</th>
+<th>장단점</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>2D subspace 시각화</strong></td>
+<td>손실 곡면을 2차원 평면에 투영해 등고선/표면으로 관찰</td>
+<td>정보량 많음 / 덜 보편적</td>
+</tr>
+<tr class="even">
+<td><strong>1D subspace 시각화</strong></td>
+<td><strong>learning curve</strong> (loss vs.&nbsp;iteration), interpolation plot</td>
+<td>매우 쉬움, 표준 관행 / 오판 가능 (좋은 minimum인지 빠져나가야 할 골짜기인지 오도할 수 있음)</td>
+</tr>
+</tbody>
+</table>
+<section id="시각화에서-얻은-교훈" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="시각화에서-얻은-교훈"><span class="header-section-number">5.1</span> 시각화에서 얻은 교훈</h2>
+<ol type="1">
+<li><strong>대부분의 문제에서, loss가 단조 감소하는 linear subspace가 존재한다.</strong> 겉보기에 미친 듯이 복잡한 곡면이라도, 그 밑에 깔린(latent) 부분공간은 단순하고 심지어 선형적일 수 있다.</li>
+<li>일부 문제에서는 이 subspace와 SGD 경로 사이에 <strong>장애물</strong>이 있다. learning curve가 일시적으로 정체되거나 튀어 오르는 국소적 ups and downs는 무시하고, 충분한 기간 관찰하면 결국 감소 추세를 확인할 수 있는 경우가 많다.</li>
+<li><strong>Factored linear model이 심층 신경망 학습의 정성적 측면을 많이 포착한다.</strong> 선형 모델 <span class="math inline">\(y = Wx + b\)</span>의 <span class="math inline">\(W\)</span>를 고유벡터·고유값 형태로 인수분해(factorize)하면, 복잡한 곡면 밑의 선형 subspace를 드러내고 최적화 과정을 분석하는 도구가 된다.</li>
+</ol>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>이 절의 punchline
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>겉의 곡면은 복잡해 보여도, latent space는 단순할 수 있다.</strong> 거대한 모델일수록 곡면은 더 복잡해지는데도 학습이 되는 이유가 여기에 있다. 같은 철학으로, 좋은 surrogate loss를 찾으면 — 밑에 깔린 단순한 구조에 올라타는 것이므로 — 실전에서 매우 잘 작동한다. (데이터의 noise와 비포괄성 때문에 곡면에 잔물결이 생기는 것일 뿐, 본질적 구조는 단순한 경우가 많다.)</p>
+</div>
+</div>
+</section>
+</section>
+<section id="차-미분-기반-최적화의-재료들" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> 1차 미분 기반 최적화의 재료들</h1>
+<p>gradient 기반 방법에서 쓸 수 있는 미분의 차수:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>차수</th>
+<th>이름</th>
+<th>비고</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1차</td>
+<td><strong>gradient</strong></td>
+<td>표준</td>
+</tr>
+<tr class="even">
+<td>2차</td>
+<td><strong>Hessian</strong></td>
+<td>입력의 작은 변화에 민감; 극점이 min인지 max인지 판별해줌</td>
+</tr>
+<tr class="odd">
+<td>3차 이상</td>
+<td>higher-order gradient</td>
+<td>실용 사례 없음</td>
+</tr>
+</tbody>
+</table>
+<p>2차 정보는 “이 극점이 minimum인가(멈춰도 됨) maximum인가(더 내려가야 함)”를 알려주지만, 비용 문제로 딥러닝에서는 1차 기반이 표준이다. 1차 기반 최적화를 <strong>안정화(stabilize)</strong> 하는 세 가지 재료:</p>
+<ol type="1">
+<li><strong>Momentum</strong> — noisy한 stochastic gradient에 관성을 부여</li>
+<li><strong>파라미터 초기화</strong> — 좋은 골짜기 근처에서 출발</li>
+<li><strong>Learning rate scheduling</strong> — 딥러닝 라이브러리에서 “optimizer”라 불리는 것 (다음 노트)</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>“Optimizer”라는 이름의 함정
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>PyTorch/TensorFlow의 <code>optimizer</code> 모듈(SGD, AdaGrad, RMSProp, Adam, …)은 마치 서로 다른 최적화 알고리즘처럼 보이지만, <strong>전부 본질은 stochastic gradient descent다.</strong> 차이는 오직 <strong>learning rate를 어떻게 schedule하느냐</strong>뿐이다. 같은 곡면에서 어떤 scheduler를 쓰느냐에 따라 빨리 수렴하기도, 늦게 수렴하기도, 아예 수렴하지 않기도 한다 — 학습 효율을 사실상 결정하는 요소라서 “optimizer”라는 거창한 이름이 붙었다.</p>
+</div>
+</div>
+<section id="momentum" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="momentum"><span class="header-section-number">6.1</span> Momentum</h2>
+<p><strong>일상적 정의</strong>: 운동(또는 연속된 사건)에 의해 얻은 힘 — 물리의 운동량 <span class="math inline">\(M = m \cdot v\)</span>, 즉 <strong>관성(inertia)</strong>.</p>
+<p><strong>머신러닝에서의 직관</strong>: 어느 지점에서 mini-batch 운이 나빠 stochastic gradient가 엉뚱한 방향을 가리킬 수 있다. 그러나 곡면의 내리막 방향이 한 step 만에 급변하는 일은 드물다. 그렇다면 <strong>현재의 noisy gradient에 100% 의존하지 말고, 지금까지 내려온 방향(역사)을 더 신뢰</strong>하자 — gradient에 관성을 주자.</p>
+<p><strong>Momentum 알고리즘</strong> [Polyak, 1964]은 과거 gradient들의 <strong>지수적으로 감쇠하는 이동평균(exponentially decaying moving average)</strong> 을 누적하고 그 방향으로 계속 이동한다.</p>
+<p><span class="math display">\[
+\begin{aligned}
+v &amp;\leftarrow \alpha\, v \;-\; \epsilon\, \nabla_\theta J(\theta) \\
+\theta &amp;\leftarrow \theta + v
+\end{aligned}
+\]</span></p>
+<ul>
+<li><span class="math inline">\(v\)</span> (<strong>velocity</strong>): 파라미터가 parameter space를 통과하는 <strong>방향과 속력</strong>. 음의 gradient의 지수 감쇠 평균으로 정의된다.</li>
+<li><span class="math inline">\(\alpha \in [0,1)\)</span>: <strong>hyperparameter.</strong> 과거 gradient의 기여가 얼마나 빨리 감쇠하는지를 결정한다. 예컨대 <span class="math inline">\(\alpha = 0.8\)</span>이면 누적된 과거 velocity에 80%, 새 gradient에 나머지 비중을 두는 셈 — 현재의 “엉터리(noisy)” gradient보다 역사를 더 신뢰한다.</li>
+<li>주의: <span class="math inline">\(\alpha\)</span>는 momentum 사용 시 <strong>반드시 지정해야 하는 또 하나의 hyperparameter</strong>이며, 결과가 이 값에 꽤 민감하다. “관성을 얼마나 쓸 것인가”를 정하는 일이다.</li>
+</ul>
+</section>
+<section id="nesterov-momentum" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="nesterov-momentum"><span class="header-section-number">6.2</span> Nesterov Momentum</h2>
+<p>표준(ordinary) momentum의 한 가지 비효율: gradient를 <strong>이전의(낡은) 파라미터 지점</strong>에서 계산한다. 그런데 velocity로 어차피 이동할 것이 확실하다면, 그 gradient는 계산되는 순간 이미 outdated다.</p>
+<p><strong>Nesterov momentum</strong>은 보정항(correction factor)을 추가한다 — velocity를 먼저 적용한 <strong>미래의(lookahead) 지점에서 gradient를 계산</strong>한다.</p>
+<p><span class="math display">\[
+\begin{aligned}
+v &amp;\leftarrow \alpha\, v \;-\; \epsilon\, \nabla_\theta J(\theta + \alpha v) \\
+\theta &amp;\leftarrow \theta + v
+\end{aligned}
+\]</span></p>
+<p>mini-batch가 들어올 때마다 파라미터가 라이브로 갱신되는 online 학습 상황에서, “다음 iteration에 실제로 평가될 공간”의 gradient를 미리 보는 것이므로 gradient가 덜 낡는다. 실전에서 보통 표준 momentum보다 성능이 좋아 <strong>기본 선택</strong>으로 쓰인다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th>Ordinary Momentum</th>
+<th>Nesterov Momentum</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>gradient 평가 지점</td>
+<td>현재 <span class="math inline">\(\theta\)</span></td>
+<td>lookahead <span class="math inline">\(\theta + \alpha v\)</span></td>
+</tr>
+<tr class="even">
+<td>해석</td>
+<td>과거 평균 + 현재 기울기</td>
+<td>과거 평균 + <strong>미래 예측 지점</strong>의 기울기</td>
+</tr>
+<tr class="odd">
+<td>실전 성능</td>
+<td>기준</td>
+<td>일반적으로 더 좋음</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="파라미터-초기화-전략-bias-제외" class="level2" data-number="6.3">
+<h2 data-number="6.3" class="anchored" data-anchor-id="파라미터-초기화-전략-bias-제외"><span class="header-section-number">6.3</span> 파라미터 초기화 전략 (bias 제외)</h2>
+<p>좋은 골짜기 안에서 출발하면 골짜기를 탈출할 걱정 자체가 없다 — <strong>초기화는 머신러닝 최적화에서 가장 중요한 요소 중 하나</strong>다. 다만 단 하나의 silver bullet은 없고, 잘 작동한다고 알려진 heuristic들의 모음이 있다.</p>
+<section id="기본-선택지와-크기magnitude-문제" class="level3" data-number="6.3.1">
+<h3 data-number="6.3.1" class="anchored" data-anchor-id="기본-선택지와-크기magnitude-문제"><span class="header-section-number">6.3.1</span> 기본 선택지와 “크기(magnitude)” 문제</h3>
+<ul>
+<li><strong>어떤 분포에서 샘플링?</strong> Gaussian 분포 또는 일정 범위의 Uniform 분포가 표준.</li>
+<li><strong>크기가 중요한가? 그렇다.</strong> 초기값의 magnitude는 ① 최적화 절차의 결과와 ② 네트워크의 generalization 능력 모두에 영향을 준다. 그러나 “크면 항상 좋다/작으면 항상 좋다” 같은 단일 경향은 없다 — 곡면(즉 데이터와 목적함수)에 따라 달라진다.</li>
+<li><strong>MLP에 대한 처방</strong>: 입력 <span class="math inline">\(m\)</span>개, 출력 <span class="math inline">\(n\)</span>개의 층이라면 다음 uniform 분포가 좋은 출발점을 준다고 알려져 있다.</li>
+</ul>
+<p><span class="math display">\[
+W_{ij} \sim U\!\left(-\frac{1}{\sqrt{m}},\; \frac{1}{\sqrt{m}}\right)
+\]</span></p>
+</section>
+<section id="xavier-glorot-initialization-glorot-bengio-2010" class="level3" data-number="6.3.2">
+<h3 data-number="6.3.2" class="anchored" data-anchor-id="xavier-glorot-initialization-glorot-bengio-2010"><span class="header-section-number">6.3.2</span> Xavier (Glorot) initialization [Glorot &amp; Bengio, 2010]</h3>
+<p>또 다른 처방인 <strong>normalized initialization</strong> (통칭 <strong>Xavier init</strong>):</p>
+<p><span class="math display">\[
+W_{ij} \sim U\!\left(-\sqrt{\frac{6}{m+n}},\; \sqrt{\frac{6}{m+n}}\right)
+\]</span></p>
+<p>핵심 설계 철학은 두 목표 사이의 <strong>타협(compromise)</strong> 이다.</p>
+<ol type="1">
+<li>모든 층이 <strong>같은 activation variance</strong>를 갖도록 초기화 (forward 신호 보존)</li>
+<li>모든 층이 <strong>같은 gradient variance</strong>를 갖도록 초기화 (backward 신호 보존)</li>
+</ol>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>왜 variance 균형이 최적화를 살리는가 — 인과 사슬
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>층별 activation variance와 gradient variance가 일정 범위 안에 유지되면 → 어떤 층에서도 신호가 폭발/소멸하지 않고 → loss 곡면의 국소적 cliff·폭발이 억제되어 → 마치 <strong>매끄러운 surrogate loss를 최적화하는 것처럼</strong> 국소 굴곡을 건너뛰며 안정적으로 하강한다. variance를 범위 안에 regularize하는 것이 학습을 잘 constrain하는 셈이다.</p>
+</div>
+</div>
+<p><strong>가정과 그 한계</strong>: 이 유도는 “네트워크가 <strong>비선형성 없는 행렬 곱의 사슬</strong>로만 구성된다”는 가정 위에서 성립한다. 물론 실제 네트워크는 입력–출력 사이에 수많은 비선형 activation을 갖는다. 가정이 깨지는데도 실전에서 꽤 잘 작동하기 때문에 표준으로 쓰인다.</p>
+</section>
+<section id="gain-factor-비선형성에-대한-보정-saxe-et-al.-2013" class="level3" data-number="6.3.3">
+<h3 data-number="6.3.3" class="anchored" data-anchor-id="gain-factor-비선형성에-대한-보정-saxe-et-al.-2013"><span class="header-section-number">6.3.3</span> Gain factor — 비선형성에 대한 보정 [Saxe et al., 2013]</h3>
+<p>ReLU를 쓴다고 하자. activation의 절반가량이 음수라면 그 절반은 0으로 죽고, <strong>activation variance도 그 비율만큼 죽는다.</strong> Xavier가 맞춰 놓은 activation–gradient variance 균형이 무너지는 것이다.</p>
+<p>보정: 죽은 만큼의 magnitude를 <strong>gain factor</strong>로 되살린다. ReLU라면 분산이 절반으로 죽으므로 <span class="math inline">\(\times 2\)</span> (가중치 표준편차 기준 <span class="math inline">\(\times\sqrt{2}\)</span>) 보정 — 일반적으로는 음수 activation이 발생하는 비율에 맞춘 배율을 곱한다. 이렇게 비선형성을 “시뮬레이션”해 variance 균형을 복원하면, 더 적은 iteration으로 좋은 local minimum에 도달한다. gain factor의 중요성은 이후 연구 [Sussillo, 2014]에서도 확인되었다. (ReLU용 gain을 정식화한 것이 He initialization 계열이다.)</p>
+</section>
+<section id="sparse-initialization-martens-2010" class="level3" data-number="6.3.4">
+<h3 data-number="6.3.4" class="anchored" data-anchor-id="sparse-initialization-martens-2010"><span class="header-section-number">6.3.4</span> Sparse initialization [Martens, 2010]</h3>
+<p>같은 시기에 제안된 또 다른 갈래: 파라미터의 다수를 <strong>0으로</strong> 초기화하는 방식도 좋은 초기점을 줄 수 있어 여러 응용에서 널리 쓰인다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>초기화</th>
+<th>분포</th>
+<th>설계 원리</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Naive uniform</td>
+<td><span class="math inline">\(U(-1/\sqrt{m}, 1/\sqrt{m})\)</span></td>
+<td>fan-in 기준 스케일링</td>
+</tr>
+<tr class="even">
+<td><strong>Xavier (Glorot)</strong></td>
+<td><span class="math inline">\(U\!\big(-\sqrt{6/(m{+}n)}, \sqrt{6/(m{+}n)}\big)\)</span></td>
+<td>activation var ↔︎ gradient var 균형 (선형 가정)</td>
+</tr>
+<tr class="odd">
+<td>Xavier + gain</td>
+<td>위 <span class="math inline">\(\times\)</span> gain</td>
+<td>비선형성으로 죽는 variance 보정 (ReLU: gain <span class="math inline">\(=\sqrt{2}\)</span>)</td>
+</tr>
+<tr class="even">
+<td>Sparse init</td>
+<td>다수를 0으로</td>
+<td>유효 fan-in 제한</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+</section>
+<section id="무선통신-관점의-직관" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> 무선통신 관점의 직관</h1>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>딥러닝 개념</th>
+<th>무선통신 대응물</th>
+<th>연결 고리</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Condition number / ill-conditioning</td>
+<td><strong>LMS 적응 필터의 수렴 속도</strong>가 입력 상관행렬 <span class="math inline">\(R\)</span>의 eigenvalue spread <span class="math inline">\(\lambda_{\max}/\lambda_{\min}\)</span>에 지배되는 것; MIMO 채널 행렬의 condition number</td>
+<td>동일한 수학이다. eigenvalue spread가 크면 LMS의 단일 step size <span class="math inline">\(\mu\)</span>가 빠른 모드와 느린 모드를 동시에 만족 못 함 — GD의 learning rate 민감성과 정확히 같은 현상</td>
+</tr>
+<tr class="even">
+<td>Stochastic gradient의 noise</td>
+<td><strong>noisy pilot 기반 채널 추정치</strong>로 등화기를 갱신하는 것</td>
+<td>참값 대신 noisy 추정치로 update → 평균적으로는 옳은 방향, 순간적으로는 흔들림</td>
+</tr>
+<tr class="odd">
+<td>Momentum (<span class="math inline">\(\alpha\)</span>로 EMA)</td>
+<td>gradient에 대한 <strong>1차 IIR low-pass filter</strong> / 채널 추정의 시간축 평활화</td>
+<td><span class="math inline">\(v_t = \alpha v_{t-1} + (1-\alpha)(\text{새 관측})\)</span> 꼴 — 컷오프를 <span class="math inline">\(\alpha\)</span>가 결정. noise는 걸러내고 추세(DC 성분)만 통과</td>
+</tr>
+<tr class="even">
+<td>Nesterov lookahead</td>
+<td><strong>예측형(predictive) 채널 추적</strong> — Kalman predictor처럼 다음 상태를 예측한 지점에서 보정</td>
+<td>낡은 관측 대신 한 step 앞 예측 지점의 정보로 갱신</td>
+</tr>
+<tr class="odd">
+<td>Surrogate loss</td>
+<td>NP-hard 빔포밍/스케줄링 문제의 <strong>convex relaxation</strong> (SDR 등)</td>
+<td>원 문제와 가까운 풀기 쉬운 문제를 대신 풀고, 해의 gap을 이론적으로 bound</td>
+</tr>
+<tr class="even">
+<td>Xavier init의 variance 균형</td>
+<td>다단 수신 체인의 <strong>단별 AGC / 전력 정규화</strong></td>
+<td>각 stage에서 신호 전력을 일정 범위로 유지해야 어느 단에서도 포화(폭발)·잡음바닥 매몰(소멸)이 없음 — forward/backward 신호 보존과 동형</td>
+</tr>
+<tr class="odd">
+<td>Gradient clipping</td>
+<td>송신단 <strong>PAPR 제한 / 진폭 clipping</strong></td>
+<td>비정상적으로 큰 순간값을 임계로 잘라 시스템을 보호하는 heuristic이 실전 표준이 된 것까지 닮음</td>
+</tr>
+<tr class="even">
+<td>Vanishing gradient (깊이 축)</td>
+<td><strong>다중 hop 중계에서 hop마다 곱해지는 감쇠</strong></td>
+<td>이득 <span class="math inline">\(&lt;1\)</span>인 단이 연쇄되면 신호가 지수적으로 소멸 — amplify-and-forward(= skip connection류) 장치가 필요</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="python-부록-핵심-현상-재현" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> Python 부록: 핵심 현상 재현</h1>
+<div id="optimization-demo" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">0</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co"># ---------- 1. Ill-conditioning: condition number와 GD ----------</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># f(x) = 0.5 x^T A x,  A = diag(1, kappa)</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gd_path(kappa, lr, steps<span class="op">=</span><span class="dv">60</span>, momentum<span class="op">=</span><span class="fl">0.0</span>, nesterov<span class="op">=</span><span class="va">False</span>):</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    A <span class="op">=</span> np.diag([<span class="fl">1.0</span>, kappa])</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> np.array([<span class="fl">8.0</span>, <span class="fl">1.0</span>])<span class="op">;</span> v <span class="op">=</span> np.zeros(<span class="dv">2</span>)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    path <span class="op">=</span> [x.copy()]</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(steps):</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        g_point <span class="op">=</span> x <span class="op">+</span> momentum <span class="op">*</span> v <span class="cf">if</span> nesterov <span class="cf">else</span> x</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        g <span class="op">=</span> A <span class="op">@</span> g_point</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        v <span class="op">=</span> momentum <span class="op">*</span> v <span class="op">-</span> lr <span class="op">*</span> g</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> x <span class="op">+</span> v</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        path.append(x.copy())</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.array(path)</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">3</span>, figsize<span class="op">=</span>(<span class="dv">15</span>, <span class="dv">4</span>))</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax, kappa <span class="kw">in</span> <span class="bu">zip</span>(axes, [<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">50</span>]):</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    A <span class="op">=</span> np.diag([<span class="fl">1.0</span>, kappa])</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    xs <span class="op">=</span> np.linspace(<span class="op">-</span><span class="dv">9</span>, <span class="dv">9</span>, <span class="dv">200</span>)<span class="op">;</span> ys <span class="op">=</span> np.linspace(<span class="op">-</span><span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">200</span>)</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    X, Y <span class="op">=</span> np.meshgrid(xs, ys)</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    Z <span class="op">=</span> <span class="fl">0.5</span> <span class="op">*</span> (A[<span class="dv">0</span>, <span class="dv">0</span>] <span class="op">*</span> X<span class="op">**</span><span class="dv">2</span> <span class="op">+</span> A[<span class="dv">1</span>, <span class="dv">1</span>] <span class="op">*</span> Y<span class="op">**</span><span class="dv">2</span>)</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    ax.contour(X, Y, Z, levels<span class="op">=</span><span class="dv">20</span>, alpha<span class="op">=</span><span class="fl">0.4</span>)</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    p <span class="op">=</span> gd_path(kappa, lr<span class="op">=</span><span class="fl">1.8</span> <span class="op">/</span> kappa)   <span class="co"># 큰 고유값 기준으로 안전한 lr</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    ax.plot(p[:, <span class="dv">0</span>], p[:, <span class="dv">1</span>], <span class="st">"o-"</span>, ms<span class="op">=</span><span class="dv">3</span>)</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    ax.set_title(<span class="ss">f"condition number = </span><span class="sc">{</span>kappa<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>plt.suptitle(<span class="st">"kappa가 클수록: 가파른 축은 진동, 완만한 축은 정체"</span>)</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()<span class="op">;</span> plt.show()</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a><span class="co"># ---------- 2. Noisy gradient + Momentum = low-pass filter ----------</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> sgd_1d(momentum<span class="op">=</span><span class="fl">0.0</span>, lr<span class="op">=</span><span class="fl">0.05</span>, noise<span class="op">=</span><span class="fl">2.0</span>, steps<span class="op">=</span><span class="dv">300</span>):</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>    x, v <span class="op">=</span> <span class="fl">6.0</span>, <span class="fl">0.0</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    xs <span class="op">=</span> []</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(steps):</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>        g <span class="op">=</span> <span class="dv">2</span> <span class="op">*</span> x <span class="op">+</span> noise <span class="op">*</span> rng.standard_normal()   <span class="co"># f(x)=x^2 + gradient noise</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>        v <span class="op">=</span> momentum <span class="op">*</span> v <span class="op">-</span> lr <span class="op">*</span> g</span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> x <span class="op">+</span> v</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>        xs.append(x)</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.array(xs)</span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">4</span>))</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>plt.plot(sgd_1d(momentum<span class="op">=</span><span class="fl">0.0</span>), label<span class="op">=</span><span class="st">"SGD (no momentum)"</span>, alpha<span class="op">=</span><span class="fl">0.7</span>)</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>plt.plot(sgd_1d(momentum<span class="op">=</span><span class="fl">0.9</span>), label<span class="op">=</span><span class="vs">r"SGD </span><span class="op">+</span><span class="vs"> momentum </span><span class="kw">(</span><span class="dv">$</span><span class="ch">\a</span><span class="vs">lpha=0</span><span class="dv">.</span><span class="vs">9</span><span class="dv">$</span><span class="kw">)</span><span class="vs">"</span>, lw<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>plt.axhline(<span class="dv">0</span>, color<span class="op">=</span><span class="st">"k"</span>, ls<span class="op">=</span><span class="st">"--"</span>, lw<span class="op">=</span><span class="fl">0.8</span>)</span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>plt.legend()<span class="op">;</span> plt.title(<span class="st">"Momentum = gradient noise의 저역통과 필터링"</span>)</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"iteration"</span>)<span class="op">;</span> plt.ylabel(<span class="st">"x"</span>)<span class="op">;</span> plt.show()</span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a><span class="co"># ---------- 3. Xavier init: 층을 지나며 activation variance 보존 ----------</span></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> forward_variance(init, depth<span class="op">=</span><span class="dv">30</span>, width<span class="op">=</span><span class="dv">512</span>, act<span class="op">=</span>np.tanh):</span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> rng.standard_normal((<span class="dv">1000</span>, width))</span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>    var_hist <span class="op">=</span> []</span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(depth):</span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> init <span class="op">==</span> <span class="st">"naive"</span>:</span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>            W <span class="op">=</span> rng.normal(<span class="dv">0</span>, <span class="fl">0.5</span>, (width, width))           <span class="co"># 너무 큰 분산</span></span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> init <span class="op">==</span> <span class="st">"small"</span>:</span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>            W <span class="op">=</span> rng.normal(<span class="dv">0</span>, <span class="fl">0.01</span>, (width, width))          <span class="co"># 너무 작은 분산</span></span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> init <span class="op">==</span> <span class="st">"xavier"</span>:</span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>            limit <span class="op">=</span> np.sqrt(<span class="dv">6</span> <span class="op">/</span> (width <span class="op">+</span> width))</span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>            W <span class="op">=</span> rng.uniform(<span class="op">-</span>limit, limit, (width, width))</span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> act(x <span class="op">@</span> W)</span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a>        var_hist.append(x.var())</span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> var_hist</span>
+<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">4</span>))</span>
+<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> init <span class="kw">in</span> [<span class="st">"naive"</span>, <span class="st">"small"</span>, <span class="st">"xavier"</span>]:</span>
+<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a>    plt.semilogy(forward_variance(init), label<span class="op">=</span>init)</span>
+<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a>plt.legend()<span class="op">;</span> plt.xlabel(<span class="st">"layer depth"</span>)<span class="op">;</span> plt.ylabel(<span class="st">"activation variance (log)"</span>)</span>
+<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Xavier init만 깊이에 걸쳐 variance를 보존 (폭발도 소멸도 없음)"</span>)</span>
+<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="분-치트시트" class="level1" data-number="9">
+<h1 data-number="9"><span class="header-section-number">9</span> 1분 치트시트</h1>
+<ul>
+<li><strong>risk vs.&nbsp;empirical risk</strong>: 전자는 <span class="math inline">\(p_{\text{data}}\)</span> 기대값(목표), 후자는 훈련셋 평균(ERM, 실제로 푸는 것). pure optimization과의 가장 큰 차이 = 목적이 <strong>proxy</strong>라는 점.</li>
+<li><strong>Newton’s method</strong>: <span class="math inline">\(x^* = x_0 - H^{-1}g\)</span> (2차 Taylor). convex면 최적 step. 딥러닝에선 ① Hessian 비용 ② 복잡 곡면에서 무의미 ③ <strong>saddle point에 끌림</strong> 때문에 폐기.</li>
+<li><strong>Condition number</strong> <span class="math inline">\(\kappa = |\lambda_{\max}/\lambda_{\min}|\)</span>. 클수록 step size 튜닝 불가능 지대. 고차원 → 거의 항상 ill-conditioned.</li>
+<li><strong>Saddle point 동전 논증</strong>: minimum이려면 고유값 전부 양수 → 고차원에서 지수적으로 희박. random matrix theory: <strong>낮은 <span class="math inline">\(J\)</span>의 critical point는 minimum, 높은 <span class="math inline">\(J\)</span>는 saddle.</strong></li>
+<li><strong>Cliff</strong> → gradient clipping (norm 임계 절단). <strong>Vanishing gradient</strong> ← 깊이 축 long-term dependency.</li>
+<li><strong>Inexact gradient</strong> → 매끄러운 <strong>surrogate loss</strong> 설계가 해법이자 열린 문제.</li>
+<li><strong>Local↔︎global 불일치</strong>: 국소적으로 loss가 올라도 언덕 너머 더 좋은 minimum이 있을 수 있다 — loss 곡선만으론 판단 불가, 평가는 test로.</li>
+<li><strong>이론적 태도</strong>: 전역 minimum은 포기, “충분히 낮은 loss → 좋은 generalization”이 목표.</li>
+<li><strong>시각화 교훈</strong>: 복잡한 곡면 밑에 <strong>단조 감소하는 linear subspace</strong>가 존재; factored linear model이 정성적 거동을 포착.</li>
+<li><strong>Optimizer의 정체</strong>: 전부 SGD. 차이는 <strong>learning rate scheduling</strong>뿐.</li>
+<li><strong>Momentum</strong>: <span class="math inline">\(v \leftarrow \alpha v - \epsilon \nabla J\)</span>, <span class="math inline">\(\theta \leftarrow \theta + v\)</span>. 과거 gradient의 EMA = 관성. <span class="math inline">\(\alpha\)</span>는 민감한 hyperparameter.</li>
+<li><strong>Nesterov</strong>: gradient를 lookahead 지점 <span class="math inline">\(\theta + \alpha v\)</span>에서 계산 — 낡은 gradient 방지, 실전 기본값.</li>
+<li><strong>초기화</strong>: 크기가 결과를 좌우. MLP: <span class="math inline">\(U(-1/\sqrt{m}, 1/\sqrt{m})\)</span>. <strong>Xavier</strong>: <span class="math inline">\(U(\pm\sqrt{6/(m{+}n)})\)</span> — activation var ↔︎ gradient var <strong>타협</strong>, 선형 가정이지만 실전 유효. ReLU 등 비선형엔 <strong>gain factor</strong>(ReLU: 분산 <span class="math inline">\(\times 2\)</span>) 보정. sparse init도 한 갈래.</li>
+<li><strong>다음 주제</strong>: learning rate scheduling — 고전적 방법과 AdaGrad / RMSProp / Adam.</li>
+</ul>
+</section>
+<section id="더-보면-좋은-자료" class="level1" data-number="10">
+<h1 data-number="10"><span class="header-section-number">10</span> 더 보면 좋은 자료</h1>
+<ul>
+<li>Goodfellow, Bengio, Courville, <em>Deep Learning</em>, <strong>Ch. 8 (Optimization for Training Deep Models)</strong> — 8.2 (도전과제: ill-conditioning, local minima, saddle, cliff, long-term dependency, inexact gradients, local-global, theoretical limits)가 이 노트의 4장과, 8.3 (momentum)·8.4 (initialization)가 6장과 일대일로 대응. 4.3.1의 condition number 정의도 참고.</li>
+<li><strong>d2l.ai, Ch. 12 (Optimization Algorithms)</strong>: <a href="https://d2l.ai/chapter_optimization/optimization-intro.html">12.1 Optimization and Deep Learning</a>(local minima·saddle·vanishing gradient를 코드와 3D 그림으로), <a href="https://d2l.ai/chapter_optimization/sgd.html">12.4 SGD</a>, <a href="https://d2l.ai/chapter_optimization/momentum.html">12.6 Momentum</a> — 특히 12.6은 <strong>ill-conditioned 2차 함수 위에서 momentum이 진동을 죽이는 과정</strong>을 인터랙티브하게 보여줘서 <a href="#sec-illcond" class="quarto-xref">Section&nbsp;4.1</a> 와 Momentum 절의 직관을 그림으로 굳히기에 가장 좋다. 12.5 (Minibatch SGD)는 GD/SGD 비용 비교의 정량 버전.</li>
+<li><strong>Mathematics for Machine Learning</strong> (G. Thomas, math4ml.pdf): Hessian과 2차 Taylor 전개, positive/negative definite 행렬과 극점 분류, eigendecomposition과 condition number의 수학적 기초가 정리되어 있다 — Newton’s method 절과 saddle point 논증의 선형대수 배경을 메우는 데 적합.</li>
+<li>Glorot &amp; Bengio (2010), <em>Understanding the difficulty of training deep feedforward neural networks</em> — Xavier init 원 논문.</li>
+<li>Schaul et al.&nbsp;(2013), <em>Unit Tests for Stochastic Optimization</em> — 어떤 optimizer가 좋은가는 문제(task, data)마다 다르다 (No Free Lunch의 최적화 버전).</li>
+</ul>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
