@@ -1,0 +1,129 @@
+---
+title: "그래프 알고리즘 기말 대비 문제지 (BFS · DFS · 위상정렬 · MST)"
+date: "2026-06-13"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    html-math-method: katex
+---
+
+# 안내
+
+본 문제지는 **증명 (Cut-and-Paste / 귀류법) · 정확성 (Loop Invariant) · 수행 시간 분석**을 핵심 평가 대상으로 한다. 증명 문제에서는 다음을 반드시 지킬 것.
+
+- 사용하는 Lemma / Corollary / Theorem을 **명시적으로 선언**하고, 그 전제가 현재 상황에서 충족됨을 확인한 뒤 결론을 적용한다.
+- Loop Invariant 문제는 **Initialization / Maintenance / Termination** 세 단계를 모두 기술한다.
+- "옳은지 / 아닌지" 문제는 옳으면 증명하고, 아니면 **반례(counter example)**를 제시한다.
+- 양방향 명제(iff)는 $(\Rightarrow)$, $(\Leftarrow)$ 두 방향을 분리하여 증명한다.
+
+총 100점.
+
+---
+
+# 문제 1. (Breadth-First Search) [20점]
+
+$G = (V,E)$를 방향 또는 비방향 그래프, $s \in V$를 소스 정점이라 하자. $\delta(s,v)$는 $s$에서 $v$까지의 최단경로 간선 수(도달 불가 시 $\infty$)로 정의한다.
+
+(a) BFS의 의사코드를 작성하라. 그리고 line 10(`while` 조건 검사 시점)의 다음 Loop Invariant를 **Initialization / Maintenance / Termination**으로 증명하라. Maintenance는 $(\subseteq)$, $(\supseteq)$ 양방향을 분리하여 보일 것. [6점]
+$$Q = \{v \in V \mid v.\text{color} = \text{GRAY}\}$$
+
+(b) 다음 두 보조정리를 진술하라. 그리고 (b-2)를 (b-1)을 이용해 증명하라(귀납 대상을 명시할 것). [5점]
+
+> **Lemma (삼각부등식).** 임의의 간선 $(u,v) \in E$에 대해 $\delta(s,v) \le \delta(s,u) + 1$.
+>
+> **Lemma (Upper-bound Property).** BFS 실행 중 모든 시점에서 모든 $v \in V$에 대해 $v.d \ge \delta(s,v)$.
+
+(c) BFS의 정확성, 즉 종료 시 모든 $v \in V$에 대해 $v.d = \delta(s,v)$임을 **귀류법**으로 증명하라. 반례 정점을 $\delta$가 최소인 incorrect 정점으로 잡고, $u$를 dequeue하는 시점의 $v$의 색(White / Gray / Black)에 대한 case 분석으로 모순을 도출하라. [7점]
+
+(d) 어떤 학생이 "BFS의 FIFO **큐**를 LIFO **스택**으로 바꾸어도, 알고리즘은 여전히 모든 정점에 대해 $v.d = \delta(s,v)$를 계산한다"고 주장한다. 옳으면 증명하고, 옳지 않으면 반례 그래프를 제시하라. [2점]
+
+---
+
+# 문제 2. (Depth-First Search) [20점]
+
+방향 또는 비방향 그래프 $G=(V,E)$에 DFS를 실행하여 각 정점에 발견 시각 $u.d$와 완료 시각 $u.f$를 부여한다.
+
+(a) **Parenthesis Theorem**을 진술하고 증명하라. 즉 임의의 두 정점 $u,v$에 대해 구간 $[u.d,u.f]$와 $[v.d,v.f]$가 (i) 완전히 disjoint이거나 (ii) 한쪽이 다른 쪽에 완전히 포함됨을, 그리고 포함 관계가 곧 ancestor/descendant 관계임을 보여라. [6점]
+
+(b) **White-Path Theorem**을 진술하고 양방향 $(\Rightarrow)(\Leftarrow)$으로 증명하라. $(\Leftarrow)$ 방향은 귀류법으로, "경로 위에서 $u$의 descendant가 되지 않는 정점 중 $u$에 가장 가까운 것"을 $v$로 재설정하는 기법을 사용하라. [7점]
+
+(c) 무방향 그래프 $G$의 DFS에서는 모든 간선이 **tree edge 또는 back edge**뿐임을 증명하라. forward edge와 cross edge가 구조적으로 불가능한 이유를 명시할 것. [4점]
+
+(d) 방향 그래프 $G$가 acyclic일 **필요충분조건**은 $G$의 DFS가 back edge를 만들지 않는 것임을 증명하라. $(\Leftarrow)$ 방향(사이클 $\Rightarrow$ back edge)은 White-Path Theorem을 인용할 것. [3점]
+
+---
+
+# 문제 3. (Topological Sort & DAG의 Single-Source Shortest Path) [15점]
+
+(a) `TOPOLOGICAL-SORT`(DFS 후 완료 시각 $f$의 내림차순 배열)가 DAG의 올바른 위상 정렬을 만듦을 증명하라. 핵심 명제는 "$G$에 간선 $(u,v)$가 있으면 $v.f < u.f$"이며, 간선 탐색 시점의 $v$의 색에 따라 case 분석하라. [6점]
+
+(b) 어떤 학생이 "DFS의 **발견 시각** $d$의 **오름차순**으로 정점을 배열해도 위상 정렬이 된다"고 주장한다. 옳으면 증명하고, 아니면 반례를 제시하라. [3점]
+
+(c) 가중치가 있는 DAG $G=(V,E)$와 소스 $s$가 주어졌을 때, 음수 가중치를 허용하면서도 $\Theta(|V|+|E|)$에 모든 $s \rightsquigarrow v$ 최단경로를 구하는 알고리즘을 설계하라. 위상 정렬을 어떻게 활용하는지 기술하고, 정점을 위상 순서로 relax하면 각 정점이 최단경로 거리를 받음을 증명하라. [6점]
+
+---
+
+# 문제 4. (MST: Safe Edge Theorem & GENERIC-MST) [15점]
+
+연결된 무방향 가중치 그래프 $G=(V,E)$, 실수 가중치 $w$를 가정한다. 다음 정의를 사용한다: 컷 $(S, V-S)$가 $A \subseteq E$를 **respect**한다 $\iff$ $A$의 어떤 간선도 컷을 가로지르지 않음. **light edge** = 컷을 가로지르는 간선 중 최소 가중치 간선. 간선 $e$가 $A$에 대해 **safe** $\iff$ $A \cup \{e\}$도 어떤 MST의 부분집합.
+
+(a) **Safe Edge Theorem (Theorem 23.1)**을 진술하고 **Cut-and-Paste 귀류법**으로 증명하라. 증명에서 "컷이 $A$를 respect한다"는 조건이 **정확히 어느 단계에서** 사용되는지 명시할 것. [8점]
+
+> $A$가 어떤 MST에 포함되고, $(S,V-S)$가 $A$를 respect하는 컷이며, $(u,v)$가 이 컷을 가로지르는 light edge이면, $(u,v)$는 $A$에 대해 safe하다.
+
+(b) `GENERIC-MST`의 Loop Invariant("각 반복 이전에 $A$는 어떤 MST의 부분집합")를 진술하고, **Termination** 단계에서 종료 시 $|A| = |V|-1$이고 $A$가 곧 MST임을 보여라. 트리가 $|V|-1$개의 간선을 갖는다는 사실을 어디에서 쓰는지 명시할 것. [4점]
+
+(c) **Corollary 23.2**(포레스트의 한 컴포넌트를 다른 컴포넌트에 잇는 light edge는 safe)를 Theorem 23.1로부터 유도하라. [3점]
+
+---
+
+# 문제 5. (Kruskal's Algorithm) [15점]
+
+(a) Kruskal의 의사코드를 작성하라. Disjoint-Set 연산(`MAKE-SET`, `FIND-SET`, `UNION`)을 사용하고, for 루프의 Loop Invariant를 **Initialization / Maintenance / Termination**으로 증명하라. Maintenance에서 Corollary 23.2를 인용할 것. [6점]
+
+(b) line의 조건 `FIND-SET(u) ≠ FIND-SET(v)`가 필요한 이유를, (i) 사이클 방지 (ii) safe edge 조건 충족 (iii) forest 불변식 유지의 세 관점에서 설명하라. [3점]
+
+(c) Union-by-rank + path-compression을 사용할 때, 정렬·`MAKE-SET`·`FIND-SET`·`UNION` 각각의 비용을 분석하고 전체 수행 시간이 $O(|E| \lg |V|)$임을 유도하라. **병목이 정렬임**을 설명할 것. [3점]
+
+(d) 다음 그래프에서 Kruskal을 단계별로 추적하라. 각 단계에서 (정렬 순서상의) 처리 간선, 채택/기각 여부와 이유, 현재 forest의 컴포넌트 구성을 표로 제시하라. [3점]
+
+```text
+정점: {a, b, c, d, e}
+간선(가중치):
+  (a,b)=1   (a,c)=3   (b,c)=2   (b,d)=5
+  (c,d)=4   (c,e)=6   (d,e)=7
+```
+
+---
+
+# 문제 6. (Prim's Algorithm) [10점]
+
+(a) Prim의 의사코드를 작성하고, 핵심 불변식 $A = \{(v, v.\pi) : v \in V - \{r\} - Q\}$가 어떤 MST의 부분집합임을 **Maintenance** 단계 중심으로 증명하라. EXTRACT-MIN 직후의 컷 $(V-Q, Q)$가 $A$를 respect함과, 추출된 정점의 간선이 light edge임을 보일 것. [4점]
+
+(b) min-priority queue를 (i) 단순 배열 (ii) 이진 최소 힙 (iii) 피보나치 힙으로 구현할 때의 수행 시간을 각각 유도하라. `EXTRACT-MIN`과 `DECREASE-KEY`의 호출 횟수와 단가를 분리하여 전체 복잡도를 도출할 것. [4점]
+
+(c) 어떤 그래프 밀도(간선 수 $|E|$와 정점 수 $|V|$의 관계)에서 피보나치 힙 Prim이 Kruskal보다 점근적으로 유리한지 논하라. [2점]
+
+---
+
+# 문제 7. (MST의 유일성과 Cut/Cycle Property) [5점]
+
+(a) 모든 간선 가중치가 **서로 다르면(distinct)** MST가 **유일**함을 증명하라. (서로 다른 두 MST가 존재한다고 가정하고, 한쪽에만 있는 최소 가중치 간선에 대해 exchange/cut-and-paste 논증을 적용하라.) [3점]
+
+(b) **Cycle Property**: 임의의 사이클에서 가중치가 유일한 **최대** 간선은 어떤 MST에도 포함되지 않음을 증명하라(가중치가 모두 distinct라고 가정). 그 간선이 어떤 MST에 포함된다고 가정하고 제거 후 사이클의 다른 간선으로 교체하는 cut-and-paste를 사용하라. [2점]
+
+---
+
+# 부록: 증명 작성 체크리스트
+
+| 문제 유형 | 반드시 포함할 요소 |
+|-----------|--------------------|
+| Loop Invariant | Initialization / Maintenance / Termination, 종료 시 결론 도출 |
+| 정확성 (귀류법) | 반례 가정 → 최솟값 선택 → 전임자 정확성 확보 → case별 모순 → 가정 기각 |
+| Safe edge / Cut-and-Paste | 컷 설정, respect 조건 사용 지점, $w$ 부등식, $T'$가 MST임 |
+| iff 명제 | $(\Rightarrow)$, $(\Leftarrow)$ 분리, 각 방향에서 사용하는 정리 명시 |
+| "옳은가?" 질문 | 옳으면 증명, 아니면 구체적 수치가 있는 반례 그래프 |
+| 수행 시간 | 연산별 호출 횟수 × 단가, 자료구조별 비교, 병목 식별 |
