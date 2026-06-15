@@ -1,0 +1,499 @@
+---
+title: "생성 모델 (Generative Models): VAE · GAN · Diffusion"
+subtitle: "AE에서 출발해 DDPM/DDIM/LDM/ControlNet까지"
+date: 2026-05-11
+lang: ko
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "목차"
+    number-sections: true
+    highlight-style: github
+    code-fold: false
+    code-tools: true
+    theme: cosmo
+    fig-width: 7
+    mainfont: "Noto Sans CJK KR"
+    html-math-method: katex
+---
+
+# 큰 그림: 생성 모델의 지형도 {#sec-overview}
+
+::: {.callout-tip}
+## 한 줄 요약
+**판별 모델(discriminative)** 은 결정 경계만 배우면 되지만, **생성 모델(generative)** 은 데이터 분포 $p(x)$ 전체의 *모양*을 배워야 한다. 그래서 생성 모델은 항상 "어떻게 $p(x)$를 다룰 수 있게(tractable) 만들 것인가"라는 한 가지 문제로 귀결된다. VAE·GAN·Diffusion은 그 답을 서로 다르게 내놓은 세 가지 전략이다.
+:::
+
+분류기 $p(y\mid x)$는 클래스 사이의 경계만 정밀하게 잡으면 된다. 반면 생성 모델은 표본을 뽑을 수 있는 분포 자체를 모델링해야 하므로, 데이터의 전체 지형(landscape)을 알아야 한다. 같은 데이터로 학습할 때 일반적으로 **생성 모델이 더 많은 데이터와 더 큰 학습 비용을 요구**하는 이유가 여기에 있다.
+
+세 모델의 핵심 아이디어를 먼저 한눈에 본다.
+
+| 모델 | $p(x)$를 다루는 방식 | 학습 목적 | 안정성 | 표본 효율 |
+|---|---|---|---|---|
+| **VAE** | 잠재변수 $z$로 우회: $p(x)=\int p(x\mid z)p(z)\,dz$, ELBO 하한 최대화 | 변분 추론 (ELBO) | 안정 | 보통 |
+| **GAN** | 분포를 명시하지 않고 *표본만* 생성, 판별자로 평가 | 적대적 minimax | **불안정** | **높음** |
+| **Diffusion** | 노이즈화의 역과정을 학습 | 최대우도(MLE) 근사 | 안정 | 낮음(데이터 많이 필요) |
+
+```{mermaid}
+flowchart LR
+    AE["Auto-Encoder<br/>(결정적 압축)"] --> VAE["VAE<br/>잠재공간을 N(0,I)로<br/>확률화 + 디코더"]
+    VAE -->|디코더 = 생성기| GAN["GAN<br/>생성기 G vs 판별자 D<br/>적대적 학습"]
+    VAE -->|잠재변수 관점| DIFF["Diffusion<br/>점진적 노이즈화의<br/>역과정 학습"]
+    GAN -.불안정/모드붕괴 → 대안.-> DIFF
+    DIFF --> DDPM --> DDIM --> LDM --> ControlNet
+```
+
+---
+
+# VAE 복습: 잠재변수와 ELBO {#sec-vae}
+
+::: {.callout-note}
+## 직접 답
+VAE의 손실은 **재구성 오차 + 잠재분포 정규화(KL)** 두 항이다. 이는 로그우도 $\log p(x)$의 하한인 **ELBO**를 최대화하는 것과 같고, 잠재변수 샘플링의 미분 불가능 문제는 **재매개변수화 트릭(reparameterization trick)** 으로 푼다.
+:::
+
+## 왜 $p(x)$를 직접 못 다루는가
+
+데이터 $X=\{x_1,\dots,x_N\}$가 주어졌을 때 $p(x)$를 직접 모델링하기는 어렵다. 그래서 알고 있는(샘플링 쉬운) 사전분포 $p(z)=\mathcal N(0,I)$를 도입해 우회한다.
+
+$$
+p(x)=\int_z p(x\mid z)\,p(z)\,dz .
+$$
+
+문제는 이 적분이 여전히 다루기 어렵다는 것이다($z$ 전 공간에 대한 적분). 그래서 사후분포 $p(z\mid x)$를 **파라미터화된 근사분포** $q_\phi(z)$로 대체한다. 이것이 **변분 추론(variational inference)** 이다.
+
+## ELBO 유도
+
+베이즈 규칙과 $\log p(x)=\log p(x)\cdot\int q_\phi(z)\,dz$에서 출발해 정리하면:
+
+$$
+\log p(x)=\underbrace{\mathbb E_{q_\phi}\!\big[\log p(x,z)-\log q_\phi(z)\big]}_{\textstyle \text{ELBO}}
+\;+\;\underbrace{\mathrm{KL}\!\big(q_\phi(z)\,\|\,p(z\mid x)\big)}_{\textstyle \ge 0}.
+$$
+
+좌변 $\log p(x)$는 $\theta,\phi$에 대해 상수다. KL 항은 항상 $\ge 0$이므로, **ELBO를 키우는 것 = 근사 사후 $q_\phi$를 참 사후 $p(z\mid x)$에 가깝게 만드는 것**이다.
+
+ELBO를 한 번 더 전개하면 익숙한 두 항이 나온다.
+
+$$
+\mathrm{ELBO}=\mathbb E_{q_\phi}\!\big[\log p(x\mid z)\big]-\mathrm{KL}\!\big(q_\phi(z)\,\|\,p(z)\big).
+$$
+
+- 첫 항: **재구성(reconstruction)** — 디코더 $p(x\mid z)$가 $x$를 얼마나 잘 복원하는가
+- 둘째 항: **정규화(regularization)** — 잠재 $z$의 분포가 $\mathcal N(0,I)$를 따르도록 강제
+
+따라서 VAE 손실은
+
+$$
+\min_{\theta,\phi}\;\; -\,\mathbb E_{q_\phi}\!\big[\log p_\theta(x\mid z)\big]\;+\;\mathrm{KL}\!\big(q_\phi(z\mid x)\,\|\,p(z)\big).
+$$
+
+## 재매개변수화 트릭
+
+역전파 경로는 $\mathcal L \to z \to \phi$인데, $z\sim q_\phi(z\mid x)$를 *샘플링*하면 그 연산이 미분 불가능하다. 무작위성을 외부 변수로 분리해 우회한다.
+
+$$
+z=\mu_\phi(x)+\sigma_\phi(x)\odot\epsilon,\qquad \epsilon\sim\mathcal N(0,I).
+$$
+
+이제 무작위성은 $\epsilon$에만 있고, $\mu_\phi,\sigma_\phi$를 통과하는 경로는 결정적이라 그래디언트가 흐른다.
+
+::: {.callout-important}
+## 무선통신 비유 — 재매개변수화 = 수신신호 모델
+수신신호 $y=h\,x+n,\ n\sim\mathcal N(0,\sigma^2)$를 떠올려 보자. 채널 이득 $h$(결정적 부분)와 잡음 $n$(무작위 부분)을 **분리**해 두면, 시스템 파라미터에 대한 미분은 결정적 경로로만 흘러가고 무작위성은 잡음 항에 격리된다. 재매개변수화 $z=\mu+\sigma\epsilon$는 정확히 이 구조다 — "평균(신호) + 표준편차(잡음 세기)×표준정규" 형태로 샘플을 만든다.
+:::
+
+---
+
+# GAN: 적대적 학습 {#sec-gan}
+
+## adversarial example과 adversarial training은 다르다
+
+::: {.callout-warning}
+## 혼동 주의
+**Adversarial example**: 이미 학습된 신경망을 *속이려고* 입력에 미세한 교란(perturbation)을 더한 것. 고양이 이미지에 사람 눈엔 안 보이는 패치를 더해 "데스크톱 컴퓨터"로 높은 확신으로 오분류시키는 식. 목적은 *공격*이다.
+
+**Adversarial training (= GAN의 학습 패러다임)**: 두 네트워크가 *서로 속이고/안 속으려* 경쟁하며 함께 좋아지게 하는 학습. 목적은 *생성기를 더 좋게* 만드는 것이다.
+
+둘 다 "적대적"이라는 단어를 공유하지만 목적이 정반대다. (LeCun은 2016년에 "지난 10년 ML에서 가장 흥미로운 아이디어는 적대적 학습"이라고 평했다.)
+:::
+
+## 구성 요소: 생성기 G와 판별자 D
+
+- **생성기(Generator) $G$**: $d$차원 무작위 벡터 $z$(예: $\mathcal N(0,I)$에서 샘플)를 입력받아 이미지를 출력. $z$ 공간이 "잠재공간"이고, $G$는 데이터 생성 분포를 흉내 낸다.
+- **판별자(Discriminator) $D$**: 입력 이미지가 **진짜(실세계 데이터)** 인지 **가짜($G$가 만든 것)** 인지 판정. 출력 $D(x)\in[0,1]$은 "진짜일 확률".
+
+좋은 생성기란 무엇인가? "생성된 이미지가 진짜처럼 보이는 정도"가 높은 것. 그런데 *진짜처럼 보이는지*를 사람이 매번 채점할 수는 없다. 그래서 **판별자라는 두 번째 네트워크를 도입해 자동 채점기로 쓴다** — 이것이 적대적 학습의 핵심 발상이다.
+
+```{mermaid}
+flowchart LR
+    Z["z ~ N(0,I)"] --> G["생성기 G"]
+    G --> FAKE["가짜 이미지 G(z)"]
+    REAL["진짜 이미지 x ~ p_data"] --> D
+    FAKE --> D["판별자 D"]
+    D --> OUT["D(·) ∈ [0,1]<br/>진짜일 확률"]
+```
+
+## minimax 목적함수
+
+$$
+\min_G\max_D\; V(D,G)=\mathbb E_{x\sim p_{\text{data}}}\big[\log D(x)\big]
++\mathbb E_{z\sim p_z}\big[\log\!\big(1-D(G(z))\big)\big].
+$$
+
+물리적 의미는 *"$x$가 진짜일 로그확률" + "$G(z)$가 가짜일 로그확률"* 이다. 두 변수의 관점에서 읽어야 한다.
+
+- **$D$ 관점(최대화)**: $x$가 진짜면 $D(x)\to1$이라 첫 항 $\log D(x)\to0$(최댓값). $G(z)$가 가짜면 $D(G(z))\to0$이라 둘째 항 $\log(1-0)\to0$. 즉 $D$가 잘하면 $V$가 커진다 → **$D$는 $V$를 최대화**.
+- **$G$ 관점(최소화)**: $G$가 $D$를 잘 속이면 $D(G(z))\to1$이라 둘째 항 $\log(1-1)\to-\infty$. 즉 $G$가 잘하면 $V$가 작아진다 → **$G$는 $V$를 최소화**.
+
+서로 반대 방향으로 당기는 **zero-sum 비협조 게임(minimax problem)** 이다.
+
+::: {.callout-note}
+## 학습 = 블록 좌표 하강 (alternating optimization)
+전체 파라미터 집합 안에 $G$의 파라미터와 $D$의 파라미터가 함께 들어 있다. 한쪽을 고정하고 다른 쪽으로 (경사)하강/상승하는 식으로 **번갈아** 최적화한다. 이것이 **블록 좌표 하강(block coordinate descent)** 이다. 모든 좌표를 동시에 내려가는 게 아니라 변수 블록을 나눠 번갈아 내려간다. (최대화 항은 부호만 뒤집으면 하강으로 통일된다.)
+:::
+
+세 단계로 풀어 쓴 업데이트:
+
+1. **D 업데이트 (Real)**: 진짜 데이터에 대해 $D$가 "진짜"라고 말하도록. $D(x_{\text{real}})\to1$.
+2. **D 업데이트 (Fake)**: 가짜 데이터에 대해 $D$가 "가짜"라고 말하도록. $D(G(z))\to0$.
+3. **G 업데이트**: $D$가 가짜를 "진짜"라고 착각하도록 $G$를 갱신. $D(G(z))\to1$이 되도록.
+
+각 단계에서 *잘하는 쪽은 거의 갱신되지 않고, 못하는 쪽이 크게 갱신*된다. $G$를 갱신할 때 그래디언트는 $D$를 거쳐 직렬로 $G$까지 역전파되므로, **$G$에 도달할 즈음 그래디언트가 이미 많이 줄어들어** $G$ 학습이 어렵다(아래 3대 난제와 연결).
+
+## 최적 판별자와 JSD: 왜 잘 되면 $p_g=p_{\text{data}}$인가 {#sec-gan-optimal}
+
+$G$를 고정하면 $V$를 $D$에 대해 점별로 최대화할 수 있다. 적분 내부를 $D(x)$로 미분해 0으로 두면 **최적 판별자**:
+
+$$
+D^\*(x)=\frac{p_{\text{data}}(x)}{p_{\text{data}}(x)+p_g(x)} .
+$$
+
+이를 대입하면 목적함수가 **Jensen–Shannon 발산(JSD)** 으로 정리된다.
+
+$$
+V(G,D^\*)=-\log 4+2\,\mathrm{JSD}\!\big(p_{\text{data}}\,\|\,p_g\big).
+$$
+
+$\mathrm{JSD}\ge0$이고 $p_g=p_{\text{data}}$일 때만 $0$이므로, **전역 최적은 $p_g=p_{\text{data}}$이며 그때 값은 $-\log 4\approx-1.386$**. (이 값은 부록 코드로 수치 확인했다.)
+
+## 왜 GAN은 효과적인가: hard negative
+
+데이터 생성 분포의 "산맥"을 정확히 그리려면 **경계(borders/envelope)** 근처의 표본이 결정적이다. 분류 문헌에서 경계 근처의 까다로운 음성 표본을 **hard negative(hard sample)** 라 부른다. 보통 이런 표본은 외부에서 수집하기 어렵다.
+
+그런데 GAN의 $G$는 **$D$를 효과적으로 속이려면 자연히 경계 근처의 데이터를 생성**하게 된다. 즉 적대적 경쟁이 추가 비용 없이 hard negative를 *공짜로* 만들어낸다. 그래서 GAN은 표본 효율이 좋고, 분포의 경계/외곽선을 또렷하게 잡는다. (GAN이 2014년에 제안된 동기 자체가 "데이터 부족(data deficiency)" 시대의 해법이었다.)
+
+## 실전 3대 난제
+
+::: {.callout-warning}
+## GAN 학습이 악명 높은 이유
+1. **비수렴(Non-convergence)**: 파라미터가 진동·발산하며 수렴하지 않음. $D$가 $G$보다 *훨씬 쉽게/빠르게* 학습되어(경계만 배우면 되므로) 힘의 불균형이 생긴다. $D$가 과도하게 강해지면 두 모델이 매 반복마다 함께 좋아지지 못하고 불안정해진다.
+2. **모드 붕괴(Mode Collapse)**: $G$가 *몇 가지 쉬운 표본만* 반복 생성해 $D$를 속이고 거기에 눌러앉는 현상. 참 분포의 여러 봉우리(mode)를 다 못 배우고 일부 뾰족한 봉우리만 만든다 → 다양성 상실.
+3. **그래디언트 소실(Diminished gradient)**: $D$가 너무 잘하면 $G$로 역전파되는 그래디언트가 사라져 $G$가 아무것도 못 배운다.
+
+2·3번은 본질적으로 **$D$와 $G$의 학습 난이도/속도 불균형**에서 온다. 하이퍼파라미터(학습률, 배치 크기) 튜닝이 "예술의 경지"로 까다롭다.
+:::
+
+## 안정화 변형들
+
+위 두 문제(모드 붕괴·비수렴)를 겨냥해 수백 편의 변형이 나왔다.
+
+- **LSGAN** (Least Squares GAN): 최소제곱 손실
+- **WGAN** (Wasserstein GAN): Wasserstein 거리로 더 매끄러운 손실
+- **WGAN-GP**: WGAN + 그래디언트 패널티
+- **BEGAN** (Boundary Equilibrium GAN), DCGAN, CycleGAN 등 다수
+
+GAN이 자유롭게 손실 함수를 바꿀 수 있다는 점(예: Wasserstein, Hinge 손실)은 강점이자, 그만큼 *튜닝의 자유도가 높아 안정화가 어렵다*는 약점이기도 하다.
+
+::: {.callout-important}
+## 무선통신 비유 — GAN = 스푸핑 송신기 vs 신호검출기 게임
+$G$를 **위장(spoofing) 송신기**, $D$를 **신호 검출기**라 보자. $D$는 입력이 "진짜 신호"인지 "합성 신호"인지 판정하는 Neyman–Pearson 류 검출기이고, 최적 판별자 $D^\*=\tfrac{p_{\text{data}}}{p_{\text{data}}+p_g}$는 두 가설의 **우도비(likelihood ratio) 검정**과 정확히 같은 형태다. 이 관점에서:
+
+- **모드 붕괴** = 송신기가 콘스텔레이션 다양성을 잃고 *몇 개 심볼만* 반복 송신하는 것
+- **그래디언트 소실** = 검출기가 고-SNR 영역 깊숙이 포화되어 우도비의 기울기가 사라지는 것
+- **minimax / zero-sum** = 재머 vs 수신기, 또는 강건(worst-case) 검출의 게임 구조
+:::
+
+## VAE와 GAN의 연결
+
+생성기의 입력 $z$를 보통 $\mathcal N(0,I)$로 모델링하므로, **VAE의 디코더를 GAN의 생성기로** 그대로 쓸 수 있다. VAE의 인코더–디코더 구조에서 디코더 $=G$, 그리고 판별자를 덧붙이면 GAN이 된다. 둘은 서로 변환 가능한, 닮은 구조다. 차이는 *학습 패러다임*(VAE=변분추론/MLE 계열, GAN=적대적 학습)에 있다.
+
+---
+
+# Diffusion 모델 {#sec-diffusion}
+
+## GAN vs Diffusion: 왜 갈아탔나
+
+::: {.callout-tip}
+## 직접 답
+GAN은 빠르고 표본 효율이 좋지만 **불안정(모드 붕괴·비수렴)**. Diffusion은 **느리지만 안정적**이고 품질이 뛰어나다. 핵심 차이: Diffusion은 **최대우도(MLE)** 라는 *잘 이해된* 최적화로 학습되고, 두 모델을 싸움 붙이지 않고 **단일 모델**을 학습한다 → 모드 붕괴 개념 자체가 없다.
+:::
+
+| | **Diffusion (DDPM)** | **GAN** |
+|---|---|---|
+| 장점 | 디테일이 살아있는 고품질·선명한 표본 / **MLE = 잘 이해된 최적화** / 이미지·오디오 모두 | 고품질(이미지·오디오) / **상대적으로 빠른 학습** / 다양한 손실(Wasserstein, Hinge) 사용 가능 |
+| 단점 | **느리고 계산 비용 큼**(반복 $T$회) / 많은 데이터 필요 | 학습이 까다로움 / **하이퍼파라미터에 민감** / **모드 붕괴** |
+
+::: {.callout-note}
+## 교수님의 직관 — "확률 탑(probability tower)" 쌓기
+GAN이 hard negative로 *경계*를 또렷하게 그린다면, Diffusion은 다른 방식으로 분포의 산맥을 만든다. 모든 위치의 데이터 포인트를 주고 **노이즈화 과정을 학습**시키면, "각 위치에서 확률을 얼마나 높이 쌓아 올릴지"를 배우게 된다. 즉 경계뿐 아니라 봉우리의 *높이*까지 포함한 전체 지형을 복원한다. 대신 모든 위치의 데이터가 필요하므로 데이터를 많이 모아야 한다.
+:::
+
+::: {.callout-note}
+## 안정성 비유 — 변동성 큰 주식 vs 꾸준히 오르는 주식
+GAN은 운이 좋으면 하룻밤에 멋진 모델을 주지만, 잘못되면 밤새 학습시켜도 모드 붕괴된 쓸모없는 결과가 나온다(대규모 학습이라면 막대한 비용 손실). Diffusion은 느리지만 **매일 조금씩 꾸준히 좋아지는** 모델 — 마음이 편하다. 산업계가 Diffusion을 택한 이유다. (오늘날 대부분의 이미지·비디오 생성은 Diffusion 계열이다.)
+:::
+
+## DDPM: 두 과정
+
+DDPM(Denoising Diffusion Probabilistic Model, 2020)은 두 과정으로 구성된다.
+
+```{mermaid}
+flowchart LR
+    X0["x₀ (깨끗한 데이터)"] -->|"q(xₜ|xₜ₋₁) 노이즈 추가"| XT["x_T ~ N(0,I) (순수 잡음)"]
+    XT -->|"pθ(xₜ₋₁|xₜ) 학습된 디노이징"| X0b["x₀ (생성)"]
+    X0 -. "Forward (고정)" .- XT
+    XT -. "Reverse (생성/학습)" .- X0b
+```
+
+### Forward (확산) 과정 — 고정
+
+라텐트 변수의 마르코프 연쇄로, 사전 스케줄된 분산 $\beta_t$로 가우시안 잡음을 점진적으로 더한다.
+
+$$
+q(x_t\mid x_{t-1})=\mathcal N\!\big(x_t;\ \sqrt{1-\beta_t}\,x_{t-1},\ \beta_t I\big).
+$$
+
+- $\beta_t$: 시각 $t$에서의 **잡음 크기**
+- $\alpha_t=1-\beta_t$: **신호 보존 크기**, 그리고 $\bar\alpha_t=\prod_{s=1}^{t}\alpha_s$
+
+마르코프성과 가우시안 합성을 이용하면 임의 시각 $t$를 **한 방에(closed-form)** 표현할 수 있다.
+
+$$
+\boxed{\,x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon,\qquad \epsilon\sim\mathcal N(0,I)\,}
+$$
+
+$\beta_t$를 충분히 작게 두고 $T$를 키워 $\delta t\to0$의 연속 극한을 취하면 **확률미분방정식(SDE)** 이 된다.
+
+$$
+dx=-\tfrac12\,\beta(t)\,x\,dt+\sqrt{\beta(t)}\,dW_t,\qquad (W_t:\text{Wiener 과정}).
+$$
+
+매 $t$에서 잡음 $\epsilon$이 무작위라 제어 불가능하므로 *확률적* 미분방정식이다.
+
+### Reverse (디노이징) 과정 — 학습 대상
+
+베이즈 규칙상 역과정은
+
+$$
+q(x_{t-1}\mid x_t)=\frac{q(x_t\mid x_{t-1})\,q(x_{t-1})}{q(x_t)}
+$$
+
+인데, **$q(x_{t-1}), q(x_t)$를 모른다**(나쁜 소식). 좋은 소식: $\beta_t\ll1$이면 참 역과정 $q(x_{t-1}\mid x_t)$가 **가우시안으로 잘 근사**된다는 정리가 있다. 그래서 신경망으로 파라미터화한 가우시안으로 근사한다.
+
+$$
+p_\theta(x_{t-1}\mid x_t)=\mathcal N\!\big(x_{t-1};\ \mu_\theta(x_t,t),\ \sigma_t^2 I\big).
+$$
+
+우리가 배울 것은 이 가우시안의 평균 $\mu_\theta$(=디노이저)다.
+
+### 학습: 평균 대신 "잡음"을 예측
+
+Forward의 닫힌 형태에서 참 평균을 정리하면, $\mu_\theta$를 **노이즈 예측기 $\epsilon_\theta(x_t,t)$** 로 재매개변수화할 수 있다.
+
+$$
+\mu_\theta(x_t,t)=\frac{1}{\sqrt{\alpha_t}}\!\left(x_t-\frac{\beta_t}{\sqrt{1-\bar\alpha_t}}\,\epsilon_\theta(x_t,t)\right).
+$$
+
+그러면 학습은 놀랍도록 단순해진다. **각 $t$마다 진짜 잡음 $\epsilon$을 정답으로 삼아, 신경망이 그 잡음을 맞히도록** 회귀한다.
+
+$$
+\boxed{\;\mathcal L_{\text{simple}}=\mathbb E_{t,\,x_0,\,\epsilon}\Big[\ \big\|\,\epsilon-\epsilon_\theta\big(\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon,\ t\big)\big\|^2\ \Big]\;}
+$$
+
+알고리즘:
+
+1. 시각 $t$ 추출, 정답 잡음 $\epsilon\sim\mathcal N(0,I)$ 추출
+2. $x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon$ 계산
+3. $\nabla_\theta\|\epsilon-\epsilon_\theta(x_t,t)\|^2$로 경사하강
+
+### 생성(Sampling)
+
+$x_T\sim\mathcal N(0,I)$에서 시작해 $t=T,\dots,1$로 내려가며 학습된 $\epsilon_\theta$로 한 단계씩 디노이징한다.
+
+$$
+\hat x_0=\frac{1}{\sqrt{\bar\alpha_t}}\big(x_t-\sqrt{1-\bar\alpha_t}\,\epsilon_\theta(x_t,t)\big),\qquad
+x_{t-1}=\mu_\theta(x_t,\hat x_0)+\sigma_t z,\quad z\sim\mathcal N(0,I).
+$$
+
+::: {.callout-warning}
+## 단계 수에 관한 주의
+DDPM의 표준 구현은 보통 $T\approx1000$ 단계의 *순차적* 역과정을 쓴다(논문 기본값). 이 순차성이 느림의 근본 원인이다. (일부 자료는 훨씬 큰 수치를 들기도 하나, 정확한 값은 노이즈 스케줄·해상도에 따라 달라진다.) 핵심은 "한 표본을 얻으려 수백~수천 번 forward 패스가 필요하다"는 점이고, DDIM이 이를 수십 단계로 줄인다.
+:::
+
+## 세 가지 관점: 변분 · 스코어 · 플로우
+
+::: {.callout-note}
+Diffusion은 세 수학적 도구로 동등하게 해석된다.
+
+| 관점 | 뿌리 | 대표 방법 |
+|---|---|---|
+| **Variational view** | (VAE식) 변분 추론 | **DDPM** |
+| **Score-based view** | 통계물리의 에너지 기반 모델 | NCSN / score-SDE |
+| **Flow-based view** | Normalizing Flow | **Flow Matching** |
+
+세 관점 모두 연속시간 정식화로 수렴하며, 특히 flow matching은 반복 횟수를 줄여 최근 생성의 사실상 표준이 되고 있다. 본 정리는 가장 기본인 **변분 관점(DDPM)** 을 중심으로 다룬다.
+:::
+
+## DDIM: 비-마르코프 + 결정적 샘플링
+
+::: {.callout-tip}
+## 왜 DDIM인가
+DDPM은 품질은 좋지만 (1) 샘플링이 느리고, (2) 확률적 경로라 제어가 어렵고, (3) 매 샘플이 전체 역-SDE를 요구한다. DDIM의 목표: **더 적은 단계 + 결정적 경로 + DDPM과 동일한 주변분포 유지**.
+:::
+
+DDIM은 forward 과정을 **비-마르코프(non-Markovian) 결정적 사상**으로 재해석한다. $x_t$가 $x_{t-1}$ *뿐 아니라* $x_0$에도 의존하도록 하여 비-마르코프가 된다. 핵심은 **구현은 DDPM과 같지만 수학적 해석이 다르다**는 것 — DDPM은 SDE, DDIM은 **ODE** 기반.
+
+일반화된 reverse 샘플링:
+
+$$
+x_{t-1}=\sqrt{\bar\alpha_{t-1}}\,\hat x_0+\sqrt{1-\bar\alpha_{t-1}-\sigma_t^2}\;\epsilon_\theta(x_t,t)+\sigma_t z,
+$$
+$$
+\sigma_t=\eta\sqrt{\frac{1-\bar\alpha_{t-1}}{1-\bar\alpha_t}}\sqrt{1-\frac{\bar\alpha_t}{\bar\alpha_{t-1}}},\qquad z\sim\mathcal N(0,I).
+$$
+
+- $\eta=0\Rightarrow\sigma_t=0$: **완전 결정적**(잡음 주입 없음)
+- $\eta=1$: **DDPM과 동일**(마르코프·확률적)
+
+::: {.callout-important}
+## 핵심 이점 — 학습은 그대로, 샘플링만 가속
+손실 함수가 **DDPM과 완전히 동일**하다. 즉 **한 번 학습한 노이즈 예측기 $\epsilon_\theta$를 그대로** DDIM 샘플링에 쓸 수 있다. $\sigma_t=0$의 결정적 과정 덕분에 임의의 시간 간격에서도 디노이징이 잘 정의되어 **단계 수를 크게 줄여 빠르게 샘플링**할 수 있다.
+:::
+
+## LDM (Stable Diffusion): 잠재공간 확산
+
+픽셀 공간에서 직접 확산을 학습하면 메모리 비용이 너무 크다. **LDM**은 이미지를 저차원 **잠재(latent)** 로 압축한 뒤 *그 잠재공간에서* 확산을 학습한다. 텍스트 조건부 대규모 모델로, 다운샘플링 비율의 sweet spot이 중요하다.
+
+- **LDM-1**(압축 안 함): 학습 시간이 과도하게 김
+- **LDM-32**(과압축): 정보 손실로 품질 저하
+- **LDM-4 / 8 / 16**: 경쟁력 있는 성능 — 적당한 압축이 최적
+
+## ControlNet: 소량 데이터 조건부 미세조정
+
+무조건부로 학습된 이미지 확산 모델을, **상대적으로 적은(<50K) 입력–출력 쌍**으로 이미지-조건부 시나리오에 효율적으로 미세조정한다.
+
+- **아이디어**: 사전학습된 노이즈 예측 U-Net을 활용해 조건 이미지를 처리
+- **인코더**: 사전학습 U-Net 파라미터를 **복사해 초기화** 후 미세조정
+- **디코더**: 인코딩된 조건 정보 + 노이즈 이미지를 결합하되, **zero convolution**으로 제어 신호를 주입(초기엔 영향이 0이라 안정적으로 점진 학습)
+- 학습 데이터 $\sim100\text{K}$ 규모 — LAION-5B의 약 1/50,000
+
+조건 정보를 갑자기 넣지 않고 *점진적으로* 도입하므로, 어떤 이미지 조건(에지·포즈·깊이 등)에도 일반적으로 적용 가능하다.
+
+::: {.callout-important}
+## 무선통신 비유 — Diffusion = 점진적 AWGN과 그 역연산
+Forward의 닫힌 형태 $x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon$는 **신호 이득 $\sqrt{\bar\alpha_t}$, 잡음전력 $1-\bar\alpha_t$의 페이딩+AWGN 채널 모델**과 글자 그대로 같다. $t$가 커질수록 SNR이 단조 감소해 $t=T$에서 SNR$\to0$(순수 잡음)에 도달한다.
+
+- **노이즈 예측기 $\epsilon_\theta$ 학습** = 잡음을 추정하는 **MMSE 추정기** 학습
+- **Reverse 과정** = 단계별 디노이징, 즉 **반복 등화/연속 간섭 제거(SIC)** 와 닮은 구조
+- **DDIM($\eta=0$)의 결정적 경로** = 잡음 재주입이 없는 *결정적 등화* 경로
+- $\beta_t$ 스케줄 = SNR 스케줄 설계
+:::
+
+---
+
+# 종합 비교 및 요약 {#sec-summary}
+
+| 축 | VAE | GAN | Diffusion (DDPM) |
+|---|---|---|---|
+| 학습 원리 | 변분추론(ELBO) | 적대적 minimax | 최대우도(MLE) 근사 |
+| 모델 수 | 인코더+디코더 (협력) | 생성기+판별자 (경쟁) | 단일 노이즈 예측기 |
+| 안정성 | 안정 | **불안정**(모드붕괴/비수렴/소실) | 안정 |
+| 표본 효율 | 보통 | **높음**(hard negative) | 낮음(데이터 多) |
+| 생성 속도 | 빠름(1패스) | 빠름(1패스) | **느림**($T$패스) → DDIM/LDM이 가속 |
+| 품질 | 다소 흐릿 | 선명하나 다양성 위험 | **선명+다양** |
+
+::: {.callout-tip}
+## 핵심 메시지
+- VAE: $p(x)$를 잠재변수로 우회 → ELBO(재구성+KL) 최대화, 재매개변수화로 미분.
+- GAN: 분포를 명시하지 않고 *적대적 경쟁*으로 표본을 생성. 최적해는 $p_g=p_{\text{data}}$($-\log4$), hard negative로 효율적이나 *불균형*이 불안정의 근원.
+- Diffusion: 노이즈화의 역과정을 MLE로 학습. 단일 모델·안정·고품질. DDPM(기본) → DDIM(가속/결정적) → LDM(잠재공간/대규모) → ControlNet(조건 제어).
+- 무선 관점: 재매개변수화=수신신호 분해, GAN=스푸핑 vs 검출 게임, Diffusion=점진 AWGN의 MMSE 역연산.
+:::
+
+---
+
+# 부록: NumPy 검증 코드 {#sec-appendix}
+
+아래 코드는 본문의 두 핵심 결과를 수치로 확인한다 — (1) DDPM forward의 *반복 샘플링*과 *닫힌 형태*가 같은 분포를 주는지, (2) GAN 최적 판별자의 목적함수 값이 $p_g=p_{\text{data}}$일 때 정확히 $-\log4$인지.
+
+```{python}
+#| label: ddpm-forward-check
+#| code-fold: false
+import numpy as np
+rng = np.random.default_rng(0)
+
+# ---- 노이즈 스케줄 (선형) ----
+T = 200
+betas  = np.linspace(1e-4, 0.02, T)
+alphas = 1 - betas
+abar   = np.cumprod(alphas)          # ᾱ_t = ∏ α_s
+
+x0 = 3.0                              # 스칼라 "데이터"
+t  = 150                             # 검사할 시각
+
+# (a) 반복 샘플링: q(x_t | x_{t-1}) 를 t번
+N = 200_000
+xt = np.full(N, x0, dtype=float)
+for s in range(t):
+    eps = rng.standard_normal(N)
+    xt = np.sqrt(alphas[s])*xt + np.sqrt(betas[s])*eps
+
+# (b) 닫힌 형태: x_t = √ᾱ_t x0 + √(1-ᾱ_t) ε
+eps = rng.standard_normal(N)
+xt_cf = np.sqrt(abar[t-1])*x0 + np.sqrt(1-abar[t-1])*eps
+
+print(f"반복 샘플링  : mean={xt.mean():.4f}, var={xt.var():.4f}")
+print(f"닫힌 형태    : mean={xt_cf.mean():.4f}, var={xt_cf.var():.4f}")
+print(f"이론값       : mean={np.sqrt(abar[t-1])*x0:.4f}, "
+      f"var={1-abar[t-1]:.4f}")
+```
+
+```{python}
+#| label: gan-optimal-D
+#| code-fold: false
+import numpy as np
+
+# 최적 판별자 D*(x) = p_data / (p_data + p_g)
+# V(G,D*) = E_pd[log D*] + E_pg[log(1-D*)] = -log4 + 2·JSD(pd||pg)
+xs = np.linspace(-8, 8, 4000); dx = xs[1]-xs[0]
+gauss = lambda x, m, s: np.exp(-0.5*((x-m)/s)**2)/(s*np.sqrt(2*np.pi))
+
+pd = gauss(xs, 0, 1)
+for label, pg in [("p_g = p_data ", gauss(xs, 0.0, 1.0)),
+                  ("p_g 이동됨    ", gauss(xs, 1.5, 1.0))]:
+    Dstar = pd/(pd+pg+1e-12)
+    V = (pd*np.log(Dstar+1e-12)).sum()*dx + (pg*np.log(1-Dstar+1e-12)).sum()*dx
+    print(f"{label}: V(G,D*) = {V:.4f}   (-log4 = {-np.log(4):.4f})")
+```
+
+```{python}
+#| label: reparam-trick
+#| code-fold: false
+import numpy as np
+# 재매개변수화: z = μ + σ⊙ε 가 N(μ, σ²) 를 주는지 확인
+rng = np.random.default_rng(1)
+mu, sigma = 2.0, 0.5
+eps = rng.standard_normal(500_000)
+z = mu + sigma*eps
+print(f"z ~ N(μ,σ²) 기대: mean={mu}, var={sigma**2:.4f}")
+print(f"표본          : mean={z.mean():.4f}, var={z.var():.4f}")
+```
+
+::: {.callout-note}
+## 실행 결과 해석
+- DDPM: 반복 샘플링 · 닫힌 형태 · 이론값의 평균/분산이 일치 → $x_t=\sqrt{\bar\alpha_t}x_0+\sqrt{1-\bar\alpha_t}\epsilon$가 정확함을 확인.
+- GAN: $p_g=p_{\text{data}}$일 때 $V=-\log4$로 정확히 떨어지고, 분포가 어긋나면 그보다 커진다($2\,\mathrm{JSD}\ge0$).
+- 재매개변수화: $\mu+\sigma\epsilon$이 목표 가우시안의 평균/분산을 재현 → 무작위성을 $\epsilon$에 격리해도 분포가 보존됨.
+:::

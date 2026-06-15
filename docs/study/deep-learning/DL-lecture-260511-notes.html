@@ -1,0 +1,2015 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko" xml:lang="ko"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.36">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>생성 모델 (Generative Models): VAE · GAN · Diffusion – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-a06763021a52c43c40a351ac8b799b8f.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-257077bcc7be2463e3e0c716df2ccb04.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "일치 없음",
+    "search-matching-documents-text": "일치된 문서",
+    "search-copy-link-title": "검색 링크 복사",
+    "search-hide-matches-text": "추가 검색 결과 숨기기",
+    "search-more-match-text": "추가 검색결과",
+    "search-more-matches-text": "추가 검색결과",
+    "search-clear-button-title": "제거",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "취소",
+    "search-submit-button-title": "검색",
+    "search-label": "검색"
+  }
+}</script>
+<script src="../../site_libs/quarto-diagram/mermaid.min.js"></script>
+<script src="../../site_libs/quarto-diagram/mermaid-init.js"></script>
+<link href="../../site_libs/quarto-diagram/mermaid.css" rel="stylesheet">
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="검색"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="탐색 전환" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">목차</h2>
+   
+  <ul>
+  <li><a href="#sec-overview" id="toc-sec-overview" class="nav-link active" data-scroll-target="#sec-overview"><span class="header-section-number">1</span> 큰 그림: 생성 모델의 지형도</a></li>
+  <li><a href="#sec-vae" id="toc-sec-vae" class="nav-link" data-scroll-target="#sec-vae"><span class="header-section-number">2</span> VAE 복습: 잠재변수와 ELBO</a>
+  <ul class="collapse">
+  <li><a href="#왜-px를-직접-못-다루는가" id="toc-왜-px를-직접-못-다루는가" class="nav-link" data-scroll-target="#왜-px를-직접-못-다루는가"><span class="header-section-number">2.1</span> 왜 <span class="math inline">p(x)</span>를 직접 못 다루는가</a></li>
+  <li><a href="#elbo-유도" id="toc-elbo-유도" class="nav-link" data-scroll-target="#elbo-유도"><span class="header-section-number">2.2</span> ELBO 유도</a></li>
+  <li><a href="#재매개변수화-트릭" id="toc-재매개변수화-트릭" class="nav-link" data-scroll-target="#재매개변수화-트릭"><span class="header-section-number">2.3</span> 재매개변수화 트릭</a></li>
+  </ul></li>
+  <li><a href="#sec-gan" id="toc-sec-gan" class="nav-link" data-scroll-target="#sec-gan"><span class="header-section-number">3</span> GAN: 적대적 학습</a>
+  <ul class="collapse">
+  <li><a href="#adversarial-example과-adversarial-training은-다르다" id="toc-adversarial-example과-adversarial-training은-다르다" class="nav-link" data-scroll-target="#adversarial-example과-adversarial-training은-다르다"><span class="header-section-number">3.1</span> adversarial example과 adversarial training은 다르다</a></li>
+  <li><a href="#구성-요소-생성기-g와-판별자-d" id="toc-구성-요소-생성기-g와-판별자-d" class="nav-link" data-scroll-target="#구성-요소-생성기-g와-판별자-d"><span class="header-section-number">3.2</span> 구성 요소: 생성기 G와 판별자 D</a></li>
+  <li><a href="#minimax-목적함수" id="toc-minimax-목적함수" class="nav-link" data-scroll-target="#minimax-목적함수"><span class="header-section-number">3.3</span> minimax 목적함수</a></li>
+  <li><a href="#sec-gan-optimal" id="toc-sec-gan-optimal" class="nav-link" data-scroll-target="#sec-gan-optimal"><span class="header-section-number">3.4</span> 최적 판별자와 JSD: 왜 잘 되면 <span class="math inline">p_g=p_{\text{data}}</span>인가</a></li>
+  <li><a href="#왜-gan은-효과적인가-hard-negative" id="toc-왜-gan은-효과적인가-hard-negative" class="nav-link" data-scroll-target="#왜-gan은-효과적인가-hard-negative"><span class="header-section-number">3.5</span> 왜 GAN은 효과적인가: hard negative</a></li>
+  <li><a href="#실전-3대-난제" id="toc-실전-3대-난제" class="nav-link" data-scroll-target="#실전-3대-난제"><span class="header-section-number">3.6</span> 실전 3대 난제</a></li>
+  <li><a href="#안정화-변형들" id="toc-안정화-변형들" class="nav-link" data-scroll-target="#안정화-변형들"><span class="header-section-number">3.7</span> 안정화 변형들</a></li>
+  <li><a href="#vae와-gan의-연결" id="toc-vae와-gan의-연결" class="nav-link" data-scroll-target="#vae와-gan의-연결"><span class="header-section-number">3.8</span> VAE와 GAN의 연결</a></li>
+  </ul></li>
+  <li><a href="#sec-diffusion" id="toc-sec-diffusion" class="nav-link" data-scroll-target="#sec-diffusion"><span class="header-section-number">4</span> Diffusion 모델</a>
+  <ul class="collapse">
+  <li><a href="#gan-vs-diffusion-왜-갈아탔나" id="toc-gan-vs-diffusion-왜-갈아탔나" class="nav-link" data-scroll-target="#gan-vs-diffusion-왜-갈아탔나"><span class="header-section-number">4.1</span> GAN vs Diffusion: 왜 갈아탔나</a></li>
+  <li><a href="#ddpm-두-과정" id="toc-ddpm-두-과정" class="nav-link" data-scroll-target="#ddpm-두-과정"><span class="header-section-number">4.2</span> DDPM: 두 과정</a>
+  <ul class="collapse">
+  <li><a href="#forward-확산-과정-고정" id="toc-forward-확산-과정-고정" class="nav-link" data-scroll-target="#forward-확산-과정-고정"><span class="header-section-number">4.2.1</span> Forward (확산) 과정 — 고정</a></li>
+  <li><a href="#reverse-디노이징-과정-학습-대상" id="toc-reverse-디노이징-과정-학습-대상" class="nav-link" data-scroll-target="#reverse-디노이징-과정-학습-대상"><span class="header-section-number">4.2.2</span> Reverse (디노이징) 과정 — 학습 대상</a></li>
+  <li><a href="#학습-평균-대신-잡음을-예측" id="toc-학습-평균-대신-잡음을-예측" class="nav-link" data-scroll-target="#학습-평균-대신-잡음을-예측"><span class="header-section-number">4.2.3</span> 학습: 평균 대신 “잡음”을 예측</a></li>
+  <li><a href="#생성sampling" id="toc-생성sampling" class="nav-link" data-scroll-target="#생성sampling"><span class="header-section-number">4.2.4</span> 생성(Sampling)</a></li>
+  </ul></li>
+  <li><a href="#세-가지-관점-변분-스코어-플로우" id="toc-세-가지-관점-변분-스코어-플로우" class="nav-link" data-scroll-target="#세-가지-관점-변분-스코어-플로우"><span class="header-section-number">4.3</span> 세 가지 관점: 변분 · 스코어 · 플로우</a></li>
+  <li><a href="#ddim-비-마르코프-결정적-샘플링" id="toc-ddim-비-마르코프-결정적-샘플링" class="nav-link" data-scroll-target="#ddim-비-마르코프-결정적-샘플링"><span class="header-section-number">4.4</span> DDIM: 비-마르코프 + 결정적 샘플링</a></li>
+  <li><a href="#ldm-stable-diffusion-잠재공간-확산" id="toc-ldm-stable-diffusion-잠재공간-확산" class="nav-link" data-scroll-target="#ldm-stable-diffusion-잠재공간-확산"><span class="header-section-number">4.5</span> LDM (Stable Diffusion): 잠재공간 확산</a></li>
+  <li><a href="#controlnet-소량-데이터-조건부-미세조정" id="toc-controlnet-소량-데이터-조건부-미세조정" class="nav-link" data-scroll-target="#controlnet-소량-데이터-조건부-미세조정"><span class="header-section-number">4.6</span> ControlNet: 소량 데이터 조건부 미세조정</a></li>
+  </ul></li>
+  <li><a href="#sec-summary" id="toc-sec-summary" class="nav-link" data-scroll-target="#sec-summary"><span class="header-section-number">5</span> 종합 비교 및 요약</a></li>
+  <li><a href="#sec-appendix" id="toc-sec-appendix" class="nav-link" data-scroll-target="#sec-appendix"><span class="header-section-number">6</span> 부록: NumPy 검증 코드</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">생성 모델 (Generative Models): VAE · GAN · Diffusion</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> 코드</button></div></div>
+<p class="subtitle lead">AE에서 출발해 DDPM/DDIM/LDM/ControlNet까지</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">공개</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2026년 5월 11일</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="sec-overview" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 큰 그림: 생성 모델의 지형도</h1>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>한 줄 요약
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>판별 모델(discriminative)</strong> 은 결정 경계만 배우면 되지만, <strong>생성 모델(generative)</strong> 은 데이터 분포 <span class="math inline">p(x)</span> 전체의 <em>모양</em>을 배워야 한다. 그래서 생성 모델은 항상 “어떻게 <span class="math inline">p(x)</span>를 다룰 수 있게(tractable) 만들 것인가”라는 한 가지 문제로 귀결된다. VAE·GAN·Diffusion은 그 답을 서로 다르게 내놓은 세 가지 전략이다.</p>
+</div>
+</div>
+<p>분류기 <span class="math inline">p(y\mid x)</span>는 클래스 사이의 경계만 정밀하게 잡으면 된다. 반면 생성 모델은 표본을 뽑을 수 있는 분포 자체를 모델링해야 하므로, 데이터의 전체 지형(landscape)을 알아야 한다. 같은 데이터로 학습할 때 일반적으로 <strong>생성 모델이 더 많은 데이터와 더 큰 학습 비용을 요구</strong>하는 이유가 여기에 있다.</p>
+<p>세 모델의 핵심 아이디어를 먼저 한눈에 본다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>모델</th>
+<th><span class="math inline">p(x)</span>를 다루는 방식</th>
+<th>학습 목적</th>
+<th>안정성</th>
+<th>표본 효율</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>VAE</strong></td>
+<td>잠재변수 <span class="math inline">z</span>로 우회: <span class="math inline">p(x)=\int p(x\mid z)p(z)\,dz</span>, ELBO 하한 최대화</td>
+<td>변분 추론 (ELBO)</td>
+<td>안정</td>
+<td>보통</td>
+</tr>
+<tr class="even">
+<td><strong>GAN</strong></td>
+<td>분포를 명시하지 않고 <em>표본만</em> 생성, 판별자로 평가</td>
+<td>적대적 minimax</td>
+<td><strong>불안정</strong></td>
+<td><strong>높음</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>Diffusion</strong></td>
+<td>노이즈화의 역과정을 학습</td>
+<td>최대우도(MLE) 근사</td>
+<td>안정</td>
+<td>낮음(데이터 많이 필요)</td>
+</tr>
+</tbody>
+</table>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart LR
+    AE["Auto-Encoder&lt;br/&gt;(결정적 압축)"] --&gt; VAE["VAE&lt;br/&gt;잠재공간을 N(0,I)로&lt;br/&gt;확률화 + 디코더"]
+    VAE --&gt;|디코더 = 생성기| GAN["GAN&lt;br/&gt;생성기 G vs 판별자 D&lt;br/&gt;적대적 학습"]
+    VAE --&gt;|잠재변수 관점| DIFF["Diffusion&lt;br/&gt;점진적 노이즈화의&lt;br/&gt;역과정 학습"]
+    GAN -.불안정/모드붕괴 → 대안.-&gt; DIFF
+    DIFF --&gt; DDPM --&gt; DDIM --&gt; LDM --&gt; ControlNet
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<hr>
+</section>
+<section id="sec-vae" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> VAE 복습: 잠재변수와 ELBO</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>직접 답
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>VAE의 손실은 <strong>재구성 오차 + 잠재분포 정규화(KL)</strong> 두 항이다. 이는 로그우도 <span class="math inline">\log p(x)</span>의 하한인 <strong>ELBO</strong>를 최대화하는 것과 같고, 잠재변수 샘플링의 미분 불가능 문제는 <strong>재매개변수화 트릭(reparameterization trick)</strong> 으로 푼다.</p>
+</div>
+</div>
+<section id="왜-px를-직접-못-다루는가" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="왜-px를-직접-못-다루는가"><span class="header-section-number">2.1</span> 왜 <span class="math inline">p(x)</span>를 직접 못 다루는가</h2>
+<p>데이터 <span class="math inline">X=\{x_1,\dots,x_N\}</span>가 주어졌을 때 <span class="math inline">p(x)</span>를 직접 모델링하기는 어렵다. 그래서 알고 있는(샘플링 쉬운) 사전분포 <span class="math inline">p(z)=\mathcal N(0,I)</span>를 도입해 우회한다.</p>
+<p><span class="math display">
+p(x)=\int_z p(x\mid z)\,p(z)\,dz .
+</span></p>
+<p>문제는 이 적분이 여전히 다루기 어렵다는 것이다(<span class="math inline">z</span> 전 공간에 대한 적분). 그래서 사후분포 <span class="math inline">p(z\mid x)</span>를 <strong>파라미터화된 근사분포</strong> <span class="math inline">q_\phi(z)</span>로 대체한다. 이것이 <strong>변분 추론(variational inference)</strong> 이다.</p>
+</section>
+<section id="elbo-유도" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="elbo-유도"><span class="header-section-number">2.2</span> ELBO 유도</h2>
+<p>베이즈 규칙과 <span class="math inline">\log p(x)=\log p(x)\cdot\int q_\phi(z)\,dz</span>에서 출발해 정리하면:</p>
+<p><span class="math display">
+\log p(x)=\underbrace{\mathbb E_{q_\phi}\!\big[\log p(x,z)-\log q_\phi(z)\big]}_{\textstyle \text{ELBO}}
+\;+\;\underbrace{\mathrm{KL}\!\big(q_\phi(z)\,\|\,p(z\mid x)\big)}_{\textstyle \ge 0}.
+</span></p>
+<p>좌변 <span class="math inline">\log p(x)</span>는 <span class="math inline">\theta,\phi</span>에 대해 상수다. KL 항은 항상 <span class="math inline">\ge 0</span>이므로, <strong>ELBO를 키우는 것 = 근사 사후 <span class="math inline">q_\phi</span>를 참 사후 <span class="math inline">p(z\mid x)</span>에 가깝게 만드는 것</strong>이다.</p>
+<p>ELBO를 한 번 더 전개하면 익숙한 두 항이 나온다.</p>
+<p><span class="math display">
+\mathrm{ELBO}=\mathbb E_{q_\phi}\!\big[\log p(x\mid z)\big]-\mathrm{KL}\!\big(q_\phi(z)\,\|\,p(z)\big).
+</span></p>
+<ul>
+<li>첫 항: <strong>재구성(reconstruction)</strong> — 디코더 <span class="math inline">p(x\mid z)</span>가 <span class="math inline">x</span>를 얼마나 잘 복원하는가</li>
+<li>둘째 항: <strong>정규화(regularization)</strong> — 잠재 <span class="math inline">z</span>의 분포가 <span class="math inline">\mathcal N(0,I)</span>를 따르도록 강제</li>
+</ul>
+<p>따라서 VAE 손실은</p>
+<p><span class="math display">
+\min_{\theta,\phi}\;\; -\,\mathbb E_{q_\phi}\!\big[\log p_\theta(x\mid z)\big]\;+\;\mathrm{KL}\!\big(q_\phi(z\mid x)\,\|\,p(z)\big).
+</span></p>
+</section>
+<section id="재매개변수화-트릭" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="재매개변수화-트릭"><span class="header-section-number">2.3</span> 재매개변수화 트릭</h2>
+<p>역전파 경로는 <span class="math inline">\mathcal L \to z \to \phi</span>인데, <span class="math inline">z\sim q_\phi(z\mid x)</span>를 <em>샘플링</em>하면 그 연산이 미분 불가능하다. 무작위성을 외부 변수로 분리해 우회한다.</p>
+<p><span class="math display">
+z=\mu_\phi(x)+\sigma_\phi(x)\odot\epsilon,\qquad \epsilon\sim\mathcal N(0,I).
+</span></p>
+<p>이제 무작위성은 <span class="math inline">\epsilon</span>에만 있고, <span class="math inline">\mu_\phi,\sigma_\phi</span>를 통과하는 경로는 결정적이라 그래디언트가 흐른다.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>무선통신 비유 — 재매개변수화 = 수신신호 모델
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>수신신호 <span class="math inline">y=h\,x+n,\ n\sim\mathcal N(0,\sigma^2)</span>를 떠올려 보자. 채널 이득 <span class="math inline">h</span>(결정적 부분)와 잡음 <span class="math inline">n</span>(무작위 부분)을 <strong>분리</strong>해 두면, 시스템 파라미터에 대한 미분은 결정적 경로로만 흘러가고 무작위성은 잡음 항에 격리된다. 재매개변수화 <span class="math inline">z=\mu+\sigma\epsilon</span>는 정확히 이 구조다 — “평균(신호) + 표준편차(잡음 세기)×표준정규” 형태로 샘플을 만든다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="sec-gan" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> GAN: 적대적 학습</h1>
+<section id="adversarial-example과-adversarial-training은-다르다" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="adversarial-example과-adversarial-training은-다르다"><span class="header-section-number">3.1</span> adversarial example과 adversarial training은 다르다</h2>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">경고</span>혼동 주의
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Adversarial example</strong>: 이미 학습된 신경망을 <em>속이려고</em> 입력에 미세한 교란(perturbation)을 더한 것. 고양이 이미지에 사람 눈엔 안 보이는 패치를 더해 “데스크톱 컴퓨터”로 높은 확신으로 오분류시키는 식. 목적은 <em>공격</em>이다.</p>
+<p><strong>Adversarial training (= GAN의 학습 패러다임)</strong>: 두 네트워크가 <em>서로 속이고/안 속으려</em> 경쟁하며 함께 좋아지게 하는 학습. 목적은 <em>생성기를 더 좋게</em> 만드는 것이다.</p>
+<p>둘 다 “적대적”이라는 단어를 공유하지만 목적이 정반대다. (LeCun은 2016년에 “지난 10년 ML에서 가장 흥미로운 아이디어는 적대적 학습”이라고 평했다.)</p>
+</div>
+</div>
+</section>
+<section id="구성-요소-생성기-g와-판별자-d" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="구성-요소-생성기-g와-판별자-d"><span class="header-section-number">3.2</span> 구성 요소: 생성기 G와 판별자 D</h2>
+<ul>
+<li><strong>생성기(Generator) <span class="math inline">G</span></strong>: <span class="math inline">d</span>차원 무작위 벡터 <span class="math inline">z</span>(예: <span class="math inline">\mathcal N(0,I)</span>에서 샘플)를 입력받아 이미지를 출력. <span class="math inline">z</span> 공간이 “잠재공간”이고, <span class="math inline">G</span>는 데이터 생성 분포를 흉내 낸다.</li>
+<li><strong>판별자(Discriminator) <span class="math inline">D</span></strong>: 입력 이미지가 <strong>진짜(실세계 데이터)</strong> 인지 <strong>가짜(<span class="math inline">G</span>가 만든 것)</strong> 인지 판정. 출력 <span class="math inline">D(x)\in[0,1]</span>은 “진짜일 확률”.</li>
+</ul>
+<p>좋은 생성기란 무엇인가? “생성된 이미지가 진짜처럼 보이는 정도”가 높은 것. 그런데 <em>진짜처럼 보이는지</em>를 사람이 매번 채점할 수는 없다. 그래서 <strong>판별자라는 두 번째 네트워크를 도입해 자동 채점기로 쓴다</strong> — 이것이 적대적 학습의 핵심 발상이다.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart LR
+    Z["z ~ N(0,I)"] --&gt; G["생성기 G"]
+    G --&gt; FAKE["가짜 이미지 G(z)"]
+    REAL["진짜 이미지 x ~ p_data"] --&gt; D
+    FAKE --&gt; D["판별자 D"]
+    D --&gt; OUT["D(·) ∈ [0,1]&lt;br/&gt;진짜일 확률"]
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+</section>
+<section id="minimax-목적함수" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="minimax-목적함수"><span class="header-section-number">3.3</span> minimax 목적함수</h2>
+<p><span class="math display">
+\min_G\max_D\; V(D,G)=\mathbb E_{x\sim p_{\text{data}}}\big[\log D(x)\big]
++\mathbb E_{z\sim p_z}\big[\log\!\big(1-D(G(z))\big)\big].
+</span></p>
+<p>물리적 의미는 <em>“<span class="math inline">x</span>가 진짜일 로그확률” + “<span class="math inline">G(z)</span>가 가짜일 로그확률”</em> 이다. 두 변수의 관점에서 읽어야 한다.</p>
+<ul>
+<li><strong><span class="math inline">D</span> 관점(최대화)</strong>: <span class="math inline">x</span>가 진짜면 <span class="math inline">D(x)\to1</span>이라 첫 항 <span class="math inline">\log D(x)\to0</span>(최댓값). <span class="math inline">G(z)</span>가 가짜면 <span class="math inline">D(G(z))\to0</span>이라 둘째 항 <span class="math inline">\log(1-0)\to0</span>. 즉 <span class="math inline">D</span>가 잘하면 <span class="math inline">V</span>가 커진다 → <strong><span class="math inline">D</span>는 <span class="math inline">V</span>를 최대화</strong>.</li>
+<li><strong><span class="math inline">G</span> 관점(최소화)</strong>: <span class="math inline">G</span>가 <span class="math inline">D</span>를 잘 속이면 <span class="math inline">D(G(z))\to1</span>이라 둘째 항 <span class="math inline">\log(1-1)\to-\infty</span>. 즉 <span class="math inline">G</span>가 잘하면 <span class="math inline">V</span>가 작아진다 → <strong><span class="math inline">G</span>는 <span class="math inline">V</span>를 최소화</strong>.</li>
+</ul>
+<p>서로 반대 방향으로 당기는 <strong>zero-sum 비협조 게임(minimax problem)</strong> 이다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>학습 = 블록 좌표 하강 (alternating optimization)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>전체 파라미터 집합 안에 <span class="math inline">G</span>의 파라미터와 <span class="math inline">D</span>의 파라미터가 함께 들어 있다. 한쪽을 고정하고 다른 쪽으로 (경사)하강/상승하는 식으로 <strong>번갈아</strong> 최적화한다. 이것이 <strong>블록 좌표 하강(block coordinate descent)</strong> 이다. 모든 좌표를 동시에 내려가는 게 아니라 변수 블록을 나눠 번갈아 내려간다. (최대화 항은 부호만 뒤집으면 하강으로 통일된다.)</p>
+</div>
+</div>
+<p>세 단계로 풀어 쓴 업데이트:</p>
+<ol type="1">
+<li><strong>D 업데이트 (Real)</strong>: 진짜 데이터에 대해 <span class="math inline">D</span>가 “진짜”라고 말하도록. <span class="math inline">D(x_{\text{real}})\to1</span>.</li>
+<li><strong>D 업데이트 (Fake)</strong>: 가짜 데이터에 대해 <span class="math inline">D</span>가 “가짜”라고 말하도록. <span class="math inline">D(G(z))\to0</span>.</li>
+<li><strong>G 업데이트</strong>: <span class="math inline">D</span>가 가짜를 “진짜”라고 착각하도록 <span class="math inline">G</span>를 갱신. <span class="math inline">D(G(z))\to1</span>이 되도록.</li>
+</ol>
+<p>각 단계에서 <em>잘하는 쪽은 거의 갱신되지 않고, 못하는 쪽이 크게 갱신</em>된다. <span class="math inline">G</span>를 갱신할 때 그래디언트는 <span class="math inline">D</span>를 거쳐 직렬로 <span class="math inline">G</span>까지 역전파되므로, <strong><span class="math inline">G</span>에 도달할 즈음 그래디언트가 이미 많이 줄어들어</strong> <span class="math inline">G</span> 학습이 어렵다(아래 3대 난제와 연결).</p>
+</section>
+<section id="sec-gan-optimal" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="sec-gan-optimal"><span class="header-section-number">3.4</span> 최적 판별자와 JSD: 왜 잘 되면 <span class="math inline">p_g=p_{\text{data}}</span>인가</h2>
+<p><span class="math inline">G</span>를 고정하면 <span class="math inline">V</span>를 <span class="math inline">D</span>에 대해 점별로 최대화할 수 있다. 적분 내부를 <span class="math inline">D(x)</span>로 미분해 0으로 두면 <strong>최적 판별자</strong>:</p>
+<p><span class="math display">
+D^\*(x)=\frac{p_{\text{data}}(x)}{p_{\text{data}}(x)+p_g(x)} .
+</span></p>
+<p>이를 대입하면 목적함수가 <strong>Jensen–Shannon 발산(JSD)</strong> 으로 정리된다.</p>
+<p><span class="math display">
+V(G,D^\*)=-\log 4+2\,\mathrm{JSD}\!\big(p_{\text{data}}\,\|\,p_g\big).
+</span></p>
+<p><span class="math inline">\mathrm{JSD}\ge0</span>이고 <span class="math inline">p_g=p_{\text{data}}</span>일 때만 <span class="math inline">0</span>이므로, <strong>전역 최적은 <span class="math inline">p_g=p_{\text{data}}</span>이며 그때 값은 <span class="math inline">-\log 4\approx-1.386</span></strong>. (이 값은 부록 코드로 수치 확인했다.)</p>
+</section>
+<section id="왜-gan은-효과적인가-hard-negative" class="level2" data-number="3.5">
+<h2 data-number="3.5" class="anchored" data-anchor-id="왜-gan은-효과적인가-hard-negative"><span class="header-section-number">3.5</span> 왜 GAN은 효과적인가: hard negative</h2>
+<p>데이터 생성 분포의 “산맥”을 정확히 그리려면 <strong>경계(borders/envelope)</strong> 근처의 표본이 결정적이다. 분류 문헌에서 경계 근처의 까다로운 음성 표본을 <strong>hard negative(hard sample)</strong> 라 부른다. 보통 이런 표본은 외부에서 수집하기 어렵다.</p>
+<p>그런데 GAN의 <span class="math inline">G</span>는 <strong><span class="math inline">D</span>를 효과적으로 속이려면 자연히 경계 근처의 데이터를 생성</strong>하게 된다. 즉 적대적 경쟁이 추가 비용 없이 hard negative를 <em>공짜로</em> 만들어낸다. 그래서 GAN은 표본 효율이 좋고, 분포의 경계/외곽선을 또렷하게 잡는다. (GAN이 2014년에 제안된 동기 자체가 “데이터 부족(data deficiency)” 시대의 해법이었다.)</p>
+</section>
+<section id="실전-3대-난제" class="level2" data-number="3.6">
+<h2 data-number="3.6" class="anchored" data-anchor-id="실전-3대-난제"><span class="header-section-number">3.6</span> 실전 3대 난제</h2>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">경고</span>GAN 학습이 악명 높은 이유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><strong>비수렴(Non-convergence)</strong>: 파라미터가 진동·발산하며 수렴하지 않음. <span class="math inline">D</span>가 <span class="math inline">G</span>보다 <em>훨씬 쉽게/빠르게</em> 학습되어(경계만 배우면 되므로) 힘의 불균형이 생긴다. <span class="math inline">D</span>가 과도하게 강해지면 두 모델이 매 반복마다 함께 좋아지지 못하고 불안정해진다.</li>
+<li><strong>모드 붕괴(Mode Collapse)</strong>: <span class="math inline">G</span>가 <em>몇 가지 쉬운 표본만</em> 반복 생성해 <span class="math inline">D</span>를 속이고 거기에 눌러앉는 현상. 참 분포의 여러 봉우리(mode)를 다 못 배우고 일부 뾰족한 봉우리만 만든다 → 다양성 상실.</li>
+<li><strong>그래디언트 소실(Diminished gradient)</strong>: <span class="math inline">D</span>가 너무 잘하면 <span class="math inline">G</span>로 역전파되는 그래디언트가 사라져 <span class="math inline">G</span>가 아무것도 못 배운다.</li>
+</ol>
+<p>2·3번은 본질적으로 <strong><span class="math inline">D</span>와 <span class="math inline">G</span>의 학습 난이도/속도 불균형</strong>에서 온다. 하이퍼파라미터(학습률, 배치 크기) 튜닝이 “예술의 경지”로 까다롭다.</p>
+</div>
+</div>
+</section>
+<section id="안정화-변형들" class="level2" data-number="3.7">
+<h2 data-number="3.7" class="anchored" data-anchor-id="안정화-변형들"><span class="header-section-number">3.7</span> 안정화 변형들</h2>
+<p>위 두 문제(모드 붕괴·비수렴)를 겨냥해 수백 편의 변형이 나왔다.</p>
+<ul>
+<li><strong>LSGAN</strong> (Least Squares GAN): 최소제곱 손실</li>
+<li><strong>WGAN</strong> (Wasserstein GAN): Wasserstein 거리로 더 매끄러운 손실</li>
+<li><strong>WGAN-GP</strong>: WGAN + 그래디언트 패널티</li>
+<li><strong>BEGAN</strong> (Boundary Equilibrium GAN), DCGAN, CycleGAN 등 다수</li>
+</ul>
+<p>GAN이 자유롭게 손실 함수를 바꿀 수 있다는 점(예: Wasserstein, Hinge 손실)은 강점이자, 그만큼 <em>튜닝의 자유도가 높아 안정화가 어렵다</em>는 약점이기도 하다.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>무선통신 비유 — GAN = 스푸핑 송신기 vs 신호검출기 게임
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">G</span>를 <strong>위장(spoofing) 송신기</strong>, <span class="math inline">D</span>를 <strong>신호 검출기</strong>라 보자. <span class="math inline">D</span>는 입력이 “진짜 신호”인지 “합성 신호”인지 판정하는 Neyman–Pearson 류 검출기이고, 최적 판별자 <span class="math inline">D^\*=\tfrac{p_{\text{data}}}{p_{\text{data}}+p_g}</span>는 두 가설의 <strong>우도비(likelihood ratio) 검정</strong>과 정확히 같은 형태다. 이 관점에서:</p>
+<ul>
+<li><strong>모드 붕괴</strong> = 송신기가 콘스텔레이션 다양성을 잃고 <em>몇 개 심볼만</em> 반복 송신하는 것</li>
+<li><strong>그래디언트 소실</strong> = 검출기가 고-SNR 영역 깊숙이 포화되어 우도비의 기울기가 사라지는 것</li>
+<li><strong>minimax / zero-sum</strong> = 재머 vs 수신기, 또는 강건(worst-case) 검출의 게임 구조</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="vae와-gan의-연결" class="level2" data-number="3.8">
+<h2 data-number="3.8" class="anchored" data-anchor-id="vae와-gan의-연결"><span class="header-section-number">3.8</span> VAE와 GAN의 연결</h2>
+<p>생성기의 입력 <span class="math inline">z</span>를 보통 <span class="math inline">\mathcal N(0,I)</span>로 모델링하므로, <strong>VAE의 디코더를 GAN의 생성기로</strong> 그대로 쓸 수 있다. VAE의 인코더–디코더 구조에서 디코더 <span class="math inline">=G</span>, 그리고 판별자를 덧붙이면 GAN이 된다. 둘은 서로 변환 가능한, 닮은 구조다. 차이는 <em>학습 패러다임</em>(VAE=변분추론/MLE 계열, GAN=적대적 학습)에 있다.</p>
+<hr>
+</section>
+</section>
+<section id="sec-diffusion" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Diffusion 모델</h1>
+<section id="gan-vs-diffusion-왜-갈아탔나" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="gan-vs-diffusion-왜-갈아탔나"><span class="header-section-number">4.1</span> GAN vs Diffusion: 왜 갈아탔나</h2>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>직접 답
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>GAN은 빠르고 표본 효율이 좋지만 <strong>불안정(모드 붕괴·비수렴)</strong>. Diffusion은 <strong>느리지만 안정적</strong>이고 품질이 뛰어나다. 핵심 차이: Diffusion은 <strong>최대우도(MLE)</strong> 라는 <em>잘 이해된</em> 최적화로 학습되고, 두 모델을 싸움 붙이지 않고 <strong>단일 모델</strong>을 학습한다 → 모드 붕괴 개념 자체가 없다.</p>
+</div>
+</div>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Diffusion (DDPM)</strong></th>
+<th><strong>GAN</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>장점</td>
+<td>디테일이 살아있는 고품질·선명한 표본 / <strong>MLE = 잘 이해된 최적화</strong> / 이미지·오디오 모두</td>
+<td>고품질(이미지·오디오) / <strong>상대적으로 빠른 학습</strong> / 다양한 손실(Wasserstein, Hinge) 사용 가능</td>
+</tr>
+<tr class="even">
+<td>단점</td>
+<td><strong>느리고 계산 비용 큼</strong>(반복 <span class="math inline">T</span>회) / 많은 데이터 필요</td>
+<td>학습이 까다로움 / <strong>하이퍼파라미터에 민감</strong> / <strong>모드 붕괴</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>교수님의 직관 — “확률 탑(probability tower)” 쌓기
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>GAN이 hard negative로 <em>경계</em>를 또렷하게 그린다면, Diffusion은 다른 방식으로 분포의 산맥을 만든다. 모든 위치의 데이터 포인트를 주고 <strong>노이즈화 과정을 학습</strong>시키면, “각 위치에서 확률을 얼마나 높이 쌓아 올릴지”를 배우게 된다. 즉 경계뿐 아니라 봉우리의 <em>높이</em>까지 포함한 전체 지형을 복원한다. 대신 모든 위치의 데이터가 필요하므로 데이터를 많이 모아야 한다.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>안정성 비유 — 변동성 큰 주식 vs 꾸준히 오르는 주식
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>GAN은 운이 좋으면 하룻밤에 멋진 모델을 주지만, 잘못되면 밤새 학습시켜도 모드 붕괴된 쓸모없는 결과가 나온다(대규모 학습이라면 막대한 비용 손실). Diffusion은 느리지만 <strong>매일 조금씩 꾸준히 좋아지는</strong> 모델 — 마음이 편하다. 산업계가 Diffusion을 택한 이유다. (오늘날 대부분의 이미지·비디오 생성은 Diffusion 계열이다.)</p>
+</div>
+</div>
+</section>
+<section id="ddpm-두-과정" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="ddpm-두-과정"><span class="header-section-number">4.2</span> DDPM: 두 과정</h2>
+<p>DDPM(Denoising Diffusion Probabilistic Model, 2020)은 두 과정으로 구성된다.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart LR
+    X0["x₀ (깨끗한 데이터)"] --&gt;|"q(xₜ|xₜ₋₁) 노이즈 추가"| XT["x_T ~ N(0,I) (순수 잡음)"]
+    XT --&gt;|"pθ(xₜ₋₁|xₜ) 학습된 디노이징"| X0b["x₀ (생성)"]
+    X0 -. "Forward (고정)" .- XT
+    XT -. "Reverse (생성/학습)" .- X0b
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<section id="forward-확산-과정-고정" class="level3" data-number="4.2.1">
+<h3 data-number="4.2.1" class="anchored" data-anchor-id="forward-확산-과정-고정"><span class="header-section-number">4.2.1</span> Forward (확산) 과정 — 고정</h3>
+<p>라텐트 변수의 마르코프 연쇄로, 사전 스케줄된 분산 <span class="math inline">\beta_t</span>로 가우시안 잡음을 점진적으로 더한다.</p>
+<p><span class="math display">
+q(x_t\mid x_{t-1})=\mathcal N\!\big(x_t;\ \sqrt{1-\beta_t}\,x_{t-1},\ \beta_t I\big).
+</span></p>
+<ul>
+<li><span class="math inline">\beta_t</span>: 시각 <span class="math inline">t</span>에서의 <strong>잡음 크기</strong></li>
+<li><span class="math inline">\alpha_t=1-\beta_t</span>: <strong>신호 보존 크기</strong>, 그리고 <span class="math inline">\bar\alpha_t=\prod_{s=1}^{t}\alpha_s</span></li>
+</ul>
+<p>마르코프성과 가우시안 합성을 이용하면 임의 시각 <span class="math inline">t</span>를 <strong>한 방에(closed-form)</strong> 표현할 수 있다.</p>
+<p><span class="math display">
+\boxed{\,x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon,\qquad \epsilon\sim\mathcal N(0,I)\,}
+</span></p>
+<p><span class="math inline">\beta_t</span>를 충분히 작게 두고 <span class="math inline">T</span>를 키워 <span class="math inline">\delta t\to0</span>의 연속 극한을 취하면 <strong>확률미분방정식(SDE)</strong> 이 된다.</p>
+<p><span class="math display">
+dx=-\tfrac12\,\beta(t)\,x\,dt+\sqrt{\beta(t)}\,dW_t,\qquad (W_t:\text{Wiener 과정}).
+</span></p>
+<p>매 <span class="math inline">t</span>에서 잡음 <span class="math inline">\epsilon</span>이 무작위라 제어 불가능하므로 <em>확률적</em> 미분방정식이다.</p>
+</section>
+<section id="reverse-디노이징-과정-학습-대상" class="level3" data-number="4.2.2">
+<h3 data-number="4.2.2" class="anchored" data-anchor-id="reverse-디노이징-과정-학습-대상"><span class="header-section-number">4.2.2</span> Reverse (디노이징) 과정 — 학습 대상</h3>
+<p>베이즈 규칙상 역과정은</p>
+<p><span class="math display">
+q(x_{t-1}\mid x_t)=\frac{q(x_t\mid x_{t-1})\,q(x_{t-1})}{q(x_t)}
+</span></p>
+<p>인데, <strong><span class="math inline">q(x_{t-1}), q(x_t)</span>를 모른다</strong>(나쁜 소식). 좋은 소식: <span class="math inline">\beta_t\ll1</span>이면 참 역과정 <span class="math inline">q(x_{t-1}\mid x_t)</span>가 <strong>가우시안으로 잘 근사</strong>된다는 정리가 있다. 그래서 신경망으로 파라미터화한 가우시안으로 근사한다.</p>
+<p><span class="math display">
+p_\theta(x_{t-1}\mid x_t)=\mathcal N\!\big(x_{t-1};\ \mu_\theta(x_t,t),\ \sigma_t^2 I\big).
+</span></p>
+<p>우리가 배울 것은 이 가우시안의 평균 <span class="math inline">\mu_\theta</span>(=디노이저)다.</p>
+</section>
+<section id="학습-평균-대신-잡음을-예측" class="level3" data-number="4.2.3">
+<h3 data-number="4.2.3" class="anchored" data-anchor-id="학습-평균-대신-잡음을-예측"><span class="header-section-number">4.2.3</span> 학습: 평균 대신 “잡음”을 예측</h3>
+<p>Forward의 닫힌 형태에서 참 평균을 정리하면, <span class="math inline">\mu_\theta</span>를 <strong>노이즈 예측기 <span class="math inline">\epsilon_\theta(x_t,t)</span></strong> 로 재매개변수화할 수 있다.</p>
+<p><span class="math display">
+\mu_\theta(x_t,t)=\frac{1}{\sqrt{\alpha_t}}\!\left(x_t-\frac{\beta_t}{\sqrt{1-\bar\alpha_t}}\,\epsilon_\theta(x_t,t)\right).
+</span></p>
+<p>그러면 학습은 놀랍도록 단순해진다. <strong>각 <span class="math inline">t</span>마다 진짜 잡음 <span class="math inline">\epsilon</span>을 정답으로 삼아, 신경망이 그 잡음을 맞히도록</strong> 회귀한다.</p>
+<p><span class="math display">
+\boxed{\;\mathcal L_{\text{simple}}=\mathbb E_{t,\,x_0,\,\epsilon}\Big[\ \big\|\,\epsilon-\epsilon_\theta\big(\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon,\ t\big)\big\|^2\ \Big]\;}
+</span></p>
+<p>알고리즘:</p>
+<ol type="1">
+<li>시각 <span class="math inline">t</span> 추출, 정답 잡음 <span class="math inline">\epsilon\sim\mathcal N(0,I)</span> 추출</li>
+<li><span class="math inline">x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon</span> 계산</li>
+<li><span class="math inline">\nabla_\theta\|\epsilon-\epsilon_\theta(x_t,t)\|^2</span>로 경사하강</li>
+</ol>
+</section>
+<section id="생성sampling" class="level3" data-number="4.2.4">
+<h3 data-number="4.2.4" class="anchored" data-anchor-id="생성sampling"><span class="header-section-number">4.2.4</span> 생성(Sampling)</h3>
+<p><span class="math inline">x_T\sim\mathcal N(0,I)</span>에서 시작해 <span class="math inline">t=T,\dots,1</span>로 내려가며 학습된 <span class="math inline">\epsilon_\theta</span>로 한 단계씩 디노이징한다.</p>
+<p><span class="math display">
+\hat x_0=\frac{1}{\sqrt{\bar\alpha_t}}\big(x_t-\sqrt{1-\bar\alpha_t}\,\epsilon_\theta(x_t,t)\big),\qquad
+x_{t-1}=\mu_\theta(x_t,\hat x_0)+\sigma_t z,\quad z\sim\mathcal N(0,I).
+</span></p>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">경고</span>단계 수에 관한 주의
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>DDPM의 표준 구현은 보통 <span class="math inline">T\approx1000</span> 단계의 <em>순차적</em> 역과정을 쓴다(논문 기본값). 이 순차성이 느림의 근본 원인이다. (일부 자료는 훨씬 큰 수치를 들기도 하나, 정확한 값은 노이즈 스케줄·해상도에 따라 달라진다.) 핵심은 “한 표본을 얻으려 수백~수천 번 forward 패스가 필요하다”는 점이고, DDIM이 이를 수십 단계로 줄인다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="세-가지-관점-변분-스코어-플로우" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="세-가지-관점-변분-스코어-플로우"><span class="header-section-number">4.3</span> 세 가지 관점: 변분 · 스코어 · 플로우</h2>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+노트
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Diffusion은 세 수학적 도구로 동등하게 해석된다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>관점</th>
+<th>뿌리</th>
+<th>대표 방법</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Variational view</strong></td>
+<td>(VAE식) 변분 추론</td>
+<td><strong>DDPM</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Score-based view</strong></td>
+<td>통계물리의 에너지 기반 모델</td>
+<td>NCSN / score-SDE</td>
+</tr>
+<tr class="odd">
+<td><strong>Flow-based view</strong></td>
+<td>Normalizing Flow</td>
+<td><strong>Flow Matching</strong></td>
+</tr>
+</tbody>
+</table>
+<p>세 관점 모두 연속시간 정식화로 수렴하며, 특히 flow matching은 반복 횟수를 줄여 최근 생성의 사실상 표준이 되고 있다. 본 정리는 가장 기본인 <strong>변분 관점(DDPM)</strong> 을 중심으로 다룬다.</p>
+</div>
+</div>
+</section>
+<section id="ddim-비-마르코프-결정적-샘플링" class="level2" data-number="4.4">
+<h2 data-number="4.4" class="anchored" data-anchor-id="ddim-비-마르코프-결정적-샘플링"><span class="header-section-number">4.4</span> DDIM: 비-마르코프 + 결정적 샘플링</h2>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>왜 DDIM인가
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>DDPM은 품질은 좋지만 (1) 샘플링이 느리고, (2) 확률적 경로라 제어가 어렵고, (3) 매 샘플이 전체 역-SDE를 요구한다. DDIM의 목표: <strong>더 적은 단계 + 결정적 경로 + DDPM과 동일한 주변분포 유지</strong>.</p>
+</div>
+</div>
+<p>DDIM은 forward 과정을 <strong>비-마르코프(non-Markovian) 결정적 사상</strong>으로 재해석한다. <span class="math inline">x_t</span>가 <span class="math inline">x_{t-1}</span> <em>뿐 아니라</em> <span class="math inline">x_0</span>에도 의존하도록 하여 비-마르코프가 된다. 핵심은 <strong>구현은 DDPM과 같지만 수학적 해석이 다르다</strong>는 것 — DDPM은 SDE, DDIM은 <strong>ODE</strong> 기반.</p>
+<p>일반화된 reverse 샘플링:</p>
+<p><span class="math display">
+x_{t-1}=\sqrt{\bar\alpha_{t-1}}\,\hat x_0+\sqrt{1-\bar\alpha_{t-1}-\sigma_t^2}\;\epsilon_\theta(x_t,t)+\sigma_t z,
+</span> <span class="math display">
+\sigma_t=\eta\sqrt{\frac{1-\bar\alpha_{t-1}}{1-\bar\alpha_t}}\sqrt{1-\frac{\bar\alpha_t}{\bar\alpha_{t-1}}},\qquad z\sim\mathcal N(0,I).
+</span></p>
+<ul>
+<li><span class="math inline">\eta=0\Rightarrow\sigma_t=0</span>: <strong>완전 결정적</strong>(잡음 주입 없음)</li>
+<li><span class="math inline">\eta=1</span>: <strong>DDPM과 동일</strong>(마르코프·확률적)</li>
+</ul>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>핵심 이점 — 학습은 그대로, 샘플링만 가속
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>손실 함수가 <strong>DDPM과 완전히 동일</strong>하다. 즉 <strong>한 번 학습한 노이즈 예측기 <span class="math inline">\epsilon_\theta</span>를 그대로</strong> DDIM 샘플링에 쓸 수 있다. <span class="math inline">\sigma_t=0</span>의 결정적 과정 덕분에 임의의 시간 간격에서도 디노이징이 잘 정의되어 <strong>단계 수를 크게 줄여 빠르게 샘플링</strong>할 수 있다.</p>
+</div>
+</div>
+</section>
+<section id="ldm-stable-diffusion-잠재공간-확산" class="level2" data-number="4.5">
+<h2 data-number="4.5" class="anchored" data-anchor-id="ldm-stable-diffusion-잠재공간-확산"><span class="header-section-number">4.5</span> LDM (Stable Diffusion): 잠재공간 확산</h2>
+<p>픽셀 공간에서 직접 확산을 학습하면 메모리 비용이 너무 크다. <strong>LDM</strong>은 이미지를 저차원 <strong>잠재(latent)</strong> 로 압축한 뒤 <em>그 잠재공간에서</em> 확산을 학습한다. 텍스트 조건부 대규모 모델로, 다운샘플링 비율의 sweet spot이 중요하다.</p>
+<ul>
+<li><strong>LDM-1</strong>(압축 안 함): 학습 시간이 과도하게 김</li>
+<li><strong>LDM-32</strong>(과압축): 정보 손실로 품질 저하</li>
+<li><strong>LDM-4 / 8 / 16</strong>: 경쟁력 있는 성능 — 적당한 압축이 최적</li>
+</ul>
+</section>
+<section id="controlnet-소량-데이터-조건부-미세조정" class="level2" data-number="4.6">
+<h2 data-number="4.6" class="anchored" data-anchor-id="controlnet-소량-데이터-조건부-미세조정"><span class="header-section-number">4.6</span> ControlNet: 소량 데이터 조건부 미세조정</h2>
+<p>무조건부로 학습된 이미지 확산 모델을, <strong>상대적으로 적은(&lt;50K) 입력–출력 쌍</strong>으로 이미지-조건부 시나리오에 효율적으로 미세조정한다.</p>
+<ul>
+<li><strong>아이디어</strong>: 사전학습된 노이즈 예측 U-Net을 활용해 조건 이미지를 처리</li>
+<li><strong>인코더</strong>: 사전학습 U-Net 파라미터를 <strong>복사해 초기화</strong> 후 미세조정</li>
+<li><strong>디코더</strong>: 인코딩된 조건 정보 + 노이즈 이미지를 결합하되, <strong>zero convolution</strong>으로 제어 신호를 주입(초기엔 영향이 0이라 안정적으로 점진 학습)</li>
+<li>학습 데이터 <span class="math inline">\sim100\text{K}</span> 규모 — LAION-5B의 약 1/50,000</li>
+</ul>
+<p>조건 정보를 갑자기 넣지 않고 <em>점진적으로</em> 도입하므로, 어떤 이미지 조건(에지·포즈·깊이 등)에도 일반적으로 적용 가능하다.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>무선통신 비유 — Diffusion = 점진적 AWGN과 그 역연산
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Forward의 닫힌 형태 <span class="math inline">x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon</span>는 <strong>신호 이득 <span class="math inline">\sqrt{\bar\alpha_t}</span>, 잡음전력 <span class="math inline">1-\bar\alpha_t</span>의 페이딩+AWGN 채널 모델</strong>과 글자 그대로 같다. <span class="math inline">t</span>가 커질수록 SNR이 단조 감소해 <span class="math inline">t=T</span>에서 SNR<span class="math inline">\to0</span>(순수 잡음)에 도달한다.</p>
+<ul>
+<li><strong>노이즈 예측기 <span class="math inline">\epsilon_\theta</span> 학습</strong> = 잡음을 추정하는 <strong>MMSE 추정기</strong> 학습</li>
+<li><strong>Reverse 과정</strong> = 단계별 디노이징, 즉 <strong>반복 등화/연속 간섭 제거(SIC)</strong> 와 닮은 구조</li>
+<li><strong>DDIM(<span class="math inline">\eta=0</span>)의 결정적 경로</strong> = 잡음 재주입이 없는 <em>결정적 등화</em> 경로</li>
+<li><span class="math inline">\beta_t</span> 스케줄 = SNR 스케줄 설계</li>
+</ul>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="sec-summary" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> 종합 비교 및 요약</h1>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>축</th>
+<th>VAE</th>
+<th>GAN</th>
+<th>Diffusion (DDPM)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>학습 원리</td>
+<td>변분추론(ELBO)</td>
+<td>적대적 minimax</td>
+<td>최대우도(MLE) 근사</td>
+</tr>
+<tr class="even">
+<td>모델 수</td>
+<td>인코더+디코더 (협력)</td>
+<td>생성기+판별자 (경쟁)</td>
+<td>단일 노이즈 예측기</td>
+</tr>
+<tr class="odd">
+<td>안정성</td>
+<td>안정</td>
+<td><strong>불안정</strong>(모드붕괴/비수렴/소실)</td>
+<td>안정</td>
+</tr>
+<tr class="even">
+<td>표본 효율</td>
+<td>보통</td>
+<td><strong>높음</strong>(hard negative)</td>
+<td>낮음(데이터 多)</td>
+</tr>
+<tr class="odd">
+<td>생성 속도</td>
+<td>빠름(1패스)</td>
+<td>빠름(1패스)</td>
+<td><strong>느림</strong>(<span class="math inline">T</span>패스) → DDIM/LDM이 가속</td>
+</tr>
+<tr class="even">
+<td>품질</td>
+<td>다소 흐릿</td>
+<td>선명하나 다양성 위험</td>
+<td><strong>선명+다양</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>핵심 메시지
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>VAE: <span class="math inline">p(x)</span>를 잠재변수로 우회 → ELBO(재구성+KL) 최대화, 재매개변수화로 미분.</li>
+<li>GAN: 분포를 명시하지 않고 <em>적대적 경쟁</em>으로 표본을 생성. 최적해는 <span class="math inline">p_g=p_{\text{data}}</span>(<span class="math inline">-\log4</span>), hard negative로 효율적이나 <em>불균형</em>이 불안정의 근원.</li>
+<li>Diffusion: 노이즈화의 역과정을 MLE로 학습. 단일 모델·안정·고품질. DDPM(기본) → DDIM(가속/결정적) → LDM(잠재공간/대규모) → ControlNet(조건 제어).</li>
+<li>무선 관점: 재매개변수화=수신신호 분해, GAN=스푸핑 vs 검출 게임, Diffusion=점진 AWGN의 MMSE 역연산.</li>
+</ul>
+</div>
+</div>
+<hr>
+</section>
+<section id="sec-appendix" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> 부록: NumPy 검증 코드</h1>
+<p>아래 코드는 본문의 두 핵심 결과를 수치로 확인한다 — (1) DDPM forward의 <em>반복 샘플링</em>과 <em>닫힌 형태</em>가 같은 분포를 주는지, (2) GAN 최적 판별자의 목적함수 값이 <span class="math inline">p_g=p_{\text{data}}</span>일 때 정확히 <span class="math inline">-\log4</span>인지.</p>
+<div id="ddpm-forward-check" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">0</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 노이즈 스케줄 (선형) ----</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>T <span class="op">=</span> <span class="dv">200</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>betas  <span class="op">=</span> np.linspace(<span class="fl">1e-4</span>, <span class="fl">0.02</span>, T)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>alphas <span class="op">=</span> <span class="dv">1</span> <span class="op">-</span> betas</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>abar   <span class="op">=</span> np.cumprod(alphas)          <span class="co"># ᾱ_t = ∏ α_s</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>x0 <span class="op">=</span> <span class="fl">3.0</span>                              <span class="co"># 스칼라 "데이터"</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>t  <span class="op">=</span> <span class="dv">150</span>                             <span class="co"># 검사할 시각</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co"># (a) 반복 샘플링: q(x_t | x_{t-1}) 를 t번</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="dv">200_000</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>xt <span class="op">=</span> np.full(N, x0, dtype<span class="op">=</span><span class="bu">float</span>)</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> s <span class="kw">in</span> <span class="bu">range</span>(t):</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    eps <span class="op">=</span> rng.standard_normal(N)</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    xt <span class="op">=</span> np.sqrt(alphas[s])<span class="op">*</span>xt <span class="op">+</span> np.sqrt(betas[s])<span class="op">*</span>eps</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co"># (b) 닫힌 형태: x_t = √ᾱ_t x0 + √(1-ᾱ_t) ε</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>eps <span class="op">=</span> rng.standard_normal(N)</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>xt_cf <span class="op">=</span> np.sqrt(abar[t<span class="op">-</span><span class="dv">1</span>])<span class="op">*</span>x0 <span class="op">+</span> np.sqrt(<span class="dv">1</span><span class="op">-</span>abar[t<span class="op">-</span><span class="dv">1</span>])<span class="op">*</span>eps</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"반복 샘플링  : mean=</span><span class="sc">{</span>xt<span class="sc">.</span>mean()<span class="sc">:.4f}</span><span class="ss">, var=</span><span class="sc">{</span>xt<span class="sc">.</span>var()<span class="sc">:.4f}</span><span class="ss">"</span>)</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"닫힌 형태    : mean=</span><span class="sc">{</span>xt_cf<span class="sc">.</span>mean()<span class="sc">:.4f}</span><span class="ss">, var=</span><span class="sc">{</span>xt_cf<span class="sc">.</span>var()<span class="sc">:.4f}</span><span class="ss">"</span>)</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"이론값       : mean=</span><span class="sc">{</span>np<span class="sc">.</span>sqrt(abar[t<span class="op">-</span><span class="dv">1</span>])<span class="op">*</span>x0<span class="sc">:.4f}</span><span class="ss">, "</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>      <span class="ss">f"var=</span><span class="sc">{</span><span class="dv">1</span><span class="op">-</span>abar[t<span class="op">-</span><span class="dv">1</span>]<span class="sc">:.4f}</span><span class="ss">"</span>)</span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>반복 샘플링  : mean=1.7001, var=0.6792
+닫힌 형태    : mean=1.6974, var=0.6791
+이론값       : mean=1.6981, var=0.6796</code></pre>
+</div>
+</div>
+<div id="gan-optimal-d" class="cell" data-execution_count="2">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 최적 판별자 D*(x) = p_data / (p_data + p_g)</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co"># V(G,D*) = E_pd[log D*] + E_pg[log(1-D*)] = -log4 + 2·JSD(pd||pg)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>xs <span class="op">=</span> np.linspace(<span class="op">-</span><span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">4000</span>)<span class="op">;</span> dx <span class="op">=</span> xs[<span class="dv">1</span>]<span class="op">-</span>xs[<span class="dv">0</span>]</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>gauss <span class="op">=</span> <span class="kw">lambda</span> x, m, s: np.exp(<span class="op">-</span><span class="fl">0.5</span><span class="op">*</span>((x<span class="op">-</span>m)<span class="op">/</span>s)<span class="op">**</span><span class="dv">2</span>)<span class="op">/</span>(s<span class="op">*</span>np.sqrt(<span class="dv">2</span><span class="op">*</span>np.pi))</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>pd <span class="op">=</span> gauss(xs, <span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> label, pg <span class="kw">in</span> [(<span class="st">"p_g = p_data "</span>, gauss(xs, <span class="fl">0.0</span>, <span class="fl">1.0</span>)),</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>                  (<span class="st">"p_g 이동됨    "</span>, gauss(xs, <span class="fl">1.5</span>, <span class="fl">1.0</span>))]:</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    Dstar <span class="op">=</span> pd<span class="op">/</span>(pd<span class="op">+</span>pg<span class="op">+</span><span class="fl">1e-12</span>)</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    V <span class="op">=</span> (pd<span class="op">*</span>np.log(Dstar<span class="op">+</span><span class="fl">1e-12</span>)).<span class="bu">sum</span>()<span class="op">*</span>dx <span class="op">+</span> (pg<span class="op">*</span>np.log(<span class="dv">1</span><span class="op">-</span>Dstar<span class="op">+</span><span class="fl">1e-12</span>)).<span class="bu">sum</span>()<span class="op">*</span>dx</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>label<span class="sc">}</span><span class="ss">: V(G,D*) = </span><span class="sc">{</span>V<span class="sc">:.4f}</span><span class="ss">   (-log4 = </span><span class="sc">{</span><span class="op">-</span>np<span class="sc">.</span>log(<span class="dv">4</span>)<span class="sc">:.4f}</span><span class="ss">)"</span>)</span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>p_g = p_data : V(G,D*) = -1.3863   (-log4 = -1.3863)
+p_g 이동됨    : V(G,D*) = -0.9440   (-log4 = -1.3863)</code></pre>
+</div>
+</div>
+<div id="reparam-trick" class="cell" data-execution_count="3">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 재매개변수화: z = μ + σ⊙ε 가 N(μ, σ²) 를 주는지 확인</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">1</span>)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>mu, sigma <span class="op">=</span> <span class="fl">2.0</span>, <span class="fl">0.5</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>eps <span class="op">=</span> rng.standard_normal(<span class="dv">500_000</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>z <span class="op">=</span> mu <span class="op">+</span> sigma<span class="op">*</span>eps</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"z ~ N(μ,σ²) 기대: mean=</span><span class="sc">{</span>mu<span class="sc">}</span><span class="ss">, var=</span><span class="sc">{</span>sigma<span class="op">**</span><span class="dv">2</span><span class="sc">:.4f}</span><span class="ss">"</span>)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"표본          : mean=</span><span class="sc">{</span>z<span class="sc">.</span>mean()<span class="sc">:.4f}</span><span class="ss">, var=</span><span class="sc">{</span>z<span class="sc">.</span>var()<span class="sc">:.4f}</span><span class="ss">"</span>)</span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>z ~ N(μ,σ²) 기대: mean=2.0, var=0.2500
+표본          : mean=1.9989, var=0.2492</code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>실행 결과 해석
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>DDPM: 반복 샘플링 · 닫힌 형태 · 이론값의 평균/분산이 일치 → <span class="math inline">x_t=\sqrt{\bar\alpha_t}x_0+\sqrt{1-\bar\alpha_t}\epsilon</span>가 정확함을 확인.</li>
+<li>GAN: <span class="math inline">p_g=p_{\text{data}}</span>일 때 <span class="math inline">V=-\log4</span>로 정확히 떨어지고, 분포가 어긋나면 그보다 커진다(<span class="math inline">2\,\mathrm{JSD}\ge0</span>).</li>
+<li>재매개변수화: <span class="math inline">\mu+\sigma\epsilon</span>이 목표 가우시안의 평균/분산을 재현 → 무작위성을 <span class="math inline">\epsilon</span>에 격리해도 분포가 보존됨.</li>
+</ul>
+</div>
+</div>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "복사완료!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "복사완료!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">소스 코드</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "생성 모델 (Generative Models): VAE · GAN · Diffusion"</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "AE에서 출발해 DDPM/DDIM/LDM/ControlNet까지"</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-05-11</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="an">lang:</span><span class="co"> ko</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-title: "목차"</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="co">    highlight-style: github</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: false</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: cosmo</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="co">    fig-width: 7</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="co">    mainfont: "Noto Sans CJK KR"</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a><span class="co">    html-math-method: katex</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a><span class="fu"># 큰 그림: 생성 모델의 지형도 {#sec-overview}</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a><span class="fu">## 한 줄 요약</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>**판별 모델(discriminative)** 은 결정 경계만 배우면 되지만, **생성 모델(generative)** 은 데이터 분포 $p(x)$ 전체의 *모양*을 배워야 한다. 그래서 생성 모델은 항상 "어떻게 $p(x)$를 다룰 수 있게(tractable) 만들 것인가"라는 한 가지 문제로 귀결된다. VAE·GAN·Diffusion은 그 답을 서로 다르게 내놓은 세 가지 전략이다.</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>분류기 $p(y\mid x)$는 클래스 사이의 경계만 정밀하게 잡으면 된다. 반면 생성 모델은 표본을 뽑을 수 있는 분포 자체를 모델링해야 하므로, 데이터의 전체 지형(landscape)을 알아야 한다. 같은 데이터로 학습할 때 일반적으로 **생성 모델이 더 많은 데이터와 더 큰 학습 비용을 요구**하는 이유가 여기에 있다.</span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>세 모델의 핵심 아이디어를 먼저 한눈에 본다.</span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 모델 <span class="pp">|</span> $p(x)$를 다루는 방식 <span class="pp">|</span> 학습 목적 <span class="pp">|</span> 안정성 <span class="pp">|</span> 표본 효율 <span class="pp">|</span></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|---|</span></span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **VAE** <span class="pp">|</span> 잠재변수 $z$로 우회: $p(x)=\int p(x\mid z)p(z)\,dz$, ELBO 하한 최대화 <span class="pp">|</span> 변분 추론 (ELBO) <span class="pp">|</span> 안정 <span class="pp">|</span> 보통 <span class="pp">|</span></span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **GAN** | 분포를 명시하지 않고 *표본만* 생성, 판별자로 평가 | 적대적 minimax | **불안정** | **높음** <span class="pp">|</span></span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Diffusion** <span class="pp">|</span> 노이즈화의 역과정을 학습 <span class="pp">|</span> 최대우도(MLE) 근사 <span class="pp">|</span> 안정 <span class="pp">|</span> 낮음(데이터 많이 필요) <span class="pp">|</span></span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>    AE[<span class="ot">"</span><span class="st">Auto-Encoder&lt;br/&gt;(결정적 압축)</span><span class="ot">"</span>] --&gt; VAE[<span class="ot">"</span><span class="st">VAE&lt;br/&gt;잠재공간을 N(0,I)로&lt;br/&gt;확률화 + 디코더</span><span class="ot">"</span>]</span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>    VAE --&gt;|디코더 = 생성기| GAN[<span class="ot">"</span><span class="st">GAN&lt;br/&gt;생성기 G vs 판별자 D&lt;br/&gt;적대적 학습</span><span class="ot">"</span>]</span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>    VAE --&gt;|잠재변수 관점| DIFF[<span class="ot">"</span><span class="st">Diffusion&lt;br/&gt;점진적 노이즈화의&lt;br/&gt;역과정 학습</span><span class="ot">"</span>]</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>    GAN -.불안정/모드붕괴 → 대안.-&gt; DIFF</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>    DIFF --&gt; DDPM --&gt; DDIM --&gt; LDM --&gt; ControlNet</span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a><span class="fu"># VAE 복습: 잠재변수와 ELBO {#sec-vae}</span></span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답</span></span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a>VAE의 손실은 **재구성 오차 + 잠재분포 정규화(KL)** 두 항이다. 이는 로그우도 $\log p(x)$의 하한인 **ELBO**를 최대화하는 것과 같고, 잠재변수 샘플링의 미분 불가능 문제는 **재매개변수화 트릭(reparameterization trick)** 으로 푼다.</span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a><span class="fu">## 왜 $p(x)$를 직접 못 다루는가</span></span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a>데이터 $X=<span class="sc">\{</span>x_1,\dots,x_N<span class="sc">\}</span>$가 주어졌을 때 $p(x)$를 직접 모델링하기는 어렵다. 그래서 알고 있는(샘플링 쉬운) 사전분포 $p(z)=\mathcal N(0,I)$를 도입해 우회한다.</span>
+<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-62"><a href="#cb7-62" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-63"><a href="#cb7-63" aria-hidden="true" tabindex="-1"></a>p(x)=\int_z p(x\mid z)\,p(z)\,dz .</span>
+<span id="cb7-64"><a href="#cb7-64" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-65"><a href="#cb7-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-66"><a href="#cb7-66" aria-hidden="true" tabindex="-1"></a>문제는 이 적분이 여전히 다루기 어렵다는 것이다($z$ 전 공간에 대한 적분). 그래서 사후분포 $p(z\mid x)$를 **파라미터화된 근사분포** $q_\phi(z)$로 대체한다. 이것이 **변분 추론(variational inference)** 이다.</span>
+<span id="cb7-67"><a href="#cb7-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-68"><a href="#cb7-68" aria-hidden="true" tabindex="-1"></a><span class="fu">## ELBO 유도</span></span>
+<span id="cb7-69"><a href="#cb7-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-70"><a href="#cb7-70" aria-hidden="true" tabindex="-1"></a>베이즈 규칙과 $\log p(x)=\log p(x)\cdot\int q_\phi(z)\,dz$에서 출발해 정리하면:</span>
+<span id="cb7-71"><a href="#cb7-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-72"><a href="#cb7-72" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-73"><a href="#cb7-73" aria-hidden="true" tabindex="-1"></a>\log p(x)=\underbrace{\mathbb E_{q_\phi}<span class="sc">\!</span>\big<span class="co">[</span><span class="ot">\log p(x,z)-\log q_\phi(z)\big</span><span class="co">]</span>}_{\textstyle \text{ELBO}}</span>
+<span id="cb7-74"><a href="#cb7-74" aria-hidden="true" tabindex="-1"></a>\;+\;\underbrace{\mathrm{KL}<span class="sc">\!</span>\big(q_\phi(z)\,<span class="sc">\|</span>\,p(z\mid x)\big)}_{\textstyle \ge 0}.</span>
+<span id="cb7-75"><a href="#cb7-75" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-76"><a href="#cb7-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-77"><a href="#cb7-77" aria-hidden="true" tabindex="-1"></a>좌변 $\log p(x)$는 $\theta,\phi$에 대해 상수다. KL 항은 항상 $\ge 0$이므로, **ELBO를 키우는 것 = 근사 사후 $q_\phi$를 참 사후 $p(z\mid x)$에 가깝게 만드는 것**이다.</span>
+<span id="cb7-78"><a href="#cb7-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-79"><a href="#cb7-79" aria-hidden="true" tabindex="-1"></a>ELBO를 한 번 더 전개하면 익숙한 두 항이 나온다.</span>
+<span id="cb7-80"><a href="#cb7-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-81"><a href="#cb7-81" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-82"><a href="#cb7-82" aria-hidden="true" tabindex="-1"></a>\mathrm{ELBO}=\mathbb E_{q_\phi}<span class="sc">\!</span>\big<span class="co">[</span><span class="ot">\log p(x\mid z)\big</span><span class="co">]</span>-\mathrm{KL}<span class="sc">\!</span>\big(q_\phi(z)\,<span class="sc">\|</span>\,p(z)\big).</span>
+<span id="cb7-83"><a href="#cb7-83" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-84"><a href="#cb7-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-85"><a href="#cb7-85" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>첫 항: **재구성(reconstruction)** — 디코더 $p(x\mid z)$가 $x$를 얼마나 잘 복원하는가</span>
+<span id="cb7-86"><a href="#cb7-86" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>둘째 항: **정규화(regularization)** — 잠재 $z$의 분포가 $\mathcal N(0,I)$를 따르도록 강제</span>
+<span id="cb7-87"><a href="#cb7-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-88"><a href="#cb7-88" aria-hidden="true" tabindex="-1"></a>따라서 VAE 손실은</span>
+<span id="cb7-89"><a href="#cb7-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-90"><a href="#cb7-90" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-91"><a href="#cb7-91" aria-hidden="true" tabindex="-1"></a>\min_{\theta,\phi}\;\; -\,\mathbb E_{q_\phi}<span class="sc">\!</span>\big<span class="co">[</span><span class="ot">\log p_\theta(x\mid z)\big</span><span class="co">]</span>\;+\;\mathrm{KL}<span class="sc">\!</span>\big(q_\phi(z\mid x)\,<span class="sc">\|</span>\,p(z)\big).</span>
+<span id="cb7-92"><a href="#cb7-92" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-93"><a href="#cb7-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-94"><a href="#cb7-94" aria-hidden="true" tabindex="-1"></a><span class="fu">## 재매개변수화 트릭</span></span>
+<span id="cb7-95"><a href="#cb7-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-96"><a href="#cb7-96" aria-hidden="true" tabindex="-1"></a>역전파 경로는 $\mathcal L \to z \to \phi$인데, $z\sim q_\phi(z\mid x)$를 *샘플링*하면 그 연산이 미분 불가능하다. 무작위성을 외부 변수로 분리해 우회한다.</span>
+<span id="cb7-97"><a href="#cb7-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-98"><a href="#cb7-98" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-99"><a href="#cb7-99" aria-hidden="true" tabindex="-1"></a>z=\mu_\phi(x)+\sigma_\phi(x)\odot\epsilon,\qquad \epsilon\sim\mathcal N(0,I).</span>
+<span id="cb7-100"><a href="#cb7-100" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-101"><a href="#cb7-101" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-102"><a href="#cb7-102" aria-hidden="true" tabindex="-1"></a>이제 무작위성은 $\epsilon$에만 있고, $\mu_\phi,\sigma_\phi$를 통과하는 경로는 결정적이라 그래디언트가 흐른다.</span>
+<span id="cb7-103"><a href="#cb7-103" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-104"><a href="#cb7-104" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb7-105"><a href="#cb7-105" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 비유 — 재매개변수화 = 수신신호 모델</span></span>
+<span id="cb7-106"><a href="#cb7-106" aria-hidden="true" tabindex="-1"></a>수신신호 $y=h\,x+n,\ n\sim\mathcal N(0,\sigma^2)$를 떠올려 보자. 채널 이득 $h$(결정적 부분)와 잡음 $n$(무작위 부분)을 **분리**해 두면, 시스템 파라미터에 대한 미분은 결정적 경로로만 흘러가고 무작위성은 잡음 항에 격리된다. 재매개변수화 $z=\mu+\sigma\epsilon$는 정확히 이 구조다 — "평균(신호) + 표준편차(잡음 세기)×표준정규" 형태로 샘플을 만든다.</span>
+<span id="cb7-107"><a href="#cb7-107" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-108"><a href="#cb7-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-109"><a href="#cb7-109" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb7-110"><a href="#cb7-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-111"><a href="#cb7-111" aria-hidden="true" tabindex="-1"></a><span class="fu"># GAN: 적대적 학습 {#sec-gan}</span></span>
+<span id="cb7-112"><a href="#cb7-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-113"><a href="#cb7-113" aria-hidden="true" tabindex="-1"></a><span class="fu">## adversarial example과 adversarial training은 다르다</span></span>
+<span id="cb7-114"><a href="#cb7-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-115"><a href="#cb7-115" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb7-116"><a href="#cb7-116" aria-hidden="true" tabindex="-1"></a><span class="fu">## 혼동 주의</span></span>
+<span id="cb7-117"><a href="#cb7-117" aria-hidden="true" tabindex="-1"></a>**Adversarial example**: 이미 학습된 신경망을 *속이려고* 입력에 미세한 교란(perturbation)을 더한 것. 고양이 이미지에 사람 눈엔 안 보이는 패치를 더해 "데스크톱 컴퓨터"로 높은 확신으로 오분류시키는 식. 목적은 *공격*이다.</span>
+<span id="cb7-118"><a href="#cb7-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-119"><a href="#cb7-119" aria-hidden="true" tabindex="-1"></a>**Adversarial training (= GAN의 학습 패러다임)**: 두 네트워크가 *서로 속이고/안 속으려* 경쟁하며 함께 좋아지게 하는 학습. 목적은 *생성기를 더 좋게* 만드는 것이다.</span>
+<span id="cb7-120"><a href="#cb7-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-121"><a href="#cb7-121" aria-hidden="true" tabindex="-1"></a>둘 다 "적대적"이라는 단어를 공유하지만 목적이 정반대다. (LeCun은 2016년에 "지난 10년 ML에서 가장 흥미로운 아이디어는 적대적 학습"이라고 평했다.)</span>
+<span id="cb7-122"><a href="#cb7-122" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-123"><a href="#cb7-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-124"><a href="#cb7-124" aria-hidden="true" tabindex="-1"></a><span class="fu">## 구성 요소: 생성기 G와 판별자 D</span></span>
+<span id="cb7-125"><a href="#cb7-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-126"><a href="#cb7-126" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**생성기(Generator) $G$**: $d$차원 무작위 벡터 $z$(예: $\mathcal N(0,I)$에서 샘플)를 입력받아 이미지를 출력. $z$ 공간이 "잠재공간"이고, $G$는 데이터 생성 분포를 흉내 낸다.</span>
+<span id="cb7-127"><a href="#cb7-127" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**판별자(Discriminator) $D$**: 입력 이미지가 **진짜(실세계 데이터)** 인지 **가짜($G$가 만든 것)** 인지 판정. 출력 $D(x)\in<span class="co">[</span><span class="ot">0,1</span><span class="co">]</span>$은 "진짜일 확률".</span>
+<span id="cb7-128"><a href="#cb7-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-129"><a href="#cb7-129" aria-hidden="true" tabindex="-1"></a>좋은 생성기란 무엇인가? "생성된 이미지가 진짜처럼 보이는 정도"가 높은 것. 그런데 *진짜처럼 보이는지*를 사람이 매번 채점할 수는 없다. 그래서 **판별자라는 두 번째 네트워크를 도입해 자동 채점기로 쓴다** — 이것이 적대적 학습의 핵심 발상이다.</span>
+<span id="cb7-130"><a href="#cb7-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-133"><a href="#cb7-133" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb7-134"><a href="#cb7-134" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
+<span id="cb7-135"><a href="#cb7-135" aria-hidden="true" tabindex="-1"></a>    Z[<span class="ot">"</span><span class="st">z ~ N(0,I)</span><span class="ot">"</span>] --&gt; G[<span class="ot">"</span><span class="st">생성기 G</span><span class="ot">"</span>]</span>
+<span id="cb7-136"><a href="#cb7-136" aria-hidden="true" tabindex="-1"></a>    G --&gt; FAKE[<span class="ot">"</span><span class="st">가짜 이미지 G(z)</span><span class="ot">"</span>]</span>
+<span id="cb7-137"><a href="#cb7-137" aria-hidden="true" tabindex="-1"></a>    REAL[<span class="ot">"</span><span class="st">진짜 이미지 x ~ p_data</span><span class="ot">"</span>] --&gt; D</span>
+<span id="cb7-138"><a href="#cb7-138" aria-hidden="true" tabindex="-1"></a>    FAKE --&gt; D[<span class="ot">"</span><span class="st">판별자 D</span><span class="ot">"</span>]</span>
+<span id="cb7-139"><a href="#cb7-139" aria-hidden="true" tabindex="-1"></a>    D --&gt; OUT[<span class="ot">"</span><span class="st">D(·) ∈ [0,1]&lt;br/&gt;진짜일 확률</span><span class="ot">"</span>]</span>
+<span id="cb7-140"><a href="#cb7-140" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb7-141"><a href="#cb7-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-142"><a href="#cb7-142" aria-hidden="true" tabindex="-1"></a><span class="fu">## minimax 목적함수</span></span>
+<span id="cb7-143"><a href="#cb7-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-144"><a href="#cb7-144" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-145"><a href="#cb7-145" aria-hidden="true" tabindex="-1"></a>\min_G\max_D\; V(D,G)=\mathbb E_{x\sim p_{\text{data}}}\big<span class="co">[</span><span class="ot">\log D(x)\big</span><span class="co">]</span></span>
+<span id="cb7-146"><a href="#cb7-146" aria-hidden="true" tabindex="-1"></a>+\mathbb E_{z\sim p_z}\big<span class="co">[</span><span class="ot">\log\!\big(1-D(G(z))\big)\big</span><span class="co">]</span>.</span>
+<span id="cb7-147"><a href="#cb7-147" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-148"><a href="#cb7-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-149"><a href="#cb7-149" aria-hidden="true" tabindex="-1"></a>물리적 의미는 *"$x$가 진짜일 로그확률" + "$G(z)$가 가짜일 로그확률"* 이다. 두 변수의 관점에서 읽어야 한다.</span>
+<span id="cb7-150"><a href="#cb7-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-151"><a href="#cb7-151" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**$D$ 관점(최대화)**: $x$가 진짜면 $D(x)\to1$이라 첫 항 $\log D(x)\to0$(최댓값). $G(z)$가 가짜면 $D(G(z))\to0$이라 둘째 항 $\log(1-0)\to0$. 즉 $D$가 잘하면 $V$가 커진다 → **$D$는 $V$를 최대화**.</span>
+<span id="cb7-152"><a href="#cb7-152" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**$G$ 관점(최소화)**: $G$가 $D$를 잘 속이면 $D(G(z))\to1$이라 둘째 항 $\log(1-1)\to-\infty$. 즉 $G$가 잘하면 $V$가 작아진다 → **$G$는 $V$를 최소화**.</span>
+<span id="cb7-153"><a href="#cb7-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-154"><a href="#cb7-154" aria-hidden="true" tabindex="-1"></a>서로 반대 방향으로 당기는 **zero-sum 비협조 게임(minimax problem)** 이다.</span>
+<span id="cb7-155"><a href="#cb7-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-156"><a href="#cb7-156" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb7-157"><a href="#cb7-157" aria-hidden="true" tabindex="-1"></a><span class="fu">## 학습 = 블록 좌표 하강 (alternating optimization)</span></span>
+<span id="cb7-158"><a href="#cb7-158" aria-hidden="true" tabindex="-1"></a>전체 파라미터 집합 안에 $G$의 파라미터와 $D$의 파라미터가 함께 들어 있다. 한쪽을 고정하고 다른 쪽으로 (경사)하강/상승하는 식으로 **번갈아** 최적화한다. 이것이 **블록 좌표 하강(block coordinate descent)** 이다. 모든 좌표를 동시에 내려가는 게 아니라 변수 블록을 나눠 번갈아 내려간다. (최대화 항은 부호만 뒤집으면 하강으로 통일된다.)</span>
+<span id="cb7-159"><a href="#cb7-159" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-160"><a href="#cb7-160" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-161"><a href="#cb7-161" aria-hidden="true" tabindex="-1"></a>세 단계로 풀어 쓴 업데이트:</span>
+<span id="cb7-162"><a href="#cb7-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-163"><a href="#cb7-163" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**D 업데이트 (Real)**: 진짜 데이터에 대해 $D$가 "진짜"라고 말하도록. $D(x_{\text{real}})\to1$.</span>
+<span id="cb7-164"><a href="#cb7-164" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**D 업데이트 (Fake)**: 가짜 데이터에 대해 $D$가 "가짜"라고 말하도록. $D(G(z))\to0$.</span>
+<span id="cb7-165"><a href="#cb7-165" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**G 업데이트**: $D$가 가짜를 "진짜"라고 착각하도록 $G$를 갱신. $D(G(z))\to1$이 되도록.</span>
+<span id="cb7-166"><a href="#cb7-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-167"><a href="#cb7-167" aria-hidden="true" tabindex="-1"></a>각 단계에서 *잘하는 쪽은 거의 갱신되지 않고, 못하는 쪽이 크게 갱신*된다. $G$를 갱신할 때 그래디언트는 $D$를 거쳐 직렬로 $G$까지 역전파되므로, **$G$에 도달할 즈음 그래디언트가 이미 많이 줄어들어** $G$ 학습이 어렵다(아래 3대 난제와 연결).</span>
+<span id="cb7-168"><a href="#cb7-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-169"><a href="#cb7-169" aria-hidden="true" tabindex="-1"></a><span class="fu">## 최적 판별자와 JSD: 왜 잘 되면 $p_g=p_{\text{data}}$인가 {#sec-gan-optimal}</span></span>
+<span id="cb7-170"><a href="#cb7-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-171"><a href="#cb7-171" aria-hidden="true" tabindex="-1"></a>$G$를 고정하면 $V$를 $D$에 대해 점별로 최대화할 수 있다. 적분 내부를 $D(x)$로 미분해 0으로 두면 **최적 판별자**:</span>
+<span id="cb7-172"><a href="#cb7-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-173"><a href="#cb7-173" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-174"><a href="#cb7-174" aria-hidden="true" tabindex="-1"></a>D^<span class="sc">\*</span>(x)=\frac{p_{\text{data}}(x)}{p_{\text{data}}(x)+p_g(x)} .</span>
+<span id="cb7-175"><a href="#cb7-175" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-176"><a href="#cb7-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-177"><a href="#cb7-177" aria-hidden="true" tabindex="-1"></a>이를 대입하면 목적함수가 **Jensen–Shannon 발산(JSD)** 으로 정리된다.</span>
+<span id="cb7-178"><a href="#cb7-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-179"><a href="#cb7-179" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-180"><a href="#cb7-180" aria-hidden="true" tabindex="-1"></a>V(G,D^<span class="sc">\*</span>)=-\log 4+2\,\mathrm{JSD}<span class="sc">\!</span>\big(p_{\text{data}}\,<span class="sc">\|</span>\,p_g\big).</span>
+<span id="cb7-181"><a href="#cb7-181" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-182"><a href="#cb7-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-183"><a href="#cb7-183" aria-hidden="true" tabindex="-1"></a>$\mathrm{JSD}\ge0$이고 $p_g=p_{\text{data}}$일 때만 $0$이므로, **전역 최적은 $p_g=p_{\text{data}}$이며 그때 값은 $-\log 4\approx-1.386$**. (이 값은 부록 코드로 수치 확인했다.)</span>
+<span id="cb7-184"><a href="#cb7-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-185"><a href="#cb7-185" aria-hidden="true" tabindex="-1"></a><span class="fu">## 왜 GAN은 효과적인가: hard negative</span></span>
+<span id="cb7-186"><a href="#cb7-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-187"><a href="#cb7-187" aria-hidden="true" tabindex="-1"></a>데이터 생성 분포의 "산맥"을 정확히 그리려면 **경계(borders/envelope)** 근처의 표본이 결정적이다. 분류 문헌에서 경계 근처의 까다로운 음성 표본을 **hard negative(hard sample)** 라 부른다. 보통 이런 표본은 외부에서 수집하기 어렵다.</span>
+<span id="cb7-188"><a href="#cb7-188" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-189"><a href="#cb7-189" aria-hidden="true" tabindex="-1"></a>그런데 GAN의 $G$는 **$D$를 효과적으로 속이려면 자연히 경계 근처의 데이터를 생성**하게 된다. 즉 적대적 경쟁이 추가 비용 없이 hard negative를 *공짜로* 만들어낸다. 그래서 GAN은 표본 효율이 좋고, 분포의 경계/외곽선을 또렷하게 잡는다. (GAN이 2014년에 제안된 동기 자체가 "데이터 부족(data deficiency)" 시대의 해법이었다.)</span>
+<span id="cb7-190"><a href="#cb7-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-191"><a href="#cb7-191" aria-hidden="true" tabindex="-1"></a><span class="fu">## 실전 3대 난제</span></span>
+<span id="cb7-192"><a href="#cb7-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-193"><a href="#cb7-193" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb7-194"><a href="#cb7-194" aria-hidden="true" tabindex="-1"></a><span class="fu">## GAN 학습이 악명 높은 이유</span></span>
+<span id="cb7-195"><a href="#cb7-195" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**비수렴(Non-convergence)**: 파라미터가 진동·발산하며 수렴하지 않음. $D$가 $G$보다 *훨씬 쉽게/빠르게* 학습되어(경계만 배우면 되므로) 힘의 불균형이 생긴다. $D$가 과도하게 강해지면 두 모델이 매 반복마다 함께 좋아지지 못하고 불안정해진다.</span>
+<span id="cb7-196"><a href="#cb7-196" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**모드 붕괴(Mode Collapse)**: $G$가 *몇 가지 쉬운 표본만* 반복 생성해 $D$를 속이고 거기에 눌러앉는 현상. 참 분포의 여러 봉우리(mode)를 다 못 배우고 일부 뾰족한 봉우리만 만든다 → 다양성 상실.</span>
+<span id="cb7-197"><a href="#cb7-197" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**그래디언트 소실(Diminished gradient)**: $D$가 너무 잘하면 $G$로 역전파되는 그래디언트가 사라져 $G$가 아무것도 못 배운다.</span>
+<span id="cb7-198"><a href="#cb7-198" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-199"><a href="#cb7-199" aria-hidden="true" tabindex="-1"></a>2·3번은 본질적으로 **$D$와 $G$의 학습 난이도/속도 불균형**에서 온다. 하이퍼파라미터(학습률, 배치 크기) 튜닝이 "예술의 경지"로 까다롭다.</span>
+<span id="cb7-200"><a href="#cb7-200" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-201"><a href="#cb7-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-202"><a href="#cb7-202" aria-hidden="true" tabindex="-1"></a><span class="fu">## 안정화 변형들</span></span>
+<span id="cb7-203"><a href="#cb7-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-204"><a href="#cb7-204" aria-hidden="true" tabindex="-1"></a>위 두 문제(모드 붕괴·비수렴)를 겨냥해 수백 편의 변형이 나왔다.</span>
+<span id="cb7-205"><a href="#cb7-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-206"><a href="#cb7-206" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**LSGAN** (Least Squares GAN): 최소제곱 손실</span>
+<span id="cb7-207"><a href="#cb7-207" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**WGAN** (Wasserstein GAN): Wasserstein 거리로 더 매끄러운 손실</span>
+<span id="cb7-208"><a href="#cb7-208" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**WGAN-GP**: WGAN + 그래디언트 패널티</span>
+<span id="cb7-209"><a href="#cb7-209" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**BEGAN** (Boundary Equilibrium GAN), DCGAN, CycleGAN 등 다수</span>
+<span id="cb7-210"><a href="#cb7-210" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-211"><a href="#cb7-211" aria-hidden="true" tabindex="-1"></a>GAN이 자유롭게 손실 함수를 바꿀 수 있다는 점(예: Wasserstein, Hinge 손실)은 강점이자, 그만큼 *튜닝의 자유도가 높아 안정화가 어렵다*는 약점이기도 하다.</span>
+<span id="cb7-212"><a href="#cb7-212" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-213"><a href="#cb7-213" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb7-214"><a href="#cb7-214" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 비유 — GAN = 스푸핑 송신기 vs 신호검출기 게임</span></span>
+<span id="cb7-215"><a href="#cb7-215" aria-hidden="true" tabindex="-1"></a>$G$를 **위장(spoofing) 송신기**, $D$를 **신호 검출기**라 보자. $D$는 입력이 "진짜 신호"인지 "합성 신호"인지 판정하는 Neyman–Pearson 류 검출기이고, 최적 판별자 $D^\*=\tfrac{p_{\text{data}}}{p_{\text{data}}+p_g}$는 두 가설의 **우도비(likelihood ratio) 검정**과 정확히 같은 형태다. 이 관점에서:</span>
+<span id="cb7-216"><a href="#cb7-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-217"><a href="#cb7-217" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**모드 붕괴** = 송신기가 콘스텔레이션 다양성을 잃고 *몇 개 심볼만* 반복 송신하는 것</span>
+<span id="cb7-218"><a href="#cb7-218" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**그래디언트 소실** = 검출기가 고-SNR 영역 깊숙이 포화되어 우도비의 기울기가 사라지는 것</span>
+<span id="cb7-219"><a href="#cb7-219" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**minimax / zero-sum** = 재머 vs 수신기, 또는 강건(worst-case) 검출의 게임 구조</span>
+<span id="cb7-220"><a href="#cb7-220" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-221"><a href="#cb7-221" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-222"><a href="#cb7-222" aria-hidden="true" tabindex="-1"></a><span class="fu">## VAE와 GAN의 연결</span></span>
+<span id="cb7-223"><a href="#cb7-223" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-224"><a href="#cb7-224" aria-hidden="true" tabindex="-1"></a>생성기의 입력 $z$를 보통 $\mathcal N(0,I)$로 모델링하므로, **VAE의 디코더를 GAN의 생성기로** 그대로 쓸 수 있다. VAE의 인코더–디코더 구조에서 디코더 $=G$, 그리고 판별자를 덧붙이면 GAN이 된다. 둘은 서로 변환 가능한, 닮은 구조다. 차이는 *학습 패러다임*(VAE=변분추론/MLE 계열, GAN=적대적 학습)에 있다.</span>
+<span id="cb7-225"><a href="#cb7-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-226"><a href="#cb7-226" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb7-227"><a href="#cb7-227" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-228"><a href="#cb7-228" aria-hidden="true" tabindex="-1"></a><span class="fu"># Diffusion 모델 {#sec-diffusion}</span></span>
+<span id="cb7-229"><a href="#cb7-229" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-230"><a href="#cb7-230" aria-hidden="true" tabindex="-1"></a><span class="fu">## GAN vs Diffusion: 왜 갈아탔나</span></span>
+<span id="cb7-231"><a href="#cb7-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-232"><a href="#cb7-232" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb7-233"><a href="#cb7-233" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답</span></span>
+<span id="cb7-234"><a href="#cb7-234" aria-hidden="true" tabindex="-1"></a>GAN은 빠르고 표본 효율이 좋지만 **불안정(모드 붕괴·비수렴)**. Diffusion은 **느리지만 안정적**이고 품질이 뛰어나다. 핵심 차이: Diffusion은 **최대우도(MLE)** 라는 *잘 이해된* 최적화로 학습되고, 두 모델을 싸움 붙이지 않고 **단일 모델**을 학습한다 → 모드 붕괴 개념 자체가 없다.</span>
+<span id="cb7-235"><a href="#cb7-235" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-236"><a href="#cb7-236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-237"><a href="#cb7-237" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="pp">|</span> **Diffusion (DDPM)** | **GAN** <span class="pp">|</span></span>
+<span id="cb7-238"><a href="#cb7-238" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb7-239"><a href="#cb7-239" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 장점 <span class="pp">|</span> 디테일이 살아있는 고품질·선명한 표본 / **MLE = 잘 이해된 최적화** / 이미지·오디오 모두 | 고품질(이미지·오디오) / **상대적으로 빠른 학습** / 다양한 손실(Wasserstein, Hinge) 사용 가능 <span class="pp">|</span></span>
+<span id="cb7-240"><a href="#cb7-240" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 단점 <span class="pp">|</span> **느리고 계산 비용 큼**(반복 $T$회) / 많은 데이터 필요 | 학습이 까다로움 / **하이퍼파라미터에 민감** / **모드 붕괴** <span class="pp">|</span></span>
+<span id="cb7-241"><a href="#cb7-241" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-242"><a href="#cb7-242" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb7-243"><a href="#cb7-243" aria-hidden="true" tabindex="-1"></a><span class="fu">## 교수님의 직관 — "확률 탑(probability tower)" 쌓기</span></span>
+<span id="cb7-244"><a href="#cb7-244" aria-hidden="true" tabindex="-1"></a>GAN이 hard negative로 *경계*를 또렷하게 그린다면, Diffusion은 다른 방식으로 분포의 산맥을 만든다. 모든 위치의 데이터 포인트를 주고 **노이즈화 과정을 학습**시키면, "각 위치에서 확률을 얼마나 높이 쌓아 올릴지"를 배우게 된다. 즉 경계뿐 아니라 봉우리의 *높이*까지 포함한 전체 지형을 복원한다. 대신 모든 위치의 데이터가 필요하므로 데이터를 많이 모아야 한다.</span>
+<span id="cb7-245"><a href="#cb7-245" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-246"><a href="#cb7-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-247"><a href="#cb7-247" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb7-248"><a href="#cb7-248" aria-hidden="true" tabindex="-1"></a><span class="fu">## 안정성 비유 — 변동성 큰 주식 vs 꾸준히 오르는 주식</span></span>
+<span id="cb7-249"><a href="#cb7-249" aria-hidden="true" tabindex="-1"></a>GAN은 운이 좋으면 하룻밤에 멋진 모델을 주지만, 잘못되면 밤새 학습시켜도 모드 붕괴된 쓸모없는 결과가 나온다(대규모 학습이라면 막대한 비용 손실). Diffusion은 느리지만 **매일 조금씩 꾸준히 좋아지는** 모델 — 마음이 편하다. 산업계가 Diffusion을 택한 이유다. (오늘날 대부분의 이미지·비디오 생성은 Diffusion 계열이다.)</span>
+<span id="cb7-250"><a href="#cb7-250" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-251"><a href="#cb7-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-252"><a href="#cb7-252" aria-hidden="true" tabindex="-1"></a><span class="fu">## DDPM: 두 과정</span></span>
+<span id="cb7-253"><a href="#cb7-253" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-254"><a href="#cb7-254" aria-hidden="true" tabindex="-1"></a>DDPM(Denoising Diffusion Probabilistic Model, 2020)은 두 과정으로 구성된다.</span>
+<span id="cb7-255"><a href="#cb7-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-258"><a href="#cb7-258" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb7-259"><a href="#cb7-259" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
+<span id="cb7-260"><a href="#cb7-260" aria-hidden="true" tabindex="-1"></a>    X0[<span class="ot">"</span><span class="st">x₀ (깨끗한 데이터)</span><span class="ot">"</span>] --&gt;|<span class="ot">"</span><span class="st">q(xₜ|xₜ₋₁) 노이즈 추가</span><span class="ot">"</span>| XT[<span class="ot">"</span><span class="st">x_T ~ N(0,I) (순수 잡음)</span><span class="ot">"</span>]</span>
+<span id="cb7-261"><a href="#cb7-261" aria-hidden="true" tabindex="-1"></a>    XT --&gt;|<span class="ot">"</span><span class="st">pθ(xₜ₋₁|xₜ) 학습된 디노이징</span><span class="ot">"</span>| X0b[<span class="ot">"</span><span class="st">x₀ (생성)</span><span class="ot">"</span>]</span>
+<span id="cb7-262"><a href="#cb7-262" aria-hidden="true" tabindex="-1"></a>    X0 -. <span class="ot">"</span><span class="st">Forward (고정)</span><span class="ot">"</span> .- XT</span>
+<span id="cb7-263"><a href="#cb7-263" aria-hidden="true" tabindex="-1"></a>    XT -. <span class="ot">"</span><span class="st">Reverse (생성/학습)</span><span class="ot">"</span> .- X0b</span>
+<span id="cb7-264"><a href="#cb7-264" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb7-265"><a href="#cb7-265" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-266"><a href="#cb7-266" aria-hidden="true" tabindex="-1"></a><span class="fu">### Forward (확산) 과정 — 고정</span></span>
+<span id="cb7-267"><a href="#cb7-267" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-268"><a href="#cb7-268" aria-hidden="true" tabindex="-1"></a>라텐트 변수의 마르코프 연쇄로, 사전 스케줄된 분산 $\beta_t$로 가우시안 잡음을 점진적으로 더한다.</span>
+<span id="cb7-269"><a href="#cb7-269" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-270"><a href="#cb7-270" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-271"><a href="#cb7-271" aria-hidden="true" tabindex="-1"></a>q(x_t\mid x_{t-1})=\mathcal N<span class="sc">\!</span>\big(x_t;\ \sqrt{1-\beta_t}\,x_{t-1},\ \beta_t I\big).</span>
+<span id="cb7-272"><a href="#cb7-272" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-273"><a href="#cb7-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-274"><a href="#cb7-274" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\beta_t$: 시각 $t$에서의 **잡음 크기**</span>
+<span id="cb7-275"><a href="#cb7-275" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\alpha_t=1-\beta_t$: **신호 보존 크기**, 그리고 $\bar\alpha_t=\prod_{s=1}^{t}\alpha_s$</span>
+<span id="cb7-276"><a href="#cb7-276" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-277"><a href="#cb7-277" aria-hidden="true" tabindex="-1"></a>마르코프성과 가우시안 합성을 이용하면 임의 시각 $t$를 **한 방에(closed-form)** 표현할 수 있다.</span>
+<span id="cb7-278"><a href="#cb7-278" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-279"><a href="#cb7-279" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-280"><a href="#cb7-280" aria-hidden="true" tabindex="-1"></a>\boxed{\,x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon,\qquad \epsilon\sim\mathcal N(0,I)\,}</span>
+<span id="cb7-281"><a href="#cb7-281" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-282"><a href="#cb7-282" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-283"><a href="#cb7-283" aria-hidden="true" tabindex="-1"></a>$\beta_t$를 충분히 작게 두고 $T$를 키워 $\delta t\to0$의 연속 극한을 취하면 **확률미분방정식(SDE)** 이 된다.</span>
+<span id="cb7-284"><a href="#cb7-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-285"><a href="#cb7-285" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-286"><a href="#cb7-286" aria-hidden="true" tabindex="-1"></a>dx=-\tfrac12\,\beta(t)\,x\,dt+\sqrt{\beta(t)}\,dW_t,\qquad (W_t:\text{Wiener 과정}).</span>
+<span id="cb7-287"><a href="#cb7-287" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-288"><a href="#cb7-288" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-289"><a href="#cb7-289" aria-hidden="true" tabindex="-1"></a>매 $t$에서 잡음 $\epsilon$이 무작위라 제어 불가능하므로 *확률적* 미분방정식이다.</span>
+<span id="cb7-290"><a href="#cb7-290" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-291"><a href="#cb7-291" aria-hidden="true" tabindex="-1"></a><span class="fu">### Reverse (디노이징) 과정 — 학습 대상</span></span>
+<span id="cb7-292"><a href="#cb7-292" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-293"><a href="#cb7-293" aria-hidden="true" tabindex="-1"></a>베이즈 규칙상 역과정은</span>
+<span id="cb7-294"><a href="#cb7-294" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-295"><a href="#cb7-295" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-296"><a href="#cb7-296" aria-hidden="true" tabindex="-1"></a>q(x_{t-1}\mid x_t)=\frac{q(x_t\mid x_{t-1})\,q(x_{t-1})}{q(x_t)}</span>
+<span id="cb7-297"><a href="#cb7-297" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-298"><a href="#cb7-298" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-299"><a href="#cb7-299" aria-hidden="true" tabindex="-1"></a>인데, **$q(x_{t-1}), q(x_t)$를 모른다**(나쁜 소식). 좋은 소식: $\beta_t\ll1$이면 참 역과정 $q(x_{t-1}\mid x_t)$가 **가우시안으로 잘 근사**된다는 정리가 있다. 그래서 신경망으로 파라미터화한 가우시안으로 근사한다.</span>
+<span id="cb7-300"><a href="#cb7-300" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-301"><a href="#cb7-301" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-302"><a href="#cb7-302" aria-hidden="true" tabindex="-1"></a>p_\theta(x_{t-1}\mid x_t)=\mathcal N<span class="sc">\!</span>\big(x_{t-1};\ \mu_\theta(x_t,t),\ \sigma_t^2 I\big).</span>
+<span id="cb7-303"><a href="#cb7-303" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-304"><a href="#cb7-304" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-305"><a href="#cb7-305" aria-hidden="true" tabindex="-1"></a>우리가 배울 것은 이 가우시안의 평균 $\mu_\theta$(=디노이저)다.</span>
+<span id="cb7-306"><a href="#cb7-306" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-307"><a href="#cb7-307" aria-hidden="true" tabindex="-1"></a><span class="fu">### 학습: 평균 대신 "잡음"을 예측</span></span>
+<span id="cb7-308"><a href="#cb7-308" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-309"><a href="#cb7-309" aria-hidden="true" tabindex="-1"></a>Forward의 닫힌 형태에서 참 평균을 정리하면, $\mu_\theta$를 **노이즈 예측기 $\epsilon_\theta(x_t,t)$** 로 재매개변수화할 수 있다.</span>
+<span id="cb7-310"><a href="#cb7-310" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-311"><a href="#cb7-311" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-312"><a href="#cb7-312" aria-hidden="true" tabindex="-1"></a>\mu_\theta(x_t,t)=\frac{1}{\sqrt{\alpha_t}}<span class="sc">\!</span>\left(x_t-\frac{\beta_t}{\sqrt{1-\bar\alpha_t}}\,\epsilon_\theta(x_t,t)\right).</span>
+<span id="cb7-313"><a href="#cb7-313" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-314"><a href="#cb7-314" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-315"><a href="#cb7-315" aria-hidden="true" tabindex="-1"></a>그러면 학습은 놀랍도록 단순해진다. **각 $t$마다 진짜 잡음 $\epsilon$을 정답으로 삼아, 신경망이 그 잡음을 맞히도록** 회귀한다.</span>
+<span id="cb7-316"><a href="#cb7-316" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-317"><a href="#cb7-317" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-318"><a href="#cb7-318" aria-hidden="true" tabindex="-1"></a>\boxed{\;\mathcal L_{\text{simple}}=\mathbb E_{t,\,x_0,\,\epsilon}\Big<span class="co">[</span><span class="ot">\ \big\|\,\epsilon-\epsilon_\theta\big(\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon,\ t\big)\big\|^2\ \Big</span><span class="co">]</span>\;}</span>
+<span id="cb7-319"><a href="#cb7-319" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-320"><a href="#cb7-320" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-321"><a href="#cb7-321" aria-hidden="true" tabindex="-1"></a>알고리즘:</span>
+<span id="cb7-322"><a href="#cb7-322" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-323"><a href="#cb7-323" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>시각 $t$ 추출, 정답 잡음 $\epsilon\sim\mathcal N(0,I)$ 추출</span>
+<span id="cb7-324"><a href="#cb7-324" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>$x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon$ 계산</span>
+<span id="cb7-325"><a href="#cb7-325" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>$\nabla_\theta\|\epsilon-\epsilon_\theta(x_t,t)<span class="sc">\|</span>^2$로 경사하강</span>
+<span id="cb7-326"><a href="#cb7-326" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-327"><a href="#cb7-327" aria-hidden="true" tabindex="-1"></a><span class="fu">### 생성(Sampling)</span></span>
+<span id="cb7-328"><a href="#cb7-328" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-329"><a href="#cb7-329" aria-hidden="true" tabindex="-1"></a>$x_T\sim\mathcal N(0,I)$에서 시작해 $t=T,\dots,1$로 내려가며 학습된 $\epsilon_\theta$로 한 단계씩 디노이징한다.</span>
+<span id="cb7-330"><a href="#cb7-330" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-331"><a href="#cb7-331" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-332"><a href="#cb7-332" aria-hidden="true" tabindex="-1"></a>\hat x_0=\frac{1}{\sqrt{\bar\alpha_t}}\big(x_t-\sqrt{1-\bar\alpha_t}\,\epsilon_\theta(x_t,t)\big),\qquad</span>
+<span id="cb7-333"><a href="#cb7-333" aria-hidden="true" tabindex="-1"></a>x_{t-1}=\mu_\theta(x_t,\hat x_0)+\sigma_t z,\quad z\sim\mathcal N(0,I).</span>
+<span id="cb7-334"><a href="#cb7-334" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-335"><a href="#cb7-335" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-336"><a href="#cb7-336" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb7-337"><a href="#cb7-337" aria-hidden="true" tabindex="-1"></a><span class="fu">## 단계 수에 관한 주의</span></span>
+<span id="cb7-338"><a href="#cb7-338" aria-hidden="true" tabindex="-1"></a>DDPM의 표준 구현은 보통 $T\approx1000$ 단계의 *순차적* 역과정을 쓴다(논문 기본값). 이 순차성이 느림의 근본 원인이다. (일부 자료는 훨씬 큰 수치를 들기도 하나, 정확한 값은 노이즈 스케줄·해상도에 따라 달라진다.) 핵심은 "한 표본을 얻으려 수백~수천 번 forward 패스가 필요하다"는 점이고, DDIM이 이를 수십 단계로 줄인다.</span>
+<span id="cb7-339"><a href="#cb7-339" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-340"><a href="#cb7-340" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-341"><a href="#cb7-341" aria-hidden="true" tabindex="-1"></a><span class="fu">## 세 가지 관점: 변분 · 스코어 · 플로우</span></span>
+<span id="cb7-342"><a href="#cb7-342" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-343"><a href="#cb7-343" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb7-344"><a href="#cb7-344" aria-hidden="true" tabindex="-1"></a>Diffusion은 세 수학적 도구로 동등하게 해석된다.</span>
+<span id="cb7-345"><a href="#cb7-345" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-346"><a href="#cb7-346" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 관점 <span class="pp">|</span> 뿌리 <span class="pp">|</span> 대표 방법 <span class="pp">|</span></span>
+<span id="cb7-347"><a href="#cb7-347" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb7-348"><a href="#cb7-348" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Variational view** | (VAE식) 변분 추론 | **DDPM** <span class="pp">|</span></span>
+<span id="cb7-349"><a href="#cb7-349" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Score-based view** <span class="pp">|</span> 통계물리의 에너지 기반 모델 <span class="pp">|</span> NCSN / score-SDE <span class="pp">|</span></span>
+<span id="cb7-350"><a href="#cb7-350" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Flow-based view** | Normalizing Flow | **Flow Matching** <span class="pp">|</span></span>
+<span id="cb7-351"><a href="#cb7-351" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-352"><a href="#cb7-352" aria-hidden="true" tabindex="-1"></a>세 관점 모두 연속시간 정식화로 수렴하며, 특히 flow matching은 반복 횟수를 줄여 최근 생성의 사실상 표준이 되고 있다. 본 정리는 가장 기본인 **변분 관점(DDPM)** 을 중심으로 다룬다.</span>
+<span id="cb7-353"><a href="#cb7-353" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-354"><a href="#cb7-354" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-355"><a href="#cb7-355" aria-hidden="true" tabindex="-1"></a><span class="fu">## DDIM: 비-마르코프 + 결정적 샘플링</span></span>
+<span id="cb7-356"><a href="#cb7-356" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-357"><a href="#cb7-357" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb7-358"><a href="#cb7-358" aria-hidden="true" tabindex="-1"></a><span class="fu">## 왜 DDIM인가</span></span>
+<span id="cb7-359"><a href="#cb7-359" aria-hidden="true" tabindex="-1"></a>DDPM은 품질은 좋지만 (1) 샘플링이 느리고, (2) 확률적 경로라 제어가 어렵고, (3) 매 샘플이 전체 역-SDE를 요구한다. DDIM의 목표: **더 적은 단계 + 결정적 경로 + DDPM과 동일한 주변분포 유지**.</span>
+<span id="cb7-360"><a href="#cb7-360" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-361"><a href="#cb7-361" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-362"><a href="#cb7-362" aria-hidden="true" tabindex="-1"></a>DDIM은 forward 과정을 **비-마르코프(non-Markovian) 결정적 사상**으로 재해석한다. $x_t$가 $x_{t-1}$ *뿐 아니라* $x_0$에도 의존하도록 하여 비-마르코프가 된다. 핵심은 **구현은 DDPM과 같지만 수학적 해석이 다르다**는 것 — DDPM은 SDE, DDIM은 **ODE** 기반.</span>
+<span id="cb7-363"><a href="#cb7-363" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-364"><a href="#cb7-364" aria-hidden="true" tabindex="-1"></a>일반화된 reverse 샘플링:</span>
+<span id="cb7-365"><a href="#cb7-365" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-366"><a href="#cb7-366" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-367"><a href="#cb7-367" aria-hidden="true" tabindex="-1"></a>x_{t-1}=\sqrt{\bar\alpha_{t-1}}\,\hat x_0+\sqrt{1-\bar\alpha_{t-1}-\sigma_t^2}\;\epsilon_\theta(x_t,t)+\sigma_t z,</span>
+<span id="cb7-368"><a href="#cb7-368" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-369"><a href="#cb7-369" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-370"><a href="#cb7-370" aria-hidden="true" tabindex="-1"></a>\sigma_t=\eta\sqrt{\frac{1-\bar\alpha_{t-1}}{1-\bar\alpha_t}}\sqrt{1-\frac{\bar\alpha_t}{\bar\alpha_{t-1}}},\qquad z\sim\mathcal N(0,I).</span>
+<span id="cb7-371"><a href="#cb7-371" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-372"><a href="#cb7-372" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-373"><a href="#cb7-373" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\eta=0\Rightarrow\sigma_t=0$: **완전 결정적**(잡음 주입 없음)</span>
+<span id="cb7-374"><a href="#cb7-374" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\eta=1$: **DDPM과 동일**(마르코프·확률적)</span>
+<span id="cb7-375"><a href="#cb7-375" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-376"><a href="#cb7-376" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb7-377"><a href="#cb7-377" aria-hidden="true" tabindex="-1"></a><span class="fu">## 핵심 이점 — 학습은 그대로, 샘플링만 가속</span></span>
+<span id="cb7-378"><a href="#cb7-378" aria-hidden="true" tabindex="-1"></a>손실 함수가 **DDPM과 완전히 동일**하다. 즉 **한 번 학습한 노이즈 예측기 $\epsilon_\theta$를 그대로** DDIM 샘플링에 쓸 수 있다. $\sigma_t=0$의 결정적 과정 덕분에 임의의 시간 간격에서도 디노이징이 잘 정의되어 **단계 수를 크게 줄여 빠르게 샘플링**할 수 있다.</span>
+<span id="cb7-379"><a href="#cb7-379" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-380"><a href="#cb7-380" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-381"><a href="#cb7-381" aria-hidden="true" tabindex="-1"></a><span class="fu">## LDM (Stable Diffusion): 잠재공간 확산</span></span>
+<span id="cb7-382"><a href="#cb7-382" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-383"><a href="#cb7-383" aria-hidden="true" tabindex="-1"></a>픽셀 공간에서 직접 확산을 학습하면 메모리 비용이 너무 크다. **LDM**은 이미지를 저차원 **잠재(latent)** 로 압축한 뒤 *그 잠재공간에서* 확산을 학습한다. 텍스트 조건부 대규모 모델로, 다운샘플링 비율의 sweet spot이 중요하다.</span>
+<span id="cb7-384"><a href="#cb7-384" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-385"><a href="#cb7-385" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**LDM-1**(압축 안 함): 학습 시간이 과도하게 김</span>
+<span id="cb7-386"><a href="#cb7-386" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**LDM-32**(과압축): 정보 손실로 품질 저하</span>
+<span id="cb7-387"><a href="#cb7-387" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**LDM-4 / 8 / 16**: 경쟁력 있는 성능 — 적당한 압축이 최적</span>
+<span id="cb7-388"><a href="#cb7-388" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-389"><a href="#cb7-389" aria-hidden="true" tabindex="-1"></a><span class="fu">## ControlNet: 소량 데이터 조건부 미세조정</span></span>
+<span id="cb7-390"><a href="#cb7-390" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-391"><a href="#cb7-391" aria-hidden="true" tabindex="-1"></a>무조건부로 학습된 이미지 확산 모델을, **상대적으로 적은(&lt;50K) 입력–출력 쌍**으로 이미지-조건부 시나리오에 효율적으로 미세조정한다.</span>
+<span id="cb7-392"><a href="#cb7-392" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-393"><a href="#cb7-393" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**아이디어**: 사전학습된 노이즈 예측 U-Net을 활용해 조건 이미지를 처리</span>
+<span id="cb7-394"><a href="#cb7-394" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**인코더**: 사전학습 U-Net 파라미터를 **복사해 초기화** 후 미세조정</span>
+<span id="cb7-395"><a href="#cb7-395" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**디코더**: 인코딩된 조건 정보 + 노이즈 이미지를 결합하되, **zero convolution**으로 제어 신호를 주입(초기엔 영향이 0이라 안정적으로 점진 학습)</span>
+<span id="cb7-396"><a href="#cb7-396" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>학습 데이터 $\sim100\text{K}$ 규모 — LAION-5B의 약 1/50,000</span>
+<span id="cb7-397"><a href="#cb7-397" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-398"><a href="#cb7-398" aria-hidden="true" tabindex="-1"></a>조건 정보를 갑자기 넣지 않고 *점진적으로* 도입하므로, 어떤 이미지 조건(에지·포즈·깊이 등)에도 일반적으로 적용 가능하다.</span>
+<span id="cb7-399"><a href="#cb7-399" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-400"><a href="#cb7-400" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb7-401"><a href="#cb7-401" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 비유 — Diffusion = 점진적 AWGN과 그 역연산</span></span>
+<span id="cb7-402"><a href="#cb7-402" aria-hidden="true" tabindex="-1"></a>Forward의 닫힌 형태 $x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon$는 **신호 이득 $\sqrt{\bar\alpha_t}$, 잡음전력 $1-\bar\alpha_t$의 페이딩+AWGN 채널 모델**과 글자 그대로 같다. $t$가 커질수록 SNR이 단조 감소해 $t=T$에서 SNR$\to0$(순수 잡음)에 도달한다.</span>
+<span id="cb7-403"><a href="#cb7-403" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-404"><a href="#cb7-404" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**노이즈 예측기 $\epsilon_\theta$ 학습** = 잡음을 추정하는 **MMSE 추정기** 학습</span>
+<span id="cb7-405"><a href="#cb7-405" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Reverse 과정** = 단계별 디노이징, 즉 **반복 등화/연속 간섭 제거(SIC)** 와 닮은 구조</span>
+<span id="cb7-406"><a href="#cb7-406" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**DDIM($\eta=0$)의 결정적 경로** = 잡음 재주입이 없는 *결정적 등화* 경로</span>
+<span id="cb7-407"><a href="#cb7-407" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\beta_t$ 스케줄 = SNR 스케줄 설계</span>
+<span id="cb7-408"><a href="#cb7-408" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-409"><a href="#cb7-409" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-410"><a href="#cb7-410" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb7-411"><a href="#cb7-411" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-412"><a href="#cb7-412" aria-hidden="true" tabindex="-1"></a><span class="fu"># 종합 비교 및 요약 {#sec-summary}</span></span>
+<span id="cb7-413"><a href="#cb7-413" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-414"><a href="#cb7-414" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 축 <span class="pp">|</span> VAE <span class="pp">|</span> GAN <span class="pp">|</span> Diffusion (DDPM) <span class="pp">|</span></span>
+<span id="cb7-415"><a href="#cb7-415" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|</span></span>
+<span id="cb7-416"><a href="#cb7-416" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 학습 원리 <span class="pp">|</span> 변분추론(ELBO) <span class="pp">|</span> 적대적 minimax <span class="pp">|</span> 최대우도(MLE) 근사 <span class="pp">|</span></span>
+<span id="cb7-417"><a href="#cb7-417" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 모델 수 <span class="pp">|</span> 인코더+디코더 (협력) <span class="pp">|</span> 생성기+판별자 (경쟁) <span class="pp">|</span> 단일 노이즈 예측기 <span class="pp">|</span></span>
+<span id="cb7-418"><a href="#cb7-418" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 안정성 <span class="pp">|</span> 안정 <span class="pp">|</span> **불안정**(모드붕괴/비수렴/소실) <span class="pp">|</span> 안정 <span class="pp">|</span></span>
+<span id="cb7-419"><a href="#cb7-419" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 표본 효율 <span class="pp">|</span> 보통 <span class="pp">|</span> **높음**(hard negative) <span class="pp">|</span> 낮음(데이터 多) <span class="pp">|</span></span>
+<span id="cb7-420"><a href="#cb7-420" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 생성 속도 <span class="pp">|</span> 빠름(1패스) <span class="pp">|</span> 빠름(1패스) <span class="pp">|</span> **느림**($T$패스) → DDIM/LDM이 가속 <span class="pp">|</span></span>
+<span id="cb7-421"><a href="#cb7-421" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 품질 <span class="pp">|</span> 다소 흐릿 <span class="pp">|</span> 선명하나 다양성 위험 <span class="pp">|</span> **선명+다양** <span class="pp">|</span></span>
+<span id="cb7-422"><a href="#cb7-422" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-423"><a href="#cb7-423" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb7-424"><a href="#cb7-424" aria-hidden="true" tabindex="-1"></a><span class="fu">## 핵심 메시지</span></span>
+<span id="cb7-425"><a href="#cb7-425" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>VAE: $p(x)$를 잠재변수로 우회 → ELBO(재구성+KL) 최대화, 재매개변수화로 미분.</span>
+<span id="cb7-426"><a href="#cb7-426" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>GAN: 분포를 명시하지 않고 *적대적 경쟁*으로 표본을 생성. 최적해는 $p_g=p_{\text{data}}$($-\log4$), hard negative로 효율적이나 *불균형*이 불안정의 근원.</span>
+<span id="cb7-427"><a href="#cb7-427" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Diffusion: 노이즈화의 역과정을 MLE로 학습. 단일 모델·안정·고품질. DDPM(기본) → DDIM(가속/결정적) → LDM(잠재공간/대규모) → ControlNet(조건 제어).</span>
+<span id="cb7-428"><a href="#cb7-428" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>무선 관점: 재매개변수화=수신신호 분해, GAN=스푸핑 vs 검출 게임, Diffusion=점진 AWGN의 MMSE 역연산.</span>
+<span id="cb7-429"><a href="#cb7-429" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-430"><a href="#cb7-430" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-431"><a href="#cb7-431" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb7-432"><a href="#cb7-432" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-433"><a href="#cb7-433" aria-hidden="true" tabindex="-1"></a><span class="fu"># 부록: NumPy 검증 코드 {#sec-appendix}</span></span>
+<span id="cb7-434"><a href="#cb7-434" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-435"><a href="#cb7-435" aria-hidden="true" tabindex="-1"></a>아래 코드는 본문의 두 핵심 결과를 수치로 확인한다 — (1) DDPM forward의 *반복 샘플링*과 *닫힌 형태*가 같은 분포를 주는지, (2) GAN 최적 판별자의 목적함수 값이 $p_g=p_{\text{data}}$일 때 정확히 $-\log4$인지.</span>
+<span id="cb7-436"><a href="#cb7-436" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-439"><a href="#cb7-439" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb7-440"><a href="#cb7-440" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: ddpm-forward-check</span></span>
+<span id="cb7-441"><a href="#cb7-441" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-fold: false</span></span>
+<span id="cb7-442"><a href="#cb7-442" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb7-443"><a href="#cb7-443" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">0</span>)</span>
+<span id="cb7-444"><a href="#cb7-444" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-445"><a href="#cb7-445" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 노이즈 스케줄 (선형) ----</span></span>
+<span id="cb7-446"><a href="#cb7-446" aria-hidden="true" tabindex="-1"></a>T <span class="op">=</span> <span class="dv">200</span></span>
+<span id="cb7-447"><a href="#cb7-447" aria-hidden="true" tabindex="-1"></a>betas  <span class="op">=</span> np.linspace(<span class="fl">1e-4</span>, <span class="fl">0.02</span>, T)</span>
+<span id="cb7-448"><a href="#cb7-448" aria-hidden="true" tabindex="-1"></a>alphas <span class="op">=</span> <span class="dv">1</span> <span class="op">-</span> betas</span>
+<span id="cb7-449"><a href="#cb7-449" aria-hidden="true" tabindex="-1"></a>abar   <span class="op">=</span> np.cumprod(alphas)          <span class="co"># ᾱ_t = ∏ α_s</span></span>
+<span id="cb7-450"><a href="#cb7-450" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-451"><a href="#cb7-451" aria-hidden="true" tabindex="-1"></a>x0 <span class="op">=</span> <span class="fl">3.0</span>                              <span class="co"># 스칼라 "데이터"</span></span>
+<span id="cb7-452"><a href="#cb7-452" aria-hidden="true" tabindex="-1"></a>t  <span class="op">=</span> <span class="dv">150</span>                             <span class="co"># 검사할 시각</span></span>
+<span id="cb7-453"><a href="#cb7-453" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-454"><a href="#cb7-454" aria-hidden="true" tabindex="-1"></a><span class="co"># (a) 반복 샘플링: q(x_t | x_{t-1}) 를 t번</span></span>
+<span id="cb7-455"><a href="#cb7-455" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="dv">200_000</span></span>
+<span id="cb7-456"><a href="#cb7-456" aria-hidden="true" tabindex="-1"></a>xt <span class="op">=</span> np.full(N, x0, dtype<span class="op">=</span><span class="bu">float</span>)</span>
+<span id="cb7-457"><a href="#cb7-457" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> s <span class="kw">in</span> <span class="bu">range</span>(t):</span>
+<span id="cb7-458"><a href="#cb7-458" aria-hidden="true" tabindex="-1"></a>    eps <span class="op">=</span> rng.standard_normal(N)</span>
+<span id="cb7-459"><a href="#cb7-459" aria-hidden="true" tabindex="-1"></a>    xt <span class="op">=</span> np.sqrt(alphas[s])<span class="op">*</span>xt <span class="op">+</span> np.sqrt(betas[s])<span class="op">*</span>eps</span>
+<span id="cb7-460"><a href="#cb7-460" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-461"><a href="#cb7-461" aria-hidden="true" tabindex="-1"></a><span class="co"># (b) 닫힌 형태: x_t = √ᾱ_t x0 + √(1-ᾱ_t) ε</span></span>
+<span id="cb7-462"><a href="#cb7-462" aria-hidden="true" tabindex="-1"></a>eps <span class="op">=</span> rng.standard_normal(N)</span>
+<span id="cb7-463"><a href="#cb7-463" aria-hidden="true" tabindex="-1"></a>xt_cf <span class="op">=</span> np.sqrt(abar[t<span class="op">-</span><span class="dv">1</span>])<span class="op">*</span>x0 <span class="op">+</span> np.sqrt(<span class="dv">1</span><span class="op">-</span>abar[t<span class="op">-</span><span class="dv">1</span>])<span class="op">*</span>eps</span>
+<span id="cb7-464"><a href="#cb7-464" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-465"><a href="#cb7-465" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"반복 샘플링  : mean=</span><span class="sc">{</span>xt<span class="sc">.</span>mean()<span class="sc">:.4f}</span><span class="ss">, var=</span><span class="sc">{</span>xt<span class="sc">.</span>var()<span class="sc">:.4f}</span><span class="ss">"</span>)</span>
+<span id="cb7-466"><a href="#cb7-466" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"닫힌 형태    : mean=</span><span class="sc">{</span>xt_cf<span class="sc">.</span>mean()<span class="sc">:.4f}</span><span class="ss">, var=</span><span class="sc">{</span>xt_cf<span class="sc">.</span>var()<span class="sc">:.4f}</span><span class="ss">"</span>)</span>
+<span id="cb7-467"><a href="#cb7-467" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"이론값       : mean=</span><span class="sc">{</span>np<span class="sc">.</span>sqrt(abar[t<span class="op">-</span><span class="dv">1</span>])<span class="op">*</span>x0<span class="sc">:.4f}</span><span class="ss">, "</span></span>
+<span id="cb7-468"><a href="#cb7-468" aria-hidden="true" tabindex="-1"></a>      <span class="ss">f"var=</span><span class="sc">{</span><span class="dv">1</span><span class="op">-</span>abar[t<span class="op">-</span><span class="dv">1</span>]<span class="sc">:.4f}</span><span class="ss">"</span>)</span>
+<span id="cb7-469"><a href="#cb7-469" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb7-470"><a href="#cb7-470" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-473"><a href="#cb7-473" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb7-474"><a href="#cb7-474" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: gan-optimal-D</span></span>
+<span id="cb7-475"><a href="#cb7-475" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-fold: false</span></span>
+<span id="cb7-476"><a href="#cb7-476" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb7-477"><a href="#cb7-477" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-478"><a href="#cb7-478" aria-hidden="true" tabindex="-1"></a><span class="co"># 최적 판별자 D*(x) = p_data / (p_data + p_g)</span></span>
+<span id="cb7-479"><a href="#cb7-479" aria-hidden="true" tabindex="-1"></a><span class="co"># V(G,D*) = E_pd[log D*] + E_pg[log(1-D*)] = -log4 + 2·JSD(pd||pg)</span></span>
+<span id="cb7-480"><a href="#cb7-480" aria-hidden="true" tabindex="-1"></a>xs <span class="op">=</span> np.linspace(<span class="op">-</span><span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">4000</span>)<span class="op">;</span> dx <span class="op">=</span> xs[<span class="dv">1</span>]<span class="op">-</span>xs[<span class="dv">0</span>]</span>
+<span id="cb7-481"><a href="#cb7-481" aria-hidden="true" tabindex="-1"></a>gauss <span class="op">=</span> <span class="kw">lambda</span> x, m, s: np.exp(<span class="op">-</span><span class="fl">0.5</span><span class="op">*</span>((x<span class="op">-</span>m)<span class="op">/</span>s)<span class="op">**</span><span class="dv">2</span>)<span class="op">/</span>(s<span class="op">*</span>np.sqrt(<span class="dv">2</span><span class="op">*</span>np.pi))</span>
+<span id="cb7-482"><a href="#cb7-482" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-483"><a href="#cb7-483" aria-hidden="true" tabindex="-1"></a>pd <span class="op">=</span> gauss(xs, <span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb7-484"><a href="#cb7-484" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> label, pg <span class="kw">in</span> [(<span class="st">"p_g = p_data "</span>, gauss(xs, <span class="fl">0.0</span>, <span class="fl">1.0</span>)),</span>
+<span id="cb7-485"><a href="#cb7-485" aria-hidden="true" tabindex="-1"></a>                  (<span class="st">"p_g 이동됨    "</span>, gauss(xs, <span class="fl">1.5</span>, <span class="fl">1.0</span>))]:</span>
+<span id="cb7-486"><a href="#cb7-486" aria-hidden="true" tabindex="-1"></a>    Dstar <span class="op">=</span> pd<span class="op">/</span>(pd<span class="op">+</span>pg<span class="op">+</span><span class="fl">1e-12</span>)</span>
+<span id="cb7-487"><a href="#cb7-487" aria-hidden="true" tabindex="-1"></a>    V <span class="op">=</span> (pd<span class="op">*</span>np.log(Dstar<span class="op">+</span><span class="fl">1e-12</span>)).<span class="bu">sum</span>()<span class="op">*</span>dx <span class="op">+</span> (pg<span class="op">*</span>np.log(<span class="dv">1</span><span class="op">-</span>Dstar<span class="op">+</span><span class="fl">1e-12</span>)).<span class="bu">sum</span>()<span class="op">*</span>dx</span>
+<span id="cb7-488"><a href="#cb7-488" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>label<span class="sc">}</span><span class="ss">: V(G,D*) = </span><span class="sc">{</span>V<span class="sc">:.4f}</span><span class="ss">   (-log4 = </span><span class="sc">{</span><span class="op">-</span>np<span class="sc">.</span>log(<span class="dv">4</span>)<span class="sc">:.4f}</span><span class="ss">)"</span>)</span>
+<span id="cb7-489"><a href="#cb7-489" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb7-490"><a href="#cb7-490" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-493"><a href="#cb7-493" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb7-494"><a href="#cb7-494" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: reparam-trick</span></span>
+<span id="cb7-495"><a href="#cb7-495" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-fold: false</span></span>
+<span id="cb7-496"><a href="#cb7-496" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb7-497"><a href="#cb7-497" aria-hidden="true" tabindex="-1"></a><span class="co"># 재매개변수화: z = μ + σ⊙ε 가 N(μ, σ²) 를 주는지 확인</span></span>
+<span id="cb7-498"><a href="#cb7-498" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">1</span>)</span>
+<span id="cb7-499"><a href="#cb7-499" aria-hidden="true" tabindex="-1"></a>mu, sigma <span class="op">=</span> <span class="fl">2.0</span>, <span class="fl">0.5</span></span>
+<span id="cb7-500"><a href="#cb7-500" aria-hidden="true" tabindex="-1"></a>eps <span class="op">=</span> rng.standard_normal(<span class="dv">500_000</span>)</span>
+<span id="cb7-501"><a href="#cb7-501" aria-hidden="true" tabindex="-1"></a>z <span class="op">=</span> mu <span class="op">+</span> sigma<span class="op">*</span>eps</span>
+<span id="cb7-502"><a href="#cb7-502" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"z ~ N(μ,σ²) 기대: mean=</span><span class="sc">{</span>mu<span class="sc">}</span><span class="ss">, var=</span><span class="sc">{</span>sigma<span class="op">**</span><span class="dv">2</span><span class="sc">:.4f}</span><span class="ss">"</span>)</span>
+<span id="cb7-503"><a href="#cb7-503" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"표본          : mean=</span><span class="sc">{</span>z<span class="sc">.</span>mean()<span class="sc">:.4f}</span><span class="ss">, var=</span><span class="sc">{</span>z<span class="sc">.</span>var()<span class="sc">:.4f}</span><span class="ss">"</span>)</span>
+<span id="cb7-504"><a href="#cb7-504" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb7-505"><a href="#cb7-505" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-506"><a href="#cb7-506" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb7-507"><a href="#cb7-507" aria-hidden="true" tabindex="-1"></a><span class="fu">## 실행 결과 해석</span></span>
+<span id="cb7-508"><a href="#cb7-508" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>DDPM: 반복 샘플링 · 닫힌 형태 · 이론값의 평균/분산이 일치 → $x_t=\sqrt{\bar\alpha_t}x_0+\sqrt{1-\bar\alpha_t}\epsilon$가 정확함을 확인.</span>
+<span id="cb7-509"><a href="#cb7-509" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>GAN: $p_g=p_{\text{data}}$일 때 $V=-\log4$로 정확히 떨어지고, 분포가 어긋나면 그보다 커진다($2\,\mathrm{JSD}\ge0$).</span>
+<span id="cb7-510"><a href="#cb7-510" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>재매개변수화: $\mu+\sigma\epsilon$이 목표 가우시안의 평균/분산을 재현 → 무작위성을 $\epsilon$에 격리해도 분포가 보존됨.</span>
+<span id="cb7-511"><a href="#cb7-511" aria-hidden="true" tabindex="-1"></a>:::</span>
+</code></pre></div><button title="클립보드 복사" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
