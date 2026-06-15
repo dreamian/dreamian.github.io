@@ -1,0 +1,368 @@
+---
+title: "최단 경로 기말 대비 문제지 (SSSP · APSP)"
+date: "2026-06-14"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    html-math-method: mathjax
+---
+
+# 안내
+
+본 문제지는 **relaxation 성질의 증명 · 정확성(Loop Invariant / 귀류법) · 수행 시간 분석**을 핵심으로 한다. 증명 시 다음을 지킬 것.
+
+- 사용하는 Lemma / Corollary / Theorem을 **명시 선언**하고 전제 충족을 확인한 뒤 적용한다.
+- Loop Invariant 문제는 **Initialization / Maintenance / Termination**을 모두 기술한다.
+- "옳은가?" 문제는 옳으면 증명, 아니면 **반례**를 제시한다.
+- relax는 **순서**에 따라 알고리즘이 갈린다. 어떤 순서가 무엇을 보장하는지 항상 명시한다.
+- 가장 중요한 도구는 **path-relaxation property**임을 기억한다.
+
+표기: $\delta(s,v)$는 최단 경로 가중치, $v.d$는 추정값(상한). 총 100점.
+
+---
+
+# 문제 1. (Relaxation의 성질) [20점]
+
+가중치 방향 그래프 $G=(V,E)$, $w:E\to\mathbb{R}$, 출발점 $s$를 가정한다.
+
+(a) **삼각부등식(Lemma 24.10)** $\delta(s,v)\le\delta(s,u)+w(u,v)$를 진술하고 증명하라. 특히 $\delta(s,v)=\infty$인 경우가 왜 자명하지 않은지, 어떻게 성립하는지 명시할 것. [4점]
+
+(b) **상한 성질(Lemma 24.11)** "$v.d\ge\delta(s,v)$가 항상 유지되고, 한 번 $\delta$에 도달하면 변하지 않는다"를 **relaxation 횟수에 대한 귀납**으로 증명하라. [4점]
+
+(c) **수렴 성질(Lemma 24.14)**: $s\rightsquigarrow u\to v$가 최단 경로이고 $(u,v)$ relax 이전 어느 시점에 $u.d=\delta(s,u)$였다면, relax 이후 $v.d=\delta(s,v)$임을 증명하라. [4점]
+
+(d) **경로-완화 성질(Lemma 24.15)**: 최단 경로 $p=\langle v_0,\dots,v_k\rangle$의 간선들을 그 순서대로 relax하면(사이에 다른 relax가 끼어도) $v_k.d=\delta(s,v_k)$임을 **간선 인덱스에 대한 귀납**으로 증명하라. 이 성질이 왜 "가장 중요한" 도구인지 한 줄로 설명할 것. [5점]
+
+(e) 어떤 학생이 주장한다: "$G$의 모든 간선을 **임의 순서로 정확히 한 번씩** relax하면, $\delta(s,v)$가 $k$개 간선 경로로 달성되는 임의의 $v$에 대해 $v.d=\delta(s,v)$가 된다." 옳으면 증명하고, 아니면 반례를 제시하라. [3점]
+
+---
+
+# 문제 2. (최적 부분구조와 사이클) [10점]
+
+(a) **Lemma 24.1**(최단 경로의 부분 경로는 최단 경로)을 **Cut-and-Paste 귀류법**으로 증명하라. [4점]
+
+(b) 최단 경로가 음수/0/양수 사이클을 포함할 수 있는지 각각 논하고, 왜 일반성을 잃지 않고 최단 경로를 **simple**로 가정할 수 있는지 설명하라. [3점]
+
+(c) 어떤 학생이 말한다: "0-가중치 사이클은 무시할 수 있으니 최단 경로는 간선 $\le|V|-1$개이고, 그래서 Bellman-Ford가 $|V|-1$ 패스를 돈다." 이 추론 사슬이 타당한가? 특히 "무시한다(ignore)"가 **0-cycle을 해에 허용한다는 뜻이 아님**을 정확히 설명하라. [3점]
+
+---
+
+# 문제 3. (DAG 최단 경로) [10점]
+
+(a) `DAG-SHORTEST-PATHS`의 의사코드를 작성하고 수행 시간을 근거와 함께 제시하라. [3점]
+
+(b) **단 한 번의 패스**(각 간선 1회 relax)로 정답이 나오는 이유를 path-relaxation property로 증명하라. 음수 간선이 있어도 성립함을 명시할 것. [4점]
+
+(c) 교수가 제안한다: "음수 간선이 있으나 음수 사이클은 없는 **일반** 방향 그래프에서도, 위상 정렬 후 `DAG-SHORTEST-PATHS`를 돌리면 단일 출발점 최단 경로를 얻는다." 옳으면 논증하고, 아니면 반례를 제시하라. [3점]
+
+---
+
+# 문제 4. (Dijkstra) [15점]
+
+(a) Dijkstra의 의사코드를 작성하라. **Theorem 24.6**("종료 시 모든 $u$에 대해 $u.d=\delta(s,u)$")을 Loop Invariant로 증명하고, **비음수 가정이 정확히 어느 부등식 단계에서 쓰이는지** 지목하라. [7점]
+
+(b) min-priority queue를 (i) 단순 배열 (ii) 이진 최소 힙 (iii) 피보나치 힙으로 구현할 때의 수행 시간을, `EXTRACT-MIN`·`DECREASE-KEY`의 호출 횟수와 단가로부터 각각 유도하라. [4점]
+
+(c) 교수가 제안한다: "음수 간선이 있는 그래프에서는, 모든 간선에 충분히 큰 상수 $C$를 더해 비음수로 만든 뒤 Dijkstra를 돌리면 된다." 옳으면 논증하고, 아니면 반례를 제시하라. [4점]
+
+---
+
+# 문제 5. (Bellman-Ford) [15점]
+
+(a) Bellman-Ford의 의사코드를 작성하고 수행 시간을 제시하라. [3점]
+
+(b) **Theorem 24.4**(정확성)를 두 경우로 나누어 증명하라: (i) 도달 가능한 음수 사이클이 없으면 TRUE 반환 및 $v.d=\delta(s,v)$, (ii) 있으면 FALSE 반환. (ii)의 귀류법에서 정점 항 소거가 가능한 **두 전제**를 명시할 것. [7점]
+
+(c) **조기 종료 최적화**: 한 패스 동안 어떤 갱신도 없으면 즉시 종료해도 됨을 증명하고, 그럼에도 최악의 경우 $|V|-1$ 상한이 줄지 않는 이유를 설명하라. [5점]
+
+---
+
+# 문제 6. (APSP: 행렬 DP와 Floyd-Warshall) [20점]
+
+(a) 행렬곱 기반 DP의 점화식 $\ell_{ij}^{(m)}$를 정의·진술하고, $w_{jj}=0$ 덕분에 바깥 $\min$이 안쪽 $\min_k$에 흡수되어 한 줄로 쓰이는 이유를 보여라. 또 왜 $L^{(n-1)}$이 정답인지(수렴) 설명하라. [5점]
+
+(b) **반복 제곱(repeated squaring)**이 $\Theta(n^3\lg n)$인 이유를 유도하라. 정당성을 떠받치는 **두 사실**(결합법칙, 고정점 수렴)을 명시할 것. [4점]
+
+(c) **Floyd-Warshall** 점화식 $d_{ij}^{(k)}$를 "중간 정점 $\{1,\dots,k\}$" 매개변수화와 Cut-and-Paste로 유도하고, 수행 시간을 제시하라. [5점]
+
+(d) (c)의 Case 2에서 두 반쪽 $d_{ik}^{(k-1)}$와 $d_{kj}^{(k-1)}$이 노드 $x$를 공유해 **비단순 보행**이 될 수 있다. 그럼에도 점화식이 옳은 이유를 설명하고, **음수 사이클 부재 가정이 어디서 쓰이는지** 지목하라. [3점]
+
+(e) Floyd-Warshall은 $\Theta(n^3)$인데 행렬곱 반복 제곱은 $\Theta(n^3\lg n)$이다. **셀당 작업량** 관점에서 그 차이의 근원을 짚어라. [3점]
+
+---
+
+# 문제 7. (Johnson과 Reweighting) [10점]
+
+(a) **Lemma 25.1**(reweighting이 최단 경로를 보존)을 증명하라: (i) 무게 텔레스코핑 $\hat{w}(p)=w(p)+h(v_0)-h(v_k)$, (ii) 경로 보존(귀류법), (iii) 음수 사이클 보존. [5점]
+
+(b) $h(v)=\delta(s,v)$로 잡으면 모든 간선에서 $\hat{w}(u,v)\ge 0$임을 삼각부등식으로 증명하라. [2점]
+
+(c) 어떤 그래프 밀도에서 Johnson이 Floyd-Warshall보다 점근적으로 유리한지 유도하라. [3점]
+
+---
+
+# 해설
+
+## 문제 1 해설 (Relaxation 성질)
+
+### (a) 삼각부등식
+
+$s\rightsquigarrow v$ 경로가 존재하면, "$s$에서 $u$까지 최단으로 간 뒤 $(u,v)$를 타는 경로"의 가중치 $\delta(s,u)+w(u,v)$는 어떤 $s\to v$ 경로의 가중치이므로 최솟값 $\delta(s,v)$ 이상이다.
+
+$\delta(s,v)=\infty$ 경우는 좌변이 $\infty$여서 자명한 게 **아니다**($\infty\le$ 우변은 우변도 $\infty$일 때만 성립). 올바른 근거: $s\to v$ 경로가 없으면 $s\to u$ 경로도 없다(있으면 $(u,v)$를 이어 $s\to v$ 경로가 생겨 모순). 따라서 $\delta(s,u)=\infty$, 우변 $=\infty$, 등호로 성립. **간선 $(u,v)$의 존재가 우변을 강제로 $\infty$로 만든다.** $\blacksquare$
+
+### (b) 상한 성질 (귀납: relaxation 횟수)
+
+- *기저(0회):* $s.d=0=\delta(s,s)$, $v\ne s$는 $v.d=\infty\ge\delta(s,v)$.
+- *귀납:* 간선 $(u,v)$ relax로 바뀌는 건 $v.d$뿐. 바뀐다면
+$$
+v.d=u.d+w(u,v)\ \underset{\text{귀납}}{\ge}\ \delta(s,u)+w(u,v)\ \underset{\text{24.10}}{\ge}\ \delta(s,v).
+$$
+- *불변성:* RELAX는 값을 증가시키지 않고 상한 아래로 못 내려가므로, $\delta$에 닿으면 고정. $\blacksquare$
+
+### (c) 수렴 성질
+
+$u.d=\delta(s,u)$는 상한 성질로 이후 유지된다. $(u,v)$ relax 직후 Lemma 24.13($v.d\le u.d+w(u,v)$)에 의해
+$$
+v.d\le u.d+w(u,v)=\delta(s,u)+w(u,v)=\delta(s,v),
+$$
+(마지막 등호는 $s\rightsquigarrow u\to v$ 최단 + 최적 부분구조). 상한 성질 $v.d\ge\delta(s,v)$와 합쳐 $v.d=\delta(s,v)$, 이후 유지. $\blacksquare$
+
+### (d) 경로-완화 성질 (귀납: 간선 인덱스 $i$)
+
+- *기저($i=0$):* $v_0.d=s.d=0=\delta(s,s)$.
+- *귀납:* $v_{i-1}.d=\delta(s,v_{i-1})$ 가정 하에 $(v_{i-1},v_i)$를 relax하면 수렴 성질로 직후 $v_i.d=\delta(s,v_i)$ 확정. 사이에 끼는 다른 relax는 상한 성질상 값을 망치지 않는다. $\blacksquare$
+
+**왜 가장 중요한가.** 모든 SSSP 알고리즘의 정당성이 결국 "어떤 최단 경로의 간선들이 *순서대로* relax됨"을 보이는 것으로 환원되는데, 그것만 보이면 도착점 확정을 보장하는 단 하나의 보조정리가 바로 이것이기 때문이다(DAG는 위상 순서로, BF는 $|V|-1$ 패스로 이 순서를 확보한다).
+
+### (e) 임의 순서 단일 패스: 거짓 (반례)
+
+경로 $s\to a\to b$, 간선 $s\to a=1$, $a\to b=1$. relax 순서를 $(a,b)$ 먼저, $(s,a)$ 나중으로 잡으면:
+
+- $(a,b)$ relax: 이때 $a.d=\infty$라 효과 없음.
+- $(s,a)$ relax: $a.d=1$.
+
+종료 시 $b.d=\infty\ne\delta(s,b)=2$. 단일 패스라도 **순서가 경로 순서와 어긋나면** 실패한다. 경로-완화 성질이 요구하는 것은 "경로 간선들의 상대 순서"이며, 임의 순서는 이를 보장하지 못한다. (그래서 $|V|-1$번 패스가 필요하다.)
+
+---
+
+## 문제 2 해설 (최적 부분구조와 사이클)
+
+### (a) Lemma 24.1
+
+$p=\langle v_0,\dots,v_k\rangle$를 $v_0\xrightarrow{p_{0i}}v_i\xrightarrow{p_{ij}}v_j\xrightarrow{p_{jk}}v_k$로 분해, $w(p)=w(p_{0i})+w(p_{ij})+w(p_{jk})$. $p_{ij}$가 최단이 아니라고 가정하면 $w(p'_{ij})<w(p_{ij})$인 $p'_{ij}$가 존재하고, 갈아 끼우면
+$$
+w(p_{0i})+w(p'_{ij})+w(p_{jk})<w(p),
+$$
+이는 $p$의 최단성에 모순. 따라서 $p_{ij}$는 최단. $\blacksquare$
+
+### (b) 세 종류 사이클
+
+- **음수 사이클:** 포함 시 무게가 $-\infty$로 발산 → 최단 경로가 될 수 없다(진짜 금지).
+- **양수 사이클:** 제거하면 무게가 **엄격히** 감소 → 최단 경로에 절대 나타나지 않는다.
+- **0-사이클:** 제거해도 무게 동일 → 나타나도 무방하나, 제거한 simple 버전도 똑같이 최단.
+
+따라서 금지되는 것은 음수 사이클뿐이며, WLOG 최단 경로는 simple로 가정 가능. simple이면 정점 $\le|V|$개, 간선 $\le|V|-1$개.
+
+### (c) "ignore"의 정확한 의미
+
+추론 사슬은 타당하나 "무시한다"의 의미가 핵심이다. 이는 0-cycle을 해에 **허용**한다는 뜻이 **아니라**, 정반대로 **0-cycle을 포함한 비-simple 최단 경로는 안 봐도 된다**(동등한 simple 버전이 항상 존재하므로)는 뜻이다. 즉 탐색 범위를 simple path로 *좁히는* 진술이다. 그 결과 최단 경로의 간선 수를 $\le|V|-1$로 묶을 수 있고, 이것이 Bellman-Ford의 $|V|-1$ 패스 설계 근거가 된다.
+
+---
+
+## 문제 3 해설 (DAG 최단 경로)
+
+### (a) 의사코드와 수행 시간
+
+```text
+DAG-SHORTEST-PATHS(G, w, s)
+1  topologically sort the vertices of G
+2  INITIALIZE-SINGLE-SOURCE(G, s)
+3  for each vertex u, in topologically sorted order
+4      for each v ∈ G.Adj[u]
+5          RELAX(u, v, w)
+```
+
+위상 정렬 $\Theta(|V|+|E|)$ + 초기화 $\Theta(|V|)$ + 이중 루프(각 정점 1회, 각 간선 정확히 1회 relax) $\Theta(|V|+|E|)$ = $\Theta(|V|+|E|)$.
+
+### (b) 단일 패스 정당성
+
+$v$로 가는 최단 경로 $p=\langle v_0=s,\dots,v_k=v\rangle$를 보자. DAG에서 간선 $(u,w)$가 있으면 위상 순서상 $u$가 $w$보다 앞이므로, 경로 위 간선들 $(v_0,v_1),(v_1,v_2),\dots$가 **경로 등장 순서 그대로** relax된다. path-relaxation property에 의해 그 즉시 $v.d=\delta(s,v)$ 확정. **사이클만 없으면** 음수 간선이 있어도 성립한다(임계 경로 분석 등에 활용).
+
+### (c) 일반 그래프에 적용: 거짓 (반례)
+
+`DAG-SHORTEST-PATHS`의 1번 줄(위상 정렬)은 **DAG에만 존재**한다. 사이클이 하나라도 있으면 유효한 위상 순서가 정의되지 않아 알고리즘이 **실행 자체가 불가능**하다.
+
+**반례.** 정점 $\{a,b\}$, 간선 $a\to b$, $b\to a$(음수 사이클 아님, 예: 둘 다 가중치 1). 이 그래프는 사이클을 가지므로 위상 순서가 없다. 근본 원인: 단일 패스 정당성은 "위상 순서가 임의 경로의 등장 순서를 포함"한다는 사실에 의존하는데, 사이클 $u\to v\to u$는 $u$를 $v$보다 먼저이자 나중에 처리하라고 요구하여 단일 패스로 해결 불가. (이런 일반 그래프는 $|V|-1$ 패스를 도는 Bellman-Ford가 필요하다.)
+
+---
+
+## 문제 4 해설 (Dijkstra)
+
+### (a) 의사코드와 정확성
+
+```text
+DIJKSTRA(G, w, s)
+1  INITIALIZE-SINGLE-SOURCE(G, s)
+2  S = ∅
+3  Q = G.V                       // min-priority queue, key = v.d
+4  while Q ≠ ∅
+5      u = EXTRACT-MIN(Q)
+6      S = S ∪ {u}
+7      for each v ∈ G.Adj[u]
+8          RELAX(u, v, w)
+```
+
+**불변식:** while 반복 시작 시 $S$의 모든 $v$에 대해 $v.d=\delta(s,v)$.
+
+- **Initialization.** $S=\emptyset$, 공허하게 참.
+- **Maintenance (귀류법).** $S$ 편입 시 $u.d\ne\delta(s,u)$가 되는 최초 정점을 $u$라 하자. $u\ne s$(s는 가장 먼저, $s.d=0$). $s\rightsquigarrow u$ 경로 존재(없으면 무경로 성질로 $u.d=\delta=\infty$, 모순). 최단 경로를 $s\rightsquigarrow x\to y\rightsquigarrow u$로 분해($y$=경로상 $V-S$의 첫 정점, $x\in S$). $x$ 편입 때 $x.d=\delta(s,x)$였고 $(x,y)$가 relax됐으므로 수렴 성질로 $y.d=\delta(s,y)$.
+
+  $$
+  y.d=\delta(s,y)\ \underset{(\ast)}{\le}\ \delta(s,u)\ \underset{\text{상한}}{\le}\ u.d.
+  $$
+
+  $(\ast)$ $\delta(s,y)\le\delta(s,u)$는 $y$가 $u$ 앞에 있고 부분 경로 $y\rightsquigarrow u$의 무게 $\ge 0$이기 때문 — **여기서 비음수 가정이 결정적으로 쓰인다.** 한편 EXTRACT-MIN이 $u$를 골랐으므로 $u.d\le y.d$. 두 결과로 $y.d=\delta(s,y)=\delta(s,u)=u.d$, 즉 $u.d=\delta(s,u)$ — 가정에 모순.
+- **Termination.** $Q=\emptyset$, $S=V$. 모든 $u$에 대해 $u.d=\delta(s,u)$. $\blacksquare$
+
+### (b) 수행 시간
+
+`EXTRACT-MIN` $|V|$회, `DECREASE-KEY` 최대 $|E|$회.
+
+| $Q$ 구현 | EXTRACT-MIN | DECREASE-KEY | 전체 |
+|---|---|---|---|
+| 단순 배열 | $O(\lvert V\rvert)$ | $O(1)$ | $O(\lvert V\rvert^2)$ |
+| 이진 힙 | $O(\lg\lvert V\rvert)$ | $O(\lg\lvert V\rvert)$ | $O((\lvert V\rvert+\lvert E\rvert)\lg\lvert V\rvert)$ |
+| 피보나치 힙 | $O(\lg\lvert V\rvert)$ 분할상환 | $O(1)$ 분할상환 | $O(\lvert V\rvert\lg\lvert V\rvert+\lvert E\rvert)$ |
+
+### (c) 상수 $C$ 더하기: 거짓 (반례)
+
+$k$개 간선 경로에는 $C$가 $k$번 더해지므로, 간선 수가 다른 경로 간 비교가 왜곡된다.
+
+**반례.** 정점 $s,a,t$. 간선 $s\to a=-2$, $a\to t=1$, $s\to t=0$. 원래 $\delta(s,t)=\min(0,\,-2+1)=-1$ (경로 $s\to a\to t$). $C=2$를 더하면 $s\to a=0$, $a\to t=3$, $s\to t=2$. 변형 그래프에서 $s\to a\to t=3$, $s\to t=2$이므로 Dijkstra는 $s\to t$(비용 2)를 최단으로 택한다. 그러나 이 경로의 **원래** 무게는 $0\ne-1$. 즉 알고리즘이 틀린 최단 경로/거리를 낸다. 2-간선 경로가 1-간선 경로보다 $C$만큼 더 불리해진 탓이다.
+
+---
+
+## 문제 5 해설 (Bellman-Ford)
+
+### (a) 의사코드와 수행 시간
+
+```text
+BELLMAN-FORD(G, w, s)
+1  INITIALIZE-SINGLE-SOURCE(G, s)
+2  for i = 1 to |G.V| - 1
+3      for each edge (u,v) ∈ G.E
+4          RELAX(u, v, w)
+5  for each edge (u,v) ∈ G.E
+6      if v.d > u.d + w(u,v)
+7          return FALSE
+8  return TRUE
+```
+
+수행 시간: 메인 이중 루프 $(|V|-1)\cdot|E|=O(VE)$, 검출 루프 $O(E)$ → 전체 $O(VE)$.
+
+### (b) Theorem 24.4
+
+**(i) 음수 사이클 없음.** 도달 가능 정점: 최단 경로 $p=\langle v_0,\dots,v_k\rangle$는 simple이라 $k\le|V|-1$. 각 패스가 모든 간선을 relax하고 패스는 순차적이므로 $(v_0,v_1),\dots,(v_{k-1},v_k)$가 올바른 상대 순서로 풀린다 → path-relaxation property로 $v_k.d=\delta(s,v_k)$ (Lemma 24.2). 도달 불가능 정점은 무경로 성질로 $v.d=\infty=\delta$. 따라서 모든 $v$에 대해 $v.d=\delta(s,v)$. 종료 시 모든 간선에서 $v.d=\delta(s,v)\le\delta(s,u)+w(u,v)=u.d+w(u,v)$이므로 라인 6이 FALSE를 띄우지 않아 **TRUE 반환**.
+
+**(ii) 음수 사이클 있음 (귀류법).** 도달 가능 음수 사이클 $c=\langle v_0,\dots,v_k\rangle$($v_0=v_k$), $\sum w(v_{i-1},v_i)<0$. TRUE 반환을 가정하면 모든 간선에서 $v_i.d\le v_{i-1}.d+w(v_{i-1},v_i)$. 한 바퀴 합산:
+$$
+\sum_{i=1}^k v_i.d\le\sum_{i=1}^k v_{i-1}.d+\sum_{i=1}^k w(v_{i-1},v_i).
+$$
+**두 전제** — (가) $v_0=v_k$라 $\sum v_i.d=\sum v_{i-1}.d$, (나) 사이클이 도달 가능해 모든 $v_i.d$ 유한 — 으로 정점 항을 소거하면 $0\le\sum w<0$, 모순. 따라서 **FALSE 반환**. $\blacksquare$
+
+### (c) 조기 종료
+
+**정당성.** RELAX는 현재 $d$ 값들의 결정론적 함수이다. 한 패스에서 아무 갱신이 없으면 패스 끝 상태 = 시작 상태이므로, 이후 모든 패스도 동일 상태에 동일 연산을 적용해 무변화 → 고정점 도달. 그 고정점은 모든 간선에서 $v.d\le u.d+w(u,v)$를 만족하므로, 최단 경로를 따라 $v_i.d\le\delta(s,v_i)$가 차례로 성립하고 상한 성질과 합쳐 $v.d=\delta(s,v)$. (무변화 패스가 나온 것 자체가 도달 가능한 음수 사이클이 없음을 증명한다.)
+
+**$|V|-1$이 줄지 않는 이유.** 일자형 경로 $s\to v_1\to\dots\to v_{|V|-1}$에서 안쪽 간선 순서가 경로 역순이면 frontier가 패스당 하나씩만 전진해 정확히 $|V|-1$번의 갱신 패스가 필요하다 — 이 경우 조기 종료가 발동하지 않는다. 조기 종료는 **인스턴스별** 단축일 뿐, **최악의 경우 보장**으로서 $|V|-1$은 안전판으로 남는다.
+
+---
+
+## 문제 6 해설 (APSP: 행렬 DP와 Floyd-Warshall)
+
+### (a) 점화식과 수렴
+
+$\ell_{ij}^{(m)}$ = 간선 $\le m$인 $i\rightsquigarrow j$ 보행의 최소 무게. 기저 $\ell_{ij}^{(0)}=0\,(i=j),\ \infty\,(i\ne j)$. 귀납:
+$$
+\ell_{ij}^{(m)}=\min\Bigl(\ell_{ij}^{(m-1)},\ \min_{1\le k\le n}\{\ell_{ik}^{(m-1)}+w_{kj}\}\Bigr)=\min_{1\le k\le n}\{\ell_{ik}^{(m-1)}+w_{kj}\}.
+$$
+바깥 $\min$의 첫 항은 안쪽에서 $k=j$를 넣은 항 $\ell_{ij}^{(m-1)}+w_{jj}=\ell_{ij}^{(m-1)}$($w_{jj}=0$)과 같아 **흡수**되므로 한 줄로 쓰인다.
+
+**왜 $L^{(n-1)}$?** 음수 사이클이 없으면 최단 경로는 simple이라 간선 $\le n-1$. 간선이 $n-1$을 넘으면 정점을 반복(사이클 포함)하고, 사이클 무게 $\ge0$이라 제거해도 늘지 않으므로 항상 간선 $\le n-1$인 동등·우월 경로가 존재. 따라서 $\delta(i,j)=\ell_{ij}^{(n-1)}=\ell_{ij}^{(n)}=\cdots$로 **고정점 수렴**.
+
+### (b) 반복 제곱 $\Theta(n^3\lg n)$
+
+$(\min,+)$ 반환에서 $L^{(m)}=W^{\odot m}$. 두 사실: **결합법칙**으로 $L^{(m)}\odot L^{(m)}=W^{\odot 2m}=L^{(2m)}$, **고정점 수렴**으로 지수가 $n-1$을 넘어도 같은 행렬. 따라서 한 칸씩 대신 지수를 두 배씩($W\to W^{\odot2}\to W^{\odot4}\to\cdots$) 키우면 $\lceil\lg(n-1)\rceil$회 제곱으로 충분. 제곱 1회는 삼중 루프 $\Theta(n^3)$이므로 전체 $\Theta(n^3\lg n)$.
+
+### (c) Floyd-Warshall 유도
+
+$d_{ij}^{(k)}$ = 중간 정점이 모두 $\{1,\dots,k\}$에 속하는 $i\rightsquigarrow j$ 최단 무게. $k$가 최단 경로 $p$의 중간 정점인지로 나눈다.
+
+- **Case 1 ($k$ 미경유):** 중간 정점이 $\{1,\dots,k-1\}$ → $d_{ij}^{(k)}=d_{ij}^{(k-1)}$.
+- **Case 2 ($k$ 경유):** $p$를 $i\xrightarrow{p_1}k\xrightarrow{p_2}j$로 분할. $p_1$이 최단이 아니면 더 짧은 $p_1'$로 갈아 끼워 $w(p_1'+p_2)<w(p)$ → $p$ 최단성에 모순(Cut-and-Paste). 따라서 $p_1,p_2$ 각각 최단이고 중간 정점은 $\{1,\dots,k-1\}$ → $d_{ij}^{(k)}=d_{ik}^{(k-1)}+d_{kj}^{(k-1)}$.
+
+$$
+d_{ij}^{(k)}=\begin{cases}w_{ij}&k=0\\[2pt]\min\bigl(d_{ij}^{(k-1)},\,d_{ik}^{(k-1)}+d_{kj}^{(k-1)}\bigr)&k\ge1\end{cases}
+$$
+삼중 루프, 셀당 $O(1)$ → $\Theta(n^3)$. 정답은 $D^{(n)}$.
+
+### (d) 공유 노드와 비단순 보행
+
+두 반쪽이 노드 $x$를 공유하면 $i\rightsquigarrow x\rightsquigarrow k\rightsquigarrow x\rightsquigarrow j$ 형태의 비단순 보행이 되고 $x\to k\to x$ 사이클이 생긴다. **음수 사이클이 없으므로** 이 사이클 무게 $\ge0$이라, 사이클(=$k$ 경유 부분)을 잘라낸 $i\rightsquigarrow x\rightsquigarrow j$가 무게가 같거나 작고 $k$를 안 거친다:
+$$
+d_{ik}^{(k-1)}+d_{kj}^{(k-1)}\ \ge\ d_{ij}^{(k-1)}.
+$$
+점화식은 둘의 $\min$을 취하므로 공유가 일어나면 자동으로 "$k$ 미경유" 항을 택해 **비단순 보행 값은 채택되지 않는다.** 음수 사이클이 있었다면 부등식이 반전되어 이 분해가 무너진다 — FW가 음수 사이클을 배제하는 이유.
+
+### (e) $\Theta(n^3)$ vs $\Theta(n^3\lg n)$
+
+두 방식 모두 축을 $\Theta(n)$번(또는 $\lg n$번) 돌고 셀은 $n^2$개다. 결정적 차이는 **셀당 작업량**:
+
+- 행렬곱은 "마지막 간선"에서 자르므로 $j$의 직전 정점 후보 $n$개에 대한 $n$중 $\min$ → 셀당 $\Theta(n)$. 반복 제곱으로 단계 수를 $n\to\lg n$으로 줄여도 이 $O(n)$은 남아 $\Theta(n^3\lg n)$.
+- Floyd-Warshall은 분해 지점을 *지정된* 정점 $k$로 두어 셀당 "쓰거나/안 쓰거나"의 **이진 $\min$** $\Theta(1)$ → $\Theta(n^3)$.
+
+---
+
+## 문제 7 해설 (Johnson과 Reweighting)
+
+### (a) Lemma 25.1
+
+**(i) 텔레스코핑.** $p=\langle v_0,\dots,v_k\rangle$에서
+$$
+\hat{w}(p)=\sum_{i=1}^k\bigl(w(v_{i-1},v_i)+h(v_{i-1})-h(v_i)\bigr)=w(p)+h(v_0)-h(v_k).
+$$
+중간 $h$ 항이 상쇄되어 보정항이 양 끝점에만 의존.
+
+**(ii) 경로 보존(귀류법).** $w(p)=\delta(v_0,v_k)$라 하고 $\hat{w}(p')<\hat{w}(p)$인 $p'$를 가정하면, $h(v_0)-h(v_k)$ 소거로 $w(p')<w(p)$ — 최단성 모순. 역방향 대칭. 즉 $w$ 하 최단 $\iff\hat{w}$ 하 최단.
+
+**(iii) 음수 사이클 보존.** 사이클 $c$($v_0=v_k$)는 $h(v_0)-h(v_k)=0$이라 $\hat{w}(c)=w(c)$. 음수 사이클 존재 여부 불변. $\blacksquare$
+
+### (b) 비음수성
+
+$h(v)=\delta(s,v)$이므로 삼각부등식(Lemma 24.10)으로 모든 간선에서 $h(v)\le h(u)+w(u,v)$. 정리하면
+$$
+\hat{w}(u,v)=w(u,v)+h(u)-h(v)\ge0.\qquad\blacksquare
+$$
+
+### (c) 밀도 비교
+
+Johnson $O(|V|^2\lg|V|+|V||E|)$, Floyd-Warshall $\Theta(|V|^3)$. **희소 그래프** $|E|=O(|V|)$에서 Johnson $=O(|V|^2\lg|V|)$로 FW의 $\Theta(|V|^3)$보다 빠르다. 밀집 $|E|=\Theta(|V|^2)$에서는 Johnson $=O(|V|^3)$로 FW와 같은 차수(상수·구현상 FW가 단순해 보통 선호). 요컨대 **희소할수록 Johnson이 유리**하다.
+
+---
+
+# 부록: SSSP·APSP 한눈에
+
+| 알고리즘 | 조건 | 핵심 정당성 | 수행 시간 |
+|---|---|---|---|
+| DAG-SHORTEST-PATHS | 비순환 | 위상 순서 = 경로 순서 → path-relaxation | $\Theta(\lvert V\rvert+\lvert E\rvert)$ |
+| Dijkstra | 비음수 간선 | 그리디 + 비음수로 $\delta(s,y)\le\delta(s,u)$ | $O(\lvert V\rvert^2)\sim O(\lvert V\rvert\lg\lvert V\rvert+\lvert E\rvert)$ |
+| Bellman-Ford | 음수 간선·사이클 검출 | $\lvert V\rvert-1$ 패스 × path-relaxation | $O(\lvert V\rvert\lvert E\rvert)$ |
+| 행렬곱 DP | 음수 간선 | 최적 부분구조, $(\min,+)$ 반복 제곱 | $\Theta(n^3\lg n)$ |
+| Floyd-Warshall | 음수 간선 | 경유지 $\{1,\dots,k\}$, 셀당 $O(1)$ | $\Theta(n^3)$ |
+| Johnson | 음수 간선·사이클 검출 | reweighting으로 Dijkstra 가능화 | $O(\lvert V\rvert^2\lg\lvert V\rvert+\lvert V\rvert\lvert E\rvert)$ |
+
+핵심 질문은 항상 **"어떤 순서로 relax하면 최단 거리가 확정되는가"**이며, 그 보장을 한 줄로 응축한 것이 **path-relaxation property**이다.
