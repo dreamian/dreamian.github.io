@@ -1,0 +1,518 @@
+---
+title: "생성 모델 II — 확산 모델 (DDPM · DDIM · LDM · ControlNet)"
+subtitle: "Deep Learning · 정리 노트"
+date: 2026-05-13
+lang: ko
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "목차"
+    number-sections: true
+    highlight-style: github
+    code-fold: true
+    code-tools: true
+    fig-cap-location: bottom
+    css: |
+      .callout { margin: 1em 0; }
+    mainfont: "Noto Sans CJK KR"
+crossref:
+  eq-prefix: "식"
+---
+
+## 한눈에 보기 {#sec-overview}
+
+이 노트는 확산 모델(diffusion model)의 네 가지 핵심 변형을 다룬다.
+
+| 모델 | 한 줄 요약 | 핵심 기여 | 출처 |
+|------|-----------|-----------|------|
+| **DDPM** | 확산 모델의 원형 | 노이즈를 점진적으로 더하고($q$) 신경망으로 되돌린다($p_\theta$) | Ho et al., NeurIPS 2020 |
+| **DDIM** | DDPM의 *생성 가속* 버전 | 비-마르코프 + 결정론적 경로로 **샘플링 스텝 대폭 축소** | Song et al., ICLR 2021 |
+| **LDM** | 효율적 고해상도·멀티모달 | **잠재 공간**에서 확산 (= Stable Diffusion) | Rombach et al., CVPR 2022 |
+| **ControlNet** | LDM의 **제어성** 부여 | 적은 쌍($<50\text{K}$)으로 조건부 편집 미세조정 | Zhang et al., ICCV 2023 (Best Paper) |
+
+::: {.callout-note}
+## 큰 줄기
+**DDPM → DDIM**은 같은 모델을 *더 빠르게 샘플링*하는 계열(philosophy A: 효율)이고, **LDM**은 *어디에서* 확산을 돌릴지를 바꾸는 계열(philosophy B: 잠재 공간)이다. **ControlNet**은 여기에 *상업적으로 중요한 제어성*을 얹는다.
+:::
+
+---
+
+## Recap: 확산 모델 vs. GAN {#sec-recap}
+
+**한 줄 답:** GAN은 빠르지만 불안정(mode collapse)하고, 확산 모델은 느리지만 안정적(MLE 기반)이며 품질이 뛰어나다.
+
+| | 확산 모델 (DDPM) | GAN |
+|---|---|---|
+| **장점** | 선명·고품질, **MLE라는 잘 이해된 최적화**, 이미지·오디오 모두 | 상대적으로 **빠른 학습**, 다양한 손실(Wasserstein, Hinge), 데이터 적게 필요 |
+| **단점** | **느리고 계산량 큼**, 데이터 많이 필요 | 학습 난이도 높음, 하이퍼파라미터 민감, **mode collapse** |
+
+::: {.callout-tip}
+## 왜 GAN의 hard-negative 대신 확산인가
+GAN은 결정 경계 근처의 "매우 어려운 음성(hard negative)"을 만들어 판별기를 압박하는 *적대적 게임*이다. 반면 확산 모델은 **각 위치마다 확률 탑(probability tower)을 점진적으로 쌓아 올리는** 방식이라 제로섬 게임이 없다. 그래서 학습이 천천히, 그러나 안정적으로 수렴한다.
+:::
+
+확산 모델은 생성 메커니즘에 따라 크게 세 계열로 정리된다(개관 논문 *The Principles of Diffusion Models*, arXiv 2025):
+
+```{mermaid}
+flowchart TB
+    A["확산 모델 (이산 노이징 ↔ 클린)"] --> B["VAE 기반 계열<br/>(DDPM 등)"]
+    A --> C["에너지 기반 / 점수 기반<br/>(score-based, NCSN)"]
+    A --> D["정규화 흐름 계열<br/>(normalizing flow)"]
+    C -.확장.-> E["조건부 score network<br/>연속시간(SDE) 일반화"]
+    D -.해석.-> F["적은 스텝으로<br/>노이즈→데이터 사상"]
+```
+
+세 관점은 "완전한 노이즈 행렬을 깨끗한 이미지로 점진 변환한다"는 동일한 목표를 서로 다른 수학으로 본 것이며, 연속시간 버전(SDE/ODE)으로도 확장된다.
+
+---
+
+## DDPM 상세 {#sec-ddpm}
+
+DDPM은 두 개의 과정으로 구성된다.
+
+- **전방 확산(forward, 고정):** 입력에 노이즈를 점진적으로 더한다 — 학습 파라미터 없음.
+- **역방 잡음제거(reverse, 생성):** 노이즈를 제거해 데이터를 만든다 — **신경망으로 학습**.
+
+```{mermaid}
+flowchart LR
+    x0["x₀ (데이터)"] -- "q(xₜ|xₜ₋₁) 고정" --> xt["xₜ"]
+    xt -- "..." --> xT["x_T ~ N(0,I)"]
+    xT -. "pθ(xₜ₋₁|xₜ) 학습" .-> xt2["xₜ₋₁"]
+    xt2 -. "..." .-> x0b["x̂₀ (생성)"]
+```
+
+### 전방 과정 (forward) {#sec-forward}
+
+**한 줄 답:** 사전 정의된 분산 스케줄 $\beta_t$를 따라 가우시안 노이즈를 더하는 마르코프 연쇄다.
+
+표기를 정리한다.
+
+- $\beta_t \in (0,1)$ : 시각 $t$에서의 **노이즈 크기**(사전 스케줄).
+- $\alpha_t = 1-\beta_t$ : 한 스텝의 **신호 보존 비율**.
+- $\bar\alpha_t = \prod_{s=1}^{t}(1-\beta_s) = \prod_{s=1}^{t}\alpha_s$ : 시각 $t$까지의 **누적 신호 보존**.
+
+한 스텝 전이와 그 닫힌 형식(closed form) 주변 분포는 다음과 같다.
+
+$$
+q(x_t \mid x_{t-1}) = \mathcal{N}\!\big(x_t;\, \sqrt{\alpha_t}\,x_{t-1},\, \beta_t \mathbf{I}\big),
+\qquad
+\boxed{\;x_t = \sqrt{\bar\alpha_t}\,x_0 + \sqrt{1-\bar\alpha_t}\,\epsilon,\quad \epsilon \sim \mathcal{N}(\mathbf{0},\mathbf{I})\;}
+$$ {#eq-forward}
+
+::: {.callout-note}
+## 왜 $\sqrt{\bar\alpha_t}$를 신호 앞에 곱하나 — 분산 보존
+노이즈를 더할수록 전체 신호의 크기가 커지면 안 되므로, 원신호를 $\sqrt{\bar\alpha_t}$만큼 줄이고 노이즈를 $\sqrt{1-\bar\alpha_t}$만큼 넣어 **$\operatorname{Var}(x_t)$를 $\operatorname{Var}(x_0)$와 동일하게 유지**한다. 두 계수의 제곱합이 $\bar\alpha_t + (1-\bar\alpha_t)=1$인 것이 그 증거다(이른바 variance-preserving). 임의의 $t$에 단번에 점프할 수 있어 학습 시 매우 편리하다(@eq-forward).
+:::
+
+### 연속시간 극한: SDE {#sec-sde}
+
+$\delta t \to 0$ 극한을 취하면 전방 과정은 확률 미분 방정식(SDE)으로 쓰인다.
+
+$$
+dx = -\tfrac{1}{2}\beta(t)\,x\,dt + \sqrt{\beta(t)}\;dW_t
+$$ {#eq-sde}
+
+여기서 $W_t$는 **위너 과정(Wiener process)** 으로, 각 시각의 가우시안 무작위 표본을 모델링한다. 드리프트 항 $-\tfrac12\beta(t)x$는 신호를 0으로 수축시키고, 확산 항 $\sqrt{\beta(t)}\,dW_t$가 노이즈를 주입한다. (유도는 개관 논문 참조 — 본 노트는 결과만 사용한다.)
+
+::: {.callout-tip}
+## 무선통신 비유 — 전방 과정 = "점진적 페이딩 채널"
+$x_t = \sqrt{\bar\alpha_t}\,x_0 + \sqrt{1-\bar\alpha_t}\,\epsilon$ 는 **시변 페이딩 계수 $\sqrt{\bar\alpha_t}$로 감쇠된 신호에 AWGN을 더한 채널 모델**과 정확히 같은 꼴이다. $\bar\alpha_t$는 시간이 갈수록 단조 감소하는 채널 이득, $1-\bar\alpha_t$는 누적 잡음 전력이다. variance-preserving은 곧 **수신 신호의 총 전력을 일정하게 유지하는 AGC(자동 이득 제어)** 와 같다. $t\to T$에서 SNR이 0으로 떨어지면 수신 신호는 순수 잡음 $x_T \sim \mathcal{N}(\mathbf{0},\mathbf{I})$ 이 된다.
+:::
+
+### 역방 과정 (reverse) {#sec-reverse}
+
+**한 줄 답:** 진짜 역과정 $q(x_{t-1}\mid x_t)$는 알 수 없지만, $\beta_t \ll 1$이면 가우시안으로 근사되므로 신경망으로 그 평균을 학습한다.
+
+베이즈 규칙으로 역전이를 쓰려 하면
+
+$$
+q(x_{t-1}\mid x_t) = \frac{q(x_t \mid x_{t-1})\,q(x_{t-1})}{q(x_t)}
+$$ {#eq-bayes}
+
+가 되는데, 우변의 주변 분포 $q(x_{t-1}),\,q(x_t)$를 **데이터 분포 전체에 대해 알 수 없다**(나쁜 소식). 좋은 소식은, $\beta_t$가 충분히 작으면 진짜 역(posterior) $q(x_{t-1}\mid x_t)$도 가우시안으로 잘 근사된다는 점이다. 따라서 다음과 같이 **파라미터화된 가우시안**으로 둔다.
+
+$$
+p_\theta(x_{t-1}\mid x_t) = \mathcal{N}\!\big(x_{t-1};\, \mu_\theta(x_t,t),\, \sigma_t^2 \mathbf{I}\big)
+$$ {#eq-reverse}
+
+::: {.callout-important}
+## 이중 근사(cascaded approximation)의 구조
+1. **진짜 역과정** $q(x_{t-1}\mid x_t)$ → (β 작음) → **가우시안**으로 근사
+2. 그 가우시안의 평균 $\mu_\theta$ → **신경망**으로 근사
+
+가우시안은 평균·분산이라는 **충분통계량(sufficient statistics)** 만 알면 완전히 정해진다. 분산 $\sigma_t^2$는 스케줄 $\beta_t$로 자동 결정되므로, 학습의 표적은 사실상 **평균 $\mu_\theta$ 하나**다.
+:::
+
+### $\mu_\theta$ 학습: 노이즈 재매개화 {#sec-reparam}
+
+전방 과정의 사후 평균은 $x_0$와 노이즈 $\epsilon$으로 표현된다. @eq-forward 를 $x_0$에 대해 풀어 대입하면 평균은 다음의 깔끔한 형태가 된다.
+
+$$
+\mu_\theta(x_t,t) = \frac{1}{\sqrt{\alpha_t}}\left(x_t - \frac{\beta_t}{\sqrt{1-\bar\alpha_t}}\,\epsilon_\theta(x_t,t)\right)
+$$ {#eq-mu}
+
+즉 평균을 직접 예측하는 대신, **주입된 노이즈 $\epsilon$을 예측하는 신경망 $\epsilon_\theta(x_t,t)$** 를 학습하면 된다. 핵심 아이디어는:
+
+1. 시각 $t$를 하나 뽑고, 정답 노이즈 $\epsilon \sim \mathcal{N}(\mathbf{0},\mathbf{I})$ 를 샘플.
+2. $x_t = \sqrt{\bar\alpha_t}\,x_0 + \sqrt{1-\bar\alpha_t}\,\epsilon$ 으로 노이즈 이미지 생성.
+3. $\nabla_\theta \lVert \epsilon - \epsilon_\theta(x_t,t)\rVert^2$ 으로 경사 하강.
+
+::: {.callout-note}
+## 왜 노이즈 예측인가 — 역과정 평균 = 전방과정 평균
+역과정을 *전방과정의 정확한 역*으로 만들려면 두 과정의 평균이 같아야 한다: $\mu_\theta^{\text{(rev)}}(x_t,t) = \tilde\mu^{\text{(fwd)}}(x_t,t)$. 전방에서는 $x_0,\epsilon$을 알기 때문에 이 평균을 정확히 계산할 수 있고, 역에서는 모르므로 $\epsilon_\theta$로 근사한다. 평균이 곧 $\epsilon$의 함수(@eq-mu)이므로, **평균 맞추기 = 노이즈 맞추기**가 된다.
+:::
+
+### 손실 함수 {#sec-loss}
+
+$$
+\mathcal{L}_{\text{DDPM}} = \mathbb{E}_{t,\,x_0,\,\epsilon}\Big[\big\lVert \epsilon - \epsilon_\theta(x_t,t)\big\rVert^2\Big],
+\qquad x_t = \sqrt{\bar\alpha_t}\,x_0 + \sqrt{1-\bar\alpha_t}\,\epsilon
+$$ {#eq-loss}
+
+원래 변분 하한(ELBO)에서 출발하지만, 재매개화 후에는 위와 같은 **단순한 노이즈 회귀(MSE)** 로 환원된다. GAN의 제로섬 게임과 달리, 손실값이 단조 감소하며 안정적으로 수렴한다.
+
+### 학습·샘플링 알고리즘 {#sec-algo}
+
+**학습(Training)**
+
+1. 데이터 $x_0 \sim q(x_0)$.
+2. $t \sim \text{Uniform}\{1,\dots,T\}$ (임의 시각에서 학습 가능 — @eq-forward 덕분).
+3. $\epsilon \sim \mathcal{N}(\mathbf{0},\mathbf{I})$.
+4. $x_t = \sqrt{\bar\alpha_t}x_0 + \sqrt{1-\bar\alpha_t}\,\epsilon$, $\;\nabla_\theta\lVert\epsilon-\epsilon_\theta(x_t,t)\rVert^2$ 로 갱신, 수렴까지 반복.
+
+**샘플링(Sampling / Generation)**
+
+$x_T \sim \mathcal{N}(\mathbf{0},\mathbf{I})$ 에서 시작, $t=T,\dots,1$ 에 대해:
+
+$$
+\hat{x}_0 = \frac{1}{\sqrt{\bar\alpha_t}}\big(x_t - \sqrt{1-\bar\alpha_t}\,\epsilon_\theta(x_t,t)\big),
+$$
+
+$$
+\mu_\theta(x_t,\hat{x}_0) = \frac{\sqrt{\bar\alpha_{t-1}}\,\beta_t}{1-\bar\alpha_t}\,\hat{x}_0 + \frac{\sqrt{\alpha_t}\,(1-\bar\alpha_{t-1})}{1-\bar\alpha_t}\,x_t,
+\qquad
+x_{t-1} = \mu_\theta(x_t,\hat{x}_0) + \sigma_t\,z,\;\; z\sim\mathcal{N}(\mathbf{0},\mathbf{I}).
+$$
+
+::: {.callout-warning}
+## DDPM의 본질적 한계 — $\sigma_t$를 제어할 수 없다
+DDPM에서 $\sigma_t$(보통 $\sigma_t^2 = \tilde\beta_t = \tfrac{1-\bar\alpha_{t-1}}{1-\bar\alpha_t}\beta_t$)는 **스케줄 $\beta_t$로부터 자동 계산**되며 사용자가 손댈 수 없다. 매 스텝 $z$를 새로 뽑는 **확률적(stochastic) 샘플링**이라 경로를 통제할 수 없고, 한 샘플 생성에 전체 역-SDE를 수만 스텝 돌려야 한다 — 이것이 **느림**의 근원이다.
+:::
+
+```{mermaid}
+flowchart TB
+    subgraph T["학습 (단순)"]
+      t1["x₀ 샘플"] --> t2["t ~ Uniform"] --> t3["ε ~ N(0,I)"] --> t4["xₜ 합성"] --> t5["∇θ‖ε−εθ‖²"]
+    end
+    subgraph S["샘플링 (비쌈)"]
+      s1["x_T ~ N(0,I)"] --> s2["t=T..1 반복"] --> s3["εθ(xₜ,t) 예측"] --> s4["x̂₀, μθ 계산"] --> s5["xₜ₋₁ = μθ + σₜz"] --> s2
+    end
+```
+
+### 평가 지표: FID {#sec-fid}
+
+**한 줄 답:** FID(Fréchet Inception Distance)는 Inception 신경망의 잠재 표현 상에서 생성 분포와 실제 분포의 거리를 재며, **낮을수록 좋다**.
+
+사전학습된 Inception 망(Google의 GoogLeNet/Inception 계열)에 이미지를 통과시켜 의미적 잠재 벡터를 얻고, 실제 이미지 집합과 생성 이미지 집합의 (가우시안 가정) 평균·공분산 차이를 측정한다. 두 분포가 가까울수록(=생성물이 "자연 이미지처럼" 보일수록) FID가 작다. 5년 이상 된 오래된 망이지만 표준 비교 지표로 여전히 널리 쓰인다.
+
+| 방법 (CIFAR-10) | FID ↓ |
+|---|---|
+| 조건부 GAN | 14.73 |
+| StyleGAN2 + 보조기법 | 2.67 (mode collapse 회피의 어려움 동반) |
+| **DDPM** | **3.17** (게임 이론 없이 안정적으로 도달) |
+
+DDPM은 학습이 단순·안정적이면서도 최상위 GAN에 **필적하는 품질**을 보인다. 다만 생성 속도의 비효율이 큰 약점으로 남는다 — 이를 DDIM이 공략한다.
+
+
+---
+
+## DDIM: 결정론적 가속 샘플링 {#sec-ddim}
+
+### 동기 {#sec-ddim-motivation}
+
+**한 줄 답:** DDIM은 DDPM과 동일한 학습 결과를 재사용하되, 전방 과정을 **비-마르코프**로 재해석해 **결정론적·소수 스텝** 샘플링을 가능케 한다.
+
+DDPM의 약점:
+
+- 느린 샘플링(수만 스텝 규모).
+- 확률적 경로 → 제어 곤란·비효율.
+- 매 샘플마다 전체 역-SDE 필요.
+
+DDIM의 목표는 "**더 적은 스텝 + 결정론적 경로 + DDPM과 동일한 주변 분포**"이다. 핵심 아이디어:
+
+1. 전방 과정을 **비-마르코프, 결정론적 사상**으로 해석.
+2. 역과정을 **ODE 기반**으로 유도(DDPM은 SDE).
+3. 비확률적·효율적 샘플링 실현.
+
+### 비-마르코프 전방 과정 {#sec-ddim-forward}
+
+DDPM은 $q(x_{t-1}\mid x_t)$가 **오직 $x_t$에만 의존**한다고 본다(마르코프 가정). DDIM은 여기에 $x_0$ 정보를 추가로 조건화한다.
+
+$$
+q(x_{1:T}\mid x_0) = q(x_T\mid x_0)\prod_{t=2}^{T} q(x_{t-1}\mid x_t, x_0)
+$$ {#eq-ddim-forward}
+
+각 역전이는 베이즈 규칙으로
+
+$$
+q(x_t \mid x_{t-1}, x_0) = \frac{q(x_{t-1}\mid x_t, x_0)\,q(x_t\mid x_0)}{q(x_{t-1}\mid x_0)}
+$$ {#eq-ddim-bayes}
+
+로 유도되며, $x_t$가 $x_{t-1}$과 $x_0$ **둘 다에 의존**하므로 비-마르코프다.
+
+::: {.callout-tip}
+## $x_0$ 정보가 왜 스텝 수를 줄이나
+마르코프 가정은 "직전 상태만 안다"는 제약이다. DDIM은 학습 시 **목적지 $x_0$의 정보를 추가로 활용**하므로, 같은 품질을 더 적은 반복으로 도달할 수 있다. 비유하자면, **현재 위치만 보고 한 칸씩 이동(DDPM)** 하느냐 vs. **목적지를 알고 직선 경로로 도약(DDIM)** 하느냐의 차이다.
+:::
+
+결정적으로, $x_t$의 주변 분포는 DDPM과 **동일하게** 유지된다.
+
+$$
+q(x_t \mid x_0) = \mathcal{N}\!\big(\sqrt{\bar\alpha_t}\,x_0,\,(1-\bar\alpha_t)\mathbf{I}\big),
+\qquad x_t = \sqrt{\bar\alpha_t}\,x_0 + \sqrt{1-\bar\alpha_t}\,\epsilon_t
+$$ {#eq-ddim-marginal}
+
+이 주변 일치 덕분에 **DDPM에서 학습한 노이즈 예측기 $\epsilon_\theta$를 그대로 재사용**할 수 있다. 구현은 같고 수학적 해석만 다르다(DDPM=SDE, DDIM=ODE).
+
+### 역과정 샘플링과 $\eta$ {#sec-ddim-sampling}
+
+사후 $q(x_{t-1}\mid x_t, x_0)$의 평균을 따라가면 일반화된 갱신식을 얻는다.
+
+$$
+\boxed{\;x_{t-1} = \sqrt{\bar\alpha_{t-1}}\,\hat{x}_0 + \sqrt{1-\bar\alpha_{t-1}-\sigma_t^2}\;\epsilon_\theta(x_t,t) + \sigma_t\,z,\quad z\sim\mathcal{N}(\mathbf{0},\mathbf{I})\;}
+$$ {#eq-ddim-sample}
+
+여기서 확률성의 양은 하이퍼파라미터 $\eta$로 조절한다.
+
+$$
+\sigma_t = \eta\,\sqrt{\frac{1-\bar\alpha_{t-1}}{1-\bar\alpha_t}}\,\sqrt{1-\frac{\bar\alpha_t}{\bar\alpha_{t-1}}}
+$$ {#eq-ddim-sigma}
+
+- $\eta = 0 \Rightarrow \sigma_t = 0$ : **완전 결정론적**(첫 항 + 두 번째 항만, 잡음 $z$ 소거).
+- $\eta = 1 \Rightarrow$ **DDPM과 정확히 등가**(마르코프 전방으로 환원).
+
+::: {.callout-note}
+## 검증: $\eta{=}1$ 일 때 $\sigma_t^2 = \tilde\beta_t$
+@eq-ddim-sigma 에 $\beta_t = 1-\tfrac{\bar\alpha_t}{\bar\alpha_{t-1}}$를 대입하면
+$$
+\sigma_t^2\big|_{\eta=1} = \frac{1-\bar\alpha_{t-1}}{1-\bar\alpha_t}\,\beta_t = \tilde\beta_t
+$$
+로 DDPM의 사후 분산과 **정확히** 일치한다(기호 계산으로 차이 $=0$ 확인). 또한 전방 주변 @eq-ddim-marginal 도 몬테카를로로 폐형식과 일치함을 확인했다(@sec-appendix).
+:::
+
+### 손실 동일성 {#sec-ddim-loss}
+
+전방·역과정을 바꿔도 신경망이 노이즈 $\epsilon_t$를 예측한다는 사실은 그대로이므로, 손실은 DDPM과 동일하다 — **임의의 $\sigma_t$에 대해서도**.
+
+$$
+\mathcal{L} = \mathbb{E}_{t,\,x_0,\,\epsilon}\big[\lVert \epsilon_t - \epsilon_\theta(x_t,t)\rVert^2\big]
+$$ {#eq-ddim-loss}
+
+즉 **한 번 학습한 $\epsilon_\theta$로 DDPM·DDIM 양쪽 생성을 모두** 수행할 수 있다. 학습 코드는 그대로 두고, 샘플링에서 $\eta$ 한 개만 추가하면 된다.
+
+### DDPM vs. DDIM {#sec-ddim-vs}
+
+| 항목 | DDPM | DDIM |
+|---|---|---|
+| 전방 과정 | 마르코프 | **비-마르코프**(at $x_0$ 조건화) |
+| 역과정 수식 | SDE | **ODE** |
+| 분산 $\sigma_t$ | $\beta_t$로 자동 결정, 제어 불가 | $\eta$로 임의 조절 가능 |
+| $\eta=0$ | — | **결정론적**, 소수 스텝 |
+| $\eta=1$ | — | **DDPM과 등가** |
+| 샘플링 속도 | 느림(예: 1000 스텝) | 빠름(예: **50 스텝**에 유사 품질) |
+| 학습 | 동일한 절차·손실 | **동일한 $\epsilon_\theta$ 재사용** |
+
+::: {.callout-tip}
+## 무선통신 비유 — DDIM = "결정론적 등화기(equalizer)"
+DDPM의 확률적 역과정은 매 심볼마다 새 잡음 실현을 추첨하는 **무작위 복원**에 가깝다. DDIM은 채널 통계(전방 과정의 주변 분포)는 동일하게 유지하면서 **결정론적 ODE 적분 = 결정론적 등화/복조**로 신호를 복원한다. $\eta$는 잔여 확률성의 양을 조절하는 다이얼로, $\eta=0$은 **잡음 추가 없는 결정론적 등화기**, $\eta=1$은 **원래의 확률적 채널 시뮬레이션**에 해당한다. 결정론적 경로이므로 **소수의 큰 스텝(서브샘플링)** 으로도 안정적으로 복원되어 latency가 크게 준다. 다만 큰 스텝은 약간의 품질 손실(근사 오차)을 동반한다.
+:::
+
+::: {.callout-warning}
+## 실험적 사실의 정직한 해석
+FID 상으로는 DDIM 50스텝이 DDPM 1000스텝과 유사하거나 약간 더 좋게 나올 수 있다. 그러나 FID는 완벽한 지표가 아니므로, **육안으로는 소수 스텝 결과가 다소 떨어져 보일 수** 있다. "FID ≈ 동등"과 "지각 품질 동등"은 구분해야 한다.
+:::
+
+
+---
+
+## LDM: 잠재 확산 (Stable Diffusion) {#sec-ldm}
+
+**한 줄 답:** 픽셀 공간에서 확산하면 메모리가 너무 크므로, 이미지를 **저차원 잠재 공간으로 압축한 뒤 그 위에서** 확산을 돌린다.
+
+대규모 텍스트-조건 모델을 픽셀 공간에서 직접 학습하면 계산·메모리 비용이 막대하다. LDM은 오토인코더로 이미지를 저차원 잠재 표현으로 압축하고, 확산 과정을 **잠재 공간**에서 수행한 뒤 디코더로 픽셀 이미지로 복원한다.
+
+```{mermaid}
+flowchart LR
+    img["입력 이미지 (픽셀, 고차원)"] -- "인코더 E" --> z["잠재 z (저차원)"]
+    z -- "잠재 공간 확산 (DDPM/DDIM)" --> z2["z' 생성"]
+    z2 -- "디코더 D" --> out["출력 이미지"]
+    txt["텍스트 조건"] -.크로스 어텐션.-> z2
+```
+
+**압축비의 스위트 스폿:** 다운샘플링 배율을 바꿔가며 품질을 비교한 결과,
+
+| 설정 | 결과 |
+|---|---|
+| LDM-1 (압축 거의 없음 = 픽셀 확산) | 학습 시간이 **현저히 김** |
+| LDM-32 (과압축) | 정보를 너무 많이 버려 **품질 저하** |
+| **LDM-4, 8, 16** | **경쟁력 있는 최적 품질** |
+
+::: {.callout-note}
+## LDM의 두 번째 이점 — 의미적 제어
+잠재 공간의 각 차원은 픽셀(단순 색상값)보다 **의미(semantics)** 를 더 잘 담는다. 따라서 잠재 표현의 특정 차원을 조정하면 "여름의 사슴 → 겨울의 사슴"처럼 생성 이미지의 의미를 더 잘 통제할 수 있다. 이 제어성이 ControlNet으로 이어진다(2023년 발전).
+:::
+
+::: {.callout-tip}
+## 무선통신 비유 — LDM = "소스 압축 후 전송"
+픽셀 공간 확산은 원본 신호 전체를 그대로 처리하는 것과 같다. LDM은 **소스 코딩(차원 축소)으로 중복을 제거한 잠재 표현** 위에서 처리하므로 **대역폭·연산 효율**이 크게 오른다. 과압축(LDM-32)은 손실 압축에서 비트레이트를 지나치게 낮춰 복원 품질이 무너지는 상황과 같다 — **율-왜곡(rate–distortion) 트레이드오프**의 스위트 스폿을 찾는 문제다.
+:::
+
+---
+
+## U-Net 구조 {#sec-unet}
+
+**한 줄 답:** 인코더-디코더가 **정보 병목(bottleneck)** 을 이루고, 대응 층 간 **스킵 연결**로 병목에서 잃은 유용한 정보를 복원하는 "나비/모래시계" 구조다.
+
+LDM과 ControlNet의 노이즈 예측기는 보통 U-Net을 쓴다(CNN 또는 Transformer로 구현 가능). 입력·출력은 고차원이고 가운데로 갈수록 표현이 좁아진다.
+
+```{mermaid}
+flowchart TB
+    i1["입력 (고차원)"] --> e1["인코더 층1"] --> e2["인코더 층2"] --> b["병목<br/>(저차원 잠재)"]
+    b --> d2["디코더 층2"] --> d1["디코더 층1"] --> o1["출력 (고차원)"]
+    e1 -. "스킵 연결" .-> d1
+    e2 -. "스킵 연결" .-> d2
+```
+
+- **정보 병목:** 압축으로 불필요한 잡음 정보를 제거한다(오토인코더와 동일한 원리). 가운데가 가장 좁은 "나비(butterfly)" 또는 90° 회전 시 "모래시계(hourglass)" 형태.
+- **스킵 연결:** 병목이 *잡음과 함께 유용한 정보까지* 버릴 수 있으므로, **같은 차원의 인코더 층 → 디코더 층**으로 직접 정보를 전달해 고품질 복원에 필요한 디테일을 되살린다. 이 경로들이 알파벳 **U** 모양을 만들어 U-Net이라 불린다.
+
+원래는 **의료영상 분할(segmentation)** 을 위해 제안되었으나, 정보 보존 능력이 뛰어나 다양한 분야에서 널리 쓰인다.
+
+::: {.callout-tip}
+## 무선통신 비유 — 스킵 연결 = "사이드 정보 채널"
+병목은 손실 압축이고, 스킵 연결은 압축에서 누락된 디테일을 **별도 사이드 채널로 직접 전달**하는 것과 같다. 압축 본류(주 채널)와 디테일 보존(사이드 채널)을 결합해 **고충실도 복원**을 달성하는 구조다.
+:::
+
+---
+
+## ControlNet: 제어 가능한 생성 {#sec-controlnet}
+
+**한 줄 답:** 사전학습된 확산 U-Net을 **적은 입력-출력 쌍($<50\text{K}$)** 으로 미세조정해, 조건 이미지(스케치·엣지 등)로 생성을 제어하는 소수샷 편집 기법이다.
+
+**구조 아이디어** — 사전학습된 노이즈 예측 U-Net을 활용해 조건 이미지를 처리한다.
+
+- **인코더:** 사전학습 U-Net 파라미터를 **복사**해 초기화 후 미세조정.
+- **디코더:** 인코딩된 조건 정보와 노이즈 이미지를 결합하되, **제로 컨볼루션(zero convolution)** 으로 조건(제어 신호)을 주입한다.
+
+```{mermaid}
+flowchart LR
+    cond["조건 이미지<br/>(스케치/엣지/깊이)"] --> enc["복사된 U-Net 인코더<br/>(미세조정)"]
+    base["사전학습 확산 U-Net<br/>(고정 backbone)"] --> dec["디코더"]
+    enc -- "zero convolution 주입" --> dec
+    dec --> out["조건부 생성 이미지"]
+```
+
+**절차:** 처음에는 조건 정보 없이 사실적인 이미지를 생성하다가, **조건 정보를 점진적으로 도입**한다(제로 컨볼루션의 초기값이 0이라 학습 초반엔 backbone을 해치지 않는다). 이 아이디어는 임의의 이미지 조건에 적용 가능하다.
+
+::: {.callout-note}
+## 데이터 효율
+학습 데이터셋 규모는 약 $100\text{K}$로, LAION-5B 대비 **약 50,000배 작다**. 적은 쌍으로도 강한 제어성을 얻는 것이 핵심 가치다.
+:::
+
+::: {.callout-important}
+## 왜 상업적으로 중요한가
+멀티모달 조건부 생성에서는 **텍스트 프롬프트를 조금 바꿀 때 생성물을 정밀하게 통제**하는 능력이 결정적이다. ControlNet은 높은 품질·제어성·넓은 적용성을 동시에 제공해 상업적 가치가 크다(ICCV 2023 Best Paper).
+:::
+
+::: {.callout-tip}
+## 무선통신 비유 — ControlNet = "파일럿/제어 채널 오버레이"
+이미 동작하는 송수신 시스템(사전학습 backbone)을 그대로 두고, **별도의 제어/파일럿 채널(조건 인코더 + 제로 컨볼루션)** 을 점진적으로 얹어 빔/전송을 조향하는 것과 같다. 제로 컨볼루션의 0 초기화는 **제어 채널을 0 전력에서 서서히 켜서** 기존 링크를 교란하지 않고 적응시키는 전략에 대응한다.
+:::
+
+---
+
+## 정리와 다음 예고 {#sec-summary}
+
+```{mermaid}
+flowchart LR
+    DDPM["DDPM<br/>(원형, SDE)"] -->|효율: 결정론적 가속| DDIM["DDIM<br/>(비-마르코프, ODE)"]
+    DDPM -->|어디서 확산?| LDM["LDM<br/>(잠재 공간 = Stable Diffusion)"]
+    LDM -->|제어성| CN["ControlNet<br/>(소수샷 조건 편집)"]
+```
+
+- **DDPM ↔ DDIM**: 같은 $\epsilon_\theta$를 공유하는 *동일 계열*. DDIM은 $\eta$로 확률성을 끄고 ODE 결정론 경로를 써 **샘플링을 가속**한다.
+- **LDM**: 잠재 공간으로 옮겨 **효율 + 의미적 제어**를 얻는 *다른 철학*.
+- **ControlNet**: LDM에 **상업적 제어성**을 부여.
+
+**다음 차시 — 데이터 효율적 학습**
+
+목적함수 $\mathcal{L} = \underbrace{\mathcal{L}_{\text{data}}}_{\text{데이터 적합}} + \underbrace{\Omega(\theta)}_{\text{정규화 = 귀납 편향}}$ 에서, 데이터가 부족할 때는 **더 나은 귀납 편향(inductive bias)** 을 설계하는 것이 전통적 접근이다(few-shot / zero-shot / continual). 그러나 매 과제마다 새 편향을 고안하는 일은 매우 소모적이다.
+
+::: {.callout-note}
+## 패러다임 전환: 귀납 편향 → 파운데이션 모델
+대안은, 주어진 과제용 데이터 대신 **무관하지만 방대한 데이터로 모델을 사전 워밍업**한 뒤 미세조정·일반화하는 것이다. 이렇게 "처음으로 여러 과제에서 좋은 성능의 출발점이 되는" 모델을 **파운데이션 모델(frontier model)** 이라 부른다. 비싸지만 일반화가 강력하다 — 다음 차시 주제(few/zero-shot, continual learning)로 이어진다.
+:::
+
+---
+
+## 부록: Python/NumPy 검증 {#sec-appendix}
+
+본문의 두 핵심 사실을 코드로 확인한다: (1) 전방 과정 주변 분포 @eq-forward, (2) DDIM($\eta{=}1$)의 분산이 DDPM 사후 분산 $\tilde\beta_t$와 일치(@eq-ddim-sigma).
+
+```{python}
+#| label: forward-marginal-check
+#| code-fold: show
+import numpy as np
+
+np.random.seed(0)
+betas  = np.linspace(1e-4, 0.02, 1000)
+alphas = 1.0 - betas
+abar   = np.cumprod(alphas)        # \bar\alpha_t
+
+x0, T, N = 3.0, 500, 200_000
+# 마르코프 전방을 직접 반복하여 x_T를 몬테카를로로 추정
+x = np.full(N, x0, dtype=float)
+for t in range(T):
+    x = np.sqrt(alphas[t]) * x + np.sqrt(1 - alphas[t]) * np.random.randn(N)
+
+print(f"MC      mean={x.mean():.4f}  var={x.var():.4f}")
+print(f"closed  mean={np.sqrt(abar[T-1])*x0:.4f}  var={1-abar[T-1]:.4f}")
+# closed form: x_t ~ N( sqrt(abar_t) x0, (1-abar_t) I )
+```
+
+```{python}
+#| label: ddim-ddpm-equivalence
+#| code-fold: show
+import sympy as sp
+
+abar_t, abar_tm1 = sp.symbols('abar_t abar_tm1', positive=True)
+beta_t = 1 - abar_t/abar_tm1                          # \beta_t = 1 - \bar\alpha_t/\bar\alpha_{t-1}
+
+sigma_ddim_sq = ((1-abar_tm1)/(1-abar_t)) * (1 - abar_t/abar_tm1)   # eta=1
+beta_tilde    = (1-abar_tm1)/(1-abar_t) * beta_t                    # DDPM 사후 분산
+
+print("sigma_DDIM(eta=1)^2 - beta_tilde =", sp.simplify(sigma_ddim_sq - beta_tilde))
+# 0 이면 두 식이 항등적으로 동일
+```
+
+```{python}
+#| label: noise-schedule-snr
+#| code-fold: show
+import numpy as np
+# 신호 보존 sqrt(abar_t) 와 누적 잡음 sqrt(1-abar_t), 그리고 SNR = abar_t/(1-abar_t)
+betas  = np.linspace(1e-4, 0.02, 1000)
+abar   = np.cumprod(1 - betas)
+for t in [0, 100, 300, 600, 999]:
+    snr = abar[t] / (1 - abar[t])
+    print(f"t={t:4d}  sqrt(abar)={np.sqrt(abar[t]):.3f}  "
+          f"sqrt(1-abar)={np.sqrt(1-abar[t]):.3f}  SNR={snr:8.3f}")
+# t가 커질수록 신호 보존↓, 잡음↑, SNR→0  (수신 신호가 순수 잡음으로 수렴)
+```
+
+::: {.callout-note}
+## 검증 결과
+- 전방 주변: 몬테카를로 평균·분산이 폐형식 $\mathcal{N}(\sqrt{\bar\alpha_t}x_0,\,(1-\bar\alpha_t)\mathbf{I})$ 와 일치.
+- DDIM($\eta{=}1$) 분산 $-\ \tilde\beta_t = 0$ (항등). → DDIM은 DDPM의 **엄밀한 일반화**.
+- SNR $=\bar\alpha_t/(1-\bar\alpha_t)$ 가 $t\to T$에서 0으로 수렴 → $x_T$는 순수 잡음.
+:::

@@ -1,0 +1,2298 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko" xml:lang="ko"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.36">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="">
+
+<title>데이터 효율적 학습 (Data-Efficient Learning) – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-a06763021a52c43c40a351ac8b799b8f.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-7f128302b46659ec05c1cdf12d27b5f1.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "일치 없음",
+    "search-matching-documents-text": "일치된 문서",
+    "search-copy-link-title": "검색 링크 복사",
+    "search-hide-matches-text": "추가 검색 결과 숨기기",
+    "search-more-match-text": "추가 검색결과",
+    "search-more-matches-text": "추가 검색결과",
+    "search-clear-button-title": "제거",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "취소",
+    "search-submit-button-title": "검색",
+    "search-label": "검색"
+  }
+}</script>
+<script src="../../site_libs/quarto-diagram/mermaid.min.js"></script>
+<script src="../../site_libs/quarto-diagram/mermaid-init.js"></script>
+<link href="../../site_libs/quarto-diagram/mermaid.css" rel="stylesheet">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="검색"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="탐색 전환" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">목차</h2>
+   
+  <ul>
+  <li><a href="#sec-overview" id="toc-sec-overview" class="nav-link active" data-scroll-target="#sec-overview"><span class="header-section-number">1</span> 한눈에 보기</a></li>
+  <li><a href="#sec-goals" id="toc-sec-goals" class="nav-link" data-scroll-target="#sec-goals"><span class="header-section-number">2</span> 머신러닝의 두 목표와 의미론적 사상(mapping)</a>
+  <ul class="collapse">
+  <li><a href="#적합-vs-일반화" id="toc-적합-vs-일반화" class="nav-link" data-scroll-target="#적합-vs-일반화"><span class="header-section-number">2.1</span> 적합 vs 일반화</a></li>
+  <li><a href="#의자를-의자로-만드는-것은-무엇인가" id="toc-의자를-의자로-만드는-것은-무엇인가" class="nav-link" data-scroll-target="#의자를-의자로-만드는-것은-무엇인가"><span class="header-section-number">2.2</span> “의자를 의자로 만드는 것은 무엇인가?”</a></li>
+  <li><a href="#부족분을-메우는-처방remedies" id="toc-부족분을-메우는-처방remedies" class="nav-link" data-scroll-target="#부족분을-메우는-처방remedies"><span class="header-section-number">2.3</span> 부족분을 메우는 처방(remedies)</a></li>
+  </ul></li>
+  <li><a href="#sec-fewshot" id="toc-sec-fewshot" class="nav-link" data-scroll-target="#sec-fewshot"><span class="header-section-number">3</span> Few-shot / N-shot / Zero-shot</a>
+  <ul class="collapse">
+  <li><a href="#정의" id="toc-정의" class="nav-link" data-scroll-target="#정의"><span class="header-section-number">3.1</span> 정의</a></li>
+  <li><a href="#가장-헷갈리는-지점-zero-shot-vs-unsupervised" id="toc-가장-헷갈리는-지점-zero-shot-vs-unsupervised" class="nav-link" data-scroll-target="#가장-헷갈리는-지점-zero-shot-vs-unsupervised"><span class="header-section-number">3.2</span> 가장 헷갈리는 지점: zero-shot vs unsupervised</a></li>
+  <li><a href="#처방을-묶는-세-갈래" id="toc-처방을-묶는-세-갈래" class="nav-link" data-scroll-target="#처방을-묶는-세-갈래"><span class="header-section-number">3.3</span> 처방을 묶는 세 갈래</a></li>
+  </ul></li>
+  <li><a href="#sec-inductive" id="toc-sec-inductive" class="nav-link" data-scroll-target="#sec-inductive"><span class="header-section-number">4</span> 귀납 편향(inductive bias) 다시 보기</a>
+  <ul class="collapse">
+  <li><a href="#지도학습-귀납induction" id="toc-지도학습-귀납induction" class="nav-link" data-scroll-target="#지도학습-귀납induction"><span class="header-section-number">4.1</span> 지도학습 = 귀납(induction)</a></li>
+  <li><a href="#학습-목적함수와-map-해석" id="toc-학습-목적함수와-map-해석" class="nav-link" data-scroll-target="#학습-목적함수와-map-해석"><span class="header-section-number">4.2</span> 학습 목적함수와 MAP 해석</a></li>
+  <li><a href="#전통적-ml의-귀납-편향들" id="toc-전통적-ml의-귀납-편향들" class="nav-link" data-scroll-target="#전통적-ml의-귀납-편향들"><span class="header-section-number">4.3</span> 전통적 ML의 귀납 편향들</a></li>
+  <li><a href="#현대적-귀납-편향" id="toc-현대적-귀납-편향" class="nav-link" data-scroll-target="#현대적-귀납-편향"><span class="header-section-number">4.4</span> 현대적 귀납 편향</a></li>
+  </ul></li>
+  <li><a href="#sec-cl-classic" id="toc-sec-cl-classic" class="nav-link" data-scroll-target="#sec-cl-classic"><span class="header-section-number">5</span> 연속 학습(Continual Learning): 고전적 접근</a>
+  <ul class="collapse">
+  <li><a href="#동기-모든-클래스를-미리-안다는-비현실적-가정" id="toc-동기-모든-클래스를-미리-안다는-비현실적-가정" class="nav-link" data-scroll-target="#동기-모든-클래스를-미리-안다는-비현실적-가정"><span class="header-section-number">5.1</span> 동기: “모든 클래스를 미리 안다”는 비현실적 가정</a></li>
+  <li><a href="#이것은-새로운-문제가-아니다" id="toc-이것은-새로운-문제가-아니다" class="nav-link" data-scroll-target="#이것은-새로운-문제가-아니다"><span class="header-section-number">5.2</span> 이것은 새로운 문제가 아니다</a></li>
+  <li><a href="#ml-1.0-vs-ml-2.0" id="toc-ml-1.0-vs-ml-2.0" class="nav-link" data-scroll-target="#ml-1.0-vs-ml-2.0"><span class="header-section-number">5.3</span> ML 1.0 vs ML 2.0</a></li>
+  <li><a href="#초기-연구-계보" id="toc-초기-연구-계보" class="nav-link" data-scroll-target="#초기-연구-계보"><span class="header-section-number">5.4</span> 초기 연구 계보</a></li>
+  </ul></li>
+  <li><a href="#sec-cl-modern" id="toc-sec-cl-modern" class="nav-link" data-scroll-target="#sec-cl-modern"><span class="header-section-number">6</span> 연속 학습: 현대적 셋업</a>
+  <ul class="collapse">
+  <li><a href="#분류-기준-무엇이-변하는가" id="toc-분류-기준-무엇이-변하는가" class="nav-link" data-scroll-target="#분류-기준-무엇이-변하는가"><span class="header-section-number">6.1</span> 분류 기준: 무엇이 변하는가</a></li>
+  <li><a href="#online-vs-offline-연속-학습" id="toc-online-vs-offline-연속-학습" class="nav-link" data-scroll-target="#online-vs-offline-연속-학습"><span class="header-section-number">6.2</span> Online vs Offline 연속 학습</a></li>
+  <li><a href="#파국적-망각catastrophic-forgetting" id="toc-파국적-망각catastrophic-forgetting" class="nav-link" data-scroll-target="#파국적-망각catastrophic-forgetting"><span class="header-section-number">6.3</span> 파국적 망각(catastrophic forgetting)</a></li>
+  <li><a href="#안정성가소성-딜레마stabilityplasticity-dilemma" id="toc-안정성가소성-딜레마stabilityplasticity-dilemma" class="nav-link" data-scroll-target="#안정성가소성-딜레마stabilityplasticity-dilemma"><span class="header-section-number">6.4</span> 안정성–가소성 딜레마(stability–plasticity dilemma)</a></li>
+  <li><a href="#cil-기법의-분류taxonomy" id="toc-cil-기법의-분류taxonomy" class="nav-link" data-scroll-target="#cil-기법의-분류taxonomy"><span class="header-section-number">6.5</span> CIL 기법의 분류(taxonomy)</a></li>
+  <li><a href="#더-현실적인-셋업들-연구-동향" id="toc-더-현실적인-셋업들-연구-동향" class="nav-link" data-scroll-target="#더-현실적인-셋업들-연구-동향"><span class="header-section-number">6.6</span> 더 현실적인 셋업들 (연구 동향)</a></li>
+  <li><a href="#name-only-사람-없는-연속-학습" id="toc-name-only-사람-없는-연속-학습" class="nav-link" data-scroll-target="#name-only-사람-없는-연속-학습"><span class="header-section-number">6.7</span> Name-only / 사람 없는 연속 학습</a></li>
+  </ul></li>
+  <li><a href="#sec-cl-beyond" id="toc-sec-cl-beyond" class="nav-link" data-scroll-target="#sec-cl-beyond"><span class="header-section-number">7</span> CIL을 넘어서: 생성·대형 모델의 연속 학습</a></li>
+  <li><a href="#sec-summary" id="toc-sec-summary" class="nav-link" data-scroll-target="#sec-summary"><span class="header-section-number">8</span> 요약</a></li>
+  <li><a href="#sec-appendix" id="toc-sec-appendix" class="nav-link" data-scroll-target="#sec-appendix"><span class="header-section-number">9</span> 부록: 파국적 망각과 replay의 NumPy 데모</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">데이터 효율적 학습 (Data-Efficient Learning)</h1><button type="button" class="btn code-tools-button dropdown-toggle" id="quarto-code-tools-menu" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi"></i> 코드</button><ul class="dropdown-menu dropdown-menu-end" aria-labelelledby="quarto-code-tools-menu"><li><a id="quarto-show-all-code" class="dropdown-item" href="javascript:void(0)" role="button">전체 코드 표시</a></li><li><a id="quarto-hide-all-code" class="dropdown-item" href="javascript:void(0)" role="button">전체 코드 숨기기</a></li><li><hr class="dropdown-divider"></li><li><a id="quarto-view-source" class="dropdown-item" href="javascript:void(0)" role="button">소스 코드 표시</a></li></ul></div></div>
+<p class="subtitle lead">Few-shot / Zero-shot / Continual Learning</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">공개</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2026년 5월 18일</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="sec-overview" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="sec-overview"><span class="header-section-number">1</span> 한눈에 보기</h2>
+<p>이 노트는 “데이터가 부족하거나, 데이터가 시간에 따라 흘러 들어오는” 상황에서 모델을 학습시키는 방법을 다룬다. 크게 두 축이다.</p>
+<ul>
+<li><strong>데이터 부족(few-/zero-shot)</strong>: 관심 클래스에 대한 라벨 데이터가 적거나 전혀 없을 때.</li>
+<li><strong>데이터 흐름(continual learning)</strong>: 데이터/클래스가 시간에 따라 순차적으로 도착할 때.</li>
+</ul>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>핵심 메시지
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>머신러닝에는 서로 경쟁하는 두 목표가 있다. <strong>데이터에 잘 적합(fitting)</strong> 하는 것과 <strong>일반화(generalization)</strong> 하는 것. 데이터·모델이 작을 때는 단순 적합이 일반화를 해치지만, 데이터·모델이 충분히 커지면 적합 자체가 곧 일반화로 이어진다(benign overfitting). 데이터가 부족한 영역에서는 이 사치를 누릴 수 없으므로, 부족분을 <strong>귀납 편향(inductive bias)</strong>, <strong>비라벨 데이터</strong>, <strong>사람의 효율적 사용</strong> 중 하나로 메꿔야 한다.</p>
+</div>
+</div>
+<p>전체 지도:</p>
+<div class="cell" data-layout-align="default">
+<details class="code-fold">
+<summary>코드</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode default code-with-copy"><code class="sourceCode default"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>flowchart TD</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    A[데이터 효율적 학습] --&gt; B[데이터 부족&lt;br/&gt;few-/zero-shot]</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    A --&gt; C[데이터 흐름&lt;br/&gt;continual learning]</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    B --&gt; B1[귀납 편향&lt;br/&gt;아키텍처·정규화·데이터 구조]</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    B --&gt; B2[비라벨 데이터&lt;br/&gt;semi-/self-/unsupervised]</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    B --&gt; B3[사람의 효율적 사용&lt;br/&gt;active learning, RLHF]</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    C --&gt; C1[고전적 접근&lt;br/&gt;transfer/multitask/lifelong]</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    C --&gt; C2[현대적 셋업&lt;br/&gt;CIL/online/blurry/noisy/...]</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    C --&gt; C3[대형 모델&lt;br/&gt;continual pre-training/alignment]</span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart TD
+    A[데이터 효율적 학습] --&gt; B[데이터 부족&lt;br/&gt;few-/zero-shot]
+    A --&gt; C[데이터 흐름&lt;br/&gt;continual learning]
+    B --&gt; B1[귀납 편향&lt;br/&gt;아키텍처·정규화·데이터 구조]
+    B --&gt; B2[비라벨 데이터&lt;br/&gt;semi-/self-/unsupervised]
+    B --&gt; B3[사람의 효율적 사용&lt;br/&gt;active learning, RLHF]
+    C --&gt; C1[고전적 접근&lt;br/&gt;transfer/multitask/lifelong]
+    C --&gt; C2[현대적 셋업&lt;br/&gt;CIL/online/blurry/noisy/...]
+    C --&gt; C3[대형 모델&lt;br/&gt;continual pre-training/alignment]
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<hr>
+</section>
+<section id="sec-goals" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="sec-goals"><span class="header-section-number">2</span> 머신러닝의 두 목표와 의미론적 사상(mapping)</h2>
+<section id="적합-vs-일반화" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="적합-vs-일반화"><span class="header-section-number">2.1</span> 적합 vs 일반화</h3>
+<p>질문 “머신러닝의 목표는?”의 고전적 답은 <strong>일반화</strong>다. 그런데 대형 모델 시대에는 답이 미묘해진다. 모델이 좋아지고 데이터가 커지면, 단지 <strong>데이터에 더 잘 적합시키는 것</strong> 자체가 일반화를 달성하는 한 가지 경로가 된다. 즉 두 목표는 본래 경쟁 관계이지만, 규모가 커지면 더 이상 충돌하지 않을 수 있다(소규모에서는 과적합이 문제지만, 충분히 큰 데이터에서는 적합이 곧 일반화).</p>
+</section>
+<section id="의자를-의자로-만드는-것은-무엇인가" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="의자를-의자로-만드는-것은-무엇인가"><span class="header-section-number">2.2</span> “의자를 의자로 만드는 것은 무엇인가?”</h3>
+<p>모델의 일은 데이터 <span class="math inline">\(x\)</span> 를 라벨 공간 <span class="math inline">\(y\)</span> 로 사상하는 것이다(<span class="math inline">\(f:\mathcal{X}\to\mathcal{Y}\)</span>). 그런데 “의자(chair)”라는 라벨을 생각해 보자. 등받이가 있는 의자, 없는 스툴, 팔걸이가 있는 것, 세 명이 앉는 벤치 — 시각적으로는 매우 다양하지만 같은 의미를 공유한다.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>왜 어려운가: 의미가 시각이 아니라 어포던스로 정의되기 때문
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>“의자” 개념은 <strong>시각 신호</strong>가 아니라 <strong>어포던스(affordance)·기능성</strong>(“앉을 수 있는 것”)으로 정의된다. 따라서 이미지를 의자 의미로 사상하는 문제는 (수학적 의미의 ill-posed는 아니지만) <strong>잘 정의되지 않은(ill-defined) 문제</strong>다. 입력 자체가 그 의미로 사상될 준비가 되어 있지 않다.</p>
+</div>
+</div>
+<p>이 통찰을 극단까지 밀어붙인 고전 사례가 Grabner et al., “What makes a chair a chair?”(CVPR 2011) 이다. 3D 아바타를 실제로 물체 위에 <strong>앉혀 보고</strong> 성공하면 “의자”로 판정한다. 다소 무모해 보이지만, 시각 신호 대신 기능을 직접 검증함으로써 당대 기준 정확도를 크게 끌어올렸다. 교훈: 표현 공간이 의미를 담기에 부족하면, “박스 밖에서” 의미의 정의 자체를 다시 생각해야 한다.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>무선 통신 관점의 비유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>이것은 <strong>표현(특징) 공간의 충분성</strong> 문제다. 무선에서 수신 신호 <span class="math inline">\(y\)</span> 만으로 어떤 추정량을 복원하려 할 때, 관측이 <strong>식별 가능(identifiable)</strong> 하지 않으면 아무리 좋은 추정기를 써도 복원이 불가능하다. 의자 인식의 실패는 추정기(분류기)의 문제가 아니라 <strong>관측 모델 자체의 식별성 부족</strong>에 가깝다.</p>
+</div>
+</div>
+</section>
+<section id="부족분을-메우는-처방remedies" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="부족분을-메우는-처방remedies"><span class="header-section-number">2.3</span> 부족분을 메우는 처방(remedies)</h3>
+<p>문헌에서 데이터 부족을 다루는 처방들:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>처방</th>
+<th>비용</th>
+<th>핵심 아이디어</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Large-scale supervised</td>
+<td>비쌈, 정확</td>
+<td>라벨을 대량으로 확보</td>
+</tr>
+<tr class="even">
+<td>Few-shot learning</td>
+<td>—</td>
+<td>소수 예제로 일반화</td>
+</tr>
+<tr class="odd">
+<td>Semi-supervised</td>
+<td>저렴</td>
+<td>라벨+비라벨 혼합</td>
+</tr>
+<tr class="even">
+<td>Active learning</td>
+<td>저렴</td>
+<td>사람에게 “물어볼 것”을 골라 라벨링</td>
+</tr>
+<tr class="odd">
+<td>Self-supervised</td>
+<td>저렴</td>
+<td>데이터 자체에서 감독 신호 생성</td>
+</tr>
+<tr class="even">
+<td>Unsupervised</td>
+<td>가장 저렴</td>
+<td>라벨 없이 구조 학습</td>
+</tr>
+</tbody>
+</table>
+<p>축으로 보면 위쪽(supervised)은 <strong>정확하지만 비싸고</strong>, 아래쪽(self-/unsupervised)은 <strong>저렴하지만 약한 감독</strong>이다.</p>
+<hr>
+</section>
+</section>
+<section id="sec-fewshot" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="sec-fewshot"><span class="header-section-number">3</span> Few-shot / N-shot / Zero-shot</h2>
+<section id="정의" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="정의"><span class="header-section-number">3.1</span> 정의</h3>
+<ul>
+<li><strong>Few-shot (<span class="math inline">\(N\)</span>-shot) learning</strong>: 관심 클래스에 대해 <strong>소수(<span class="math inline">\(N\)</span>개)</strong> 의 예제로 학습.</li>
+<li><strong>Zero-shot learning</strong>: 관심 클래스에 대해 <strong>예제가 0개</strong>인 상태로 학습.</li>
+</ul>
+</section>
+<section id="가장-헷갈리는-지점-zero-shot-vs-unsupervised" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="가장-헷갈리는-지점-zero-shot-vs-unsupervised"><span class="header-section-number">3.2</span> 가장 헷갈리는 지점: zero-shot vs unsupervised</h3>
+<p>학생들이 가장 많이 혼동하는 부분이다. 두 축을 분리하면 명확해진다.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>두 개의 독립적인 축
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>축 1 (감독 여부)</strong>: supervised ↔︎ unsupervised. 라벨을 주느냐 마느냐.</li>
+<li><strong>축 2 (관심 클래스의 예제 수)</strong>: many-shot ↔︎ few-shot ↔︎ zero-shot.</li>
+</ul>
+<p>이 둘은 <strong>직교</strong>한다. zero-shot은 보통 supervised 패러다임 안에서 “관심 클래스의 예제만 0개”인 경우를 가리키고, unsupervised는 “라벨이 아예 없음”을 가리킨다.</p>
+</div>
+</div>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>구분</th>
+<th>관심 클래스 예제</th>
+<th>라벨</th>
+<th>작동 원리</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Many-shot supervised</td>
+<td>많음</td>
+<td>있음</td>
+<td>표준 적합</td>
+</tr>
+<tr class="even">
+<td>Few-shot</td>
+<td>소수</td>
+<td>있음</td>
+<td>소수 예제 + 강한 사전지식</td>
+</tr>
+<tr class="odd">
+<td><strong>Zero-shot</strong></td>
+<td><strong>0개 (의도적으로 배제)</strong></td>
+<td>(보조정보엔 있음)</td>
+<td><strong>귀납 편향/보조지식으로 외삽</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Unsupervised</strong></td>
+<td>(들어 있을 수도)</td>
+<td><strong>없음</strong></td>
+<td>라벨 자체가 없음</td>
+</tr>
+</tbody>
+</table>
+<p>핵심 차이: zero-shot에서는 관심 의미에 대한 <strong>훈련 예제를 의도적으로 제공하지 않으면서도</strong>, 모델이 그 의미로 일반화하기를 “기대”한다. 그 일반화를 가능케 하는 “마법”이 바로 <strong>귀납 편향(혹은 보조 의미정보, heritage)</strong> 이다. 반면 unsupervised는 단지 라벨이 없을 뿐, 그 데이터에 관심 개념이 섞여 있을 수도 있고 통제하지 않는다.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>무선 통신 관점의 비유
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>Few-shot ≈ 적은 파일럿(pilot)으로 채널 추정</strong>: 관측이 부족하니 채널의 구조적 사전지식 (희소성, 상관 구조)을 끌어와야 한다. 압축 센싱·MMSE 추정의 정신과 같다.</li>
+<li><strong>Zero-shot ≈ 블라인드(blind) 추정</strong>: 관심 대상의 직접 관측 없이, 알려진 구조/사전분포만으로 추정. “파일럿 없이” 푸는 셈이라 사전지식이 전부다.</li>
+<li><strong>Unsupervised ≈ 라벨(정답) 없는 신호의 군집화/구조 발견</strong>.</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="처방을-묶는-세-갈래" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="처방을-묶는-세-갈래"><span class="header-section-number">3.3</span> 처방을 묶는 세 갈래</h3>
+<p>few-/zero-shot(넓게는 약한 감독, weakly-supervised)을 다루는 전략은 결국 셋이다.</p>
+<ol type="1">
+<li><strong>귀납 편향 사용</strong> — 아키텍처, 손으로 설계한 정규화, 데이터의 표본 간 관계(구조).</li>
+<li><strong>비라벨 데이터 사용</strong> — semi-/self-/unsupervised learning.</li>
+<li><strong>사람을 효율적으로 사용</strong> — active learning(라벨링할 표본 선택), RLHF(피드백 정렬).</li>
+</ol>
+<p>현대 대규모 학습은 주로 (2)를 전례 없는 규모로 밀어붙인다. 비라벨 데이터로 거대 <strong>사전학습</strong>을 하면, 다양한 다운스트림 과제에서 예상치 못한 성능 향상(emergent ability)을 얻는다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>비라벨 사전학습은 “멍청하지만 비싼” 만능 해법
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>강사의 표현을 빌리면, 비라벨 사전학습은 다른 귀납 편향·사람 효율 기법에 비해 <strong>단순(brute-force)하지만 비싼</strong> 대안이다. 막대한 계산·데이터를 쓰는 대신 보편적 성능과 창발 능력을 얻는다. 자원이 제약된(예: 엣지 디바이스) 상황에서는 오히려 귀납 편향이나 active learning 같은 <strong>자원 최적화된</strong> 해법이 더 적합할 수 있다. “지금 이 순간 최선의 해법이 무엇인가”를 과제별로 판단해야 한다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="sec-inductive" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="sec-inductive"><span class="header-section-number">4</span> 귀납 편향(inductive bias) 다시 보기</h2>
+<section id="지도학습-귀납induction" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="지도학습-귀납induction"><span class="header-section-number">4.1</span> 지도학습 = 귀납(induction)</h3>
+<p>지도학습은 <strong>과거(훈련 표본)로부터 미래(테스트 표본)를 예측</strong>하는 귀납이다. 귀납을 제약하는 것이 <strong>귀납 편향</strong>이고, 그 구현체가 곧 <strong>정규화(regularizer)</strong> 다.</p>
+</section>
+<section id="학습-목적함수와-map-해석" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="학습-목적함수와-map-해석"><span class="header-section-number">4.2</span> 학습 목적함수와 MAP 해석</h3>
+<p>전형적인 학습 목적함수는</p>
+<p><span class="math display">\[
+\min_{\theta}\; \underbrace{L(\theta)}_{\text{손실(데이터 적합)}} \;+\; \lambda\,\underbrace{\Omega(\theta)}_{\text{정규화(귀납 편향)}}.
+\]</span></p>
+<p>데이터가 적으면 <span class="math inline">\(L\)</span> 만으로는 신뢰할 수 없고, 풍부한 귀납 편향 <span class="math inline">\(\Omega\)</span> 가 빈자리를 채운다.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>정규화 = 음의 로그 사전분포 (MAP)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>베이지안 관점에서 이 목적함수는 <strong>MAP 추정</strong>과 정확히 같다. <span class="math display">\[
+\hat\theta_{\text{MAP}}
+=\arg\max_{\theta}\; \log p(\theta\mid \mathcal{D})
+=\arg\max_{\theta}\;\Big[\underbrace{\log p(\mathcal{D}\mid\theta)}_{=\,-L(\theta)}+\underbrace{\log p(\theta)}_{=\,-\lambda\Omega(\theta)}\Big].
+\]</span> 즉 <span class="math inline">\(\Omega(\theta) = -\tfrac{1}{\lambda}\log p(\theta)\)</span> 이다. <strong>귀납 편향을 넣는다는 것은 파라미터에 사전분포 <span class="math inline">\(p(\theta)\)</span> 를 부여하는 것</strong>과 동치다. (예: <span class="math inline">\(L_2\)</span> 정규화 <span class="math inline">\(\Leftrightarrow\)</span> <span class="math inline">\(\theta\)</span> 에 가우시안 사전분포; <span class="math inline">\(L_1\)</span> <span class="math inline">\(\Leftrightarrow\)</span> 라플라스 사전분포.)</p>
+<p>MLE는 균일(uniform) 사전분포를 “가정”하는 특수 케이스이며, “사전분포를 무시”하는 것이 아니다. MAP = MLE + 로그-사전(=정규화) 라는 구조를 기억해 두자.</p>
+</div>
+</div>
+</section>
+<section id="전통적-ml의-귀납-편향들" class="level3" data-number="4.3">
+<h3 data-number="4.3" class="anchored" data-anchor-id="전통적-ml의-귀납-편향들"><span class="header-section-number">4.3</span> 전통적 ML의 귀납 편향들</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>귀납 편향</th>
+<th>사용 모델</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Maximum conditional independence</td>
+<td>Naïve Bayes</td>
+<td>특징 간 조건부 독립 가정</td>
+</tr>
+<tr class="even">
+<td>Minimum cross-validation error</td>
+<td>(모델 선택)</td>
+<td>CV 오차 최소 가설 선택</td>
+</tr>
+<tr class="odd">
+<td>Maximum margin</td>
+<td>SVM</td>
+<td>결정 경계 마진 최대화</td>
+</tr>
+<tr class="even">
+<td>Minimum description length</td>
+<td>Decision tree</td>
+<td>짧은 기술(Occam의 면도날) 선호</td>
+</tr>
+<tr class="odd">
+<td>Minimum features</td>
+<td>(특징 선택)</td>
+<td>쓸모없는 특징 제거</td>
+</tr>
+<tr class="even">
+<td>Nearest neighbor</td>
+<td>k-NN</td>
+<td>이웃 다수결로 라벨 부여</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="현대적-귀납-편향" class="level3" data-number="4.4">
+<h3 data-number="4.4" class="anchored" data-anchor-id="현대적-귀납-편향"><span class="header-section-number">4.4</span> 현대적 귀납 편향</h3>
+<ul>
+<li><strong>아키텍처</strong> — CNN의 지역성·평행이동 등변성, 트랜스포머의 순열 구조 등.</li>
+<li><strong>손으로 설계한 정규화</strong> — 가중치 감쇠, dropout, 일관성 손실 등.</li>
+<li><strong>데이터의 구조(표본 간 관계)</strong> — 관계가 약한 표본은 학습에서 제외해 계산 자원 절약 가능.</li>
+</ul>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>few-shot 한 줄 요약
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>데이터가 없으면 → 귀납 편향을 쓰거나, (사람을 효율적으로 활용한) 대규모 사전학습을 써라.</strong></p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="sec-cl-classic" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="sec-cl-classic"><span class="header-section-number">5</span> 연속 학습(Continual Learning): 고전적 접근</h2>
+<section id="동기-모든-클래스를-미리-안다는-비현실적-가정" class="level3" data-number="5.1">
+<h3 data-number="5.1" class="anchored" data-anchor-id="동기-모든-클래스를-미리-안다는-비현실적-가정"><span class="header-section-number">5.1</span> 동기: “모든 클래스를 미리 안다”는 비현실적 가정</h3>
+<p>ImageNet 1,000 클래스로 분류기를 학습했다고 하자. 세상에 클래스가 1,000개뿐인가? 새 클래스를 추가하려면 어떻게 하나?</p>
+<blockquote class="blockquote">
+<p>데이터셋에 새 클래스를 합치고 <strong>처음부터 다시 학습</strong>한다 — 매우 비효율적이지만, 사실상 이보다 나은 표준 방법이 없다.</p>
+</blockquote>
+<p>이 “매번 처음부터 다시”의 비효율을 깨려는 것이 연속 학습이다. 또한 각 클래스의 의미 입도 (granularity)도 제각각이다. “개”는 넓고, “세단 SUV”는 좁다. 그런데 우리는 모두 하나의 클래스로 동등 취급한다. 새 클래스를 점진적으로 추가하고 싶다는 자연스러운 요구가 여기서 나온다.</p>
+</section>
+<section id="이것은-새로운-문제가-아니다" class="level3" data-number="5.2">
+<h3 data-number="5.2" class="anchored" data-anchor-id="이것은-새로운-문제가-아니다"><span class="header-section-number">5.2</span> 이것은 새로운 문제가 아니다</h3>
+<p>연속 학습은 새로워 보이지만, 오래 연구된 인접 분야들의 재구성이다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>인접 분야</th>
+<th>핵심</th>
+<th>연속 학습과의 관계</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Transfer learning</td>
+<td>과거 지식을 새 과제로 이전</td>
+<td>연속 학습의 구성 요소</td>
+</tr>
+<tr class="even">
+<td>Domain adaptation</td>
+<td>입력 도메인 <span class="math inline">\(\mathcal{X}\)</span> 변화에 적응</td>
+<td>분포 변화 대응</td>
+</tr>
+<tr class="odd">
+<td>Multitask learning</td>
+<td>여러 과제 동시 학습</td>
+<td><strong>시간 압축된</strong> 연속 학습</td>
+</tr>
+<tr class="even">
+<td>Meta learning</td>
+<td>학습하는 법을 학습</td>
+<td>과거 학습을 현재에 활용</td>
+</tr>
+<tr class="odd">
+<td>Lifelong / never-ending</td>
+<td>평생 누적 학습</td>
+<td>같은 개념의 다른 이름</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>domain / range 로 보는 domain adaptation
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>함수 <span class="math inline">\(f:\mathcal{X}\to\mathcal{Y}\)</span> 에서 <span class="math inline">\(\mathcal{X}\)</span> 는 정의역(domain), <span class="math inline">\(\mathcal{Y}\)</span> 의 상(image)은 치역(range)이다. <strong>domain adaptation</strong>은 <span class="math inline">\(f\)</span> 는 그대로 두고 정의역 <span class="math inline">\(\mathcal{X}\)</span> 가 바뀌어도 동작하기를 바라는 것이다. 예: “카메라” 분류기를 옛날 DSLR로 학습했는데, 요즘 다섯 살 아이에게 카메라는 “스마트폰”이다. 정의역이 DSLR에서 폰으로 확장되었고, 우리는 같은 라벨로 사상되기를 바란다.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>Multitask = 시간 압축된 Continual Learning
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>멀티태스크에서 각 과제를 서로 다른 데이터 부분집합으로 동시에 학습한다고 하자. 이를 시간축으로 펼치면(과제1 → 과제2 → …) 그대로 연속 학습이다. 따라서 <strong>멀티태스크는 연속 학습의 시간 압축판</strong>이고, <strong>연속 학습은 멀티태스크의 시간 신용(time-credit)판</strong>이다.</p>
+</div>
+</div>
+</section>
+<section id="ml-1.0-vs-ml-2.0" class="level3" data-number="5.3">
+<h3 data-number="5.3" class="anchored" data-anchor-id="ml-1.0-vs-ml-2.0"><span class="header-section-number">5.3</span> ML 1.0 vs ML 2.0</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th>ML 1.0 (고립 학습)</th>
+<th>ML 2.0 (평생 학습)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>패러다임</td>
+<td>데이터셋 주고 모델 1회 학습</td>
+<td>과거 지식을 보존·활용하며 지속 학습</td>
+</tr>
+<tr class="even">
+<td>메모리</td>
+<td>없음(지식 비누적)</td>
+<td>누적</td>
+</tr>
+<tr class="odd">
+<td>데이터 요구</td>
+<td>대량 사전 확보 필요</td>
+<td>소수 예제로도 학습(사람처럼)</td>
+</tr>
+<tr class="even">
+<td>한계</td>
+<td>고립 학습의 약점</td>
+<td>시스템적 접근 필요</td>
+</tr>
+</tbody>
+</table>
+<p>사람은 결코 고립된 채로 배우지 않는다. ML 1.0 알고리즘만으로 지능적 에이전트를 만들기는 어렵고, 그래서 “사람처럼 배우는” ML 2.0(평생 학습)으로 진화해야 한다는 것이 동기다.</p>
+</section>
+<section id="초기-연구-계보" class="level3" data-number="5.4">
+<h3 data-number="5.4" class="anchored" data-anchor-id="초기-연구-계보"><span class="header-section-number">5.4</span> 초기 연구 계보</h3>
+<ul>
+<li><strong>Thrun 1996 (lifelong learning)</strong>: 학습자의 생애에 걸쳐 함수열 <span class="math inline">\(f_1,f_2,f_3,\dots\in F\)</span> 를 학습. 각 과제는 <span class="math inline">\(f:\mathcal{I}\to\{0,1\}\)</span>, <span class="math inline">\(f_{\text{dog}}(x)=1\)</span> 은 “<span class="math inline">\(x\)</span> 는 개”를 뜻한다. 핵심 직관: <span class="math inline">\(f_{\text{dog}}\)</span> 를 배울 때 이전에 배운 <span class="math inline">\(f_{\text{cat}},f_{\text{bird}}\)</span> 등의 지식을 재사용한다.</li>
+<li><strong>NELL (Never-Ending Language Learner, Mitchell et al.)</strong>: 2010년 1월부터 2018년 9월까지 24시간 가동. 웹에서 사실을 추출해 지식 베이스를 채우고, “어제보다 더 잘 읽도록” 개선. 결과적으로 약 <strong>1.2억 개의 신뢰도-가중 믿음(belief)</strong> 을 축적하고, 읽기·추론·학습 능력과 온톨로지를 확장했다. NELL은 <strong>typed, closed knowledge base</strong>(튜플 (subject, relation, object) 모음)다.</li>
+<li><strong>NEIL (Never-Ending Image Learner)</strong>: NELL의 이미지판. <strong>200코어에서 4개월</strong> 가동, 2,500개 이상 개념(객체&gt;1,500, 장면&gt;1,034, 속성&gt;87)을 발견, 500만 장 이상 분석, 60만 장 라벨링, 3,000개 관계 발견. 객체–객체, 장면–객체, 객체–속성, 장면–속성 관계를 학습했다(예: 바운딩 박스 포함 관계로 “바퀴는 자동차의 일부”를 발견).</li>
+</ul>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>지식 베이스에서 신경망으로
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>지식 베이스가 더 커질수록(노드·엣지 증가) <strong>더 잘 읽고, 더 잘 추론하고, 더 잘 학습</strong>한다. 이미 아는 개념에 새 정보를 “어디에 붙일지” 알기 때문이다. 오늘날 우리는 이런 명시적 지식 베이스 대신 <strong>신경망이라는 압축된 지식 베이스</strong>를 쓰지만, 누적·연결이 능력을 키운다는 원리는 같다.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="sec-cl-modern" class="level2" data-number="6">
+<h2 data-number="6" class="anchored" data-anchor-id="sec-cl-modern"><span class="header-section-number">6</span> 연속 학습: 현대적 셋업</h2>
+<section id="분류-기준-무엇이-변하는가" class="level3" data-number="6.1">
+<h3 data-number="6.1" class="anchored" data-anchor-id="분류-기준-무엇이-변하는가"><span class="header-section-number">6.1</span> 분류 기준: 무엇이 변하는가</h3>
+<p><span class="math inline">\(P(Y)\)</span> 가 고정일 때 대표적 셋업:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>셋업</th>
+<th>시간에 따라 변하는 것</th>
+<th>직관</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Class-incremental (CIL)</strong></td>
+<td>클래스 집합 <span class="math inline">\(\mathcal{Y}\)</span> 가 점점 추가</td>
+<td><span class="math inline">\(t{=}1\)</span>: 책·비행기, <span class="math inline">\(t{=}2\)</span>: 자동차·개 …</td>
+</tr>
+<tr class="even">
+<td><strong>Domain-incremental</strong></td>
+<td>입력 도메인 <span class="math inline">\(\mathcal{X}\)</span> 가 변화</td>
+<td>같은 클래스, 다른 도메인의 표본이 시점별로</td>
+</tr>
+</tbody>
+</table>
+<p>연속 학습 자체는 분류만의 문제가 아니지만, 가장 많이 연구된 표준 셋업이 <strong>CIL</strong>이다.</p>
+</section>
+<section id="online-vs-offline-연속-학습" class="level3" data-number="6.2">
+<h3 data-number="6.2" class="anchored" data-anchor-id="online-vs-offline-연속-학습"><span class="header-section-number">6.2</span> Online vs Offline 연속 학습</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th>Offline CL</th>
+<th>Online CL</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>데이터 접근</td>
+<td>해당 시점의 부분집합에 반복 접근</td>
+<td>스트림에서 표본을 <strong>한 번</strong> 보고 흘려보냄</td>
+</tr>
+<tr class="even">
+<td>에폭</td>
+<td><strong>다중 에폭</strong> 허용</td>
+<td>단일 패스(1-epoch)</td>
+</tr>
+<tr class="odd">
+<td>난이도</td>
+<td>상대적으로 쉬움</td>
+<td><strong>더 어려움</strong>(빠르게 수렴해야)</td>
+</tr>
+</tbody>
+</table>
+<p>online은 표본을 다시 보지 못하므로, 주어진 시점에 빠르게 해로 수렴해야 한다.</p>
+<div class="cell" data-layout-align="default">
+<details class="code-fold">
+<summary>코드</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode default code-with-copy"><code class="sourceCode default"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    subgraph Offline</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>      D1[Data-1&lt;br/&gt;다중 에폭] --&gt; D2[Data-2&lt;br/&gt;다중 에폭] --&gt; D3[Data-3&lt;br/&gt;다중 에폭]</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    end</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    subgraph Online</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      S[스트림: x1 x2 x3 ... 각 1회] --&gt; M[모델 즉시 업데이트]</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    end</span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart LR
+    subgraph Offline
+      D1[Data-1&lt;br/&gt;다중 에폭] --&gt; D2[Data-2&lt;br/&gt;다중 에폭] --&gt; D3[Data-3&lt;br/&gt;다중 에폭]
+    end
+    subgraph Online
+      S[스트림: x1 x2 x3 ... 각 1회] --&gt; M[모델 즉시 업데이트]
+    end
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+</section>
+<section id="파국적-망각catastrophic-forgetting" class="level3" data-number="6.3">
+<h3 data-number="6.3" class="anchored" data-anchor-id="파국적-망각catastrophic-forgetting"><span class="header-section-number">6.3</span> 파국적 망각(catastrophic forgetting)</h3>
+<p>각 시점에 데이터의 <strong>부분집합만</strong> 보기 때문에, 새 과제를 학습하면 과거 과제 성능이 급격히 무너진다. 표준 학습(모든 데이터를 모든 에폭에서 사용)과 달리, 연속 학습에서는 과거 표본이 제한된 횟수만 보이므로 망각이 훨씬 심하다.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>대형 모델에서는 망각이 덜하다 — 대신 다른 문제가 생긴다
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>파라미터가 매우 많은 큰 모델은, 학습된 지식이 거대한 파라미터 공간에 흩어져 저장되므로 소수 gradient 업데이트로 잘 파괴되지 않는다. 따라서 <strong>대형 모델에서는 파국적 망각이 핵심 이슈가 아니다.</strong> 대신 <strong>가소성(plasticity)</strong> 이 문제다 — 큰 모델은 새 사실을 빠르게/완전히 흡수하기 어렵다. 작은 사실 하나를 주입해도 모든 파라미터에 반영되지 않아 답이 어긋날 수 있다.</p>
+</div>
+</div>
+</section>
+<section id="안정성가소성-딜레마stabilityplasticity-dilemma" class="level3" data-number="6.4">
+<h3 data-number="6.4" class="anchored" data-anchor-id="안정성가소성-딜레마stabilityplasticity-dilemma"><span class="header-section-number">6.4</span> 안정성–가소성 딜레마(stability–plasticity dilemma)</h3>
+<p>망각을 <strong>0 계산비용</strong>으로 완벽히 막는 방법은? — <strong>아무것도 학습하지 않는 것.</strong> 업데이트가 없으면 망각도 없다. 그러나 연속 학습의 목적은 <strong>새것을 배우는 것</strong>이므로 이는 무의미하다.</p>
+<p><span class="math display">\[
+\underbrace{\text{Stability}}_{\text{과거 보존}} \;\;\longleftrightarrow\;\; \underbrace{\text{Plasticity}}_{\text{새것 흡수}}
+\]</span></p>
+<p>둘은 트레이드오프다. 새것을 배우려면 과거 일부를 희생할 위험을 진다. 인지과학에서도 인간 뇌가 같은 딜레마를 겪는다.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>무선 통신 관점의 비유: 망각계수를 가진 적응 필터
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>이 딜레마는 <strong>적응 필터(adaptive filter)의 수렴 vs 추적(tracking) 트레이드오프</strong>와 본질적으로 같다. RLS의 망각계수 <span class="math inline">\(\lambda\)</span> 나 LMS의 스텝 사이즈 <span class="math inline">\(\mu\)</span> 를 떠올리자.</p>
+<ul>
+<li><span class="math inline">\(\mu\)</span>(또는 <span class="math inline">\(1-\lambda\)</span>)가 <strong>작으면</strong>: 정상상태 오차가 작고(=과거를 잘 보존, <strong>안정성</strong>), 하지만 채널이 변할 때 추적이 느리다(=새것 흡수 느림, <strong>가소성</strong> 낮음).</li>
+<li><span class="math inline">\(\mu\)</span>가 <strong>크면</strong>: 변화 추적은 빠르지만(<strong>가소성</strong> 높음) 정상상태에서 출렁이며 과거 통계를 잊는다(<strong>안정성</strong> 낮음).</li>
+</ul>
+<p>파국적 망각은 적응 필터가 새 채널 통계로 재수렴하면서 과거 통계를 덮어쓰는 현상에 대응한다. “replay buffer”는 과거 파일럿/훈련 표본을 보관해 두는 것에 해당한다.</p>
+</div>
+</div>
+</section>
+<section id="cil-기법의-분류taxonomy" class="level3" data-number="6.5">
+<h3 data-number="6.5" class="anchored" data-anchor-id="cil-기법의-분류taxonomy"><span class="header-section-number">6.5</span> CIL 기법의 분류(taxonomy)</h3>
+<div class="cell" data-layout-align="default">
+<details class="code-fold">
+<summary>코드</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode default code-with-copy"><code class="sourceCode default"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>flowchart TD</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    T[CIL 방법론] --&gt; R[Replay 기반]</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    T --&gt; G[정규화 기반]</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    T --&gt; P[파라미터 격리]</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    R --&gt; R1[과거 표본을 작은 버퍼에&lt;br/&gt;보관 후 새 과제와 함께 재생]</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    G --&gt; G1[Prior-focused&lt;br/&gt;이전 학습의 중요 파라미터를 고정&lt;br/&gt;예: EWC, Fisher 가중]</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    G --&gt; G2[Data-focused&lt;br/&gt;이전 모델의 출력을 정규화&lt;br/&gt;예: 지식 증류 LwF]</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    P --&gt; P1[새 과제는 새 파라미터/모델로&lt;br/&gt;나중에 병합 또는 라우팅]</span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart TD
+    T[CIL 방법론] --&gt; R[Replay 기반]
+    T --&gt; G[정규화 기반]
+    T --&gt; P[파라미터 격리]
+    R --&gt; R1[과거 표본을 작은 버퍼에&lt;br/&gt;보관 후 새 과제와 함께 재생]
+    G --&gt; G1[Prior-focused&lt;br/&gt;이전 학습의 중요 파라미터를 고정&lt;br/&gt;예: EWC, Fisher 가중]
+    G --&gt; G2[Data-focused&lt;br/&gt;이전 모델의 출력을 정규화&lt;br/&gt;예: 지식 증류 LwF]
+    P --&gt; P1[새 과제는 새 파라미터/모델로&lt;br/&gt;나중에 병합 또는 라우팅]
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<ul>
+<li><strong>Replay 기반</strong>: 과거 표본 일부를 작은 캐시(replay buffer)에 저장하고, 새 과제 학습 시 함께 재생한다. 가장 단순하고 강력하다.</li>
+<li><strong>정규화 기반</strong>
+<ul>
+<li><em>Prior-focused</em>: 과거에 중요했던 파라미터일수록 덜 움직이게 벌점을 준다. 대표적으로 <strong>EWC(Elastic Weight Consolidation)</strong> 는 Fisher 정보 <span class="math inline">\(F_i\)</span> 로 파라미터 중요도를 가중한다: <span class="math display">\[
+\mathcal{L}(\theta)=\mathcal{L}_{\text{new}}(\theta)+\frac{\lambda}{2}\sum_i F_i\,(\theta_i-\theta^{*}_{\text{old},i})^2 .
+\]</span> 여기서 <span class="math inline">\(F_i\)</span> 는 과거 과제 손실의 곡률(2차 정보)을 근사하며, <strong>로그-사전 <span class="math inline">\(\log p(\theta)\)</span> 를 과거 사후분포로 둔 MAP</strong>(<a href="#sec-inductive" class="quarto-xref">섹션&nbsp;4</a>)의 한 형태로 볼 수 있다. 정보이론적으로 <span class="math inline">\(F\)</span> 는 피셔 정보 행렬의 대각 근사다.</li>
+<li><em>Data-focused</em>: 이전 모델의 출력(소프트 라벨)을 흉내 내게 하는 지식 증류(예: LwF).</li>
+</ul></li>
+<li><strong>파라미터 격리</strong>: 새 데이터는 <strong>새 모델/새 파라미터</strong>로 학습하고 나중에 병합한다. 망각은 거의 없지만, 모델이 계속 커져 저장 비용이 크고, <strong>추론 시 어느 모델을 쓸지 결정</strong>하는 새 문제가 생긴다.</li>
+</ul>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>실험으로 본 결론(부록 <a href="#sec-appendix" class="quarto-xref">섹션&nbsp;9</a> 코드)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>강한 간섭이 있는 단일 헤드(single-head) 셋업에서는, 단순한 <strong>replay</strong>가 정규화 기반보다 훨씬 견고하게 망각을 막는 경향이 있다. 부록 데모에서 naive 순차 학습은 과거 과제 정확도가 <span class="math inline">\(1.00\!\to\!0.00\)</span> 으로 붕괴했지만, 20% 비율의 replay만으로 <span class="math inline">\(0.97\)</span> 까지 회복했다.</p>
+</div>
+</div>
+</section>
+<section id="더-현실적인-셋업들-연구-동향" class="level3" data-number="6.6">
+<h3 data-number="6.6" class="anchored" data-anchor-id="더-현실적인-셋업들-연구-동향"><span class="header-section-number">6.6</span> 더 현실적인 셋업들 (연구 동향)</h3>
+<p>고전적 CIL은 “각 시점에 정해진 클래스 표본만 본다”고 가정한다. 이는 비현실적이다. 더 현실적인 셋업으로 확장된다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>셋업</th>
+<th>문제의식</th>
+<th>핵심 아이디어</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Blurry / i-Blurry</strong></td>
+<td>한 시점에 한 클래스만 보지는 않는다</td>
+<td>과제 경계를 흐릿하게(낮은 확률로 타 클래스 등장), 새 클래스도 점진 등장 + anytime inference</td>
+</tr>
+<tr class="even">
+<td><strong>Noisy labels</strong></td>
+<td>스트림 라벨이 틀릴 수 있다</td>
+<td>오염된 라벨 스트림에서의 학습</td>
+</tr>
+<tr class="odd">
+<td><strong>Boundary-free (Gaussian) stream</strong></td>
+<td>데이터 분포가 시간의 연속 함수</td>
+<td>경계 없는 연속 분포 + 데이터 사전(prior) 스케줄링</td>
+</tr>
+<tr class="even">
+<td><strong>Hierarchical label expansion</strong></td>
+<td>거친 클래스 → 세밀한 클래스로 분화</td>
+<td>계층 구조를 활용해 새로운 세분 클래스 학습</td>
+</tr>
+<tr class="odd">
+<td><strong>Embodied agents</strong></td>
+<td>로봇이 새 환경/행동을 지속 학습</td>
+<td>과거 개념 보존하며 새 환경·행동 통합</td>
+</tr>
+<tr class="even">
+<td><strong>Name-only CL</strong></td>
+<td>사람 라벨러가 항상 있진 않다</td>
+<td>LLM/VLM을 라벨러로 써서 웹 데이터 자동 수집·정제</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>i-Blurry의 동기 (확률적 직관)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>“blurry” 셋업은 <span class="math inline">\(t{=}1\)</span> 에 개·고양이가 높은 확률로, 자동차·배가 1% 같은 낮은 확률로 섞여 보인다고 본다. 그런데 표본 수가 충분히 크면(예: 클래스당 100개 이상), 0.1% 확률의 클래스라도 모든 시점에서 <strong>거의 확실히 한 번은</strong> 등장한다. 그러면 사실상 “모든 클래스가 항상 보이는” 것이 되어 더 이상 class-incremental이 아니게 된다. 이 허점을 메우려 <strong>i-Blurry</strong> 셋업은 일부 클래스는 점진적으로(incrementally) 추가되도록 설계해, 현실성과 class-incremental 성질을 동시에 유지한다.</p>
+</div>
+</div>
+</section>
+<section id="name-only-사람-없는-연속-학습" class="level3" data-number="6.7">
+<h3 data-number="6.7" class="anchored" data-anchor-id="name-only-사람-없는-연속-학습"><span class="header-section-number">6.7</span> Name-only / 사람 없는 연속 학습</h3>
+<p>사람 라벨러나 재학습용 데이터가 항상 주어지지는 않는다. 이때 LLM·VLM을 <strong>대체 라벨러</strong>로 쓴다. 연속 학습기에게 “이름(semantics)”만 알려주면, 나머지(웹에서 새 데이터 수집 → 자동 라벨링 → LLM-이미지 관계로 오라벨 정제 → 모델 갱신)는 자동화된다. 사용자는 데이터셋을 모을 필요 없이 <strong>개념 이름만</strong> 말하면 된다.</p>
+<hr>
+</section>
+</section>
+<section id="sec-cl-beyond" class="level2" data-number="7">
+<h2 data-number="7" class="anchored" data-anchor-id="sec-cl-beyond"><span class="header-section-number">7</span> CIL을 넘어서: 생성·대형 모델의 연속 학습</h2>
+<p>지금까지는 <span class="math inline">\(P(Y)\)</span>(판별)에 집중했지만, 대형 생성 모델은 <span class="math inline">\(P(X)\)</span> 또는 <span class="math inline">\(P(X\mid Y)\)</span> 를 학습한다. 현대의 대형 모델 학습 자체가 사실상 연속 학습이다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>데이터 풀 + 데이터 페처(data fetcher)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>고전 학습은 고정 데이터셋을 여러 에폭 도는 것이었다. 대형 모델 학습에는 고정 데이터셋이 없다. 대신 <strong>데이터 풀</strong>(증감·정제·신규 유입이 끊임없이 일어남)과 <strong>모델</strong>이 있고, 그 사이를 <strong>데이터 페처</strong>가 잇는다. 페처는 모델 갱신에 유용할 부분집합을 골라낸다. 페처가 똑똑할수록 적은 계산으로 더 좋은 모델을 얻는다. 고정 데이터셋·다중 에폭이라는 개념이 사라지고, 어떤 표본은 여러 번, 어떤 표본은 한 번도 안 보일 수 있다. 즉 <strong>연속 학습 패러다임 그 자체</strong>다.</p>
+</div>
+</div>
+<p>LLM의 연속 학습 파이프라인(개념):</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>약어</th>
+<th>단계</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>DAP</td>
+<td>Domain-adaptive pre-training (도메인 적응 사전학습)</td>
+</tr>
+<tr class="even">
+<td>SFT</td>
+<td>Supervised fine-tuning</td>
+</tr>
+<tr class="odd">
+<td>CIT</td>
+<td>Continual instruction tuning</td>
+</tr>
+<tr class="even">
+<td>CMR</td>
+<td>Continual model refinement</td>
+</tr>
+<tr class="odd">
+<td>CMA</td>
+<td>Continual model alignment</td>
+</tr>
+<tr class="even">
+<td>CMLLM</td>
+<td>Continual multimodal LLM</td>
+</tr>
+</tbody>
+</table>
+<p>여기서 <strong>사람을 효율적으로 쓰는</strong> 대표 기법이 <strong>RLHF</strong>다. 사람의 선호 피드백을 모델 정렬에 효율적으로 반영한다(few-/zero-shot의 세 번째 전략, <a href="#sec-fewshot" class="quarto-xref">섹션&nbsp;3</a>, 과 연결).</p>
+<hr>
+</section>
+<section id="sec-summary" class="level2" data-number="8">
+<h2 data-number="8" class="anchored" data-anchor-id="sec-summary"><span class="header-section-number">8</span> 요약</h2>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>핵심 정리
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><strong>few-shot(⊂ 약한 감독)</strong> 은 어려운 일반화 문제다. 데이터가 없으면 귀납 편향, 비라벨 데이터, 사람의 효율적 사용 중 하나로 메꾼다.</li>
+<li><strong>zero-shot ≠ unsupervised.</strong> zero-shot은 관심 클래스 예제만 0개(보조지식으로 외삽), unsupervised는 라벨 자체가 없음. 서로 직교하는 축이다.</li>
+<li><strong>정규화 = 음의 로그 사전분포.</strong> 귀납 편향을 넣는 것은 <span class="math inline">\(p(\theta)\)</span> 를 부여하는 MAP과 동치이며, MLE는 균일 사전의 특수 케이스다.</li>
+<li><strong>연속 학습은 데이터·계산 효율적 학습 스킴</strong>으로, 특히 대형 모델에서 중요하다. 다만 우리는 너무 오래 <strong>class-incremental</strong>에 머물러 있었다 — 이제 벗어날 때다.</li>
+<li><strong>안정성–가소성 딜레마</strong>(= 적응 필터의 수렴 vs 추적)가 연속 학습의 근본 긴장이며, replay·정규화(EWC)·파라미터 격리가 그 처방이다.</li>
+</ol>
+</div>
+</div>
+<p>다음 주제: <strong>대형 언어 모델(LLM)</strong>.</p>
+<hr>
+</section>
+<section id="sec-appendix" class="level2" data-number="9">
+<h2 data-number="9" class="anchored" data-anchor-id="sec-appendix"><span class="header-section-number">9</span> 부록: 파국적 망각과 replay의 NumPy 데모</h2>
+<p>아래 코드는 외부 의존성 없이 NumPy만으로 <strong>파국적 망각</strong>과 <strong>replay</strong>의 효과를 재현한다.</p>
+<p><strong>셋업.</strong> 입력은 2차원. 규칙은 영역 의존적(XOR 유사)이라 두 과제가 같은 파라미터를 두고 간섭한다.</p>
+<ul>
+<li>과제 A: 왼쪽 영역(<span class="math inline">\(x_1&lt;0\)</span>)의 표본만, 라벨 = (왼쪽 &amp; 위) 또는 (오른쪽 &amp; 아래)</li>
+<li>과제 B: 오른쪽 영역(<span class="math inline">\(x_1&gt;0\)</span>)의 표본만, 같은 규칙</li>
+</ul>
+<p>단일 헤드 MLP는 두 과제를 <strong>함께</strong> 보면(joint) 거의 완벽히 풀 수 있지만(상한), 순차로(A→B) 학습하면 B만 보는 동안 A의 결정 경계가 무너진다.</p>
+<div id="cl-demo" class="cell" data-execution_count="1">
+<details class="code-fold">
+<summary>코드</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">11</span>)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 데이터: 영역 의존적 XOR 유사 규칙 ----</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> lab(X):                       <span class="co"># +1 if (left &amp; up) or (right &amp; down)</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    left, up <span class="op">=</span> X[:, <span class="dv">0</span>] <span class="op">&lt;</span> <span class="dv">0</span>, X[:, <span class="dv">1</span>] <span class="op">&gt;</span> <span class="dv">0</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> ((left <span class="op">&amp;</span> up) <span class="op">|</span> ((<span class="op">~</span>left) <span class="op">&amp;</span> (<span class="op">~</span>up))).astype(<span class="bu">float</span>)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> region_A(n):                  <span class="co"># x&lt;0 영역만 관측</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    X <span class="op">=</span> np.c_[rng.uniform(<span class="op">-</span><span class="dv">2</span>, <span class="dv">0</span>, n), rng.uniform(<span class="op">-</span><span class="dv">2</span>, <span class="dv">2</span>, n)]<span class="op">;</span> <span class="cf">return</span> X, lab(X)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> region_B(n):                  <span class="co"># x&gt;0 영역만 관측</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    X <span class="op">=</span> np.c_[rng.uniform(<span class="dv">0</span>, <span class="dv">2</span>, n), rng.uniform(<span class="op">-</span><span class="dv">2</span>, <span class="dv">2</span>, n)]<span class="op">;</span> <span class="cf">return</span> X, lab(X)</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>XA, yA <span class="op">=</span> region_A(<span class="dv">2000</span>)<span class="op">;</span> XB, yB <span class="op">=</span> region_B(<span class="dv">2000</span>)</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>XAt, yAt <span class="op">=</span> region_A(<span class="dv">800</span>)<span class="op">;</span> XBt, yBt <span class="op">=</span> region_B(<span class="dv">800</span>)</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 작은 2-layer MLP (tanh + sigmoid), 순수 NumPy ----</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>H <span class="op">=</span> <span class="dv">64</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> init():</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [rng.normal(size<span class="op">=</span>(<span class="dv">2</span>, H)) <span class="op">*</span> <span class="fl">0.7</span>, np.zeros(H),</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>            rng.normal(size<span class="op">=</span>(H,)) <span class="op">*</span> <span class="fl">0.7</span>, np.zeros(<span class="dv">1</span>)]</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> fwd(p, X):</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    h <span class="op">=</span> np.tanh(X <span class="op">@</span> p[<span class="dv">0</span>] <span class="op">+</span> p[<span class="dv">1</span>])<span class="op">;</span> z <span class="op">=</span> h <span class="op">@</span> p[<span class="dv">2</span>] <span class="op">+</span> p[<span class="dv">3</span>]</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">1</span> <span class="op">/</span> (<span class="dv">1</span> <span class="op">+</span> np.exp(<span class="op">-</span>np.clip(z, <span class="op">-</span><span class="dv">30</span>, <span class="dv">30</span>))), h</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> grads(p, X, y):</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>    pr, h <span class="op">=</span> fwd(p, X)<span class="op">;</span> d <span class="op">=</span> (pr <span class="op">-</span> y) <span class="op">/</span> <span class="bu">len</span>(y)</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>    dh <span class="op">=</span> np.outer(d, p[<span class="dv">2</span>]) <span class="op">*</span> (<span class="dv">1</span> <span class="op">-</span> h <span class="op">**</span> <span class="dv">2</span>)</span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [X.T <span class="op">@</span> dh, dh.<span class="bu">sum</span>(<span class="dv">0</span>), h.T <span class="op">@</span> d, np.array([d.<span class="bu">sum</span>()])]</span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> acc(p, X, y):</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> ((fwd(p, X)[<span class="dv">0</span>] <span class="op">&gt;</span> <span class="fl">0.5</span>).astype(<span class="bu">float</span>) <span class="op">==</span> y).mean()</span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> train(p, X, y, lr<span class="op">=</span><span class="fl">0.3</span>, ep<span class="op">=</span><span class="dv">2500</span>, bs<span class="op">=</span><span class="dv">256</span>):</span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>    p <span class="op">=</span> [w.copy() <span class="cf">for</span> w <span class="kw">in</span> p]<span class="op">;</span> n <span class="op">=</span> <span class="bu">len</span>(X)</span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(ep):</span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>        i <span class="op">=</span> rng.choice(n, bs, replace<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>        g <span class="op">=</span> grads(p, X[i], y[i])</span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> k <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(p)): p[k] <span class="op">-=</span> lr <span class="op">*</span> g[k]</span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> p</span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 1) 과제 A 학습 ----</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>pA <span class="op">=</span> train(init(), XA, yA)</span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"after A      : accA=</span><span class="sc">{</span>acc(pA, XAt, yAt)<span class="sc">:.2f}</span><span class="ss">"</span>)</span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 2) Joint 학습 (상한, 두 과제를 함께) ----</span></span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>pJ <span class="op">=</span> train(init(), np.vstack([XA, XB]), np.concatenate([yA, yB]), ep<span class="op">=</span><span class="dv">5000</span>)</span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"[Joint]       accA=</span><span class="sc">{</span>acc(pJ, XAt, yAt)<span class="sc">:.2f}</span><span class="ss">  accB=</span><span class="sc">{</span>acc(pJ, XBt, yBt)<span class="sc">:.2f}</span><span class="ss">  (upper bound)"</span>)</span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 3) Naive 순차 (A 학습 후 B만 학습) → 파국적 망각 ----</span></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a>pN <span class="op">=</span> train(pA, XB, yB)</span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"[Naive]       accA=</span><span class="sc">{</span>acc(pN, XAt, yAt)<span class="sc">:.2f}</span><span class="ss">  accB=</span><span class="sc">{</span>acc(pN, XBt, yBt)<span class="sc">:.2f}</span><span class="ss">"</span>)</span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 4) Replay (B 학습 시 과거 A 표본 20% 혼합) → 회복 ----</span></span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a>idx <span class="op">=</span> rng.choice(<span class="bu">len</span>(XA), <span class="dv">500</span>, replace<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a>pR <span class="op">=</span> train(pA, np.vstack([XB, XA[idx]]), np.concatenate([yB, yA[idx]]))</span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"[Replay]      accA=</span><span class="sc">{</span>acc(pR, XAt, yAt)<span class="sc">:.2f}</span><span class="ss">  accB=</span><span class="sc">{</span>acc(pR, XBt, yBt)<span class="sc">:.2f}</span><span class="ss">"</span>)</span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>after A      : accA=1.00
+[Joint]       accA=0.99  accB=1.00  (upper bound)
+[Naive]       accA=0.00  accB=1.00
+[Replay]      accA=0.97  accB=1.00</code></pre>
+</div>
+</div>
+<p>기대 출력(난수 시드 고정):</p>
+<pre><code>after A      : accA=1.00
+[Joint]       accA=0.99  accB=1.00  (upper bound)
+[Naive]       accA=0.00  accB=1.00
+[Replay]      accA=0.97  accB=1.00</code></pre>
+<p><strong>해석.</strong> Joint(상한)는 두 과제를 거의 완벽히 푼다. 그러나 Naive 순차 학습은 B를 학습하는 동안 A의 결정 경계를 완전히 덮어써 <span class="math inline">\(\text{accA}=0.00\)</span> 으로 붕괴한다(파국적 망각). 과거 표본의 20%만 재생(replay)해도 A 성능이 <span class="math inline">\(0.97\)</span> 로 거의 회복된다 — <a href="#sec-cl-modern" class="quarto-xref">섹션&nbsp;6</a> 의 replay 기반 기법이 왜 단순하면서도 강력한지를 보여 준다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>정규화 기반(EWC)에 대한 메모
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>같은 셋업에 EWC식 Fisher-가중 벌점을 적용하면, 이 <strong>강한 간섭·단일 헤드</strong> 구성에서는 두 과제 모두 <span class="math inline">\(\sim0.5\)</span> 근처에 갇혀 replay만큼 잘 동작하지 않는다. 과거 사후분포에 강하게 고정하면 어느 과제도 만족시키지 못하는 절충점에 머물기 때문이다. 이는 “정규화 기반이 항상 최선”은 아니며 과제 간 간섭·표현 공유 정도에 따라 replay가 유리할 수 있다는 문헌의 관찰과 일치한다.</p>
+</div>
+</div>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "복사완료!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "복사완료!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">소스 코드</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "데이터 효율적 학습 (Data-Efficient Learning)"</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "Few-shot / Zero-shot / Continual Learning"</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> ""</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-05-18"</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="an">lang:</span><span class="co"> ko</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: true</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="co">    highlight-style: github</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: cosmo</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="co">    fig-cap-location: bottom</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="an">execute:</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a><span class="co">  echo: true</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a><span class="co">  warning: false</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="co">  freeze: auto</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a><span class="fu">## 한눈에 보기 {#sec-overview}</span></span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>이 노트는 "데이터가 부족하거나, 데이터가 시간에 따라 흘러 들어오는" 상황에서 모델을</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>학습시키는 방법을 다룬다. 크게 두 축이다.</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**데이터 부족(few-/zero-shot)**: 관심 클래스에 대한 라벨 데이터가 적거나 전혀 없을 때.</span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**데이터 흐름(continual learning)**: 데이터/클래스가 시간에 따라 순차적으로 도착할 때.</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a><span class="fu">## 핵심 메시지</span></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>머신러닝에는 서로 경쟁하는 두 목표가 있다. **데이터에 잘 적합(fitting)** 하는 것과</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>**일반화(generalization)** 하는 것. 데이터·모델이 작을 때는 단순 적합이 일반화를 해치지만,</span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>데이터·모델이 충분히 커지면 적합 자체가 곧 일반화로 이어진다(benign overfitting). 데이터가</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>부족한 영역에서는 이 사치를 누릴 수 없으므로, 부족분을 **귀납 편향(inductive bias)**,</span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>**비라벨 데이터**, **사람의 효율적 사용** 중 하나로 메꿔야 한다.</span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>전체 지도:</span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>flowchart TD</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>    A[데이터 효율적 학습] --&gt; B[데이터 부족&lt;br/&gt;few-<span class="ot">/zero-shot]</span></span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a><span class="ot">    A --&gt; C</span><span class="ch">[</span><span class="bn">데이터 흐름&lt;br/&gt;continual learning</span><span class="ch">]</span></span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a><span class="ot">    B --&gt; B1</span><span class="ch">[</span><span class="bn">귀납 편향&lt;br/&gt;아키텍처·정규화·데이터 구조</span><span class="ch">]</span></span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a><span class="ot">    B --&gt; B2</span><span class="ch">[</span><span class="bn">비라벨 데이터&lt;br/&gt;semi-/self-/unsupervised</span><span class="ch">]</span></span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a><span class="ot">    B --&gt; B3</span><span class="ch">[</span><span class="bn">사람의 효율적 사용&lt;br/&gt;active learning, RLHF</span><span class="ch">]</span></span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a><span class="ot">    C --&gt; C1</span><span class="ch">[</span><span class="bn">고전적 접근&lt;br/&gt;transfer/multitask/lifelong</span><span class="ch">]</span></span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a><span class="ot">    C --&gt; C2</span><span class="ch">[</span><span class="bn">현대적 셋업&lt;br/&gt;CIL/online/blurry/noisy/...</span><span class="ch">]</span></span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a><span class="ot">    C --&gt; C3</span><span class="ch">[</span><span class="bn">대형 모델&lt;br/&gt;continual pre-training/alignment</span><span class="ch">]</span></span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a><span class="ot">```</span></span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a><span class="ot">---</span></span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a><span class="co">## 머신러닝의 두 목표와 의미론적 사상(mapping) {#sec-goals}</span></span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a><span class="co">### 적합 vs 일반화</span></span>
+<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-62"><a href="#cb7-62" aria-hidden="true" tabindex="-1"></a><span class="ot">질문 "머신러닝의 목표는</span><span class="ch">?</span><span class="ot">"의 고전적 답은 </span><span class="ch">**</span><span class="ot">일반화</span><span class="ch">**</span><span class="ot">다. 그런데 대형 모델 시대에는 답이 미묘해진다.</span></span>
+<span id="cb7-63"><a href="#cb7-63" aria-hidden="true" tabindex="-1"></a><span class="ot">모델이 좋아지고 데이터가 커지면, 단지 </span><span class="ch">**</span><span class="ot">데이터에 더 잘 적합시키는 것</span><span class="ch">**</span><span class="ot"> 자체가 일반화를 달성하는</span></span>
+<span id="cb7-64"><a href="#cb7-64" aria-hidden="true" tabindex="-1"></a><span class="ot">한 가지 경로가 된다. 즉 두 목표는 본래 경쟁 관계이지만, 규모가 커지면 더 이상 충돌하지 않을 수</span></span>
+<span id="cb7-65"><a href="#cb7-65" aria-hidden="true" tabindex="-1"></a><span class="ot">있다</span><span class="ch">(</span><span class="ot">소규모에서는 과적합이 문제지만, 충분히 큰 데이터에서는 적합이 곧 일반화</span><span class="ch">)</span><span class="ot">.</span></span>
+<span id="cb7-66"><a href="#cb7-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-67"><a href="#cb7-67" aria-hidden="true" tabindex="-1"></a><span class="co">### "의자를 의자로 만드는 것은 무엇인가?"</span></span>
+<span id="cb7-68"><a href="#cb7-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-69"><a href="#cb7-69" aria-hidden="true" tabindex="-1"></a><span class="ot">모델의 일은 데이터 </span><span class="dt">$x</span><span class="ch">$</span><span class="ot"> 를 라벨 공간 </span><span class="dt">$y</span><span class="ch">$</span><span class="ot"> 로 사상하는 것이다</span><span class="ch">(</span><span class="dt">$f</span><span class="ot">:\mathcal{X}\to\mathcal{Y}</span><span class="ch">$)</span><span class="ot">.</span></span>
+<span id="cb7-70"><a href="#cb7-70" aria-hidden="true" tabindex="-1"></a><span class="ot">그런데 "의자</span><span class="ch">(</span><span class="ot">chair</span><span class="ch">)</span><span class="ot">"라는 라벨을 생각해 보자. 등받이가 있는 의자, 없는 스툴, 팔걸이가 있는 것,</span></span>
+<span id="cb7-71"><a href="#cb7-71" aria-hidden="true" tabindex="-1"></a><span class="ot">세 명이 앉는 벤치 — 시각적으로는 매우 다양하지만 같은 의미를 공유한다.</span></span>
+<span id="cb7-72"><a href="#cb7-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-73"><a href="#cb7-73" aria-hidden="true" tabindex="-1"></a><span class="ot">::: {.callout-important}</span></span>
+<span id="cb7-74"><a href="#cb7-74" aria-hidden="true" tabindex="-1"></a><span class="co">## 왜 어려운가: 의미가 시각이 아니라 어포던스로 정의되기 때문</span></span>
+<span id="cb7-75"><a href="#cb7-75" aria-hidden="true" tabindex="-1"></a><span class="ot">"의자" 개념은 </span><span class="ch">**</span><span class="ot">시각 신호</span><span class="ch">**</span><span class="ot">가 아니라 </span><span class="ch">**</span><span class="ot">어포던스</span><span class="ch">(</span><span class="ot">affordance</span><span class="ch">)</span><span class="ot">·기능성</span><span class="ch">**(</span><span class="ot">"앉을 수 있는 것"</span><span class="ch">)</span><span class="ot">으로</span></span>
+<span id="cb7-76"><a href="#cb7-76" aria-hidden="true" tabindex="-1"></a><span class="ot">정의된다. 따라서 이미지를 의자 의미로 사상하는 문제는 </span><span class="ch">(</span><span class="ot">수학적 의미의 ill-posed는 아니지만</span><span class="ch">)</span></span>
+<span id="cb7-77"><a href="#cb7-77" aria-hidden="true" tabindex="-1"></a><span class="ch">**</span><span class="ot">잘 정의되지 않은</span><span class="ch">(</span><span class="ot">ill-defined</span><span class="ch">)</span><span class="ot"> 문제</span><span class="ch">**</span><span class="ot">다. 입력 자체가 그 의미로 사상될 준비가 되어 있지 않다.</span></span>
+<span id="cb7-78"><a href="#cb7-78" aria-hidden="true" tabindex="-1"></a><span class="ot">:::</span></span>
+<span id="cb7-79"><a href="#cb7-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-80"><a href="#cb7-80" aria-hidden="true" tabindex="-1"></a><span class="ot">이 통찰을 극단까지 밀어붙인 고전 사례가 Grabner et al., "What makes a chair a chair</span><span class="ch">?</span><span class="ot">"</span><span class="ch">(</span><span class="ot">CVPR 2011</span><span class="ch">)</span></span>
+<span id="cb7-81"><a href="#cb7-81" aria-hidden="true" tabindex="-1"></a><span class="ot">이다. 3D 아바타를 실제로 물체 위에 </span><span class="ch">**</span><span class="ot">앉혀 보고</span><span class="ch">**</span><span class="ot"> 성공하면 "의자"로 판정한다. 다소 무모해 보이지만,</span></span>
+<span id="cb7-82"><a href="#cb7-82" aria-hidden="true" tabindex="-1"></a><span class="ot">시각 신호 대신 기능을 직접 검증함으로써 당대 기준 정확도를 크게 끌어올렸다. 교훈: 표현 공간이</span></span>
+<span id="cb7-83"><a href="#cb7-83" aria-hidden="true" tabindex="-1"></a><span class="ot">의미를 담기에 부족하면, "박스 밖에서" 의미의 정의 자체를 다시 생각해야 한다.</span></span>
+<span id="cb7-84"><a href="#cb7-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-85"><a href="#cb7-85" aria-hidden="true" tabindex="-1"></a><span class="ot">::: {.callout-tip}</span></span>
+<span id="cb7-86"><a href="#cb7-86" aria-hidden="true" tabindex="-1"></a><span class="co">## 무선 통신 관점의 비유</span></span>
+<span id="cb7-87"><a href="#cb7-87" aria-hidden="true" tabindex="-1"></a><span class="ot">이것은 </span><span class="ch">**</span><span class="ot">표현</span><span class="ch">(</span><span class="ot">특징</span><span class="ch">)</span><span class="ot"> 공간의 충분성</span><span class="ch">**</span><span class="ot"> 문제다. 무선에서 수신 신호 </span><span class="dt">$y</span><span class="ch">$</span><span class="ot"> 만으로 어떤 추정량을 복원하려</span></span>
+<span id="cb7-88"><a href="#cb7-88" aria-hidden="true" tabindex="-1"></a><span class="ot">할 때, 관측이 </span><span class="ch">**</span><span class="ot">식별 가능</span><span class="ch">(</span><span class="ot">identifiable</span><span class="ch">)**</span><span class="ot"> 하지 않으면 아무리 좋은 추정기를 써도 복원이 불가능하다.</span></span>
+<span id="cb7-89"><a href="#cb7-89" aria-hidden="true" tabindex="-1"></a><span class="ot">의자 인식의 실패는 추정기</span><span class="ch">(</span><span class="ot">분류기</span><span class="ch">)</span><span class="ot">의 문제가 아니라 </span><span class="ch">**</span><span class="ot">관측 모델 자체의 식별성 부족</span><span class="ch">**</span><span class="ot">에 가깝다.</span></span>
+<span id="cb7-90"><a href="#cb7-90" aria-hidden="true" tabindex="-1"></a><span class="ot">:::</span></span>
+<span id="cb7-91"><a href="#cb7-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-92"><a href="#cb7-92" aria-hidden="true" tabindex="-1"></a><span class="co">### 부족분을 메우는 처방(remedies)</span></span>
+<span id="cb7-93"><a href="#cb7-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-94"><a href="#cb7-94" aria-hidden="true" tabindex="-1"></a><span class="ot">문헌에서 데이터 부족을 다루는 처방들:</span></span>
+<span id="cb7-95"><a href="#cb7-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-96"><a href="#cb7-96" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> 처방 </span><span class="ch">|</span><span class="ot"> 비용 </span><span class="ch">|</span><span class="ot"> 핵심 아이디어 </span><span class="ch">|</span></span>
+<span id="cb7-97"><a href="#cb7-97" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot">---</span><span class="ch">|</span><span class="ot">---</span><span class="ch">|</span><span class="ot">---</span><span class="ch">|</span></span>
+<span id="cb7-98"><a href="#cb7-98" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Large-scale supervised </span><span class="ch">|</span><span class="ot"> 비쌈, 정확 </span><span class="ch">|</span><span class="ot"> 라벨을 대량으로 확보 </span><span class="ch">|</span></span>
+<span id="cb7-99"><a href="#cb7-99" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Few-shot learning </span><span class="ch">|</span><span class="ot"> — </span><span class="ch">|</span><span class="ot"> 소수 예제로 일반화 </span><span class="ch">|</span></span>
+<span id="cb7-100"><a href="#cb7-100" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Semi-supervised </span><span class="ch">|</span><span class="ot"> 저렴 </span><span class="ch">|</span><span class="ot"> 라벨</span><span class="ch">+</span><span class="ot">비라벨 혼합 </span><span class="ch">|</span></span>
+<span id="cb7-101"><a href="#cb7-101" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Active learning </span><span class="ch">|</span><span class="ot"> 저렴 </span><span class="ch">|</span><span class="ot"> 사람에게 "물어볼 것"을 골라 라벨링 </span><span class="ch">|</span></span>
+<span id="cb7-102"><a href="#cb7-102" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Self-supervised </span><span class="ch">|</span><span class="ot"> 저렴 </span><span class="ch">|</span><span class="ot"> 데이터 자체에서 감독 신호 생성 </span><span class="ch">|</span></span>
+<span id="cb7-103"><a href="#cb7-103" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Unsupervised </span><span class="ch">|</span><span class="ot"> 가장 저렴 </span><span class="ch">|</span><span class="ot"> 라벨 없이 구조 학습 </span><span class="ch">|</span></span>
+<span id="cb7-104"><a href="#cb7-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-105"><a href="#cb7-105" aria-hidden="true" tabindex="-1"></a><span class="ot">축으로 보면 위쪽</span><span class="ch">(</span><span class="ot">supervised</span><span class="ch">)</span><span class="ot">은 </span><span class="ch">**</span><span class="ot">정확하지만 비싸고</span><span class="ch">**</span><span class="ot">, 아래쪽</span><span class="ch">(</span><span class="ot">self-/</span>unsupervised)은</span>
+<span id="cb7-106"><a href="#cb7-106" aria-hidden="true" tabindex="-1"></a>*<span class="wa">*저</span>렴하지만 약한 감독*<span class="wa">*이</span>다.</span>
+<span id="cb7-107"><a href="#cb7-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-108"><a href="#cb7-108" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb7-109"><a href="#cb7-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-110"><a href="#cb7-110" aria-hidden="true" tabindex="-1"></a><span class="co">## Few-shot / N-shot / Zero-shot {#sec-fewshot}</span></span>
+<span id="cb7-111"><a href="#cb7-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-112"><a href="#cb7-112" aria-hidden="true" tabindex="-1"></a><span class="co">### 정의</span></span>
+<span id="cb7-113"><a href="#cb7-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-114"><a href="#cb7-114" aria-hidden="true" tabindex="-1"></a>- *<span class="dt">*Few</span>-shot (<span class="dt">$N</span><span class="wa">$-</span><span class="dt">shot</span>) learning*<span class="wa">*:</span> 관심 클래스에 대해 *<span class="wa">*소</span>수(<span class="dt">$N</span><span class="wa">$개</span>)*<span class="ot">*</span> 의 예제로 학습.</span>
+<span id="cb7-115"><a href="#cb7-115" aria-hidden="true" tabindex="-1"></a>- *<span class="dt">*Zero</span>-shot learning*<span class="wa">*:</span> 관심 클래스에 대해 *<span class="wa">*예</span>제가 <span class="dv">0</span>개*<span class="wa">*인</span> 상태로 학습.</span>
+<span id="cb7-116"><a href="#cb7-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-117"><a href="#cb7-117" aria-hidden="true" tabindex="-1"></a><span class="co">### 가장 헷갈리는 지점: zero-shot vs unsupervised</span></span>
+<span id="cb7-118"><a href="#cb7-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-119"><a href="#cb7-119" aria-hidden="true" tabindex="-1"></a>학생들이 가장 많이 혼동하는 부분이다. 두 축을 분리하면 명확해진다.</span>
+<span id="cb7-120"><a href="#cb7-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-121"><a href="#cb7-121" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb7-122"><a href="#cb7-122" aria-hidden="true" tabindex="-1"></a><span class="co">## 두 개의 독립적인 축</span></span>
+<span id="cb7-123"><a href="#cb7-123" aria-hidden="true" tabindex="-1"></a>- *<span class="wa">*축</span> <span class="dv">1</span> (감독 여부)*<span class="wa">*:</span> supervised ↔ unsupervised. 라벨을 주느냐 마느냐.</span>
+<span id="cb7-124"><a href="#cb7-124" aria-hidden="true" tabindex="-1"></a>- *<span class="wa">*축</span> <span class="dv">2</span> (관심 클래스의 예제 수)*<span class="wa">*:</span> many-shot ↔ few-shot ↔ zero-shot.</span>
+<span id="cb7-125"><a href="#cb7-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-126"><a href="#cb7-126" aria-hidden="true" tabindex="-1"></a>이 둘은 *<span class="wa">*직</span>교*<span class="wa">*한</span>다. zero-shot은 보통 supervised 패러다임 안에서 <span class="ot">"</span><span class="st">관심 클래스의 예제만 0개</span><span class="ot">"</span>인</span>
+<span id="cb7-127"><a href="#cb7-127" aria-hidden="true" tabindex="-1"></a>경우를 가리키고, unsupervised는 <span class="ot">"</span><span class="st">라벨이 아예 없음</span><span class="ot">"</span>을 가리킨다.</span>
+<span id="cb7-128"><a href="#cb7-128" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-129"><a href="#cb7-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-130"><a href="#cb7-130" aria-hidden="true" tabindex="-1"></a>| 구분 | 관심 클래스 예제 | 라벨 | 작동 원리 |</span>
+<span id="cb7-131"><a href="#cb7-131" aria-hidden="true" tabindex="-1"></a>|---|---|---|---|</span>
+<span id="cb7-132"><a href="#cb7-132" aria-hidden="true" tabindex="-1"></a>| Many-shot supervised | 많음 | 있음 | 표준 적합 |</span>
+<span id="cb7-133"><a href="#cb7-133" aria-hidden="true" tabindex="-1"></a>| Few-shot | 소수 | 있음 | 소수 예제 + 강한 사전지식 |</span>
+<span id="cb7-134"><a href="#cb7-134" aria-hidden="true" tabindex="-1"></a>| *<span class="dt">*Zero</span>-shot*<span class="ot">*</span> | **<span class="dv">0</span>개 (의도적으로 배제)*<span class="ot">*</span> | (보조정보엔 있음) | *<span class="wa">*귀</span>납 편향/보조지식으로 외삽*<span class="ot">*</span> |</span>
+<span id="cb7-135"><a href="#cb7-135" aria-hidden="true" tabindex="-1"></a>| *<span class="dt">*Unsupervised</span>*<span class="ot">*</span> | (들어 있을 수도) | *<span class="wa">*없</span>음*<span class="ot">*</span> | 라벨 자체가 없음 |</span>
+<span id="cb7-136"><a href="#cb7-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-137"><a href="#cb7-137" aria-hidden="true" tabindex="-1"></a>핵심 차이: zero-shot에서는 관심 의미에 대한 *<span class="wa">*훈</span>련 예제를 의도적으로 제공하지 않으면서도*<span class="wa">*,</span></span>
+<span id="cb7-138"><a href="#cb7-138" aria-hidden="true" tabindex="-1"></a>모델이 그 의미로 일반화하기를 <span class="ot">"</span><span class="st">기대</span><span class="ot">"</span>한다. 그 일반화를 가능케 하는 <span class="ot">"</span><span class="st">마법</span><span class="ot">"</span>이 바로</span>
+<span id="cb7-139"><a href="#cb7-139" aria-hidden="true" tabindex="-1"></a>*<span class="wa">*귀</span>납 편향(혹은 보조 의미정보, heritage)*<span class="ot">*</span> 이다. 반면 unsupervised는 단지 라벨이 없을 뿐,</span>
+<span id="cb7-140"><a href="#cb7-140" aria-hidden="true" tabindex="-1"></a>그 데이터에 관심 개념이 섞여 있을 수도 있고 통제하지 않는다.</span>
+<span id="cb7-141"><a href="#cb7-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-142"><a href="#cb7-142" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb7-143"><a href="#cb7-143" aria-hidden="true" tabindex="-1"></a><span class="co">## 무선 통신 관점의 비유</span></span>
+<span id="cb7-144"><a href="#cb7-144" aria-hidden="true" tabindex="-1"></a>- *<span class="dt">*Few</span>-shot ≈ 적은 파일럿(pilot)으로 채널 추정*<span class="wa">*:</span> 관측이 부족하니 채널의 구조적 사전지식</span>
+<span id="cb7-145"><a href="#cb7-145" aria-hidden="true" tabindex="-1"></a>  (희소성, 상관 구조)을 끌어와야 한다. 압축 센싱·MMSE 추정의 정신과 같다.</span>
+<span id="cb7-146"><a href="#cb7-146" aria-hidden="true" tabindex="-1"></a>- *<span class="dt">*Zero</span>-shot ≈ 블라인드(blind) 추정*<span class="wa">*:</span> 관심 대상의 직접 관측 없이, 알려진 구조/사전분포만으로</span>
+<span id="cb7-147"><a href="#cb7-147" aria-hidden="true" tabindex="-1"></a>  추정. <span class="ot">"</span><span class="st">파일럿 없이</span><span class="ot">"</span> 푸는 셈이라 사전지식이 전부다.</span>
+<span id="cb7-148"><a href="#cb7-148" aria-hidden="true" tabindex="-1"></a>- *<span class="dt">*Unsupervised</span> ≈ 라벨(정답) 없는 신호의 군집화/구조 발견*<span class="wa">*.</span></span>
+<span id="cb7-149"><a href="#cb7-149" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-150"><a href="#cb7-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-151"><a href="#cb7-151" aria-hidden="true" tabindex="-1"></a><span class="co">### 처방을 묶는 세 갈래</span></span>
+<span id="cb7-152"><a href="#cb7-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-153"><a href="#cb7-153" aria-hidden="true" tabindex="-1"></a>few-<span class="ot">/zero-shot</span><span class="ch">(</span><span class="ot">넓게는 약한 감독, weakly-supervised</span><span class="ch">)</span><span class="ot">을 다루는 전략은 결국 셋이다.</span></span>
+<span id="cb7-154"><a href="#cb7-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-155"><a href="#cb7-155" aria-hidden="true" tabindex="-1"></a><span class="ot">1. </span><span class="ch">**</span><span class="ot">귀납 편향 사용</span><span class="ch">**</span><span class="ot"> — 아키텍처, 손으로 설계한 정규화, 데이터의 표본 간 관계</span><span class="ch">(</span><span class="ot">구조</span><span class="ch">)</span><span class="ot">.</span></span>
+<span id="cb7-156"><a href="#cb7-156" aria-hidden="true" tabindex="-1"></a><span class="ot">2. </span><span class="ch">**</span><span class="ot">비라벨 데이터 사용</span><span class="ch">**</span><span class="ot"> — semi-/s</span>elf-<span class="ot">/unsupervised learning.</span></span>
+<span id="cb7-157"><a href="#cb7-157" aria-hidden="true" tabindex="-1"></a><span class="ot">3. </span><span class="ch">**</span><span class="ot">사람을 효율적으로 사용</span><span class="ch">**</span><span class="ot"> — active learning</span><span class="ch">(</span><span class="ot">라벨링할 표본 선택</span><span class="ch">)</span><span class="ot">, RLHF</span><span class="ch">(</span><span class="ot">피드백 정렬</span><span class="ch">)</span><span class="ot">.</span></span>
+<span id="cb7-158"><a href="#cb7-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-159"><a href="#cb7-159" aria-hidden="true" tabindex="-1"></a><span class="ot">현대 대규모 학습은 주로 </span><span class="ch">(</span><span class="ot">2</span><span class="ch">)</span><span class="ot">를 전례 없는 규모로 밀어붙인다. 비라벨 데이터로 거대 </span><span class="ch">**</span><span class="ot">사전학습</span><span class="ch">**</span><span class="ot">을</span></span>
+<span id="cb7-160"><a href="#cb7-160" aria-hidden="true" tabindex="-1"></a><span class="ot">하면, 다양한 다운스트림 과제에서 예상치 못한 성능 향상</span><span class="ch">(</span><span class="ot">emergent ability</span><span class="ch">)</span><span class="ot">을 얻는다.</span></span>
+<span id="cb7-161"><a href="#cb7-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-162"><a href="#cb7-162" aria-hidden="true" tabindex="-1"></a><span class="ot">::: {.callout-note}</span></span>
+<span id="cb7-163"><a href="#cb7-163" aria-hidden="true" tabindex="-1"></a><span class="co">## 비라벨 사전학습은 "멍청하지만 비싼" 만능 해법</span></span>
+<span id="cb7-164"><a href="#cb7-164" aria-hidden="true" tabindex="-1"></a><span class="ot">강사의 표현을 빌리면, 비라벨 사전학습은 다른 귀납 편향·사람 효율 기법에 비해</span></span>
+<span id="cb7-165"><a href="#cb7-165" aria-hidden="true" tabindex="-1"></a><span class="ch">**</span><span class="ot">단순</span><span class="ch">(</span><span class="ot">brute-force</span><span class="ch">)</span><span class="ot">하지만 비싼</span><span class="ch">**</span><span class="ot"> 대안이다. 막대한 계산·데이터를 쓰는 대신 보편적 성능과</span></span>
+<span id="cb7-166"><a href="#cb7-166" aria-hidden="true" tabindex="-1"></a><span class="ot">창발 능력을 얻는다. 자원이 제약된</span><span class="ch">(</span><span class="ot">예: 엣지 디바이스</span><span class="ch">)</span><span class="ot"> 상황에서는 오히려 귀납 편향이나</span></span>
+<span id="cb7-167"><a href="#cb7-167" aria-hidden="true" tabindex="-1"></a><span class="ot">active learning 같은 </span><span class="ch">**</span><span class="ot">자원 최적화된</span><span class="ch">**</span><span class="ot"> 해법이 더 적합할 수 있다. "지금 이 순간 최선의 해법이</span></span>
+<span id="cb7-168"><a href="#cb7-168" aria-hidden="true" tabindex="-1"></a><span class="ot">무엇인가"를 과제별로 판단해야 한다.</span></span>
+<span id="cb7-169"><a href="#cb7-169" aria-hidden="true" tabindex="-1"></a><span class="ot">:::</span></span>
+<span id="cb7-170"><a href="#cb7-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-171"><a href="#cb7-171" aria-hidden="true" tabindex="-1"></a><span class="ot">---</span></span>
+<span id="cb7-172"><a href="#cb7-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-173"><a href="#cb7-173" aria-hidden="true" tabindex="-1"></a><span class="co">## 귀납 편향(inductive bias) 다시 보기 {#sec-inductive}</span></span>
+<span id="cb7-174"><a href="#cb7-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-175"><a href="#cb7-175" aria-hidden="true" tabindex="-1"></a><span class="co">### 지도학습 = 귀납(induction)</span></span>
+<span id="cb7-176"><a href="#cb7-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-177"><a href="#cb7-177" aria-hidden="true" tabindex="-1"></a><span class="ot">지도학습은 </span><span class="ch">**</span><span class="ot">과거</span><span class="ch">(</span><span class="ot">훈련 표본</span><span class="ch">)</span><span class="ot">로부터 미래</span><span class="ch">(</span><span class="ot">테스트 표본</span><span class="ch">)</span><span class="ot">를 예측</span><span class="ch">**</span><span class="ot">하는 귀납이다. 귀납을 제약하는 것이</span></span>
+<span id="cb7-178"><a href="#cb7-178" aria-hidden="true" tabindex="-1"></a><span class="ch">**</span><span class="ot">귀납 편향</span><span class="ch">**</span><span class="ot">이고, 그 구현체가 곧 </span><span class="ch">**</span><span class="ot">정규화</span><span class="ch">(</span><span class="ot">regularizer</span><span class="ch">)**</span><span class="ot"> 다.</span></span>
+<span id="cb7-179"><a href="#cb7-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-180"><a href="#cb7-180" aria-hidden="true" tabindex="-1"></a><span class="co">### 학습 목적함수와 MAP 해석</span></span>
+<span id="cb7-181"><a href="#cb7-181" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-182"><a href="#cb7-182" aria-hidden="true" tabindex="-1"></a><span class="ot">전형적인 학습 목적함수는</span></span>
+<span id="cb7-183"><a href="#cb7-183" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-184"><a href="#cb7-184" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb7-185"><a href="#cb7-185" aria-hidden="true" tabindex="-1"></a><span class="ot">\min_{\theta}\; </span><span class="ch">\u</span><span class="ot">nderbrace{L</span><span class="ch">(</span><span class="ot">\theta</span><span class="ch">)</span><span class="ot">}_{\text{손실</span><span class="ch">(</span><span class="ot">데이터 적합</span><span class="ch">)</span><span class="ot">}} \;</span><span class="ch">+</span><span class="ot">\; </span><span class="ch">\l</span><span class="ot">ambda\,</span><span class="ch">\u</span><span class="ot">nderbrace{\Omega</span><span class="ch">(</span><span class="ot">\theta</span><span class="ch">)</span><span class="ot">}_{\text{정규화</span><span class="ch">(</span><span class="ot">귀납 편향</span><span class="ch">)</span><span class="ot">}}.</span></span>
+<span id="cb7-186"><a href="#cb7-186" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb7-187"><a href="#cb7-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-188"><a href="#cb7-188" aria-hidden="true" tabindex="-1"></a><span class="ot">데이터가 적으면 </span><span class="dt">$L</span><span class="ch">$</span><span class="ot"> 만으로는 신뢰할 수 없고, 풍부한 귀납 편향 </span><span class="wa">$\O</span><span class="ot">mega</span><span class="ch">$</span><span class="ot"> 가 빈자리를 채운다.</span></span>
+<span id="cb7-189"><a href="#cb7-189" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-190"><a href="#cb7-190" aria-hidden="true" tabindex="-1"></a><span class="ot">::: {.callout-important}</span></span>
+<span id="cb7-191"><a href="#cb7-191" aria-hidden="true" tabindex="-1"></a><span class="co">## 정규화 = 음의 로그 사전분포 (MAP)</span></span>
+<span id="cb7-192"><a href="#cb7-192" aria-hidden="true" tabindex="-1"></a><span class="ot">베이지안 관점에서 이 목적함수는 </span><span class="ch">**</span><span class="ot">MAP 추정</span><span class="ch">**</span><span class="ot">과 정확히 같다.</span></span>
+<span id="cb7-193"><a href="#cb7-193" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb7-194"><a href="#cb7-194" aria-hidden="true" tabindex="-1"></a><span class="ot">\hat\theta_{\text{MAP}}</span></span>
+<span id="cb7-195"><a href="#cb7-195" aria-hidden="true" tabindex="-1"></a><span class="ot">=</span><span class="bn">\a</span><span class="ot">rg\max_{\theta}\; </span><span class="ch">\l</span><span class="ot">og p</span><span class="ch">(</span><span class="ot">\theta\mid \mathcal{D}</span><span class="ch">)</span></span>
+<span id="cb7-196"><a href="#cb7-196" aria-hidden="true" tabindex="-1"></a><span class="ot">=</span><span class="bn">\a</span><span class="ot">rg\max_{\theta}\;</span><span class="ch">\B</span><span class="ot">ig</span><span class="ch">[</span><span class="bn">\underbrace{\log p(\mathcal{D}\mid\theta)}_{=\,-L(\theta)}+\underbrace{\log p(\theta)}_{=\,-\lambda\Omega(\theta)}\Big</span><span class="ch">]</span><span class="ot">.</span></span>
+<span id="cb7-197"><a href="#cb7-197" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb7-198"><a href="#cb7-198" aria-hidden="true" tabindex="-1"></a><span class="ot">즉 </span><span class="wa">$\O</span><span class="ot">mega</span><span class="ch">(</span><span class="ot">\theta</span><span class="ch">)</span><span class="ot"> = -\tfrac</span><span class="ch">{1}</span><span class="ot">{</span><span class="ch">\l</span><span class="ot">ambda}</span><span class="ch">\l</span><span class="ot">og p</span><span class="ch">(</span><span class="ot">\theta</span><span class="ch">)$</span><span class="ot"> 이다. </span><span class="ch">**</span><span class="ot">귀납 편향을 넣는다는 것은</span></span>
+<span id="cb7-199"><a href="#cb7-199" aria-hidden="true" tabindex="-1"></a><span class="ot">파라미터에 사전분포 </span><span class="dt">$p</span><span class="ch">(</span><span class="ot">\theta</span><span class="ch">)$</span><span class="ot"> 를 부여하는 것</span><span class="ch">**</span><span class="ot">과 동치다. </span><span class="ch">(</span><span class="ot">예: </span><span class="dt">$L_2</span><span class="ch">$</span><span class="ot"> 정규화 </span><span class="wa">$\L</span><span class="ot">eftrightarrow</span><span class="ch">$</span></span>
+<span id="cb7-200"><a href="#cb7-200" aria-hidden="true" tabindex="-1"></a><span class="wa">$\</span><span class="ot">theta</span><span class="ch">$</span><span class="ot"> 에 가우시안 사전분포; </span><span class="dt">$L_1</span><span class="ch">$</span><span class="ot"> </span><span class="wa">$\L</span><span class="ot">eftrightarrow</span><span class="ch">$</span><span class="ot"> 라플라스 사전분포.</span><span class="ch">)</span></span>
+<span id="cb7-201"><a href="#cb7-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-202"><a href="#cb7-202" aria-hidden="true" tabindex="-1"></a><span class="ot">MLE는 균일</span><span class="ch">(</span><span class="ot">uniform</span><span class="ch">)</span><span class="ot"> 사전분포를 "가정"하는 특수 케이스이며, "사전분포를 무시"하는 것이 아니다.</span></span>
+<span id="cb7-203"><a href="#cb7-203" aria-hidden="true" tabindex="-1"></a><span class="ot">MAP = MLE </span><span class="ch">+</span><span class="ot"> 로그-사전</span><span class="ch">(</span><span class="ot">=정규화</span><span class="ch">)</span><span class="ot"> 라는 구조를 기억해 두자.</span></span>
+<span id="cb7-204"><a href="#cb7-204" aria-hidden="true" tabindex="-1"></a><span class="ot">:::</span></span>
+<span id="cb7-205"><a href="#cb7-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-206"><a href="#cb7-206" aria-hidden="true" tabindex="-1"></a><span class="co">### 전통적 ML의 귀납 편향들</span></span>
+<span id="cb7-207"><a href="#cb7-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-208"><a href="#cb7-208" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> 귀납 편향 </span><span class="ch">|</span><span class="ot"> 사용 모델 </span><span class="ch">|</span><span class="ot"> 의미 </span><span class="ch">|</span></span>
+<span id="cb7-209"><a href="#cb7-209" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot">---</span><span class="ch">|</span><span class="ot">---</span><span class="ch">|</span><span class="ot">---</span><span class="ch">|</span></span>
+<span id="cb7-210"><a href="#cb7-210" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Maximum conditional independence </span><span class="ch">|</span><span class="ot"> Naïve Bayes </span><span class="ch">|</span><span class="ot"> 특징 간 조건부 독립 가정 </span><span class="ch">|</span></span>
+<span id="cb7-211"><a href="#cb7-211" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Minimum cross-validation error </span><span class="ch">|</span><span class="ot"> </span><span class="ch">(</span><span class="ot">모델 선택</span><span class="ch">)</span><span class="ot"> </span><span class="ch">|</span><span class="ot"> CV 오차 최소 가설 선택 </span><span class="ch">|</span></span>
+<span id="cb7-212"><a href="#cb7-212" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Maximum margin </span><span class="ch">|</span><span class="ot"> SVM </span><span class="ch">|</span><span class="ot"> 결정 경계 마진 최대화 </span><span class="ch">|</span></span>
+<span id="cb7-213"><a href="#cb7-213" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Minimum description length </span><span class="ch">|</span><span class="ot"> Decision tree </span><span class="ch">|</span><span class="ot"> 짧은 기술</span><span class="ch">(</span><span class="ot">Occam의 면도날</span><span class="ch">)</span><span class="ot"> 선호 </span><span class="ch">|</span></span>
+<span id="cb7-214"><a href="#cb7-214" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Minimum features </span><span class="ch">|</span><span class="ot"> </span><span class="ch">(</span><span class="ot">특징 선택</span><span class="ch">)</span><span class="ot"> </span><span class="ch">|</span><span class="ot"> 쓸모없는 특징 제거 </span><span class="ch">|</span></span>
+<span id="cb7-215"><a href="#cb7-215" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Nearest neighbor </span><span class="ch">|</span><span class="ot"> k-NN </span><span class="ch">|</span><span class="ot"> 이웃 다수결로 라벨 부여 </span><span class="ch">|</span></span>
+<span id="cb7-216"><a href="#cb7-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-217"><a href="#cb7-217" aria-hidden="true" tabindex="-1"></a><span class="co">### 현대적 귀납 편향</span></span>
+<span id="cb7-218"><a href="#cb7-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-219"><a href="#cb7-219" aria-hidden="true" tabindex="-1"></a><span class="ot">- </span><span class="ch">**</span><span class="ot">아키텍처</span><span class="ch">**</span><span class="ot"> — CNN의 지역성·평행이동 등변성, 트랜스포머의 순열 구조 등.</span></span>
+<span id="cb7-220"><a href="#cb7-220" aria-hidden="true" tabindex="-1"></a><span class="ot">- </span><span class="ch">**</span><span class="ot">손으로 설계한 정규화</span><span class="ch">**</span><span class="ot"> — 가중치 감쇠, dropout, 일관성 손실 등.</span></span>
+<span id="cb7-221"><a href="#cb7-221" aria-hidden="true" tabindex="-1"></a><span class="ot">- </span><span class="ch">**</span><span class="ot">데이터의 구조</span><span class="ch">(</span><span class="ot">표본 간 관계</span><span class="ch">)**</span><span class="ot"> — 관계가 약한 표본은 학습에서 제외해 계산 자원 절약 가능.</span></span>
+<span id="cb7-222"><a href="#cb7-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-223"><a href="#cb7-223" aria-hidden="true" tabindex="-1"></a><span class="ot">::: {.callout-note}</span></span>
+<span id="cb7-224"><a href="#cb7-224" aria-hidden="true" tabindex="-1"></a><span class="co">## few-shot 한 줄 요약</span></span>
+<span id="cb7-225"><a href="#cb7-225" aria-hidden="true" tabindex="-1"></a><span class="ch">**</span><span class="ot">데이터가 없으면 → 귀납 편향을 쓰거나, </span><span class="ch">(</span><span class="ot">사람을 효율적으로 활용한</span><span class="ch">)</span><span class="ot"> 대규모 사전학습을 써라.</span><span class="ch">**</span></span>
+<span id="cb7-226"><a href="#cb7-226" aria-hidden="true" tabindex="-1"></a><span class="ot">:::</span></span>
+<span id="cb7-227"><a href="#cb7-227" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-228"><a href="#cb7-228" aria-hidden="true" tabindex="-1"></a><span class="ot">---</span></span>
+<span id="cb7-229"><a href="#cb7-229" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-230"><a href="#cb7-230" aria-hidden="true" tabindex="-1"></a><span class="co">## 연속 학습(Continual Learning): 고전적 접근 {#sec-cl-classic}</span></span>
+<span id="cb7-231"><a href="#cb7-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-232"><a href="#cb7-232" aria-hidden="true" tabindex="-1"></a><span class="co">### 동기: "모든 클래스를 미리 안다"는 비현실적 가정</span></span>
+<span id="cb7-233"><a href="#cb7-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-234"><a href="#cb7-234" aria-hidden="true" tabindex="-1"></a><span class="ot">ImageNet 1,000 클래스로 분류기를 학습했다고 하자. 세상에 클래스가 1,000개뿐인가</span><span class="ch">?</span><span class="ot"> 새 클래스를</span></span>
+<span id="cb7-235"><a href="#cb7-235" aria-hidden="true" tabindex="-1"></a><span class="ot">추가하려면 어떻게 하나</span><span class="ch">?</span></span>
+<span id="cb7-236"><a href="#cb7-236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-237"><a href="#cb7-237" aria-hidden="true" tabindex="-1"></a><span class="ot">&gt; 데이터셋에 새 클래스를 합치고 </span><span class="ch">**</span><span class="ot">처음부터 다시 학습</span><span class="ch">**</span><span class="ot">한다 — 매우 비효율적이지만,</span></span>
+<span id="cb7-238"><a href="#cb7-238" aria-hidden="true" tabindex="-1"></a><span class="ot">&gt; 사실상 이보다 나은 표준 방법이 없다.</span></span>
+<span id="cb7-239"><a href="#cb7-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-240"><a href="#cb7-240" aria-hidden="true" tabindex="-1"></a><span class="ot">이 "매번 처음부터 다시"의 비효율을 깨려는 것이 연속 학습이다. 또한 각 클래스의 의미 입도</span></span>
+<span id="cb7-241"><a href="#cb7-241" aria-hidden="true" tabindex="-1"></a><span class="ch">(</span><span class="ot">granularity</span><span class="ch">)</span><span class="ot">도 제각각이다. "개"는 넓고, "세단 SUV"는 좁다. 그런데 우리는 모두 하나의 클래스로</span></span>
+<span id="cb7-242"><a href="#cb7-242" aria-hidden="true" tabindex="-1"></a><span class="ot">동등 취급한다. 새 클래스를 점진적으로 추가하고 싶다는 자연스러운 요구가 여기서 나온다.</span></span>
+<span id="cb7-243"><a href="#cb7-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-244"><a href="#cb7-244" aria-hidden="true" tabindex="-1"></a><span class="co">### 이것은 새로운 문제가 아니다</span></span>
+<span id="cb7-245"><a href="#cb7-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-246"><a href="#cb7-246" aria-hidden="true" tabindex="-1"></a><span class="ot">연속 학습은 새로워 보이지만, 오래 연구된 인접 분야들의 재구성이다.</span></span>
+<span id="cb7-247"><a href="#cb7-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-248"><a href="#cb7-248" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> 인접 분야 </span><span class="ch">|</span><span class="ot"> 핵심 </span><span class="ch">|</span><span class="ot"> 연속 학습과의 관계 </span><span class="ch">|</span></span>
+<span id="cb7-249"><a href="#cb7-249" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot">---</span><span class="ch">|</span><span class="ot">---</span><span class="ch">|</span><span class="ot">---</span><span class="ch">|</span></span>
+<span id="cb7-250"><a href="#cb7-250" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Transfer learning </span><span class="ch">|</span><span class="ot"> 과거 지식을 새 과제로 이전 </span><span class="ch">|</span><span class="ot"> 연속 학습의 구성 요소 </span><span class="ch">|</span></span>
+<span id="cb7-251"><a href="#cb7-251" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Domain adaptation </span><span class="ch">|</span><span class="ot"> 입력 도메인 </span><span class="wa">$\</span><span class="ot">mathcal{X}</span><span class="ch">$</span><span class="ot"> 변화에 적응 </span><span class="ch">|</span><span class="ot"> 분포 변화 대응 </span><span class="ch">|</span></span>
+<span id="cb7-252"><a href="#cb7-252" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Multitask learning </span><span class="ch">|</span><span class="ot"> 여러 과제 동시 학습 </span><span class="ch">|</span><span class="ot"> </span><span class="ch">**</span><span class="ot">시간 압축된</span><span class="ch">**</span><span class="ot"> 연속 학습 </span><span class="ch">|</span></span>
+<span id="cb7-253"><a href="#cb7-253" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Meta learning </span><span class="ch">|</span><span class="ot"> 학습하는 법을 학습 </span><span class="ch">|</span><span class="ot"> 과거 학습을 현재에 활용 </span><span class="ch">|</span></span>
+<span id="cb7-254"><a href="#cb7-254" aria-hidden="true" tabindex="-1"></a><span class="ch">|</span><span class="ot"> Lifelong /</span> never-ending | 평생 누적 학습 | 같은 개념의 다른 이름 |</span>
+<span id="cb7-255"><a href="#cb7-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-256"><a href="#cb7-256" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb7-257"><a href="#cb7-257" aria-hidden="true" tabindex="-1"></a><span class="co">## domain / range 로 보는 domain adaptation</span></span>
+<span id="cb7-258"><a href="#cb7-258" aria-hidden="true" tabindex="-1"></a>함수 <span class="dt">$f</span>:\mathcal{X}\to\mathcal{Y}$ 에서 <span class="wa">$\</span><span class="dt">mathcal</span>{X}$ 는 정의역(domain), <span class="wa">$\</span><span class="dt">mathcal</span>{Y}$ 의</span>
+<span id="cb7-259"><a href="#cb7-259" aria-hidden="true" tabindex="-1"></a>상(image)은 치역(range)이다. *<span class="dt">*domain</span> adaptation*<span class="wa">*은</span> <span class="dt">$f</span>$ 는 그대로 두고 정의역 <span class="wa">$\</span><span class="dt">mathcal</span>{X}$ 가</span>
+<span id="cb7-260"><a href="#cb7-260" aria-hidden="true" tabindex="-1"></a>바뀌어도 동작하기를 바라는 것이다. 예: <span class="ot">"</span><span class="st">카메라</span><span class="ot">"</span> 분류기를 옛날 DSLR로 학습했는데, 요즘 다섯 살</span>
+<span id="cb7-261"><a href="#cb7-261" aria-hidden="true" tabindex="-1"></a>아이에게 카메라는 <span class="ot">"</span><span class="st">스마트폰</span><span class="ot">"</span>이다. 정의역이 DSLR에서 폰으로 확장되었고, 우리는 같은 라벨로</span>
+<span id="cb7-262"><a href="#cb7-262" aria-hidden="true" tabindex="-1"></a>사상되기를 바란다.</span>
+<span id="cb7-263"><a href="#cb7-263" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-264"><a href="#cb7-264" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-265"><a href="#cb7-265" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb7-266"><a href="#cb7-266" aria-hidden="true" tabindex="-1"></a><span class="co">## Multitask = 시간 압축된 Continual Learning</span></span>
+<span id="cb7-267"><a href="#cb7-267" aria-hidden="true" tabindex="-1"></a>멀티태스크에서 각 과제를 서로 다른 데이터 부분집합으로 동시에 학습한다고 하자. 이를 시간축으로</span>
+<span id="cb7-268"><a href="#cb7-268" aria-hidden="true" tabindex="-1"></a>펼치면(과제1 → 과제2 → ...) 그대로 연속 학습이다. 따라서 *<span class="wa">*멀</span>티태스크는 연속 학습의 시간</span>
+<span id="cb7-269"><a href="#cb7-269" aria-hidden="true" tabindex="-1"></a>압축판*<span class="wa">*이</span>고, *<span class="wa">*연</span>속 학습은 멀티태스크의 시간 신용(<span class="fu">time</span>-credit)판*<span class="wa">*이</span>다.</span>
+<span id="cb7-270"><a href="#cb7-270" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-271"><a href="#cb7-271" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-272"><a href="#cb7-272" aria-hidden="true" tabindex="-1"></a><span class="co">### ML 1.0 vs ML 2.0</span></span>
+<span id="cb7-273"><a href="#cb7-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-274"><a href="#cb7-274" aria-hidden="true" tabindex="-1"></a>| | ML <span class="fl">1.0</span> (고립 학습) | ML <span class="fl">2.0</span> (평생 학습) |</span>
+<span id="cb7-275"><a href="#cb7-275" aria-hidden="true" tabindex="-1"></a>|---|---|---|</span>
+<span id="cb7-276"><a href="#cb7-276" aria-hidden="true" tabindex="-1"></a>| 패러다임 | 데이터셋 주고 모델 <span class="dv">1</span>회 학습 | 과거 지식을 보존·활용하며 지속 학습 |</span>
+<span id="cb7-277"><a href="#cb7-277" aria-hidden="true" tabindex="-1"></a>| 메모리 | 없음(지식 비누적) | 누적 |</span>
+<span id="cb7-278"><a href="#cb7-278" aria-hidden="true" tabindex="-1"></a>| 데이터 요구 | 대량 사전 확보 필요 | 소수 예제로도 학습(사람처럼) |</span>
+<span id="cb7-279"><a href="#cb7-279" aria-hidden="true" tabindex="-1"></a>| 한계 | 고립 학습의 약점 | 시스템적 접근 필요 |</span>
+<span id="cb7-280"><a href="#cb7-280" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-281"><a href="#cb7-281" aria-hidden="true" tabindex="-1"></a>사람은 결코 고립된 채로 배우지 않는다. ML <span class="fl">1.0</span> 알고리즘만으로 지능적 에이전트를 만들기는 어렵고,</span>
+<span id="cb7-282"><a href="#cb7-282" aria-hidden="true" tabindex="-1"></a>그래서 <span class="ot">"</span><span class="st">사람처럼 배우는</span><span class="ot">"</span> ML <span class="fl">2.0</span>(평생 학습)으로 진화해야 한다는 것이 동기다.</span>
+<span id="cb7-283"><a href="#cb7-283" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-284"><a href="#cb7-284" aria-hidden="true" tabindex="-1"></a><span class="co">### 초기 연구 계보</span></span>
+<span id="cb7-285"><a href="#cb7-285" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-286"><a href="#cb7-286" aria-hidden="true" tabindex="-1"></a>- *<span class="dt">*Thrun</span> <span class="dv">1996</span> (lifelong learning)*<span class="wa">*:</span> 학습자의 생애에 걸쳐 함수열 <span class="dt">$f_1</span>,f_2,f_3,\dots\in F$ 를</span>
+<span id="cb7-287"><a href="#cb7-287" aria-hidden="true" tabindex="-1"></a>  학습. 각 과제는 <span class="dt">$f</span>:\mathcal{I}\to\{<span class="dv">0</span>,<span class="dv">1</span>\}<span class="wa">$,</span> <span class="dt">$f_</span>{\text{dog}}(x)=<span class="dv">1</span>$ 은 <span class="ot">"</span><span class="dt">$x</span><span class="st">$ 는 개</span><span class="ot">"</span>를 뜻한다.</span>
+<span id="cb7-288"><a href="#cb7-288" aria-hidden="true" tabindex="-1"></a>  핵심 직관: <span class="dt">$f_</span>{\text{dog}}$ 를 배울 때 이전에 배운 <span class="dt">$f_</span>{\text{cat}},f_{\text{bird}}$ 등의 지식을</span>
+<span id="cb7-289"><a href="#cb7-289" aria-hidden="true" tabindex="-1"></a>  재사용한다.</span>
+<span id="cb7-290"><a href="#cb7-290" aria-hidden="true" tabindex="-1"></a>- *<span class="dt">*NELL</span> (Never-Ending Language Learner, Mitchell et al.)*<span class="wa">*:</span> <span class="dv">2010</span>년 <span class="dv">1</span>월부터 <span class="dv">2018</span>년 <span class="dv">9</span>월까지</span>
+<span id="cb7-291"><a href="#cb7-291" aria-hidden="true" tabindex="-1"></a>  <span class="dv">24</span>시간 가동. 웹에서 사실을 추출해 지식 베이스를 채우고, <span class="ot">"</span><span class="st">어제보다 더 잘 읽도록</span><span class="ot">"</span> 개선.</span>
+<span id="cb7-292"><a href="#cb7-292" aria-hidden="true" tabindex="-1"></a>  결과적으로 약 **<span class="fl">1.2</span>억 개의 신뢰도-가중 믿음(belief)*<span class="ot">*</span> 을 축적하고, 읽기·추론·학습 능력과</span>
+<span id="cb7-293"><a href="#cb7-293" aria-hidden="true" tabindex="-1"></a>  온톨로지를 확장했다. NELL은 *<span class="dt">*typed</span>, closed knowledge base**(튜플 (subject, relation, object)</span>
+<span id="cb7-294"><a href="#cb7-294" aria-hidden="true" tabindex="-1"></a>  모음)다.</span>
+<span id="cb7-295"><a href="#cb7-295" aria-hidden="true" tabindex="-1"></a>- *<span class="dt">*NEIL</span> (Never-Ending Image Learner)*<span class="wa">*:</span> NELL의 이미지판. **<span class="dv">200</span>코어에서 <span class="dv">4</span>개월*<span class="ot">*</span> 가동, <span class="dv">2</span>,<span class="dv">500</span>개</span>
+<span id="cb7-296"><a href="#cb7-296" aria-hidden="true" tabindex="-1"></a>  이상 개념(객체&gt;<span class="dv">1</span>,<span class="dv">500</span>, 장면&gt;<span class="dv">1</span>,<span class="bn">034</span>, 속성&gt;<span class="dv">87</span>)을 발견, <span class="dv">500</span>만 장 이상 분석, <span class="dv">60</span>만 장 라벨링,</span>
+<span id="cb7-297"><a href="#cb7-297" aria-hidden="true" tabindex="-1"></a>  <span class="dv">3</span>,<span class="dv">000</span>개 관계 발견. 객체–객체, 장면–객체, 객체–속성, 장면–속성 관계를 학습했다(예: 바운딩</span>
+<span id="cb7-298"><a href="#cb7-298" aria-hidden="true" tabindex="-1"></a>  박스 포함 관계로 <span class="ot">"</span><span class="st">바퀴는 자동차의 일부</span><span class="ot">"</span>를 발견).</span>
+<span id="cb7-299"><a href="#cb7-299" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-300"><a href="#cb7-300" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb7-301"><a href="#cb7-301" aria-hidden="true" tabindex="-1"></a><span class="co">## 지식 베이스에서 신경망으로</span></span>
+<span id="cb7-302"><a href="#cb7-302" aria-hidden="true" tabindex="-1"></a>지식 베이스가 더 커질수록(노드·엣지 증가) *<span class="wa">*더</span> 잘 읽고, 더 잘 추론하고, 더 잘 학습*<span class="wa">*한</span>다.</span>
+<span id="cb7-303"><a href="#cb7-303" aria-hidden="true" tabindex="-1"></a>이미 아는 개념에 새 정보를 <span class="ot">"</span><span class="st">어디에 붙일지</span><span class="ot">"</span> 알기 때문이다. 오늘날 우리는 이런 명시적 지식 베이스</span>
+<span id="cb7-304"><a href="#cb7-304" aria-hidden="true" tabindex="-1"></a>대신 *<span class="wa">*신</span>경망이라는 압축된 지식 베이스*<span class="wa">*를</span> 쓰지만, 누적·연결이 능력을 키운다는 원리는 같다.</span>
+<span id="cb7-305"><a href="#cb7-305" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-306"><a href="#cb7-306" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-307"><a href="#cb7-307" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb7-308"><a href="#cb7-308" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-309"><a href="#cb7-309" aria-hidden="true" tabindex="-1"></a><span class="co">## 연속 학습: 현대적 셋업 {#sec-cl-modern}</span></span>
+<span id="cb7-310"><a href="#cb7-310" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-311"><a href="#cb7-311" aria-hidden="true" tabindex="-1"></a><span class="co">### 분류 기준: 무엇이 변하는가</span></span>
+<span id="cb7-312"><a href="#cb7-312" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-313"><a href="#cb7-313" aria-hidden="true" tabindex="-1"></a><span class="dt">$P</span>(Y)$ 가 고정일 때 대표적 셋업:</span>
+<span id="cb7-314"><a href="#cb7-314" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-315"><a href="#cb7-315" aria-hidden="true" tabindex="-1"></a>| 셋업 | 시간에 따라 변하는 것 | 직관 |</span>
+<span id="cb7-316"><a href="#cb7-316" aria-hidden="true" tabindex="-1"></a>|---|---|---|</span>
+<span id="cb7-317"><a href="#cb7-317" aria-hidden="true" tabindex="-1"></a>| *<span class="dt">*Class</span>-incremental (CIL)*<span class="ot">*</span> | 클래스 집합 <span class="wa">$\</span><span class="dt">mathcal</span>{Y}$ 가 점점 추가 | <span class="dt">$t</span>{=}<span class="dv">1</span><span class="wa">$:</span> 책·비행기, <span class="dt">$t</span>{=}<span class="dv">2</span><span class="wa">$:</span> 자동차·개 … |</span>
+<span id="cb7-318"><a href="#cb7-318" aria-hidden="true" tabindex="-1"></a>| *<span class="dt">*Domain</span>-incremental*<span class="ot">*</span> | 입력 도메인 <span class="wa">$\</span><span class="dt">mathcal</span>{X}$ 가 변화 | 같은 클래스, 다른 도메인의 표본이 시점별로 |</span>
+<span id="cb7-319"><a href="#cb7-319" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-320"><a href="#cb7-320" aria-hidden="true" tabindex="-1"></a>연속 학습 자체는 분류만의 문제가 아니지만, 가장 많이 연구된 표준 셋업이 *<span class="dt">*CIL</span>*<span class="wa">*이</span>다.</span>
+<span id="cb7-321"><a href="#cb7-321" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-322"><a href="#cb7-322" aria-hidden="true" tabindex="-1"></a><span class="co">### Online vs Offline 연속 학습</span></span>
+<span id="cb7-323"><a href="#cb7-323" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-324"><a href="#cb7-324" aria-hidden="true" tabindex="-1"></a>| | Offline CL | Online CL |</span>
+<span id="cb7-325"><a href="#cb7-325" aria-hidden="true" tabindex="-1"></a>|---|---|---|</span>
+<span id="cb7-326"><a href="#cb7-326" aria-hidden="true" tabindex="-1"></a>| 데이터 접근 | 해당 시점의 부분집합에 반복 접근 | 스트림에서 표본을 *<span class="wa">*한</span> 번*<span class="ot">*</span> 보고 흘려보냄 |</span>
+<span id="cb7-327"><a href="#cb7-327" aria-hidden="true" tabindex="-1"></a>| 에폭 | *<span class="wa">*다</span>중 에폭*<span class="ot">*</span> 허용 | 단일 패스(<span class="dv">1</span>-epoch) |</span>
+<span id="cb7-328"><a href="#cb7-328" aria-hidden="true" tabindex="-1"></a>| 난이도 | 상대적으로 쉬움 | *<span class="wa">*더</span> 어려움**(빠르게 수렴해야) |</span>
+<span id="cb7-329"><a href="#cb7-329" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-330"><a href="#cb7-330" aria-hidden="true" tabindex="-1"></a>online은 표본을 다시 보지 못하므로, 주어진 시점에 빠르게 해로 수렴해야 한다.</span>
+<span id="cb7-331"><a href="#cb7-331" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-334"><a href="#cb7-334" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb7-335"><a href="#cb7-335" aria-hidden="true" tabindex="-1"></a><span class="st">flowchart LR</span></span>
+<span id="cb7-336"><a href="#cb7-336" aria-hidden="true" tabindex="-1"></a><span class="st">    subgraph Offline</span></span>
+<span id="cb7-337"><a href="#cb7-337" aria-hidden="true" tabindex="-1"></a><span class="st">      D1[Data-1&lt;br/&gt;다중 에폭] --&gt; D2[Data-2&lt;br/&gt;다중 에폭] --&gt; D3[Data-3&lt;br/&gt;다중 에폭]</span></span>
+<span id="cb7-338"><a href="#cb7-338" aria-hidden="true" tabindex="-1"></a><span class="st">    end</span></span>
+<span id="cb7-339"><a href="#cb7-339" aria-hidden="true" tabindex="-1"></a><span class="st">    subgraph Online</span></span>
+<span id="cb7-340"><a href="#cb7-340" aria-hidden="true" tabindex="-1"></a><span class="st">      S[스트림: x1 x2 x3 ... 각 1회] --&gt; M[모델 즉시 업데이트]</span></span>
+<span id="cb7-341"><a href="#cb7-341" aria-hidden="true" tabindex="-1"></a><span class="st">    end</span></span>
+<span id="cb7-342"><a href="#cb7-342" aria-hidden="true" tabindex="-1"></a><span class="ot">```</span></span>
+<span id="cb7-343"><a href="#cb7-343" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-344"><a href="#cb7-344" aria-hidden="true" tabindex="-1"></a><span class="co">### 파국적 망각(catastrophic forgetting)</span></span>
+<span id="cb7-345"><a href="#cb7-345" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-346"><a href="#cb7-346" aria-hidden="true" tabindex="-1"></a>각 시점에 데이터의 *<span class="wa">*부</span>분집합만*<span class="ot">*</span> 보기 때문에, 새 과제를 학습하면 과거 과제 성능이 급격히</span>
+<span id="cb7-347"><a href="#cb7-347" aria-hidden="true" tabindex="-1"></a>무너진다. 표준 학습(모든 데이터를 모든 에폭에서 사용)과 달리, 연속 학습에서는 과거 표본이</span>
+<span id="cb7-348"><a href="#cb7-348" aria-hidden="true" tabindex="-1"></a>제한된 횟수만 보이므로 망각이 훨씬 심하다.</span>
+<span id="cb7-349"><a href="#cb7-349" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-350"><a href="#cb7-350" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb7-351"><a href="#cb7-351" aria-hidden="true" tabindex="-1"></a><span class="co">## 대형 모델에서는 망각이 덜하다 — 대신 다른 문제가 생긴다</span></span>
+<span id="cb7-352"><a href="#cb7-352" aria-hidden="true" tabindex="-1"></a>파라미터가 매우 많은 큰 모델은, 학습된 지식이 거대한 파라미터 공간에 흩어져 저장되므로 소수</span>
+<span id="cb7-353"><a href="#cb7-353" aria-hidden="true" tabindex="-1"></a>gradient 업데이트로 잘 파괴되지 않는다. 따라서 *<span class="wa">*대</span>형 모델에서는 파국적 망각이 핵심 이슈가</span>
+<span id="cb7-354"><a href="#cb7-354" aria-hidden="true" tabindex="-1"></a>아니다.*<span class="ot">*</span> 대신 *<span class="wa">*가</span>소성(plasticity)*<span class="ot">*</span> 이 문제다 — 큰 모델은 새 사실을 빠르게/완전히 흡수하기</span>
+<span id="cb7-355"><a href="#cb7-355" aria-hidden="true" tabindex="-1"></a>어렵다. 작은 사실 하나를 주입해도 모든 파라미터에 반영되지 않아 답이 어긋날 수 있다.</span>
+<span id="cb7-356"><a href="#cb7-356" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-357"><a href="#cb7-357" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-358"><a href="#cb7-358" aria-hidden="true" tabindex="-1"></a><span class="co">### 안정성–가소성 딜레마(stability–plasticity dilemma)</span></span>
+<span id="cb7-359"><a href="#cb7-359" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-360"><a href="#cb7-360" aria-hidden="true" tabindex="-1"></a>망각을 **<span class="dv">0</span> 계산비용*<span class="wa">*으</span>로 완벽히 막는 방법은? — *<span class="wa">*아</span>무것도 학습하지 않는 것.*<span class="ot">*</span> 업데이트가 없으면</span>
+<span id="cb7-361"><a href="#cb7-361" aria-hidden="true" tabindex="-1"></a>망각도 없다. 그러나 연속 학습의 목적은 *<span class="wa">*새</span>것을 배우는 것*<span class="wa">*이</span>므로 이는 무의미하다.</span>
+<span id="cb7-362"><a href="#cb7-362" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-363"><a href="#cb7-363" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb7-364"><a href="#cb7-364" aria-hidden="true" tabindex="-1"></a>\underbrace{\text{Stability}}_{\text{과거 보존}} \;\;\longleftrightarrow\;\; \underbrace{\text{Plasticity}}_{\text{새것 흡수}}</span>
+<span id="cb7-365"><a href="#cb7-365" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb7-366"><a href="#cb7-366" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-367"><a href="#cb7-367" aria-hidden="true" tabindex="-1"></a>둘은 트레이드오프다. 새것을 배우려면 과거 일부를 희생할 위험을 진다. 인지과학에서도 인간 뇌가</span>
+<span id="cb7-368"><a href="#cb7-368" aria-hidden="true" tabindex="-1"></a>같은 딜레마를 겪는다.</span>
+<span id="cb7-369"><a href="#cb7-369" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-370"><a href="#cb7-370" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb7-371"><a href="#cb7-371" aria-hidden="true" tabindex="-1"></a><span class="co">## 무선 통신 관점의 비유: 망각계수를 가진 적응 필터</span></span>
+<span id="cb7-372"><a href="#cb7-372" aria-hidden="true" tabindex="-1"></a>이 딜레마는 *<span class="wa">*적</span>응 필터(adaptive filter)의 수렴 vs 추적(tracking) 트레이드오프*<span class="wa">*와</span> 본질적으로</span>
+<span id="cb7-373"><a href="#cb7-373" aria-hidden="true" tabindex="-1"></a>같다. RLS의 망각계수 <span class="wa">$\</span><span class="dt">lambda</span>$ 나 LMS의 스텝 사이즈 <span class="wa">$\</span><span class="dt">mu</span>$ 를 떠올리자.</span>
+<span id="cb7-374"><a href="#cb7-374" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-375"><a href="#cb7-375" aria-hidden="true" tabindex="-1"></a>- <span class="wa">$\</span><span class="dt">mu</span><span class="wa">$(</span><span class="dt">또는</span> <span class="wa">$1</span>-\lambda<span class="wa">$)</span><span class="dt">가</span> *<span class="wa">*작</span>으면*<span class="wa">*:</span> 정상상태 오차가 작고(=과거를 잘 보존, *<span class="wa">*안</span>정성*<span class="ot">*</span>),</span>
+<span id="cb7-376"><a href="#cb7-376" aria-hidden="true" tabindex="-1"></a>  하지만 채널이 변할 때 추적이 느리다(=새것 흡수 느림, *<span class="wa">*가</span>소성*<span class="ot">*</span> 낮음).</span>
+<span id="cb7-377"><a href="#cb7-377" aria-hidden="true" tabindex="-1"></a>- <span class="wa">$\</span><span class="dt">mu</span><span class="wa">$가</span> *<span class="wa">*크</span>면*<span class="wa">*:</span> 변화 추적은 빠르지만(*<span class="wa">*가</span>소성*<span class="ot">*</span> 높음) 정상상태에서 출렁이며 과거 통계를</span>
+<span id="cb7-378"><a href="#cb7-378" aria-hidden="true" tabindex="-1"></a>  잊는다(*<span class="wa">*안</span>정성*<span class="ot">*</span> 낮음).</span>
+<span id="cb7-379"><a href="#cb7-379" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-380"><a href="#cb7-380" aria-hidden="true" tabindex="-1"></a>파국적 망각은 적응 필터가 새 채널 통계로 재수렴하면서 과거 통계를 덮어쓰는 현상에 대응한다.</span>
+<span id="cb7-381"><a href="#cb7-381" aria-hidden="true" tabindex="-1"></a><span class="ot">"</span><span class="st">replay buffer</span><span class="ot">"</span>는 과거 파일럿/훈련 표본을 보관해 두는 것에 해당한다.</span>
+<span id="cb7-382"><a href="#cb7-382" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-383"><a href="#cb7-383" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-384"><a href="#cb7-384" aria-hidden="true" tabindex="-1"></a><span class="co">### CIL 기법의 분류(taxonomy)</span></span>
+<span id="cb7-385"><a href="#cb7-385" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-388"><a href="#cb7-388" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb7-389"><a href="#cb7-389" aria-hidden="true" tabindex="-1"></a><span class="st">flowchart TD</span></span>
+<span id="cb7-390"><a href="#cb7-390" aria-hidden="true" tabindex="-1"></a><span class="st">    T[CIL 방법론] --&gt; R[Replay 기반]</span></span>
+<span id="cb7-391"><a href="#cb7-391" aria-hidden="true" tabindex="-1"></a><span class="st">    T --&gt; G[정규화 기반]</span></span>
+<span id="cb7-392"><a href="#cb7-392" aria-hidden="true" tabindex="-1"></a><span class="st">    T --&gt; P[파라미터 격리]</span></span>
+<span id="cb7-393"><a href="#cb7-393" aria-hidden="true" tabindex="-1"></a><span class="st">    R --&gt; R1[과거 표본을 작은 버퍼에&lt;br/&gt;보관 후 새 과제와 함께 재생]</span></span>
+<span id="cb7-394"><a href="#cb7-394" aria-hidden="true" tabindex="-1"></a><span class="st">    G --&gt; G1[Prior-focused&lt;br/&gt;이전 학습의 중요 파라미터를 고정&lt;br/&gt;예: EWC, Fisher 가중]</span></span>
+<span id="cb7-395"><a href="#cb7-395" aria-hidden="true" tabindex="-1"></a><span class="st">    G --&gt; G2[Data-focused&lt;br/&gt;이전 모델의 출력을 정규화&lt;br/&gt;예: 지식 증류 LwF]</span></span>
+<span id="cb7-396"><a href="#cb7-396" aria-hidden="true" tabindex="-1"></a><span class="st">    P --&gt; P1[새 과제는 새 파라미터/모델로&lt;br/&gt;나중에 병합 또는 라우팅]</span></span>
+<span id="cb7-397"><a href="#cb7-397" aria-hidden="true" tabindex="-1"></a><span class="ot">```</span></span>
+<span id="cb7-398"><a href="#cb7-398" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-399"><a href="#cb7-399" aria-hidden="true" tabindex="-1"></a>- *<span class="dt">*Replay</span> 기반*<span class="wa">*:</span> 과거 표본 일부를 작은 캐시(replay buffer)에 저장하고, 새 과제 학습 시 함께</span>
+<span id="cb7-400"><a href="#cb7-400" aria-hidden="true" tabindex="-1"></a>  재생한다. 가장 단순하고 강력하다.</span>
+<span id="cb7-401"><a href="#cb7-401" aria-hidden="true" tabindex="-1"></a>- *<span class="wa">*정</span>규화 기반**</span>
+<span id="cb7-402"><a href="#cb7-402" aria-hidden="true" tabindex="-1"></a>  - <span class="dt">*Prior</span>-focused<span class="wa">*:</span> 과거에 중요했던 파라미터일수록 덜 움직이게 벌점을 준다. 대표적으로</span>
+<span id="cb7-403"><a href="#cb7-403" aria-hidden="true" tabindex="-1"></a>    *<span class="dt">*EWC</span>(Elastic Weight Consolidation)*<span class="ot">*</span> 는 Fisher 정보 <span class="dt">$F_i</span>$ 로 파라미터 중요도를 가중한다:</span>
+<span id="cb7-404"><a href="#cb7-404" aria-hidden="true" tabindex="-1"></a>    <span class="wa">$$</span></span>
+<span id="cb7-405"><a href="#cb7-405" aria-hidden="true" tabindex="-1"></a>    \mathcal{L}(\theta)=\mathcal{L}_{\text{new}}(\theta)+\frac{\lambda}{<span class="dv">2</span>}\sum_i F_i\,(\theta_i-\theta^{<span class="ot">*</span>}_{\text{old},i})^<span class="dv">2</span> .</span>
+<span id="cb7-406"><a href="#cb7-406" aria-hidden="true" tabindex="-1"></a>    <span class="wa">$$</span></span>
+<span id="cb7-407"><a href="#cb7-407" aria-hidden="true" tabindex="-1"></a>    여기서 <span class="dt">$F_i</span>$ 는 과거 과제 손실의 곡률(<span class="dv">2</span>차 정보)을 근사하며, *<span class="wa">*로</span>그-사전 <span class="wa">$\</span><span class="dt">log</span> p(\theta)$ 를</span>
+<span id="cb7-408"><a href="#cb7-408" aria-hidden="true" tabindex="-1"></a>    과거 사후분포로 둔 MAP**(<span class="dt">@sec</span>-inductive)의 한 형태로 볼 수 있다. 정보이론적으로 <span class="dt">$F</span>$ 는</span>
+<span id="cb7-409"><a href="#cb7-409" aria-hidden="true" tabindex="-1"></a>    피셔 정보 행렬의 대각 근사다.</span>
+<span id="cb7-410"><a href="#cb7-410" aria-hidden="true" tabindex="-1"></a>  - <span class="dt">*Data</span>-focused<span class="wa">*:</span> 이전 모델의 출력(소프트 라벨)을 흉내 내게 하는 지식 증류(예: LwF).</span>
+<span id="cb7-411"><a href="#cb7-411" aria-hidden="true" tabindex="-1"></a>- *<span class="wa">*파</span>라미터 격리*<span class="wa">*:</span> 새 데이터는 *<span class="wa">*새</span> 모델/새 파라미터*<span class="wa">*로</span> 학습하고 나중에 병합한다. 망각은 거의</span>
+<span id="cb7-412"><a href="#cb7-412" aria-hidden="true" tabindex="-1"></a>  없지만, 모델이 계속 커져 저장 비용이 크고, *<span class="wa">*추</span>론 시 어느 모델을 쓸지 결정*<span class="wa">*하</span>는 새 문제가 생긴다.</span>
+<span id="cb7-413"><a href="#cb7-413" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-414"><a href="#cb7-414" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb7-415"><a href="#cb7-415" aria-hidden="true" tabindex="-1"></a><span class="co">## 실험으로 본 결론(부록 @sec-appendix 코드)</span></span>
+<span id="cb7-416"><a href="#cb7-416" aria-hidden="true" tabindex="-1"></a>강한 간섭이 있는 단일 헤드(single-head) 셋업에서는, 단순한 *<span class="dt">*replay</span>*<span class="wa">*가</span> 정규화 기반보다 훨씬</span>
+<span id="cb7-417"><a href="#cb7-417" aria-hidden="true" tabindex="-1"></a>견고하게 망각을 막는 경향이 있다. 부록 데모에서 naive 순차 학습은 과거 과제 정확도가</span>
+<span id="cb7-418"><a href="#cb7-418" aria-hidden="true" tabindex="-1"></a><span class="wa">$1</span>.<span class="dv">00</span>\!\to\!<span class="fl">0.00</span>$ 으로 붕괴했지만, <span class="dv">20</span>% 비율의 replay만으로 <span class="wa">$0</span>.<span class="dv">97</span>$ 까지 회복했다.</span>
+<span id="cb7-419"><a href="#cb7-419" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-420"><a href="#cb7-420" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-421"><a href="#cb7-421" aria-hidden="true" tabindex="-1"></a><span class="co">### 더 현실적인 셋업들 (연구 동향)</span></span>
+<span id="cb7-422"><a href="#cb7-422" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-423"><a href="#cb7-423" aria-hidden="true" tabindex="-1"></a>고전적 CIL은 <span class="ot">"</span><span class="st">각 시점에 정해진 클래스 표본만 본다</span><span class="ot">"</span>고 가정한다. 이는 비현실적이다. 더 현실적인</span>
+<span id="cb7-424"><a href="#cb7-424" aria-hidden="true" tabindex="-1"></a>셋업으로 확장된다.</span>
+<span id="cb7-425"><a href="#cb7-425" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-426"><a href="#cb7-426" aria-hidden="true" tabindex="-1"></a>| 셋업 | 문제의식 | 핵심 아이디어 |</span>
+<span id="cb7-427"><a href="#cb7-427" aria-hidden="true" tabindex="-1"></a>|---|---|---|</span>
+<span id="cb7-428"><a href="#cb7-428" aria-hidden="true" tabindex="-1"></a>| *<span class="dt">*Blurry</span> / i-Blurry*<span class="ot">*</span> | 한 시점에 한 클래스만 보지는 않는다 | 과제 경계를 흐릿하게(낮은 확률로 타 클래스 등장), 새 클래스도 점진 등장 + anytime inference |</span>
+<span id="cb7-429"><a href="#cb7-429" aria-hidden="true" tabindex="-1"></a>| *<span class="dt">*Noisy</span> labels*<span class="ot">*</span> | 스트림 라벨이 틀릴 수 있다 | 오염된 라벨 스트림에서의 학습 |</span>
+<span id="cb7-430"><a href="#cb7-430" aria-hidden="true" tabindex="-1"></a>| *<span class="dt">*Boundary</span>-free (Gaussian) stream*<span class="ot">*</span> | 데이터 분포가 시간의 연속 함수 | 경계 없는 연속 분포 + 데이터 사전(prior) 스케줄링 |</span>
+<span id="cb7-431"><a href="#cb7-431" aria-hidden="true" tabindex="-1"></a>| *<span class="dt">*Hierarchical</span> label expansion*<span class="ot">*</span> | 거친 클래스 → 세밀한 클래스로 분화 | 계층 구조를 활용해 새로운 세분 클래스 학습 |</span>
+<span id="cb7-432"><a href="#cb7-432" aria-hidden="true" tabindex="-1"></a>| *<span class="dt">*Embodied</span> agents*<span class="ot">*</span> | 로봇이 새 환경/행동을 지속 학습 | 과거 개념 보존하며 새 환경·행동 통합 |</span>
+<span id="cb7-433"><a href="#cb7-433" aria-hidden="true" tabindex="-1"></a>| *<span class="dt">*Name</span>-only CL*<span class="ot">*</span> | 사람 라벨러가 항상 있진 않다 | LLM/VLM을 라벨러로 써서 웹 데이터 자동 수집·정제 |</span>
+<span id="cb7-434"><a href="#cb7-434" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-435"><a href="#cb7-435" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb7-436"><a href="#cb7-436" aria-hidden="true" tabindex="-1"></a><span class="co">## i-Blurry의 동기 (확률적 직관)</span></span>
+<span id="cb7-437"><a href="#cb7-437" aria-hidden="true" tabindex="-1"></a><span class="ot">"</span><span class="st">blurry</span><span class="ot">"</span> 셋업은 <span class="dt">$t</span>{=}<span class="dv">1</span>$ 에 개·고양이가 높은 확률로, 자동차·배가 <span class="dv">1</span>% 같은 낮은 확률로 섞여 보인다고</span>
+<span id="cb7-438"><a href="#cb7-438" aria-hidden="true" tabindex="-1"></a>본다. 그런데 표본 수가 충분히 크면(예: 클래스당 <span class="dv">100</span>개 이상), <span class="fl">0.1</span>% 확률의 클래스라도 모든 시점에서</span>
+<span id="cb7-439"><a href="#cb7-439" aria-hidden="true" tabindex="-1"></a>*<span class="wa">*거</span>의 확실히 한 번은*<span class="ot">*</span> 등장한다. 그러면 사실상 <span class="ot">"</span><span class="st">모든 클래스가 항상 보이는</span><span class="ot">"</span> 것이 되어 더 이상</span>
+<span id="cb7-440"><a href="#cb7-440" aria-hidden="true" tabindex="-1"></a>class-incremental이 아니게 된다. 이 허점을 메우려 *<span class="dt">*i</span>-Blurry*<span class="ot">*</span> 셋업은 일부 클래스는</span>
+<span id="cb7-441"><a href="#cb7-441" aria-hidden="true" tabindex="-1"></a>점진적으로(incrementally) 추가되도록 설계해, 현실성과 class-incremental 성질을 동시에 유지한다.</span>
+<span id="cb7-442"><a href="#cb7-442" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-443"><a href="#cb7-443" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-444"><a href="#cb7-444" aria-hidden="true" tabindex="-1"></a><span class="co">### Name-only / 사람 없는 연속 학습</span></span>
+<span id="cb7-445"><a href="#cb7-445" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-446"><a href="#cb7-446" aria-hidden="true" tabindex="-1"></a>사람 라벨러나 재학습용 데이터가 항상 주어지지는 않는다. 이때 LLM·VLM을 *<span class="wa">*대</span>체 라벨러*<span class="wa">*로</span> 쓴다.</span>
+<span id="cb7-447"><a href="#cb7-447" aria-hidden="true" tabindex="-1"></a>연속 학습기에게 <span class="ot">"</span><span class="st">이름(semantics)</span><span class="ot">"</span>만 알려주면, 나머지(웹에서 새 데이터 수집 → 자동 라벨링 →</span>
+<span id="cb7-448"><a href="#cb7-448" aria-hidden="true" tabindex="-1"></a>LLM-이미지 관계로 오라벨 정제 → 모델 갱신)는 자동화된다. 사용자는 데이터셋을 모을 필요 없이</span>
+<span id="cb7-449"><a href="#cb7-449" aria-hidden="true" tabindex="-1"></a>*<span class="wa">*개</span>념 이름만*<span class="ot">*</span> 말하면 된다.</span>
+<span id="cb7-450"><a href="#cb7-450" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-451"><a href="#cb7-451" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb7-452"><a href="#cb7-452" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-453"><a href="#cb7-453" aria-hidden="true" tabindex="-1"></a><span class="co">## CIL을 넘어서: 생성·대형 모델의 연속 학습 {#sec-cl-beyond}</span></span>
+<span id="cb7-454"><a href="#cb7-454" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-455"><a href="#cb7-455" aria-hidden="true" tabindex="-1"></a>지금까지는 <span class="dt">$P</span>(Y)<span class="wa">$(</span><span class="dt">판별</span>)에 집중했지만, 대형 생성 모델은 <span class="dt">$P</span>(X)$ 또는 <span class="dt">$P</span>(X\mid Y)$ 를 학습한다.</span>
+<span id="cb7-456"><a href="#cb7-456" aria-hidden="true" tabindex="-1"></a>현대의 대형 모델 학습 자체가 사실상 연속 학습이다.</span>
+<span id="cb7-457"><a href="#cb7-457" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-458"><a href="#cb7-458" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb7-459"><a href="#cb7-459" aria-hidden="true" tabindex="-1"></a><span class="co">## 데이터 풀 + 데이터 페처(data fetcher)</span></span>
+<span id="cb7-460"><a href="#cb7-460" aria-hidden="true" tabindex="-1"></a>고전 학습은 고정 데이터셋을 여러 에폭 도는 것이었다. 대형 모델 학습에는 고정 데이터셋이 없다.</span>
+<span id="cb7-461"><a href="#cb7-461" aria-hidden="true" tabindex="-1"></a>대신 *<span class="wa">*데</span>이터 풀**(증감·정제·신규 유입이 끊임없이 일어남)과 *<span class="wa">*모</span>델*<span class="wa">*이</span> 있고, 그 사이를</span>
+<span id="cb7-462"><a href="#cb7-462" aria-hidden="true" tabindex="-1"></a>*<span class="wa">*데</span>이터 페처*<span class="wa">*가</span> 잇는다. 페처는 모델 갱신에 유용할 부분집합을 골라낸다. 페처가 똑똑할수록</span>
+<span id="cb7-463"><a href="#cb7-463" aria-hidden="true" tabindex="-1"></a>적은 계산으로 더 좋은 모델을 얻는다. 고정 데이터셋·다중 에폭이라는 개념이 사라지고, 어떤 표본은</span>
+<span id="cb7-464"><a href="#cb7-464" aria-hidden="true" tabindex="-1"></a>여러 번, 어떤 표본은 한 번도 안 보일 수 있다. 즉 *<span class="wa">*연</span>속 학습 패러다임 그 자체*<span class="wa">*다</span>.</span>
+<span id="cb7-465"><a href="#cb7-465" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb7-466"><a href="#cb7-466" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-467"><a href="#cb7-467" aria-hidden="true" tabindex="-1"></a>LLM의 연속 학습 파이프라인(개념):</span>
+<span id="cb7-468"><a href="#cb7-468" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-469"><a href="#cb7-469" aria-hidden="true" tabindex="-1"></a>| 약어 | 단계 |</span>
+<span id="cb7-470"><a href="#cb7-470" aria-hidden="true" tabindex="-1"></a>|---|---|</span>
+<span id="cb7-471"><a href="#cb7-471" aria-hidden="true" tabindex="-1"></a>| DAP | Domain-adaptive pre-training (도메인 적응 사전학습) |</span>
+<span id="cb7-472"><a href="#cb7-472" aria-hidden="true" tabindex="-1"></a>| SFT | Supervised fine-tuning |</span>
+<span id="cb7-473"><a href="#cb7-473" aria-hidden="true" tabindex="-1"></a>| CIT | Continual instruction tuning |</span>
+<span id="cb7-474"><a href="#cb7-474" aria-hidden="true" tabindex="-1"></a>| CMR | Continual model refinement |</span>
+<span id="cb7-475"><a href="#cb7-475" aria-hidden="true" tabindex="-1"></a>| CMA | Continual model alignment |</span>
+<span id="cb7-476"><a href="#cb7-476" aria-hidden="true" tabindex="-1"></a>| CMLLM | Continual multimodal LLM |</span>
+<span id="cb7-477"><a href="#cb7-477" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-478"><a href="#cb7-478" aria-hidden="true" tabindex="-1"></a>여기서 *<span class="wa">*사</span>람을 효율적으로 쓰는*<span class="ot">*</span> 대표 기법이 *<span class="dt">*RLHF</span>*<span class="wa">*다</span>. 사람의 선호 피드백을 모델 정렬에</span>
+<span id="cb7-479"><a href="#cb7-479" aria-hidden="true" tabindex="-1"></a>효율적으로 반영한다(few-<span class="ot">/zero-shot의 세 번째 전략, </span><span class="dt">@sec</span><span class="ot">-fewshot, 과 연결</span><span class="ch">)</span><span class="ot">.</span></span>
+<span id="cb7-480"><a href="#cb7-480" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-481"><a href="#cb7-481" aria-hidden="true" tabindex="-1"></a><span class="ot">---</span></span>
+<span id="cb7-482"><a href="#cb7-482" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-483"><a href="#cb7-483" aria-hidden="true" tabindex="-1"></a><span class="co">## 요약 {#sec-summary}</span></span>
+<span id="cb7-484"><a href="#cb7-484" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-485"><a href="#cb7-485" aria-hidden="true" tabindex="-1"></a><span class="ot">::: {.callout-important}</span></span>
+<span id="cb7-486"><a href="#cb7-486" aria-hidden="true" tabindex="-1"></a><span class="co">## 핵심 정리</span></span>
+<span id="cb7-487"><a href="#cb7-487" aria-hidden="true" tabindex="-1"></a><span class="ot">1. </span><span class="ch">**</span><span class="ot">few-shot</span><span class="ch">(</span><span class="ot">⊂ 약한 감독</span><span class="ch">)**</span><span class="ot"> 은 어려운 일반화 문제다. 데이터가 없으면 귀납 편향, 비라벨 데이터,</span></span>
+<span id="cb7-488"><a href="#cb7-488" aria-hidden="true" tabindex="-1"></a><span class="ot">   사람의 효율적 사용 중 하나로 메꾼다.</span></span>
+<span id="cb7-489"><a href="#cb7-489" aria-hidden="true" tabindex="-1"></a><span class="ot">2. </span><span class="ch">**</span><span class="ot">zero-shot ≠ unsupervised.</span><span class="ch">**</span><span class="ot"> zero-shot은 관심 클래스 예제만 0개</span><span class="ch">(</span><span class="ot">보조지식으로 외삽</span><span class="ch">)</span><span class="ot">,</span></span>
+<span id="cb7-490"><a href="#cb7-490" aria-hidden="true" tabindex="-1"></a><span class="ot">   unsupervised는 라벨 자체가 없음. 서로 직교하는 축이다.</span></span>
+<span id="cb7-491"><a href="#cb7-491" aria-hidden="true" tabindex="-1"></a><span class="ot">3. </span><span class="ch">**</span><span class="ot">정규화 = 음의 로그 사전분포.</span><span class="ch">**</span><span class="ot"> 귀납 편향을 넣는 것은 </span><span class="dt">$p</span><span class="ch">(</span><span class="ot">\theta</span><span class="ch">)$</span><span class="ot"> 를 부여하는 MAP과 동치이며,</span></span>
+<span id="cb7-492"><a href="#cb7-492" aria-hidden="true" tabindex="-1"></a><span class="ot">   MLE는 균일 사전의 특수 케이스다.</span></span>
+<span id="cb7-493"><a href="#cb7-493" aria-hidden="true" tabindex="-1"></a><span class="ot">4. </span><span class="ch">**</span><span class="ot">연속 학습은 데이터·계산 효율적 학습 스킴</span><span class="ch">**</span><span class="ot">으로, 특히 대형 모델에서 중요하다. 다만 우리는</span></span>
+<span id="cb7-494"><a href="#cb7-494" aria-hidden="true" tabindex="-1"></a><span class="ot">   너무 오래 </span><span class="ch">**</span><span class="ot">class-incremental</span><span class="ch">**</span><span class="ot">에 머물러 있었다 — 이제 벗어날 때다.</span></span>
+<span id="cb7-495"><a href="#cb7-495" aria-hidden="true" tabindex="-1"></a><span class="ot">5. </span><span class="ch">**</span><span class="ot">안정성–가소성 딜레마</span><span class="ch">**(</span><span class="ot">= 적응 필터의 수렴 vs 추적</span><span class="ch">)</span><span class="ot">가 연속 학습의 근본 긴장이며,</span></span>
+<span id="cb7-496"><a href="#cb7-496" aria-hidden="true" tabindex="-1"></a><span class="ot">   replay·정규화</span><span class="ch">(</span><span class="ot">EWC</span><span class="ch">)</span><span class="ot">·파라미터 격리가 그 처방이다.</span></span>
+<span id="cb7-497"><a href="#cb7-497" aria-hidden="true" tabindex="-1"></a><span class="ot">:::</span></span>
+<span id="cb7-498"><a href="#cb7-498" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-499"><a href="#cb7-499" aria-hidden="true" tabindex="-1"></a><span class="ot">다음 주제: </span><span class="ch">**</span><span class="ot">대형 언어 모델</span><span class="ch">(</span><span class="ot">LLM</span><span class="ch">)**</span><span class="ot">.</span></span>
+<span id="cb7-500"><a href="#cb7-500" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-501"><a href="#cb7-501" aria-hidden="true" tabindex="-1"></a><span class="ot">---</span></span>
+<span id="cb7-502"><a href="#cb7-502" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-503"><a href="#cb7-503" aria-hidden="true" tabindex="-1"></a><span class="co">## 부록: 파국적 망각과 replay의 NumPy 데모 {#sec-appendix}</span></span>
+<span id="cb7-504"><a href="#cb7-504" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-505"><a href="#cb7-505" aria-hidden="true" tabindex="-1"></a><span class="ot">아래 코드는 외부 의존성 없이 NumPy만으로 </span><span class="ch">**</span><span class="ot">파국적 망각</span><span class="ch">**</span><span class="ot">과 </span><span class="ch">**</span><span class="ot">replay</span><span class="ch">**</span><span class="ot">의 효과를 재현한다.</span></span>
+<span id="cb7-506"><a href="#cb7-506" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-507"><a href="#cb7-507" aria-hidden="true" tabindex="-1"></a><span class="ch">**</span><span class="ot">셋업.</span><span class="ch">**</span><span class="ot"> 입력은 2차원. 규칙은 영역 의존적</span><span class="ch">(</span><span class="ot">XOR 유사</span><span class="ch">)</span><span class="ot">이라 두 과제가 같은 파라미터를 두고 간섭한다.</span></span>
+<span id="cb7-508"><a href="#cb7-508" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-509"><a href="#cb7-509" aria-hidden="true" tabindex="-1"></a><span class="ot">- 과제 A: 왼쪽 영역</span><span class="ch">(</span><span class="dt">$x_1</span><span class="ot">&lt;0</span><span class="ch">$)</span><span class="ot">의 표본만, 라벨 = </span><span class="ch">(</span><span class="ot">왼쪽 &amp; 위</span><span class="ch">)</span><span class="ot"> 또는 </span><span class="ch">(</span><span class="ot">오른쪽 &amp; 아래</span><span class="ch">)</span></span>
+<span id="cb7-510"><a href="#cb7-510" aria-hidden="true" tabindex="-1"></a><span class="ot">- 과제 B: 오른쪽 영역</span><span class="ch">(</span><span class="dt">$x_1</span><span class="ot">&gt;0</span><span class="ch">$)</span><span class="ot">의 표본만, 같은 규칙</span></span>
+<span id="cb7-511"><a href="#cb7-511" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-512"><a href="#cb7-512" aria-hidden="true" tabindex="-1"></a><span class="ot">단일 헤드 MLP는 두 과제를 </span><span class="ch">**</span><span class="ot">함께</span><span class="ch">**</span><span class="ot"> 보면</span><span class="ch">(</span><span class="ot">joint</span><span class="ch">)</span><span class="ot"> 거의 완벽히 풀 수 있지만</span><span class="ch">(</span><span class="ot">상한</span><span class="ch">)</span><span class="ot">,</span></span>
+<span id="cb7-513"><a href="#cb7-513" aria-hidden="true" tabindex="-1"></a><span class="ot">순차로</span><span class="ch">(</span><span class="ot">A→B</span><span class="ch">)</span><span class="ot"> 학습하면 B만 보는 동안 A의 결정 경계가 무너진다.</span></span>
+<span id="cb7-514"><a href="#cb7-514" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-517"><a href="#cb7-517" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb7-518"><a href="#cb7-518" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: cl-demo</span></span>
+<span id="cb7-519"><a href="#cb7-519" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Naive 순차 학습은 과제 A를 파국적으로 잊지만, replay는 회복시킨다."</span></span>
+<span id="cb7-520"><a href="#cb7-520" aria-hidden="true" tabindex="-1"></a><span class="ot">import numpy as np</span></span>
+<span id="cb7-521"><a href="#cb7-521" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-522"><a href="#cb7-522" aria-hidden="true" tabindex="-1"></a><span class="ot">rng = np.random.default_rng</span><span class="ch">(</span><span class="ot">11</span><span class="ch">)</span></span>
+<span id="cb7-523"><a href="#cb7-523" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-524"><a href="#cb7-524" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 데이터: 영역 의존적 XOR 유사 규칙 ----</span></span>
+<span id="cb7-525"><a href="#cb7-525" aria-hidden="true" tabindex="-1"></a><span class="ot">def lab</span><span class="ch">(</span><span class="ot">X</span><span class="ch">)</span><span class="ot">:</span><span class="co">                       # +1 if (left &amp; up) or (right &amp; down)</span></span>
+<span id="cb7-526"><a href="#cb7-526" aria-hidden="true" tabindex="-1"></a><span class="ot">    left, up = X</span><span class="ch">[</span><span class="bn">:, 0</span><span class="ch">]</span><span class="ot"> &lt; 0, X</span><span class="ch">[</span><span class="bn">:, 1</span><span class="ch">]</span><span class="ot"> &gt; 0</span></span>
+<span id="cb7-527"><a href="#cb7-527" aria-hidden="true" tabindex="-1"></a><span class="ot">    return </span><span class="ch">((</span><span class="ot">left &amp; up</span><span class="ch">)</span><span class="ot"> </span><span class="ch">|</span><span class="ot"> </span><span class="ch">((</span><span class="ot">~left</span><span class="ch">)</span><span class="ot"> &amp; </span><span class="ch">(</span><span class="ot">~up</span><span class="ch">)))</span><span class="ot">.astype</span><span class="ch">(</span><span class="ot">float</span><span class="ch">)</span></span>
+<span id="cb7-528"><a href="#cb7-528" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-529"><a href="#cb7-529" aria-hidden="true" tabindex="-1"></a><span class="ot">def region_A</span><span class="ch">(</span><span class="ot">n</span><span class="ch">)</span><span class="ot">:</span><span class="co">                  # x&lt;0 영역만 관측</span></span>
+<span id="cb7-530"><a href="#cb7-530" aria-hidden="true" tabindex="-1"></a><span class="ot">    X = np.c_</span><span class="ch">[</span><span class="bn">rng.uniform(-2, 0, n), rng.uniform(-2, 2, n)</span><span class="ch">]</span><span class="ot">; return X, lab</span><span class="ch">(</span><span class="ot">X</span><span class="ch">)</span></span>
+<span id="cb7-531"><a href="#cb7-531" aria-hidden="true" tabindex="-1"></a><span class="ot">def region_B</span><span class="ch">(</span><span class="ot">n</span><span class="ch">)</span><span class="ot">:</span><span class="co">                  # x&gt;0 영역만 관측</span></span>
+<span id="cb7-532"><a href="#cb7-532" aria-hidden="true" tabindex="-1"></a><span class="ot">    X = np.c_</span><span class="ch">[</span><span class="bn">rng.uniform(0, 2, n), rng.uniform(-2, 2, n)</span><span class="ch">]</span><span class="ot">; return X, lab</span><span class="ch">(</span><span class="ot">X</span><span class="ch">)</span></span>
+<span id="cb7-533"><a href="#cb7-533" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-534"><a href="#cb7-534" aria-hidden="true" tabindex="-1"></a><span class="ot">XA, yA = region_A</span><span class="ch">(</span><span class="ot">2000</span><span class="ch">)</span><span class="ot">; XB, yB = region_B</span><span class="ch">(</span><span class="ot">2000</span><span class="ch">)</span></span>
+<span id="cb7-535"><a href="#cb7-535" aria-hidden="true" tabindex="-1"></a><span class="ot">XAt, yAt = region_A</span><span class="ch">(</span><span class="ot">800</span><span class="ch">)</span><span class="ot">; XBt, yBt = region_B</span><span class="ch">(</span><span class="ot">800</span><span class="ch">)</span></span>
+<span id="cb7-536"><a href="#cb7-536" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-537"><a href="#cb7-537" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 작은 2-layer MLP (tanh + sigmoid), 순수 NumPy ----</span></span>
+<span id="cb7-538"><a href="#cb7-538" aria-hidden="true" tabindex="-1"></a><span class="ot">H = 64</span></span>
+<span id="cb7-539"><a href="#cb7-539" aria-hidden="true" tabindex="-1"></a><span class="ot">def init</span><span class="ch">()</span><span class="ot">:</span></span>
+<span id="cb7-540"><a href="#cb7-540" aria-hidden="true" tabindex="-1"></a><span class="ot">    return </span><span class="ch">[</span><span class="bn">rng.normal(size=(2, H)) * 0.7, np.zeros(H),</span></span>
+<span id="cb7-541"><a href="#cb7-541" aria-hidden="true" tabindex="-1"></a><span class="bn">            rng.normal(size=(H,)) * 0.7, np.zeros(1)</span><span class="ch">]</span></span>
+<span id="cb7-542"><a href="#cb7-542" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-543"><a href="#cb7-543" aria-hidden="true" tabindex="-1"></a><span class="ot">def fwd</span><span class="ch">(</span><span class="ot">p, X</span><span class="ch">)</span><span class="ot">:</span></span>
+<span id="cb7-544"><a href="#cb7-544" aria-hidden="true" tabindex="-1"></a><span class="ot">    h = np.tanh</span><span class="ch">(</span><span class="ot">X @ p</span><span class="ch">[</span><span class="bn">0</span><span class="ch">]</span><span class="ot"> </span><span class="ch">+</span><span class="ot"> p</span><span class="ch">[</span><span class="bn">1</span><span class="ch">])</span><span class="ot">; z = h @ p</span><span class="ch">[</span><span class="bn">2</span><span class="ch">]</span><span class="ot"> </span><span class="ch">+</span><span class="ot"> p</span><span class="ch">[</span><span class="bn">3</span><span class="ch">]</span></span>
+<span id="cb7-545"><a href="#cb7-545" aria-hidden="true" tabindex="-1"></a><span class="ot">    return 1 /</span> (<span class="dv">1</span> + np.<span class="fu">exp</span>(-np.clip(z, -<span class="dv">30</span>, <span class="dv">30</span>))), h</span>
+<span id="cb7-546"><a href="#cb7-546" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-547"><a href="#cb7-547" aria-hidden="true" tabindex="-1"></a>def grads(p, X, y):</span>
+<span id="cb7-548"><a href="#cb7-548" aria-hidden="true" tabindex="-1"></a>    pr, h = fwd(p, X); d = (pr - y) / len(y)</span>
+<span id="cb7-549"><a href="#cb7-549" aria-hidden="true" tabindex="-1"></a>    dh = np.outer(d, p[<span class="dv">2</span>]) <span class="ot">*</span> (<span class="dv">1</span> - h *<span class="ot">*</span> <span class="dv">2</span>)</span>
+<span id="cb7-550"><a href="#cb7-550" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [X.T @ dh, dh.sum(<span class="dv">0</span>), h.T @ d, np.array([d.sum()])]</span>
+<span id="cb7-551"><a href="#cb7-551" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-552"><a href="#cb7-552" aria-hidden="true" tabindex="-1"></a>def acc(p, X, y):</span>
+<span id="cb7-553"><a href="#cb7-553" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> ((fwd(p, X)[<span class="dv">0</span>] &gt; <span class="fl">0.5</span>).astype(float) == y).mean()</span>
+<span id="cb7-554"><a href="#cb7-554" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-555"><a href="#cb7-555" aria-hidden="true" tabindex="-1"></a>def train(p, X, <span class="ot">y, lr=0.3, ep=2500,</span> bs=<span class="dv">256</span>):</span>
+<span id="cb7-556"><a href="#cb7-556" aria-hidden="true" tabindex="-1"></a>    p = [w.copy() <span class="cf">for</span> w in p]; n = len(X)</span>
+<span id="cb7-557"><a href="#cb7-557" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _ in range(ep):</span>
+<span id="cb7-558"><a href="#cb7-558" aria-hidden="true" tabindex="-1"></a>        i = rng.choice(n, bs, replace=False)</span>
+<span id="cb7-559"><a href="#cb7-559" aria-hidden="true" tabindex="-1"></a>        g = grads(p, X[i], <span class="ot">y</span>[i])</span>
+<span id="cb7-560"><a href="#cb7-560" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> k in range(len(p)): p[k] -= lr <span class="ot">*</span> g[k]</span>
+<span id="cb7-561"><a href="#cb7-561" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> p</span>
+<span id="cb7-562"><a href="#cb7-562" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-563"><a href="#cb7-563" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 1) 과제 A 학습 ----</span></span>
+<span id="cb7-564"><a href="#cb7-564" aria-hidden="true" tabindex="-1"></a>pA = train(init(), XA, yA)</span>
+<span id="cb7-565"><a href="#cb7-565" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(f<span class="ot">"</span><span class="st">after A      : accA={acc(pA, XAt, yAt):.2f}</span><span class="ot">"</span>)</span>
+<span id="cb7-566"><a href="#cb7-566" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-567"><a href="#cb7-567" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 2) Joint 학습 (상한, 두 과제를 함께) ----</span></span>
+<span id="cb7-568"><a href="#cb7-568" aria-hidden="true" tabindex="-1"></a>pJ = train(init(), np.vstack([XA, XB]), np.concatenate([yA, yB]), ep=<span class="dv">5000</span>)</span>
+<span id="cb7-569"><a href="#cb7-569" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(f<span class="ot">"</span><span class="st">[Joint]       accA={acc(pJ, XAt, yAt):.2f}  accB={acc(pJ, XBt, yBt):.2f}  (upper bound)</span><span class="ot">"</span>)</span>
+<span id="cb7-570"><a href="#cb7-570" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-571"><a href="#cb7-571" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 3) Naive 순차 (A 학습 후 B만 학습) → 파국적 망각 ----</span></span>
+<span id="cb7-572"><a href="#cb7-572" aria-hidden="true" tabindex="-1"></a>pN = train(pA, XB, yB)</span>
+<span id="cb7-573"><a href="#cb7-573" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(f<span class="ot">"</span><span class="st">[Naive]       accA={acc(pN, XAt, yAt):.2f}  accB={acc(pN, XBt, yBt):.2f}</span><span class="ot">"</span>)</span>
+<span id="cb7-574"><a href="#cb7-574" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-575"><a href="#cb7-575" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 4) Replay (B 학습 시 과거 A 표본 20% 혼합) → 회복 ----</span></span>
+<span id="cb7-576"><a href="#cb7-576" aria-hidden="true" tabindex="-1"></a>idx = rng.choice(len(XA), <span class="dv">500</span>, replace=False)</span>
+<span id="cb7-577"><a href="#cb7-577" aria-hidden="true" tabindex="-1"></a>pR = train(pA, np.vstack([XB, XA[idx]]), np.concatenate([yB, yA[idx]]))</span>
+<span id="cb7-578"><a href="#cb7-578" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(f<span class="ot">"</span><span class="st">[Replay]      accA={acc(pR, XAt, yAt):.2f}  accB={acc(pR, XBt, yBt):.2f}</span><span class="ot">"</span>)</span>
+<span id="cb7-579"><a href="#cb7-579" aria-hidden="true" tabindex="-1"></a><span class="ot">```</span></span>
+<span id="cb7-580"><a href="#cb7-580" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-581"><a href="#cb7-581" aria-hidden="true" tabindex="-1"></a><span class="st">기대 출력(난수 시드 고정):</span></span>
+<span id="cb7-582"><a href="#cb7-582" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-583"><a href="#cb7-583" aria-hidden="true" tabindex="-1"></a><span class="ot">```</span></span>
+<span id="cb7-584"><a href="#cb7-584" aria-hidden="true" tabindex="-1"></a>after A      : accA=<span class="fl">1.00</span></span>
+<span id="cb7-585"><a href="#cb7-585" aria-hidden="true" tabindex="-1"></a>[Joint]       accA=<span class="fl">0.99</span>  accB=<span class="fl">1.00</span>  (upper bound)</span>
+<span id="cb7-586"><a href="#cb7-586" aria-hidden="true" tabindex="-1"></a>[Naive]       accA=<span class="fl">0.00</span>  accB=<span class="fl">1.00</span></span>
+<span id="cb7-587"><a href="#cb7-587" aria-hidden="true" tabindex="-1"></a>[Replay]      accA=<span class="fl">0.97</span>  accB=<span class="fl">1.00</span></span>
+<span id="cb7-588"><a href="#cb7-588" aria-hidden="true" tabindex="-1"></a><span class="ot">```</span></span>
+<span id="cb7-589"><a href="#cb7-589" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-590"><a href="#cb7-590" aria-hidden="true" tabindex="-1"></a><span class="st">**해석.** Joint(상한)는 두 과제를 거의 완벽히 푼다. 그러나 Naive 순차 학습은 B를 학습하는 동안</span></span>
+<span id="cb7-591"><a href="#cb7-591" aria-hidden="true" tabindex="-1"></a><span class="st">A의 결정 경계를 완전히 덮어써 </span><span class="wa">$\</span><span class="st">text{accA}=0.00$ 으로 붕괴한다(파국적 망각). 과거 표본의 20</span><span class="dt">%만</span></span>
+<span id="cb7-592"><a href="#cb7-592" aria-hidden="true" tabindex="-1"></a><span class="st">재생(replay)해도 A 성능이 </span><span class="wa">$0</span><span class="st">.97$ 로 거의 회복된다 — </span><span class="dt">@sec</span><span class="st">-cl-modern 의 replay 기반 기법이 왜</span></span>
+<span id="cb7-593"><a href="#cb7-593" aria-hidden="true" tabindex="-1"></a><span class="st">단순하면서도 강력한지를 보여 준다.</span></span>
+<span id="cb7-594"><a href="#cb7-594" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-595"><a href="#cb7-595" aria-hidden="true" tabindex="-1"></a><span class="st">::: {.callout-note}</span></span>
+<span id="cb7-596"><a href="#cb7-596" aria-hidden="true" tabindex="-1"></a><span class="st">## 정규화 기반(EWC)에 대한 메모</span></span>
+<span id="cb7-597"><a href="#cb7-597" aria-hidden="true" tabindex="-1"></a><span class="st">같은 셋업에 EWC식 Fisher-가중 벌점을 적용하면, 이 **강한 간섭·단일 헤드** 구성에서는 두 과제 모두</span></span>
+<span id="cb7-598"><a href="#cb7-598" aria-hidden="true" tabindex="-1"></a><span class="wa">$\</span><span class="st">sim0.5$ 근처에 갇혀 replay만큼 잘 동작하지 않는다. 과거 사후분포에 강하게 고정하면 어느 과제도</span></span>
+<span id="cb7-599"><a href="#cb7-599" aria-hidden="true" tabindex="-1"></a><span class="st">만족시키지 못하는 절충점에 머물기 때문이다. 이는 "정규화 기반이 항상 최선"은 아니며 과제 간</span></span>
+<span id="cb7-600"><a href="#cb7-600" aria-hidden="true" tabindex="-1"></a><span class="st">간섭·표현 공유 정도에 따라 replay가 유리할 수 있다는 문헌의 관찰과 일치한다.</span></span>
+<span id="cb7-601"><a href="#cb7-601" aria-hidden="true" tabindex="-1"></a><span class="st">:::</span></span>
+</code></pre></div><button title="클립보드 복사" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

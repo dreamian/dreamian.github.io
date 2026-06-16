@@ -1,0 +1,593 @@
+---
+title: "데이터 효율적 학습 (Data-Efficient Learning)"
+subtitle: "Few-shot / Zero-shot / Continual Learning"
+author: ""
+date: "2026-05-18"
+lang: ko
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    highlight-style: github
+    theme: cosmo
+    fig-cap-location: bottom
+execute:
+  echo: true
+  warning: false
+  freeze: auto
+---
+
+## 한눈에 보기 {#sec-overview}
+
+이 노트는 "데이터가 부족하거나, 데이터가 시간에 따라 흘러 들어오는" 상황에서 모델을
+학습시키는 방법을 다룬다. 크게 두 축이다.
+
+- **데이터 부족(few-/zero-shot)**: 관심 클래스에 대한 라벨 데이터가 적거나 전혀 없을 때.
+- **데이터 흐름(continual learning)**: 데이터/클래스가 시간에 따라 순차적으로 도착할 때.
+
+::: {.callout-note}
+## 핵심 메시지
+머신러닝에는 서로 경쟁하는 두 목표가 있다. **데이터에 잘 적합(fitting)** 하는 것과
+**일반화(generalization)** 하는 것. 데이터·모델이 작을 때는 단순 적합이 일반화를 해치지만,
+데이터·모델이 충분히 커지면 적합 자체가 곧 일반화로 이어진다(benign overfitting). 데이터가
+부족한 영역에서는 이 사치를 누릴 수 없으므로, 부족분을 **귀납 편향(inductive bias)**,
+**비라벨 데이터**, **사람의 효율적 사용** 중 하나로 메꿔야 한다.
+:::
+
+전체 지도:
+
+```{mermaid}
+flowchart TD
+    A[데이터 효율적 학습] --> B[데이터 부족<br/>few-/zero-shot]
+    A --> C[데이터 흐름<br/>continual learning]
+    B --> B1[귀납 편향<br/>아키텍처·정규화·데이터 구조]
+    B --> B2[비라벨 데이터<br/>semi-/self-/unsupervised]
+    B --> B3[사람의 효율적 사용<br/>active learning, RLHF]
+    C --> C1[고전적 접근<br/>transfer/multitask/lifelong]
+    C --> C2[현대적 셋업<br/>CIL/online/blurry/noisy/...]
+    C --> C3[대형 모델<br/>continual pre-training/alignment]
+```
+
+---
+
+## 머신러닝의 두 목표와 의미론적 사상(mapping) {#sec-goals}
+
+### 적합 vs 일반화
+
+질문 "머신러닝의 목표는?"의 고전적 답은 **일반화**다. 그런데 대형 모델 시대에는 답이 미묘해진다.
+모델이 좋아지고 데이터가 커지면, 단지 **데이터에 더 잘 적합시키는 것** 자체가 일반화를 달성하는
+한 가지 경로가 된다. 즉 두 목표는 본래 경쟁 관계이지만, 규모가 커지면 더 이상 충돌하지 않을 수
+있다(소규모에서는 과적합이 문제지만, 충분히 큰 데이터에서는 적합이 곧 일반화).
+
+### "의자를 의자로 만드는 것은 무엇인가?"
+
+모델의 일은 데이터 $x$ 를 라벨 공간 $y$ 로 사상하는 것이다($f:\mathcal{X}\to\mathcal{Y}$).
+그런데 "의자(chair)"라는 라벨을 생각해 보자. 등받이가 있는 의자, 없는 스툴, 팔걸이가 있는 것,
+세 명이 앉는 벤치 — 시각적으로는 매우 다양하지만 같은 의미를 공유한다.
+
+::: {.callout-important}
+## 왜 어려운가: 의미가 시각이 아니라 어포던스로 정의되기 때문
+"의자" 개념은 **시각 신호**가 아니라 **어포던스(affordance)·기능성**("앉을 수 있는 것")으로
+정의된다. 따라서 이미지를 의자 의미로 사상하는 문제는 (수학적 의미의 ill-posed는 아니지만)
+**잘 정의되지 않은(ill-defined) 문제**다. 입력 자체가 그 의미로 사상될 준비가 되어 있지 않다.
+:::
+
+이 통찰을 극단까지 밀어붙인 고전 사례가 Grabner et al., "What makes a chair a chair?"(CVPR 2011)
+이다. 3D 아바타를 실제로 물체 위에 **앉혀 보고** 성공하면 "의자"로 판정한다. 다소 무모해 보이지만,
+시각 신호 대신 기능을 직접 검증함으로써 당대 기준 정확도를 크게 끌어올렸다. 교훈: 표현 공간이
+의미를 담기에 부족하면, "박스 밖에서" 의미의 정의 자체를 다시 생각해야 한다.
+
+::: {.callout-tip}
+## 무선 통신 관점의 비유
+이것은 **표현(특징) 공간의 충분성** 문제다. 무선에서 수신 신호 $y$ 만으로 어떤 추정량을 복원하려
+할 때, 관측이 **식별 가능(identifiable)** 하지 않으면 아무리 좋은 추정기를 써도 복원이 불가능하다.
+의자 인식의 실패는 추정기(분류기)의 문제가 아니라 **관측 모델 자체의 식별성 부족**에 가깝다.
+:::
+
+### 부족분을 메우는 처방(remedies)
+
+문헌에서 데이터 부족을 다루는 처방들:
+
+| 처방 | 비용 | 핵심 아이디어 |
+|---|---|---|
+| Large-scale supervised | 비쌈, 정확 | 라벨을 대량으로 확보 |
+| Few-shot learning | — | 소수 예제로 일반화 |
+| Semi-supervised | 저렴 | 라벨+비라벨 혼합 |
+| Active learning | 저렴 | 사람에게 "물어볼 것"을 골라 라벨링 |
+| Self-supervised | 저렴 | 데이터 자체에서 감독 신호 생성 |
+| Unsupervised | 가장 저렴 | 라벨 없이 구조 학습 |
+
+축으로 보면 위쪽(supervised)은 **정확하지만 비싸고**, 아래쪽(self-/unsupervised)은
+**저렴하지만 약한 감독**이다.
+
+---
+
+## Few-shot / N-shot / Zero-shot {#sec-fewshot}
+
+### 정의
+
+- **Few-shot ($N$-shot) learning**: 관심 클래스에 대해 **소수($N$개)** 의 예제로 학습.
+- **Zero-shot learning**: 관심 클래스에 대해 **예제가 0개**인 상태로 학습.
+
+### 가장 헷갈리는 지점: zero-shot vs unsupervised
+
+학생들이 가장 많이 혼동하는 부분이다. 두 축을 분리하면 명확해진다.
+
+::: {.callout-important}
+## 두 개의 독립적인 축
+- **축 1 (감독 여부)**: supervised ↔ unsupervised. 라벨을 주느냐 마느냐.
+- **축 2 (관심 클래스의 예제 수)**: many-shot ↔ few-shot ↔ zero-shot.
+
+이 둘은 **직교**한다. zero-shot은 보통 supervised 패러다임 안에서 "관심 클래스의 예제만 0개"인
+경우를 가리키고, unsupervised는 "라벨이 아예 없음"을 가리킨다.
+:::
+
+| 구분 | 관심 클래스 예제 | 라벨 | 작동 원리 |
+|---|---|---|---|
+| Many-shot supervised | 많음 | 있음 | 표준 적합 |
+| Few-shot | 소수 | 있음 | 소수 예제 + 강한 사전지식 |
+| **Zero-shot** | **0개 (의도적으로 배제)** | (보조정보엔 있음) | **귀납 편향/보조지식으로 외삽** |
+| **Unsupervised** | (들어 있을 수도) | **없음** | 라벨 자체가 없음 |
+
+핵심 차이: zero-shot에서는 관심 의미에 대한 **훈련 예제를 의도적으로 제공하지 않으면서도**,
+모델이 그 의미로 일반화하기를 "기대"한다. 그 일반화를 가능케 하는 "마법"이 바로
+**귀납 편향(혹은 보조 의미정보, heritage)** 이다. 반면 unsupervised는 단지 라벨이 없을 뿐,
+그 데이터에 관심 개념이 섞여 있을 수도 있고 통제하지 않는다.
+
+::: {.callout-tip}
+## 무선 통신 관점의 비유
+- **Few-shot ≈ 적은 파일럿(pilot)으로 채널 추정**: 관측이 부족하니 채널의 구조적 사전지식
+  (희소성, 상관 구조)을 끌어와야 한다. 압축 센싱·MMSE 추정의 정신과 같다.
+- **Zero-shot ≈ 블라인드(blind) 추정**: 관심 대상의 직접 관측 없이, 알려진 구조/사전분포만으로
+  추정. "파일럿 없이" 푸는 셈이라 사전지식이 전부다.
+- **Unsupervised ≈ 라벨(정답) 없는 신호의 군집화/구조 발견**.
+:::
+
+### 처방을 묶는 세 갈래
+
+few-/zero-shot(넓게는 약한 감독, weakly-supervised)을 다루는 전략은 결국 셋이다.
+
+1. **귀납 편향 사용** — 아키텍처, 손으로 설계한 정규화, 데이터의 표본 간 관계(구조).
+2. **비라벨 데이터 사용** — semi-/self-/unsupervised learning.
+3. **사람을 효율적으로 사용** — active learning(라벨링할 표본 선택), RLHF(피드백 정렬).
+
+현대 대규모 학습은 주로 (2)를 전례 없는 규모로 밀어붙인다. 비라벨 데이터로 거대 **사전학습**을
+하면, 다양한 다운스트림 과제에서 예상치 못한 성능 향상(emergent ability)을 얻는다.
+
+::: {.callout-note}
+## 비라벨 사전학습은 "멍청하지만 비싼" 만능 해법
+강사의 표현을 빌리면, 비라벨 사전학습은 다른 귀납 편향·사람 효율 기법에 비해
+**단순(brute-force)하지만 비싼** 대안이다. 막대한 계산·데이터를 쓰는 대신 보편적 성능과
+창발 능력을 얻는다. 자원이 제약된(예: 엣지 디바이스) 상황에서는 오히려 귀납 편향이나
+active learning 같은 **자원 최적화된** 해법이 더 적합할 수 있다. "지금 이 순간 최선의 해법이
+무엇인가"를 과제별로 판단해야 한다.
+:::
+
+---
+
+## 귀납 편향(inductive bias) 다시 보기 {#sec-inductive}
+
+### 지도학습 = 귀납(induction)
+
+지도학습은 **과거(훈련 표본)로부터 미래(테스트 표본)를 예측**하는 귀납이다. 귀납을 제약하는 것이
+**귀납 편향**이고, 그 구현체가 곧 **정규화(regularizer)** 다.
+
+### 학습 목적함수와 MAP 해석
+
+전형적인 학습 목적함수는
+
+$$
+\min_{\theta}\; \underbrace{L(\theta)}_{\text{손실(데이터 적합)}} \;+\; \lambda\,\underbrace{\Omega(\theta)}_{\text{정규화(귀납 편향)}}.
+$$
+
+데이터가 적으면 $L$ 만으로는 신뢰할 수 없고, 풍부한 귀납 편향 $\Omega$ 가 빈자리를 채운다.
+
+::: {.callout-important}
+## 정규화 = 음의 로그 사전분포 (MAP)
+베이지안 관점에서 이 목적함수는 **MAP 추정**과 정확히 같다.
+$$
+\hat\theta_{\text{MAP}}
+=\arg\max_{\theta}\; \log p(\theta\mid \mathcal{D})
+=\arg\max_{\theta}\;\Big[\underbrace{\log p(\mathcal{D}\mid\theta)}_{=\,-L(\theta)}+\underbrace{\log p(\theta)}_{=\,-\lambda\Omega(\theta)}\Big].
+$$
+즉 $\Omega(\theta) = -\tfrac{1}{\lambda}\log p(\theta)$ 이다. **귀납 편향을 넣는다는 것은
+파라미터에 사전분포 $p(\theta)$ 를 부여하는 것**과 동치다. (예: $L_2$ 정규화 $\Leftrightarrow$
+$\theta$ 에 가우시안 사전분포; $L_1$ $\Leftrightarrow$ 라플라스 사전분포.)
+
+MLE는 균일(uniform) 사전분포를 "가정"하는 특수 케이스이며, "사전분포를 무시"하는 것이 아니다.
+MAP = MLE + 로그-사전(=정규화) 라는 구조를 기억해 두자.
+:::
+
+### 전통적 ML의 귀납 편향들
+
+| 귀납 편향 | 사용 모델 | 의미 |
+|---|---|---|
+| Maximum conditional independence | Naïve Bayes | 특징 간 조건부 독립 가정 |
+| Minimum cross-validation error | (모델 선택) | CV 오차 최소 가설 선택 |
+| Maximum margin | SVM | 결정 경계 마진 최대화 |
+| Minimum description length | Decision tree | 짧은 기술(Occam의 면도날) 선호 |
+| Minimum features | (특징 선택) | 쓸모없는 특징 제거 |
+| Nearest neighbor | k-NN | 이웃 다수결로 라벨 부여 |
+
+### 현대적 귀납 편향
+
+- **아키텍처** — CNN의 지역성·평행이동 등변성, 트랜스포머의 순열 구조 등.
+- **손으로 설계한 정규화** — 가중치 감쇠, dropout, 일관성 손실 등.
+- **데이터의 구조(표본 간 관계)** — 관계가 약한 표본은 학습에서 제외해 계산 자원 절약 가능.
+
+::: {.callout-note}
+## few-shot 한 줄 요약
+**데이터가 없으면 → 귀납 편향을 쓰거나, (사람을 효율적으로 활용한) 대규모 사전학습을 써라.**
+:::
+
+---
+
+## 연속 학습(Continual Learning): 고전적 접근 {#sec-cl-classic}
+
+### 동기: "모든 클래스를 미리 안다"는 비현실적 가정
+
+ImageNet 1,000 클래스로 분류기를 학습했다고 하자. 세상에 클래스가 1,000개뿐인가? 새 클래스를
+추가하려면 어떻게 하나?
+
+> 데이터셋에 새 클래스를 합치고 **처음부터 다시 학습**한다 — 매우 비효율적이지만,
+> 사실상 이보다 나은 표준 방법이 없다.
+
+이 "매번 처음부터 다시"의 비효율을 깨려는 것이 연속 학습이다. 또한 각 클래스의 의미 입도
+(granularity)도 제각각이다. "개"는 넓고, "세단 SUV"는 좁다. 그런데 우리는 모두 하나의 클래스로
+동등 취급한다. 새 클래스를 점진적으로 추가하고 싶다는 자연스러운 요구가 여기서 나온다.
+
+### 이것은 새로운 문제가 아니다
+
+연속 학습은 새로워 보이지만, 오래 연구된 인접 분야들의 재구성이다.
+
+| 인접 분야 | 핵심 | 연속 학습과의 관계 |
+|---|---|---|
+| Transfer learning | 과거 지식을 새 과제로 이전 | 연속 학습의 구성 요소 |
+| Domain adaptation | 입력 도메인 $\mathcal{X}$ 변화에 적응 | 분포 변화 대응 |
+| Multitask learning | 여러 과제 동시 학습 | **시간 압축된** 연속 학습 |
+| Meta learning | 학습하는 법을 학습 | 과거 학습을 현재에 활용 |
+| Lifelong / never-ending | 평생 누적 학습 | 같은 개념의 다른 이름 |
+
+::: {.callout-tip}
+## domain / range 로 보는 domain adaptation
+함수 $f:\mathcal{X}\to\mathcal{Y}$ 에서 $\mathcal{X}$ 는 정의역(domain), $\mathcal{Y}$ 의
+상(image)은 치역(range)이다. **domain adaptation**은 $f$ 는 그대로 두고 정의역 $\mathcal{X}$ 가
+바뀌어도 동작하기를 바라는 것이다. 예: "카메라" 분류기를 옛날 DSLR로 학습했는데, 요즘 다섯 살
+아이에게 카메라는 "스마트폰"이다. 정의역이 DSLR에서 폰으로 확장되었고, 우리는 같은 라벨로
+사상되기를 바란다.
+:::
+
+::: {.callout-note}
+## Multitask = 시간 압축된 Continual Learning
+멀티태스크에서 각 과제를 서로 다른 데이터 부분집합으로 동시에 학습한다고 하자. 이를 시간축으로
+펼치면(과제1 → 과제2 → ...) 그대로 연속 학습이다. 따라서 **멀티태스크는 연속 학습의 시간
+압축판**이고, **연속 학습은 멀티태스크의 시간 신용(time-credit)판**이다.
+:::
+
+### ML 1.0 vs ML 2.0
+
+| | ML 1.0 (고립 학습) | ML 2.0 (평생 학습) |
+|---|---|---|
+| 패러다임 | 데이터셋 주고 모델 1회 학습 | 과거 지식을 보존·활용하며 지속 학습 |
+| 메모리 | 없음(지식 비누적) | 누적 |
+| 데이터 요구 | 대량 사전 확보 필요 | 소수 예제로도 학습(사람처럼) |
+| 한계 | 고립 학습의 약점 | 시스템적 접근 필요 |
+
+사람은 결코 고립된 채로 배우지 않는다. ML 1.0 알고리즘만으로 지능적 에이전트를 만들기는 어렵고,
+그래서 "사람처럼 배우는" ML 2.0(평생 학습)으로 진화해야 한다는 것이 동기다.
+
+### 초기 연구 계보
+
+- **Thrun 1996 (lifelong learning)**: 학습자의 생애에 걸쳐 함수열 $f_1,f_2,f_3,\dots\in F$ 를
+  학습. 각 과제는 $f:\mathcal{I}\to\{0,1\}$, $f_{\text{dog}}(x)=1$ 은 "$x$ 는 개"를 뜻한다.
+  핵심 직관: $f_{\text{dog}}$ 를 배울 때 이전에 배운 $f_{\text{cat}},f_{\text{bird}}$ 등의 지식을
+  재사용한다.
+- **NELL (Never-Ending Language Learner, Mitchell et al.)**: 2010년 1월부터 2018년 9월까지
+  24시간 가동. 웹에서 사실을 추출해 지식 베이스를 채우고, "어제보다 더 잘 읽도록" 개선.
+  결과적으로 약 **1.2억 개의 신뢰도-가중 믿음(belief)** 을 축적하고, 읽기·추론·학습 능력과
+  온톨로지를 확장했다. NELL은 **typed, closed knowledge base**(튜플 (subject, relation, object)
+  모음)다.
+- **NEIL (Never-Ending Image Learner)**: NELL의 이미지판. **200코어에서 4개월** 가동, 2,500개
+  이상 개념(객체>1,500, 장면>1,034, 속성>87)을 발견, 500만 장 이상 분석, 60만 장 라벨링,
+  3,000개 관계 발견. 객체–객체, 장면–객체, 객체–속성, 장면–속성 관계를 학습했다(예: 바운딩
+  박스 포함 관계로 "바퀴는 자동차의 일부"를 발견).
+
+::: {.callout-note}
+## 지식 베이스에서 신경망으로
+지식 베이스가 더 커질수록(노드·엣지 증가) **더 잘 읽고, 더 잘 추론하고, 더 잘 학습**한다.
+이미 아는 개념에 새 정보를 "어디에 붙일지" 알기 때문이다. 오늘날 우리는 이런 명시적 지식 베이스
+대신 **신경망이라는 압축된 지식 베이스**를 쓰지만, 누적·연결이 능력을 키운다는 원리는 같다.
+:::
+
+---
+
+## 연속 학습: 현대적 셋업 {#sec-cl-modern}
+
+### 분류 기준: 무엇이 변하는가
+
+$P(Y)$ 가 고정일 때 대표적 셋업:
+
+| 셋업 | 시간에 따라 변하는 것 | 직관 |
+|---|---|---|
+| **Class-incremental (CIL)** | 클래스 집합 $\mathcal{Y}$ 가 점점 추가 | $t{=}1$: 책·비행기, $t{=}2$: 자동차·개 … |
+| **Domain-incremental** | 입력 도메인 $\mathcal{X}$ 가 변화 | 같은 클래스, 다른 도메인의 표본이 시점별로 |
+
+연속 학습 자체는 분류만의 문제가 아니지만, 가장 많이 연구된 표준 셋업이 **CIL**이다.
+
+### Online vs Offline 연속 학습
+
+| | Offline CL | Online CL |
+|---|---|---|
+| 데이터 접근 | 해당 시점의 부분집합에 반복 접근 | 스트림에서 표본을 **한 번** 보고 흘려보냄 |
+| 에폭 | **다중 에폭** 허용 | 단일 패스(1-epoch) |
+| 난이도 | 상대적으로 쉬움 | **더 어려움**(빠르게 수렴해야) |
+
+online은 표본을 다시 보지 못하므로, 주어진 시점에 빠르게 해로 수렴해야 한다.
+
+```{mermaid}
+flowchart LR
+    subgraph Offline
+      D1[Data-1<br/>다중 에폭] --> D2[Data-2<br/>다중 에폭] --> D3[Data-3<br/>다중 에폭]
+    end
+    subgraph Online
+      S[스트림: x1 x2 x3 ... 각 1회] --> M[모델 즉시 업데이트]
+    end
+```
+
+### 파국적 망각(catastrophic forgetting)
+
+각 시점에 데이터의 **부분집합만** 보기 때문에, 새 과제를 학습하면 과거 과제 성능이 급격히
+무너진다. 표준 학습(모든 데이터를 모든 에폭에서 사용)과 달리, 연속 학습에서는 과거 표본이
+제한된 횟수만 보이므로 망각이 훨씬 심하다.
+
+::: {.callout-important}
+## 대형 모델에서는 망각이 덜하다 — 대신 다른 문제가 생긴다
+파라미터가 매우 많은 큰 모델은, 학습된 지식이 거대한 파라미터 공간에 흩어져 저장되므로 소수
+gradient 업데이트로 잘 파괴되지 않는다. 따라서 **대형 모델에서는 파국적 망각이 핵심 이슈가
+아니다.** 대신 **가소성(plasticity)** 이 문제다 — 큰 모델은 새 사실을 빠르게/완전히 흡수하기
+어렵다. 작은 사실 하나를 주입해도 모든 파라미터에 반영되지 않아 답이 어긋날 수 있다.
+:::
+
+### 안정성–가소성 딜레마(stability–plasticity dilemma)
+
+망각을 **0 계산비용**으로 완벽히 막는 방법은? — **아무것도 학습하지 않는 것.** 업데이트가 없으면
+망각도 없다. 그러나 연속 학습의 목적은 **새것을 배우는 것**이므로 이는 무의미하다.
+
+$$
+\underbrace{\text{Stability}}_{\text{과거 보존}} \;\;\longleftrightarrow\;\; \underbrace{\text{Plasticity}}_{\text{새것 흡수}}
+$$
+
+둘은 트레이드오프다. 새것을 배우려면 과거 일부를 희생할 위험을 진다. 인지과학에서도 인간 뇌가
+같은 딜레마를 겪는다.
+
+::: {.callout-tip}
+## 무선 통신 관점의 비유: 망각계수를 가진 적응 필터
+이 딜레마는 **적응 필터(adaptive filter)의 수렴 vs 추적(tracking) 트레이드오프**와 본질적으로
+같다. RLS의 망각계수 $\lambda$ 나 LMS의 스텝 사이즈 $\mu$ 를 떠올리자.
+
+- $\mu$(또는 $1-\lambda$)가 **작으면**: 정상상태 오차가 작고(=과거를 잘 보존, **안정성**),
+  하지만 채널이 변할 때 추적이 느리다(=새것 흡수 느림, **가소성** 낮음).
+- $\mu$가 **크면**: 변화 추적은 빠르지만(**가소성** 높음) 정상상태에서 출렁이며 과거 통계를
+  잊는다(**안정성** 낮음).
+
+파국적 망각은 적응 필터가 새 채널 통계로 재수렴하면서 과거 통계를 덮어쓰는 현상에 대응한다.
+"replay buffer"는 과거 파일럿/훈련 표본을 보관해 두는 것에 해당한다.
+:::
+
+### CIL 기법의 분류(taxonomy)
+
+```{mermaid}
+flowchart TD
+    T[CIL 방법론] --> R[Replay 기반]
+    T --> G[정규화 기반]
+    T --> P[파라미터 격리]
+    R --> R1[과거 표본을 작은 버퍼에<br/>보관 후 새 과제와 함께 재생]
+    G --> G1[Prior-focused<br/>이전 학습의 중요 파라미터를 고정<br/>예: EWC, Fisher 가중]
+    G --> G2[Data-focused<br/>이전 모델의 출력을 정규화<br/>예: 지식 증류 LwF]
+    P --> P1[새 과제는 새 파라미터/모델로<br/>나중에 병합 또는 라우팅]
+```
+
+- **Replay 기반**: 과거 표본 일부를 작은 캐시(replay buffer)에 저장하고, 새 과제 학습 시 함께
+  재생한다. 가장 단순하고 강력하다.
+- **정규화 기반**
+  - *Prior-focused*: 과거에 중요했던 파라미터일수록 덜 움직이게 벌점을 준다. 대표적으로
+    **EWC(Elastic Weight Consolidation)** 는 Fisher 정보 $F_i$ 로 파라미터 중요도를 가중한다:
+    $$
+    \mathcal{L}(\theta)=\mathcal{L}_{\text{new}}(\theta)+\frac{\lambda}{2}\sum_i F_i\,(\theta_i-\theta^{*}_{\text{old},i})^2 .
+    $$
+    여기서 $F_i$ 는 과거 과제 손실의 곡률(2차 정보)을 근사하며, **로그-사전 $\log p(\theta)$ 를
+    과거 사후분포로 둔 MAP**(@sec-inductive)의 한 형태로 볼 수 있다. 정보이론적으로 $F$ 는
+    피셔 정보 행렬의 대각 근사다.
+  - *Data-focused*: 이전 모델의 출력(소프트 라벨)을 흉내 내게 하는 지식 증류(예: LwF).
+- **파라미터 격리**: 새 데이터는 **새 모델/새 파라미터**로 학습하고 나중에 병합한다. 망각은 거의
+  없지만, 모델이 계속 커져 저장 비용이 크고, **추론 시 어느 모델을 쓸지 결정**하는 새 문제가 생긴다.
+
+::: {.callout-note}
+## 실험으로 본 결론(부록 @sec-appendix 코드)
+강한 간섭이 있는 단일 헤드(single-head) 셋업에서는, 단순한 **replay**가 정규화 기반보다 훨씬
+견고하게 망각을 막는 경향이 있다. 부록 데모에서 naive 순차 학습은 과거 과제 정확도가
+$1.00\!\to\!0.00$ 으로 붕괴했지만, 20% 비율의 replay만으로 $0.97$ 까지 회복했다.
+:::
+
+### 더 현실적인 셋업들 (연구 동향)
+
+고전적 CIL은 "각 시점에 정해진 클래스 표본만 본다"고 가정한다. 이는 비현실적이다. 더 현실적인
+셋업으로 확장된다.
+
+| 셋업 | 문제의식 | 핵심 아이디어 |
+|---|---|---|
+| **Blurry / i-Blurry** | 한 시점에 한 클래스만 보지는 않는다 | 과제 경계를 흐릿하게(낮은 확률로 타 클래스 등장), 새 클래스도 점진 등장 + anytime inference |
+| **Noisy labels** | 스트림 라벨이 틀릴 수 있다 | 오염된 라벨 스트림에서의 학습 |
+| **Boundary-free (Gaussian) stream** | 데이터 분포가 시간의 연속 함수 | 경계 없는 연속 분포 + 데이터 사전(prior) 스케줄링 |
+| **Hierarchical label expansion** | 거친 클래스 → 세밀한 클래스로 분화 | 계층 구조를 활용해 새로운 세분 클래스 학습 |
+| **Embodied agents** | 로봇이 새 환경/행동을 지속 학습 | 과거 개념 보존하며 새 환경·행동 통합 |
+| **Name-only CL** | 사람 라벨러가 항상 있진 않다 | LLM/VLM을 라벨러로 써서 웹 데이터 자동 수집·정제 |
+
+::: {.callout-note}
+## i-Blurry의 동기 (확률적 직관)
+"blurry" 셋업은 $t{=}1$ 에 개·고양이가 높은 확률로, 자동차·배가 1% 같은 낮은 확률로 섞여 보인다고
+본다. 그런데 표본 수가 충분히 크면(예: 클래스당 100개 이상), 0.1% 확률의 클래스라도 모든 시점에서
+**거의 확실히 한 번은** 등장한다. 그러면 사실상 "모든 클래스가 항상 보이는" 것이 되어 더 이상
+class-incremental이 아니게 된다. 이 허점을 메우려 **i-Blurry** 셋업은 일부 클래스는
+점진적으로(incrementally) 추가되도록 설계해, 현실성과 class-incremental 성질을 동시에 유지한다.
+:::
+
+### Name-only / 사람 없는 연속 학습
+
+사람 라벨러나 재학습용 데이터가 항상 주어지지는 않는다. 이때 LLM·VLM을 **대체 라벨러**로 쓴다.
+연속 학습기에게 "이름(semantics)"만 알려주면, 나머지(웹에서 새 데이터 수집 → 자동 라벨링 →
+LLM-이미지 관계로 오라벨 정제 → 모델 갱신)는 자동화된다. 사용자는 데이터셋을 모을 필요 없이
+**개념 이름만** 말하면 된다.
+
+---
+
+## CIL을 넘어서: 생성·대형 모델의 연속 학습 {#sec-cl-beyond}
+
+지금까지는 $P(Y)$(판별)에 집중했지만, 대형 생성 모델은 $P(X)$ 또는 $P(X\mid Y)$ 를 학습한다.
+현대의 대형 모델 학습 자체가 사실상 연속 학습이다.
+
+::: {.callout-note}
+## 데이터 풀 + 데이터 페처(data fetcher)
+고전 학습은 고정 데이터셋을 여러 에폭 도는 것이었다. 대형 모델 학습에는 고정 데이터셋이 없다.
+대신 **데이터 풀**(증감·정제·신규 유입이 끊임없이 일어남)과 **모델**이 있고, 그 사이를
+**데이터 페처**가 잇는다. 페처는 모델 갱신에 유용할 부분집합을 골라낸다. 페처가 똑똑할수록
+적은 계산으로 더 좋은 모델을 얻는다. 고정 데이터셋·다중 에폭이라는 개념이 사라지고, 어떤 표본은
+여러 번, 어떤 표본은 한 번도 안 보일 수 있다. 즉 **연속 학습 패러다임 그 자체**다.
+:::
+
+LLM의 연속 학습 파이프라인(개념):
+
+| 약어 | 단계 |
+|---|---|
+| DAP | Domain-adaptive pre-training (도메인 적응 사전학습) |
+| SFT | Supervised fine-tuning |
+| CIT | Continual instruction tuning |
+| CMR | Continual model refinement |
+| CMA | Continual model alignment |
+| CMLLM | Continual multimodal LLM |
+
+여기서 **사람을 효율적으로 쓰는** 대표 기법이 **RLHF**다. 사람의 선호 피드백을 모델 정렬에
+효율적으로 반영한다(few-/zero-shot의 세 번째 전략, @sec-fewshot, 과 연결).
+
+---
+
+## 요약 {#sec-summary}
+
+::: {.callout-important}
+## 핵심 정리
+1. **few-shot(⊂ 약한 감독)** 은 어려운 일반화 문제다. 데이터가 없으면 귀납 편향, 비라벨 데이터,
+   사람의 효율적 사용 중 하나로 메꾼다.
+2. **zero-shot ≠ unsupervised.** zero-shot은 관심 클래스 예제만 0개(보조지식으로 외삽),
+   unsupervised는 라벨 자체가 없음. 서로 직교하는 축이다.
+3. **정규화 = 음의 로그 사전분포.** 귀납 편향을 넣는 것은 $p(\theta)$ 를 부여하는 MAP과 동치이며,
+   MLE는 균일 사전의 특수 케이스다.
+4. **연속 학습은 데이터·계산 효율적 학습 스킴**으로, 특히 대형 모델에서 중요하다. 다만 우리는
+   너무 오래 **class-incremental**에 머물러 있었다 — 이제 벗어날 때다.
+5. **안정성–가소성 딜레마**(= 적응 필터의 수렴 vs 추적)가 연속 학습의 근본 긴장이며,
+   replay·정규화(EWC)·파라미터 격리가 그 처방이다.
+:::
+
+다음 주제: **대형 언어 모델(LLM)**.
+
+---
+
+## 부록: 파국적 망각과 replay의 NumPy 데모 {#sec-appendix}
+
+아래 코드는 외부 의존성 없이 NumPy만으로 **파국적 망각**과 **replay**의 효과를 재현한다.
+
+**셋업.** 입력은 2차원. 규칙은 영역 의존적(XOR 유사)이라 두 과제가 같은 파라미터를 두고 간섭한다.
+
+- 과제 A: 왼쪽 영역($x_1<0$)의 표본만, 라벨 = (왼쪽 & 위) 또는 (오른쪽 & 아래)
+- 과제 B: 오른쪽 영역($x_1>0$)의 표본만, 같은 규칙
+
+단일 헤드 MLP는 두 과제를 **함께** 보면(joint) 거의 완벽히 풀 수 있지만(상한),
+순차로(A→B) 학습하면 B만 보는 동안 A의 결정 경계가 무너진다.
+
+```{python}
+#| label: cl-demo
+#| fig-cap: "Naive 순차 학습은 과제 A를 파국적으로 잊지만, replay는 회복시킨다."
+import numpy as np
+
+rng = np.random.default_rng(11)
+
+# ---- 데이터: 영역 의존적 XOR 유사 규칙 ----
+def lab(X):                       # +1 if (left & up) or (right & down)
+    left, up = X[:, 0] < 0, X[:, 1] > 0
+    return ((left & up) | ((~left) & (~up))).astype(float)
+
+def region_A(n):                  # x<0 영역만 관측
+    X = np.c_[rng.uniform(-2, 0, n), rng.uniform(-2, 2, n)]; return X, lab(X)
+def region_B(n):                  # x>0 영역만 관측
+    X = np.c_[rng.uniform(0, 2, n), rng.uniform(-2, 2, n)]; return X, lab(X)
+
+XA, yA = region_A(2000); XB, yB = region_B(2000)
+XAt, yAt = region_A(800); XBt, yBt = region_B(800)
+
+# ---- 작은 2-layer MLP (tanh + sigmoid), 순수 NumPy ----
+H = 64
+def init():
+    return [rng.normal(size=(2, H)) * 0.7, np.zeros(H),
+            rng.normal(size=(H,)) * 0.7, np.zeros(1)]
+
+def fwd(p, X):
+    h = np.tanh(X @ p[0] + p[1]); z = h @ p[2] + p[3]
+    return 1 / (1 + np.exp(-np.clip(z, -30, 30))), h
+
+def grads(p, X, y):
+    pr, h = fwd(p, X); d = (pr - y) / len(y)
+    dh = np.outer(d, p[2]) * (1 - h ** 2)
+    return [X.T @ dh, dh.sum(0), h.T @ d, np.array([d.sum()])]
+
+def acc(p, X, y):
+    return ((fwd(p, X)[0] > 0.5).astype(float) == y).mean()
+
+def train(p, X, y, lr=0.3, ep=2500, bs=256):
+    p = [w.copy() for w in p]; n = len(X)
+    for _ in range(ep):
+        i = rng.choice(n, bs, replace=False)
+        g = grads(p, X[i], y[i])
+        for k in range(len(p)): p[k] -= lr * g[k]
+    return p
+
+# ---- 1) 과제 A 학습 ----
+pA = train(init(), XA, yA)
+print(f"after A      : accA={acc(pA, XAt, yAt):.2f}")
+
+# ---- 2) Joint 학습 (상한, 두 과제를 함께) ----
+pJ = train(init(), np.vstack([XA, XB]), np.concatenate([yA, yB]), ep=5000)
+print(f"[Joint]       accA={acc(pJ, XAt, yAt):.2f}  accB={acc(pJ, XBt, yBt):.2f}  (upper bound)")
+
+# ---- 3) Naive 순차 (A 학습 후 B만 학습) → 파국적 망각 ----
+pN = train(pA, XB, yB)
+print(f"[Naive]       accA={acc(pN, XAt, yAt):.2f}  accB={acc(pN, XBt, yBt):.2f}")
+
+# ---- 4) Replay (B 학습 시 과거 A 표본 20% 혼합) → 회복 ----
+idx = rng.choice(len(XA), 500, replace=False)
+pR = train(pA, np.vstack([XB, XA[idx]]), np.concatenate([yB, yA[idx]]))
+print(f"[Replay]      accA={acc(pR, XAt, yAt):.2f}  accB={acc(pR, XBt, yBt):.2f}")
+```
+
+기대 출력(난수 시드 고정):
+
+```
+after A      : accA=1.00
+[Joint]       accA=0.99  accB=1.00  (upper bound)
+[Naive]       accA=0.00  accB=1.00
+[Replay]      accA=0.97  accB=1.00
+```
+
+**해석.** Joint(상한)는 두 과제를 거의 완벽히 푼다. 그러나 Naive 순차 학습은 B를 학습하는 동안
+A의 결정 경계를 완전히 덮어써 $\text{accA}=0.00$ 으로 붕괴한다(파국적 망각). 과거 표본의 20%만
+재생(replay)해도 A 성능이 $0.97$ 로 거의 회복된다 — @sec-cl-modern 의 replay 기반 기법이 왜
+단순하면서도 강력한지를 보여 준다.
+
+::: {.callout-note}
+## 정규화 기반(EWC)에 대한 메모
+같은 셋업에 EWC식 Fisher-가중 벌점을 적용하면, 이 **강한 간섭·단일 헤드** 구성에서는 두 과제 모두
+$\sim0.5$ 근처에 갇혀 replay만큼 잘 동작하지 않는다. 과거 사후분포에 강하게 고정하면 어느 과제도
+만족시키지 못하는 절충점에 머물기 때문이다. 이는 "정규화 기반이 항상 최선"은 아니며 과제 간
+간섭·표현 공유 정도에 따라 replay가 유리할 수 있다는 문헌의 관찰과 일치한다.
+:::
