@@ -1,0 +1,522 @@
+---
+title: "Large Language Models (LLMs)"
+subtitle: "사전학습, In-Context Learning, Instruction Tuning, RLHF"
+date: 2026-05-20
+lang: ko
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    toc-title: "목차"
+    number-sections: true
+    highlight-style: github
+    code-fold: false
+    df-print: paged
+    fig-cap-location: bottom
+execute:
+  echo: true
+  warning: false
+  eval: false
+---
+
+```{=html}
+<style>
+.wireless { border-left: 4px solid #1565c0; }
+</style>
+```
+
+# 오늘의 큰 그림 {#sec-overview}
+
+LLM(Large Language Model)을 하나의 문장으로 요약하면 다음과 같다.
+
+> **"세상의 거의 모든 NLP 문제는 *빈칸 채우기(next-token prediction)* 로 환원되며, 이 단일 과제를 충분히 큰 규모로 학습시키면 의도하지 않은 능력(emergent ability)까지 따라온다."**
+
+이 노트는 그 한 문장이 어떻게 성립하는지를 다음 순서로 분해한다.
+
+1. **규모(scale)** 가 왜 성능을 결정하는가 — Scaling laws
+2. 왜 *하나의* 모델(foundation model)을 만드는가 — No-Free-Lunch와 80/20 논리
+3. 모든 과제가 어떻게 next-token prediction으로 통일되는가
+4. 학습 없이 행동을 바꾸는 법 — In-Context Learning, CoT
+5. 의도에 맞추는 법(alignment) — Instruction finetuning, RLHF
+
+::: {.callout-note}
+## 무선통신 관점의 한 줄 매핑
+LLM은 거대한 **예측 부호화기(predictive source coder)** 이다. 다음 심볼을 가장 그럴듯하게 예측해 그 음의 로그우도를 최소화한다. 이 노트 전반에서 "다음 토큰 예측 = 엔트로피 최소화 = 압축"이라는 정보이론적 등가를 계속 사용한다.
+:::
+
+---
+
+# 규모의 시대: Scaling Laws {#sec-scaling}
+
+## 직접 답부터 {#sec-scaling-answer}
+
+**모델 파라미터 수 $N$, 데이터 토큰 수 $D$, 학습 연산량 $C$ 를 키우면 test loss가 멱법칙(power law)으로 매끄럽게 감소한다.** 이것이 Kaplan et al. (2020)의 *scaling laws* 다.
+
+## 수식 {#sec-scaling-math}
+
+세 변수 각각에 대해 다른 두 자원이 병목이 아닐 때:
+
+$$
+L(N) \approx \left(\frac{N_c}{N}\right)^{\alpha_N},\qquad
+L(D) \approx \left(\frac{D_c}{D}\right)^{\alpha_D},\qquad
+L(C) \approx \left(\frac{C_c}{C}\right)^{\alpha_C}
+$$
+
+여기서 지수 $\alpha_N,\alpha_D,\alpha_C$ 는 모두 $0.05\!\sim\!0.1$ 수준으로 **매우 작다**. 양변에 로그를 취하면
+
+$$
+\log L = -\alpha_N \log N + \text{const}
+$$
+
+즉 **log–log 축에서 직선**이 된다.
+
+::: {.callout-tip}
+## "법칙처럼 보이게 만드는 트릭"
+이 곡선이 깔끔한 직선으로 보이는 이유는 (1) 멱법칙이라 log–log에서 선형이 되고, (2) 그래프 축 눈금이 균등 간격이 아니기 때문이다. 자연법칙이라기보다 **반복 관찰된 경험칙**에 가깝다. 반도체의 Moore의 법칙과 같은 성격이다 — "법칙"이라기보다 그 추세를 맞추려는 공학적 노력의 산물이다.
+:::
+
+## 직관 {#sec-scaling-intuition}
+
+- $\alpha$ 가 작다 = **수확체감이 매우 완만하다**. 자원을 10배 늘려도 loss는 $10^{-\alpha}\approx 0.8\sim0.9$ 배밖에 안 줄지만, *멈추지 않고* 계속 준다는 점이 핵심이다.
+- 데이터가 세상 전체를 거의 덮으면 train loss $\approx$ test loss 가 되어, 일반화 성능 자체가 규모로 결정된다.
+
+::: {.callout-note .wireless}
+## 무선통신 비유 — 용량–자원 trade-off
+Scaling law의 멱법칙은 **rate–distortion 곡선**과 형태가 같다. 비트(자원)를 더 쓸수록 왜곡(loss)이 단조 감소하지만 한계효용이 줄어든다. 또한 $L$ 을 "잔여 불확실성", $N,D,C$ 를 "투입 SNR/대역폭"으로 보면, 멱지수 $\alpha$ 는 채널의 *diversity order* 와 비슷한 역할 — 자원 대비 오류가 얼마나 빨리 꺾이는지를 결정하는 기울기다.
+:::
+
+## 인간 vs LLM: 데이터 효율의 간극 {#sec-data-gap}
+
+```{mermaid}
+%%| label: fig-token-gap
+%%| fig-cap: "학습에 노출되는 토큰(단어) 수 비교 — 로그 스케일"
+flowchart LR
+    A["13세 인간<br/>&lt; 100M 단어"] -->|"~10^4배 격차"| B["대형 LLM<br/>1.4T+ 토큰"]
+    A -.다중감각 입력.-> C["시각·청각·촉각·미각<br/>+ 상호작용"]
+    B -.텍스트만.-> D["단어의 나열"]
+```
+
+13세 인간이 평생 본 단어는 1억 개 미만인 데 비해, 대형 모델은 수조 토큰을 본다. 그런데도 모델은 **hallucination(환각)** 을 일으킨다. 이 격차의 두 가지 해석:
+
+1. **다중감각 정보의 부재.** 인간은 단어 외에 시각·청각·촉각 등 멀티모달 입력으로 같은 개념을 중복 학습한다 → 이후 VLM/VLA로 이어지는 동기.
+2. **아직 발견되지 않은 비효율.** 같은 성능에 $10^4$ 배 데이터가 필요하다는 것은 학습 알고리즘에 근본적 비효율이 있음을 시사한다.
+
+::: {.callout-important}
+## Hallucination의 정확한 정의
+LLM은 의도(intention)를 갖고 거짓말을 하는 것이 *아니다*. LLM의 목적함수는 "학습 분포 하에서 가장 그럴듯한 다음 단어를 출력"하는 것뿐이다. 출력이 인간 관점에서 틀렸을 뿐, **모델 자신의 통계적 목적 관점에서는 틀린 것이 아니다.** 따라서 환각은 "거짓말(lying, 의도 있음)"이 아니라 *통계적 단어 예측기의 자연스러운 부산물* 이다.
+:::
+
+---
+
+# 왜 단 하나의 모델인가: Foundation Model {#sec-foundation}
+
+## 직접 답 {#sec-foundation-answer}
+
+대형 모델 하나를 학습하는 데 수백억 원이 든다. 재무책임자를 설득하려면 **"이 모델 하나로 수많은 과제를 풀 수 있다"** 는 논거가 필요하다. 그렇게 *다른 모델들의 기반(foundation)* 이 되는 모델을 **foundation model** 이라 부른다.
+
+## No-Free-Lunch와의 충돌, 그리고 해소 {#sec-nfl}
+
+No-Free-Lunch 정리에 따르면 **모든 과제에서 동시에 최적인 단일 모델은 존재하지 않는다.** 그렇다면 foundation model은 모순인가? 해소 논리는 다음과 같다.
+
+$$
+\underbrace{\text{단일 사전학습 모델}}_{\sim 80\text{–}90\%\ \text{커버}}
+\;+\;
+\underbrace{\text{과제별 fine-tuning}}_{\text{나머지 }10\text{–}20\%}
+\;=\;
+\text{과제별 전문가 모델}
+$$
+
+- 핵심 과제(language modeling)는 **NLP의 거의 모든 하위과제가 공유하는 일반적 메타과제**다 → 80~90%는 한 모델이 처리.
+- 마지막 한 끗(최고 성능)은 과제별 fine-tuning으로 채운다 → NFL과 모순되지 않음.
+
+```{mermaid}
+%%| label: fig-foundation
+%%| fig-cap: "Foundation model의 분업 구조"
+flowchart TD
+    P["대규모 사전학습<br/>(Language Modeling)"] --> F1["Fine-tune: 요약"]
+    P --> F2["Fine-tune: QA"]
+    P --> F3["Fine-tune: 분류"]
+    P --> F4["Fine-tune: 번역"]
+```
+
+---
+
+# 모든 과제는 빈칸 채우기다 {#sec-fill-blank}
+
+## 핵심 통찰 {#sec-fill-insight}
+
+겉보기에 전혀 다른 NLP 과제들이 사실은 **단 하나의 형식 — 빈칸 채우기(다음 토큰 예측)** 로 통일된다.
+
+| 과제 | 예시 (빈칸 채우기) | 필요 능력 |
+|---|---|---|
+| Trivia | "서울대는 South Korea의 ___에 있다" | 지식 검색 |
+| Syntax | "I put ___ fork down on the table" | 통사 규칙 |
+| Coreference | "...checking for traffic over ___ shoulder" | 지시어 해소 |
+| Lexical/Topic | "...fish, turtles, seals, and ___" | 의미 범주 |
+| Sentiment | "The movie was ___" | 감성 분석 |
+| Reasoning | "Zuko left the ___" | 추론 |
+| Arithmetic | "1, 1, 2, 3, 5, 8, 13, 21, ___" | 패턴/연산 |
+
+: NLP 하위과제의 통일 {#tbl-tasks}
+
+::: {.callout-tip}
+## 왜 이게 혁명이었나
+"질문에 답하기 = 다음 단어 예측", "행동 계획 = 다음 액션 토큰 예측", "코드 작성 = 다음 코드 토큰 예측", "진단 = 증상 텍스트 다음에 올 처방 토큰 예측". *지능을 측정하는 거의 모든 평가가 결국 "질문에 답하기"* 이므로, next-token prediction 하나로 모두 환원된다.
+:::
+
+## 수식: Language Modeling의 목적함수 {#sec-lm-objective}
+
+문장 $x = (x_1,\dots,x_T)$ 의 결합확률을 **연쇄법칙(chain rule)** 으로 자기회귀 분해한다.
+
+$$
+p_\theta(x) = \prod_{t=1}^{T} p_\theta(x_t \mid x_{<t})
+$$
+
+학습은 음의 로그우도(NLL) = **cross-entropy** 최소화다.
+
+$$
+\mathcal{L}(\theta) = -\frac{1}{T}\sum_{t=1}^{T} \log p_\theta(x_t \mid x_{<t})
+$$
+
+각 스텝에서 vocabulary $V$ 에 대한 softmax:
+
+$$
+p_\theta(x_t = v \mid x_{<t}) = \frac{\exp(z_v)}{\sum_{v'\in V}\exp(z_{v'})}
+$$
+
+평가지표 perplexity는 $\mathrm{PPL} = \exp(\mathcal{L})$.
+
+::: {.callout-note}
+## Cross-Entropy = KL = MLE 의 재확인
+$\mathcal{L}$ 을 최소화하는 것은 데이터 분포 $p_{\text{data}}$ 와 모델 $p_\theta$ 사이의 **forward KL** $\mathrm{KL}(p_{\text{data}}\Vert p_\theta)$ 를 최소화하는 것과 부호/상수를 제외하면 동일하며, 이는 정확히 **MLE** 다. 즉 LLM 사전학습의 본질은 우리가 이미 아는 그 등가 사슬 — *MLE = forward-KL 최소화 = cross-entropy 최소화* — 그 자체다. forward KL이므로 mean-seeking(zero-avoiding): 데이터가 두는 모든 모드에 확률질량을 깔아야 하며, 이것이 거대 데이터에서 다양한 표현을 모두 흡수하는 이유다.
+:::
+
+::: {.callout-note .wireless}
+## 무선통신 비유 — 예측 부호화와 엔트로피율
+Next-token prediction은 통신의 **예측 부호화(DPCM/엔트로피 부호화)** 와 정확히 같다. 소스의 다음 심볼을 조건부 분포로 예측하고, 그 NLL의 평균이 곧 소스의 **엔트로피율** $H(\mathcal{X})$ 의 추정치다. Cross-entropy $\ge H$ 이고 등호는 $p_\theta = p_{\text{data}}$ 일 때 성립 — 즉 완벽한 언어모델은 *최적 무손실 압축기* 와 같다. Perplexity는 "유효 분기 계수(effective branching factor)", 즉 평균적으로 몇 개의 심볼 중에서 고르는지를 나타내는 유효 알파벳 크기다.
+:::
+
+---
+
+# 학습 없는 학습: In-Context Learning (ICL) {#sec-icl}
+
+## 직접 답 {#sec-icl-answer}
+
+**In-Context Learning은 파라미터를 전혀 업데이트하지 않고**(no gradient, no parameter update), 프롬프트 안에 과제의 시연(demonstration)을 자연어로 넣어 모델 행동을 바꾸는 prompt engineering 기법이다.
+
+## "그게 어떻게 학습인가?" {#sec-icl-why}
+
+학습의 조작적 정의를 *입력–출력 사상의 변화* 로 보면:
+
+$$
+\text{학습 전: } x \mapsto y_{\text{before}}, \qquad
+\text{학습 후: } x \mapsto y_{\text{after}}, \qquad y_{\text{before}} \neq y_{\text{after}}
+$$
+
+ICL에서는 가중치 $\theta$ 가 그대로지만, **context(시연/system prompt)가 바뀌면 출력이 바뀐다.** 같은 핵심 입력에 대해 출력이 달라지므로 "학습"이라 부른다.
+
+```{mermaid}
+%%| label: fig-icl
+%%| fig-cap: "입력 증강(system prompt + context)이 출력을 바꾼다"
+flowchart LR
+    U["사용자 입력 x"] --> AUG["+ system prompt<br/>+ demonstrations(context)"]
+    AUG --> LLM["LLM (θ 고정)"]
+    LLM --> Y["출력 y (context에 의해 달라짐)"]
+```
+
+::: {.callout-note .wireless}
+## 무선통신 비유 — 파일럿 기반 적응 등화
+ICL의 시연 예시는 **파일럿 심볼(pilot symbols)** 과 같다. 수신기(LLM)는 가중치(하드웨어)를 재학습하지 않고, 프리앰블의 파일럿으로부터 채널을 추정해 *즉석에서* 검출 규칙을 적응시킨다. 프롬프트의 few-shot 예시가 "현재 과제 채널"을 추정하게 해주고, 본 질문(데이터 심볼)을 그에 맞춰 디코딩한다. **결정 경계가 바뀌되 회로는 그대로** 라는 점이 ICL의 본질을 정확히 포착한다.
+:::
+
+---
+
+# Emergent Ability {#sec-emergent}
+
+## 정의 {#sec-emergent-def}
+
+**Emergent ability** 는 의도적으로 학습시키지 않았는데도, **모델 규모가 어떤 임계점을 넘으면 갑자기 나타나는 능력**이다.
+
+## 증거: 단어 unscrambling 과제 {#sec-emergent-evidence}
+
+GPT-3 계열에서 cyclic-letter / anagram / random-insertion / reversed-word 등의 문자열 복원 과제를 보면:
+
+- 대부분 과제: 규모에 따라 **완만히** 성능 상승 (scaling law와 일관).
+- **Random insertion**: $\sim$6.7B까지 거의 0 → 6.7B → 13B → 175B 구간에서 **급격히 70%대로 도약**.
+
+이 *불연속적 도약* 이 emergent ability의 전형적 신호다.
+
+::: {.callout-note .wireless}
+## 무선통신 비유 — Waterfall(폭포) 영역
+LDPC/Turbo 부호의 BER–SNR 곡선을 떠올리자. 임계 SNR 이하에서는 오류가 거의 줄지 않다가, **threshold를 넘는 순간 BER이 폭포처럼 급락**한다. Emergent ability의 sharp jump는 이 *waterfall transition* 과 같은 **상전이(phase transition)** 현상이다. 규모(SNR)가 임계점을 넘으면 능력(신뢰성)이 비선형적으로 켜진다.
+:::
+
+---
+
+# Chain-of-Thought (CoT)와 변형들 {#sec-cot}
+
+## Few-shot CoT {#sec-cot-fewshot}
+
+답만 보여주는 대신 **중간 추론 단계를 풀어서** 시연으로 제시하면, 모델이 그 추론 사슬을 모방해 정답률이 오른다 (Wei et al., 2022).
+
+```
+Q: ... (문제)
+A: 먼저 ...이므로 ... 따라서 ... = 11.  답은 11.    ← 중간 단계를 펼친 시연
+Q: ... (새 문제)
+A: (모델이 단계별로 따라 생성)
+```
+
+## Zero-shot CoT: "Let's think step by step" {#sec-cot-zeroshot}
+
+시연조차 필요 없이, 프롬프트에 **"Let's think step by step"** 한 줄을 더하는 것만으로 단계적 추론이 유도된다 (Kojima et al., 2022). 이런 문장을 **trigger prompt** 라 한다.
+
+| 방법 | MultiArith 정확도(예시) |
+|---|---|
+| Zero-shot (그냥 질문) | ~17% |
+| Few-shot (표준) | ~33% |
+| **Zero-shot CoT** ("Let's think step by step") | **~78.7%** |
+| 최적화된 trigger ("Let's work this out in a step by step way to be sure we have the right answer") | **~82%** |
+
+: Trigger prompt에 따른 성능 변화 {#tbl-cot}
+
+::: {.callout-tip}
+## 핵심 시사점
+데이터셋도, GPU도, 파라미터 업데이트도 없이 **프롬프트 한 줄로 +60%p** 가 가능하다. 추론 능력은 모델 안에 이미 잠재해 있고, trigger prompt가 그것을 *끌어낼* 뿐이다. 최적의 trigger prompt를 모델 스스로 탐색하게 할 수도 있다.
+:::
+
+## Self-Consistency CoT {#sec-self-consistency}
+
+같은 질문을 같은 모델에 **여러 번** 던진다. 모델은 확률적 샘플링을 하므로 매번 약간 다른 추론 경로 $r^{(m)}$ 와 답 $a^{(m)}$ 을 낸다. 그 답들의 **다수결(majority vote)** 을 최종 답으로 택한다 ("sample-and-marginalize").
+
+$$
+\hat{a} = \arg\max_{a}\ \sum_{m=1}^{M} \mathbb{1}\!\left[a(y^{(m)}) = a\right]
+\;\approx\;
+\arg\max_{a}\ \sum_{r} p_\theta(a, r \mid x)
+$$
+
+즉 잠재 추론경로 $r$ 을 **몬테카를로로 주변화(marginalize)** 하여, 경로는 달라도 같은 답에 도달하는 확률질량을 모은다.
+
+## Tree of Thoughts (ToT) {#sec-tot}
+
+추론을 선형 사슬이 아니라 **트리**로 전개한다. 각 노드에서 모델에게 "이 답에 대한 confidence는?"을 되물어 가중치를 매기고, 트리를 탐색해 최종 답을 종합한다.
+
+```{mermaid}
+%%| label: fig-thoughts
+%%| fig-cap: "추론 구조의 진화: 단일 → 사슬 → 다수결 → 트리"
+flowchart LR
+    subgraph IO["I/O"]
+        a1["입력→출력"]
+    end
+    subgraph CoT["CoT"]
+        b1["입력→단계1→단계2→답"]
+    end
+    subgraph SC["Self-Consistency"]
+        c1["경로1→답A"]
+        c2["경로2→답A"]
+        c3["경로3→답B"]
+        c1 & c2 & c3 --> cv["다수결→A"]
+    end
+    subgraph ToT["Tree of Thoughts"]
+        d0["루트"] --> d1["분기1"]
+        d0 --> d2["분기2"]
+        d1 --> d3["평가/confidence"]
+        d2 --> d4["평가/confidence"]
+    end
+```
+
+::: {.callout-note .wireless}
+## 무선통신 비유 — 다이버시티 결합
+Self-consistency는 **반복 부호 + 다수결 결합(repetition coding + majority combining)**, 더 정확히는 여러 독립 경로의 **diversity combining(MRC/selection)** 이다. 한 번의 디코딩(추론 경로)은 잡음에 취약하지만, 독립 시도를 모아 결합하면 유효 SNR이 오르고 오류가 평균화되어 신뢰도가 향상된다. ToT의 confidence 가중은 각 경로의 신뢰도로 가중하는 **MRC(maximal-ratio combining)** 에 대응한다.
+:::
+
+## (참고) Jailbreaking / Trigger Prompt {#sec-jailbreak}
+
+특정 trigger 문구(예: 코드 헤더 패턴)를 넣으면 학습 데이터에 가까운 출력을 유도해 **학습 데이터 일부를 회수(training-data retrieval)** 하게 만들 수 있다. next-token prediction이 학습 분포를 그대로 재생하는 성질에서 비롯되는 현상으로, 보안·프라이버시 측면의 위험으로 다뤄진다.
+
+---
+
+# 정렬(Alignment) I: Instruction Finetuning {#sec-ift}
+
+## 직접 답 {#sec-ift-answer}
+
+**다양한 과제의 (지시문, 정답) 쌍을 모아 사전학습 모델을 fine-tune** 하면, 학습에 *없던* 과제에도 zero-shot으로 일반화한다 (Wei et al., 2022, FLAN). Alignment의 한 방법이다.
+
+## 구조 {#sec-ift-structure}
+
+$$
+\mathcal{D}_{\text{IFT}} = \big\{(\text{instruction}_i,\ \text{output}_i)\big\}_{i=1}^{K\ \text{tasks}}
+$$
+
+예) "다음 질문에 답하라: 질소의 끓는점은? → −320.4 °F". 풀고자 하는 *목표* 과제와 직접 관련 없는 수많은 과제로 fine-tune 했는데도, 목표 과제 성능이 오른다 — 또 하나의 emergent 현상.
+
+**정의(Wei et al.):** instruction tuning은 *instruction으로 기술된 과제들의 모음* 으로 LM을 fine-tune 하여, **unseen task에 대한 zero-shot 성능을 향상**시키는 것.
+
+## 한계 {#sec-ift-limits}
+
+1. **정답이 없는 과제.** "강아지와 그 애완 메뚜기 이야기를 써줘" 같은 open-ended 생성은 *유일 정답*이 없어 지도학습 신호가 모호하다.
+2. **모든 토큰 오류를 동등하게 벌점.** Language modeling은 토큰 단위 cross-entropy라 *모든* 틀린 토큰을 같은 가중치로 처벌한다. 그러나 어떤 토큰("Yes/No")은 다른 토큰보다 훨씬 중요하다 → **목적함수(LM)와 진짜 목표(인간 선호 충족) 사이의 불일치(mismatch).**
+
+---
+
+# 정렬(Alignment) II: RLHF {#sec-rlhf}
+
+## 동기 {#sec-rlhf-motivation}
+
+위 불일치를 메우려면 **인간 선호** 를 명시적 신호로 넣어야 한다. 대화 전체가 끝난 뒤에야 "이 대화가 만족스러웠는가"를 평가할 수 있는데, 이는 토큰 단위 지도가 아니라 **지연된 스칼라 보상(reward)** 이다. 이런 구조는 강화학습으로 푼다 → **RLHF(Reinforcement Learning from Human Feedback)**.
+
+## 파이프라인 {#sec-rlhf-pipeline}
+
+```{mermaid}
+%%| label: fig-rlhf
+%%| fig-cap: "GPT-3 → ChatGPT로 가는 정렬 파이프라인"
+flowchart LR
+    G["GPT-3<br/>(사전학습 LM)"] --> SFT["Instruction FT<br/>(InstructGPT의 SFT)"]
+    SFT --> RM["보상모델 r_φ 학습<br/>(인간 선호 비교 데이터)"]
+    RM --> RL["정책 최적화 (PPO)<br/>r_φ 최대 + KL 제약"]
+    RL --> C["ChatGPT"]
+```
+
+## 수식: KL-정규화 보상 최대화 {#sec-rlhf-math}
+
+정책 $\pi_\theta$ 가 보상모델 $r_\phi$ 의 기대보상을 최대화하되, 참조 정책 $\pi_{\text{ref}}$(보통 SFT 모델)에서 너무 멀어지지 않도록 KL 페널티를 둔다.
+
+$$
+\max_{\theta}\ \mathbb{E}_{x\sim\mathcal{D},\, y\sim\pi_\theta(\cdot\mid x)}
+\Big[\, r_\phi(x, y) \;-\; \beta\, \mathrm{KL}\!\big(\pi_\theta(\cdot\mid x)\,\Vert\,\pi_{\text{ref}}(\cdot\mid x)\big) \Big]
+$$
+
+::: {.callout-note}
+## KL 항의 방향성 (HW#4와 연결)
+여기 KL은 $\mathrm{KL}(\pi_\theta \Vert \pi_{\text{ref}})$ — 학습되는 정책이 첫 인자다. 이는 **reverse KL** 형태로, *mode-seeking / zero-forcing* 성향을 준다: 정책이 참조 분포가 거의 0인 영역으로 새어 나가는 것을 강하게 억제(reward hacking 방지)하되, 참조의 모든 모드를 덮을 의무는 없다. PPO/GRPO는 이 목적을 클리핑된 정책경사로 안정적으로 최적화한다.
+:::
+
+::: {.callout-note .wireless}
+## 무선통신 비유 — 폐루프 피드백 적응
+RLHF는 **폐루프(closed-loop) 적응 제어** 와 같다. 사전학습은 개루프 송신기이고, 인간 피드백은 수신단의 ACK/품질 보고처럼 송신 전략을 갱신하는 피드백 채널이다. KL 페널티는 **전력 제약(power constraint)** 또는 *trust-region* 역할 — 갱신 폭을 제한해 시스템이 발산하지 않게 한다. 폐쇄루프 전력제어가 SINR을 목표치에 *정렬*시키듯, RLHF는 모델 출력을 인간 선호에 정렬시킨다.
+:::
+
+---
+
+# 약사(略史)와 정리 {#sec-history}
+
+## 계보 한눈에 {#sec-lineage}
+
+| 모델 | 주체 / 연도 | 의의 |
+|---|---|---|
+| ELMo | AllenAI, 2018 | 문맥적 단어표현의 초기 형태 |
+| BERT | Google, 2018 | 양방향 인코더, 사전학습-파인튜닝 패러다임 확산 |
+| GPT-1/2/3 | OpenAI, 2018–2020 | 자기회귀 LM의 규모 확장 |
+| InstructGPT | OpenAI, 2022 | SFT + RLHF로 지시 따르기 |
+| ChatGPT | OpenAI, 2022 | RLHF 정렬 + 대화형 인터페이스의 대중화 |
+
+: LLM 계보 {#tbl-history}
+
+## 요약 {#sec-summary}
+
+- **LLM = 거대 규모의 next-token 예측기.** 모든 NLP 과제가 빈칸 채우기로 통일된다.
+- **Scaling laws**: 자원을 키우면 loss가 멱법칙으로 감소(경험칙).
+- **Emergent ability**: 임계 규모를 넘으면 의도치 않은 능력이 *상전이* 처럼 등장.
+- **In-Context Learning / CoT**: 파라미터 변경 없이 프롬프트로 행동을 바꾸는 "학습".
+- **Alignment**: Instruction finetuning(지시 일반화) → RLHF(인간 선호 정렬)로 의도에 맞춘다.
+
+## 다음 주제 {#sec-next}
+
+- **VLM** (Vision-Language Models): 텍스트만으로는 부족한 데이터 효율을 멀티모달로 보완.
+- **VLA** (Vision-Language-Action Models): 인식·언어·행동의 통합.
+
+---
+
+# 부록: 핵심 개념의 코드 검증 {#sec-appendix}
+
+아래 스니펫은 본문 수식을 작은 예제로 직접 확인하기 위한 것이다. (`eval: false` 로 두었으므로 로컬에서 실행해 확인할 것.)
+
+## A.1 Next-token softmax와 cross-entropy / perplexity {#sec-appendix-ce}
+
+```{python}
+import numpy as np
+
+def softmax(z):
+    z = z - z.max()                      # 수치 안정화 (overflow 방지)
+    e = np.exp(z)
+    return e / e.sum()
+
+# 어휘 크기 5에 대한 한 스텝 로짓과 정답 토큰
+logits = np.array([2.0, 1.0, 0.5, -1.0, 0.2])
+target = 0                                # 정답 토큰 인덱스
+
+p = softmax(logits)
+ce = -np.log(p[target])                   # 단일 스텝 cross-entropy (NLL)
+print("p:", np.round(p, 4))
+print("cross-entropy:", round(float(ce), 4))
+
+# 시퀀스 평균 NLL과 perplexity
+nlls = np.array([0.31, 1.20, 0.05, 2.10])  # 토큰별 NLL 예시
+avg_nll = nlls.mean()
+ppl = np.exp(avg_nll)                       # PPL = exp(평균 NLL) = 유효 분기계수
+print("avg NLL:", round(float(avg_nll), 4), "| perplexity:", round(float(ppl), 4))
+```
+
+## A.2 Forward-KL = cross-entropy − entropy 확인 {#sec-appendix-kl}
+
+```{python}
+import numpy as np
+
+p_data  = np.array([0.5, 0.3, 0.15, 0.05])   # 데이터 분포
+p_model = np.array([0.4, 0.3, 0.2,  0.1])    # 모델 분포
+
+H_data = -(p_data * np.log(p_data)).sum()                 # 데이터 엔트로피 (하한)
+CE     = -(p_data * np.log(p_model)).sum()                # cross-entropy
+KL_fwd =  (p_data * np.log(p_data / p_model)).sum()       # forward KL
+
+print("H(data) :", round(float(H_data), 4))
+print("CE      :", round(float(CE), 4))
+print("KL_fwd  :", round(float(KL_fwd), 4))
+print("CE - H  :", round(float(CE - H_data), 4), "(== KL_fwd 이어야 함)")
+# 결론: cross-entropy 최소화 == forward KL 최소화 == MLE  (상수 H(data) 차이)
+```
+
+## A.3 Self-consistency: 다수결로 유효 정확도가 오른다 {#sec-appendix-sc}
+
+```{python}
+import numpy as np
+rng = np.random.default_rng(0)
+
+def single_pass_correct(p_correct):
+    """한 번의 추론 경로가 정답일 확률 p_correct 인 베르누이 시도."""
+    return rng.random() < p_correct
+
+def self_consistency_accuracy(p_correct, M, trials=20000):
+    """M개 경로 다수결의 정확도를 몬테카를로로 추정.
+       오답은 여러 잘못된 답으로 분산된다고 단순 가정."""
+    wins = 0
+    for _ in range(trials):
+        correct_votes = sum(single_pass_correct(p_correct) for _ in range(M))
+        # 오답표는 (M - correct_votes)표가 서로 다른 답으로 흩어진다고 가정
+        # => 정답표가 1표 이상이면서 최다이면 승리 (보수적 근사)
+        wins += 1 if correct_votes * 2 > M else 0
+    return wins / trials
+
+p = 0.40                                  # 단일 경로 정확도 40%
+for M in [1, 3, 5, 11, 21]:
+    acc = self_consistency_accuracy(p, M)
+    print(f"M={M:2d}: majority-vote accuracy ≈ {acc:.3f}")
+# 직관: 단일 경로가 우연보다 낫기만 하면, 경로 수 M↑ 에 따라 정확도가 향상
+#       (다이버시티 결합으로 유효 신뢰도 상승)
+```
+
+## A.4 Scaling law의 log–log 선형성 {#sec-appendix-scaling}
+
+```{python}
+import numpy as np
+
+# L(N) = (Nc / N)^alpha  형태의 멱법칙
+Nc, alpha = 1e8, 0.076
+N = np.array([1e6, 1e7, 1e8, 1e9, 1e10])
+L = (Nc / N) ** alpha
+
+logN, logL = np.log10(N), np.log10(L)
+slope = (logL[-1] - logL[0]) / (logN[-1] - logN[0])   # log-log 기울기
+print("log-log slope:", round(float(slope), 4), " (이론값 -alpha =", -alpha, ")")
+# 결론: 멱법칙은 log-log 축에서 기울기 -alpha 의 직선으로 나타난다.
+```

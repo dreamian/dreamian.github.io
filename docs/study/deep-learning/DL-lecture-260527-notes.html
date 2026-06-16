@@ -1,0 +1,2414 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko" xml:lang="ko"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.36">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Vision–Language–Action 모델과 강화학습 입문 – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-a06763021a52c43c40a351ac8b799b8f.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-7f128302b46659ec05c1cdf12d27b5f1.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "일치 없음",
+    "search-matching-documents-text": "일치된 문서",
+    "search-copy-link-title": "검색 링크 복사",
+    "search-hide-matches-text": "추가 검색 결과 숨기기",
+    "search-more-match-text": "추가 검색결과",
+    "search-more-matches-text": "추가 검색결과",
+    "search-clear-button-title": "제거",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "취소",
+    "search-submit-button-title": "검색",
+    "search-label": "검색"
+  }
+}</script>
+<script src="../../site_libs/quarto-diagram/mermaid.min.js"></script>
+<script src="../../site_libs/quarto-diagram/mermaid-init.js"></script>
+<link href="../../site_libs/quarto-diagram/mermaid.css" rel="stylesheet">
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href=".callout { margin-top: 1em; margin-bottom: 1em; }">
+</head>
+
+<body class="floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="검색"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="탐색 전환" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../research/papers/index.qmd">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">목차</h2>
+   
+  <ul>
+  <li><a href="#sec-overview" id="toc-sec-overview" class="nav-link active" data-scroll-target="#sec-overview"><span class="header-section-number">1</span> 한눈에 보는 오늘의 두 갈래</a></li>
+  <li><a href="#sec-vlm-vla" id="toc-sec-vlm-vla" class="nav-link" data-scroll-target="#sec-vlm-vla"><span class="header-section-number">2</span> Part I — VLM에서 VLA로</a>
+  <ul class="collapse">
+  <li><a href="#sec-lineage" id="toc-sec-lineage" class="nav-link" data-scroll-target="#sec-lineage"><span class="header-section-number">2.1</span> 모델 계보: LLM → VLM → VLA → Omni</a></li>
+  <li><a href="#sec-clip" id="toc-sec-clip" class="nav-link" data-scroll-target="#sec-clip"><span class="header-section-number">2.2</span> 정렬(alignment)의 핵심: CLIP 복습</a></li>
+  <li><a href="#sec-rlaif" id="toc-sec-rlaif" class="nav-link" data-scroll-target="#sec-rlaif"><span class="header-section-number">2.3</span> RLHF에서 RLAIF로: 정렬 비용 줄이기</a></li>
+  <li><a href="#sec-llava" id="toc-sec-llava" class="nav-link" data-scroll-target="#sec-llava"><span class="header-section-number">2.4</span> LLaVA의 modality translator</a></li>
+  <li><a href="#sec-vla" id="toc-sec-vla" class="nav-link" data-scroll-target="#sec-vla"><span class="header-section-number">2.5</span> VLA: 행동을 출력하기</a>
+  <ul class="collapse">
+  <li><a href="#sec-vla-models" id="toc-sec-vla-models" class="nav-link" data-scroll-target="#sec-vla-models"><span class="header-section-number">2.5.1</span> 대표 모델 계보</a></li>
+  <li><a href="#sec-vla-table" id="toc-sec-vla-table" class="nav-link" data-scroll-target="#sec-vla-table"><span class="header-section-number">2.5.2</span> VLA 모델 비교표</a></li>
+  </ul></li>
+  <li><a href="#sec-omni" id="toc-sec-omni" class="nav-link" data-scroll-target="#sec-omni"><span class="header-section-number">2.6</span> Omni 모델과 full-duplex 상호작용</a></li>
+  <li><a href="#sec-wireless-vlm" id="toc-sec-wireless-vlm" class="nav-link" data-scroll-target="#sec-wireless-vlm"><span class="header-section-number">2.7</span> 무선통신 관점의 비유 (Part I)</a></li>
+  </ul></li>
+  <li><a href="#sec-rl" id="toc-sec-rl" class="nav-link" data-scroll-target="#sec-rl"><span class="header-section-number">3</span> Part II — 강화학습 입문</a>
+  <ul class="collapse">
+  <li><a href="#sec-what-rl" id="toc-sec-what-rl" class="nav-link" data-scroll-target="#sec-what-rl"><span class="header-section-number">3.1</span> RL이란 무엇이며 왜 ’강화’인가</a></li>
+  <li><a href="#sec-four-elements" id="toc-sec-four-elements" class="nav-link" data-scroll-target="#sec-four-elements"><span class="header-section-number">3.2</span> RL의 네 가지 요소</a></li>
+  <li><a href="#sec-history" id="toc-sec-history" class="nav-link" data-scroll-target="#sec-history"><span class="header-section-number">3.3</span> RL의 역사 = 최적 제어의 역사</a></li>
+  <li><a href="#sec-mdp" id="toc-sec-mdp" class="nav-link" data-scroll-target="#sec-mdp"><span class="header-section-number">3.4</span> (유한) 마르코프 결정 과정 (MDP)</a></li>
+  <li><a href="#sec-return" id="toc-sec-return" class="nav-link" data-scroll-target="#sec-return"><span class="header-section-number">3.5</span> 에피소드, 리턴, 할인</a></li>
+  <li><a href="#sec-value-fn" id="toc-sec-value-fn" class="nav-link" data-scroll-target="#sec-value-fn"><span class="header-section-number">3.6</span> 가치 함수와 최적 정책</a></li>
+  <li><a href="#sec-gpi" id="toc-sec-gpi" class="nav-link" data-scroll-target="#sec-gpi"><span class="header-section-number">3.7</span> 정책 향상 정리와 GPI</a></li>
+  <li><a href="#sec-bellman" id="toc-sec-bellman" class="nav-link" data-scroll-target="#sec-bellman"><span class="header-section-number">3.8</span> Bellman 방정식</a>
+  <ul class="collapse">
+  <li><a href="#sec-bellman-v" id="toc-sec-bellman-v" class="nav-link" data-scroll-target="#sec-bellman-v"><span class="header-section-number">3.8.1</span> <span class="math inline">v_\pi</span>에 대한 Bellman 방정식</a></li>
+  <li><a href="#sec-bellman-q" id="toc-sec-bellman-q" class="nav-link" data-scroll-target="#sec-bellman-q"><span class="header-section-number">3.8.2</span> <span class="math inline">q_\pi</span>에 대한 Bellman 방정식</a></li>
+  </ul></li>
+  <li><a href="#sec-pgm" id="toc-sec-pgm" class="nav-link" data-scroll-target="#sec-pgm"><span class="header-section-number">3.9</span> Policy Gradient Method (PGM)</a>
+  <ul class="collapse">
+  <li><a href="#sec-reinforce" id="toc-sec-reinforce" class="nav-link" data-scroll-target="#sec-reinforce"><span class="header-section-number">3.9.1</span> REINFORCE 알고리즘</a></li>
+  <li><a href="#sec-policy-vs-value" id="toc-sec-policy-vs-value" class="nav-link" data-scroll-target="#sec-policy-vs-value"><span class="header-section-number">3.9.2</span> 정책 기반 vs 가치 기반</a></li>
+  </ul></li>
+  <li><a href="#sec-ppo" id="toc-sec-ppo" class="nav-link" data-scroll-target="#sec-ppo"><span class="header-section-number">3.10</span> PPO와 현대 LLM으로의 연결</a></li>
+  <li><a href="#sec-wireless-rl" id="toc-sec-wireless-rl" class="nav-link" data-scroll-target="#sec-wireless-rl"><span class="header-section-number">3.11</span> 무선통신 관점의 비유 (Part II)</a></li>
+  </ul></li>
+  <li><a href="#sec-appendix" id="toc-sec-appendix" class="nav-link" data-scroll-target="#sec-appendix"><span class="header-section-number">4</span> 부록 — Python/NumPy 실습</a>
+  <ul class="collapse">
+  <li><a href="#sec-app-return" id="toc-sec-app-return" class="nav-link" data-scroll-target="#sec-app-return"><span class="header-section-number">4.1</span> A. 할인 리턴 계산과 재귀 항등식 검증</a></li>
+  <li><a href="#sec-app-mdp" id="toc-sec-app-mdp" class="nav-link" data-scroll-target="#sec-app-mdp"><span class="header-section-number">4.2</span> B. 작은 유한 MDP에서 정책 평가 (Bellman 기대 방정식)</a></li>
+  <li><a href="#sec-app-reinforce" id="toc-sec-app-reinforce" class="nav-link" data-scroll-target="#sec-app-reinforce"><span class="header-section-number">4.3</span> C. REINFORCE의 로그-미분 추정량 검증</a></li>
+  <li><a href="#sec-app-clip" id="toc-sec-app-clip" class="nav-link" data-scroll-target="#sec-app-clip"><span class="header-section-number">4.4</span> D. CLIP 스타일 대조 유사도 (Part I 연결)</a></li>
+  </ul></li>
+  <li><a href="#sec-checklist" id="toc-sec-checklist" class="nav-link" data-scroll-target="#sec-checklist"><span class="header-section-number">5</span> 마무리 체크리스트</a></li>
+  </ul>
+</nav>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Vision–Language–Action 모델과 강화학습 입문</h1><button type="button" class="btn code-tools-button dropdown-toggle" id="quarto-code-tools-menu" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi"></i> 코드</button><ul class="dropdown-menu dropdown-menu-end" aria-labelelledby="quarto-code-tools-menu"><li><a id="quarto-show-all-code" class="dropdown-item" href="javascript:void(0)" role="button">전체 코드 표시</a></li><li><a id="quarto-hide-all-code" class="dropdown-item" href="javascript:void(0)" role="button">전체 코드 숨기기</a></li><li><hr class="dropdown-divider"></li><li><a id="quarto-view-source" class="dropdown-item" href="javascript:void(0)" role="button">소스 코드 표시</a></li></ul></div></div>
+<p class="subtitle lead">VLM/VLA 계보, 유한 MDP, Bellman 방정식, Policy Gradient</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">공개</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2026년 5월 27일</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="sec-overview" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 한눈에 보는 오늘의 두 갈래</h1>
+<p>오늘 정리하는 내용은 서로 다른 결을 가진 두 주제다.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="핵심 한 줄 요약">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>핵심 한 줄 요약
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><strong>VLM → VLA</strong>: 거대 언어 모델(LLM)을 <em>시각(vision)</em> 으로 확장하면 VLM, 여기에 <em>행동(action)</em> 출력을 더하면 VLA다. 즉 “이해”에서 “물리적 상호작용”으로 가는 사다리다.</li>
+<li><strong>강화학습(RL) 입문</strong>: 에이전트가 환경과 상호작용하며 <em>보상(reward)</em> 을 최대화하도록 정책을 배우는 문제. 유한 MDP → 가치 함수 → Bellman 방정식 → Policy Gradient로 이어지는 골격을 세운다.</li>
+</ol>
+</div>
+</div>
+<p>두 주제는 무관해 보이지만 한 지점에서 만난다. VLA의 정책 <span class="math inline">\pi</span>는 RL이 다루는 바로 그 정책이며, 현대 LLM 정렬(RLHF)의 엔진인 PPO 역시 RL의 산물이다. 따라서 RL은 “별도 단원”이 아니라 멀티모달·생성 모델 전체를 떠받치는 학습 메커니즘이다.</p>
+<hr>
+</section>
+<section id="sec-vlm-vla" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Part I — VLM에서 VLA로</h1>
+<section id="sec-lineage" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="sec-lineage"><span class="header-section-number">2.1</span> 모델 계보: LLM → VLM → VLA → Omni</h2>
+<p>명명 규칙부터 정리하면 직관이 빨라진다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 14%">
+<col style="width: 26%">
+<col style="width: 43%">
+<col style="width: 14%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>약어</th>
+<th>펼친 이름</th>
+<th>다루는 모달리티</th>
+<th>출력</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>LLM</strong></td>
+<td>Large <em>Language</em> Model</td>
+<td>텍스트</td>
+<td>텍스트 토큰</td>
+</tr>
+<tr class="even">
+<td><strong>VLM</strong></td>
+<td>Vision-<em>Language</em> Model</td>
+<td>텍스트 + 이미지/비디오</td>
+<td>텍스트 토큰</td>
+</tr>
+<tr class="odd">
+<td><strong>VLA</strong></td>
+<td>Vision-Language-<em>Action</em> Model</td>
+<td>텍스트 + 시각 + (상태)</td>
+<td><strong>행동 토큰</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Omni</strong></td>
+<td>“모든 것” 모델</td>
+<td>텍스트 + 시각 + <strong>음성</strong> + …</td>
+<td>멀티모달</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-tip callout-titled" title="명명에 대한 잡설(이지만 시험엔 안 나옴)">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>명명에 대한 잡설(이지만 시험엔 안 나옴)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>VLM에는 “M(model)”이 붙는데 VLA에는 안 붙는다. 이유는 단순히 <em>세 글자 약어</em>를 만들고 싶어서다. 같은 이유로 멀티모달 LLM을 종종 <strong>MLLM</strong>이라 부르는데, 엄밀히 따지면 멀티모달이면 더 이상 “language-only”가 아니므로 어색한 작명이다. 학계의 약어 관습은 의외로 비논리적이다.</p>
+</div>
+</div>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+</section>
+<section id="sec-clip" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="sec-clip"><span class="header-section-number">2.2</span> 정렬(alignment)의 핵심: CLIP 복습</h2>
+<p>VLM의 본질은 <strong>서로 다른 모달리티의 의미(semantic)를 같은 임베딩 공간에 정렬</strong>하는 것이다. 그 원형이 CLIP이다.</p>
+<p><strong>직접 답:</strong> CLIP은 텍스트 인코더와 이미지 인코더를 <em>각각</em> 학습시키되, 같은 의미를 가진 (텍스트, 이미지) 쌍의 임베딩이 서로 가까워지도록(코사인 유사도 최대화) 대조 학습(contrastive learning)한다.</p>
+<p>배치 안에 <span class="math inline">N</span>개의 (이미지 <span class="math inline">I_i</span>, 텍스트 <span class="math inline">T_i</span>) 쌍이 있을 때, 정규화된 임베딩 <span class="math inline">\mathbf{u}_i = f_\text{img}(I_i)</span>, <span class="math inline">\mathbf{v}_j = f_\text{txt}(T_j)</span>에 대해 유사도 행렬</p>
+<p><span class="math display">
+S_{ij} = \frac{\mathbf{u}_i^\top \mathbf{v}_j}{\tau}
+</span></p>
+<p>를 만들고, 대각선(정답 쌍)이 커지도록 행/열 방향 교차 엔트로피를 합산한다.</p>
+<p><span class="math display">
+\mathcal{L}_\text{CLIP} = \frac{1}{2}\Big[\underbrace{\text{CE}(\text{softmax}_j S_{ij},\, y=i)}_{\text{이미지}\to\text{텍스트}} + \underbrace{\text{CE}(\text{softmax}_i S_{ij},\, y=j)}_{\text{텍스트}\to\text{이미지}}\Big]
+</span></p>
+<div class="callout callout-style-default callout-note callout-titled" title="CLIP은 '양방향' 정렬">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>CLIP은 ‘양방향’ 정렬
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>CLIP은 두 인코더를 <strong>동시에</strong> 처음부터 학습하므로 <em>양측 정렬(two-side alignment)</em> 이다. 뒤에 나올 LLaVA가 <em>한쪽 정렬(one-side alignment)</em> 인 것과 대비된다.</p>
+</div>
+</div>
+<p>CLIP을 확산 모델(diffusion model)과 결합하면 텍스트 프롬프트로부터 이미지/비디오를 생성하는 모델이 된다. 즉 CLIP 임베딩이 생성 모델의 조건(condition) 역할을 한다.</p>
+</section>
+<section id="sec-rlaif" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="sec-rlaif"><span class="header-section-number">2.3</span> RLHF에서 RLAIF로: 정렬 비용 줄이기</h2>
+<p><strong>직접 답:</strong> RLHF(인간 피드백 기반 강화학습)는 인간 평가가 비싸다는 약점이 있다. 대안으로 <em>다른 AI 모델</em>의 피드백을 보상 신호로 쓰는 것이 <strong>RLAIF</strong>(Reinforcement Learning from AI Feedback)다.</p>
+<ul>
+<li><strong>RLHF</strong>: GPT-3 → (instruction fine-tuning) → InstructGPT → (RLHF) → ChatGPT. 보상이 <em>먼 미래</em>(전체 응답 품질)에 있어도 정책을 인간 선호에 맞출 수 있다는 점이 RL의 핵심.</li>
+<li><strong>RLAIF</strong>: 인간 대신 강력한 기존 모델(예: 다른 LLM/VLM)이 <em>유사(pseudo) 피드백</em>을 제공. <strong>비용↓, 즉시성↑</strong>.</li>
+<li>멀티모달로 확장하면, 문맥 인지형 보상 모델(context-aware reward model)로 비디오 질의응답 같은 과제의 정렬 품질을 끌어올릴 수 있다(VLM-RLAIF 계열).</li>
+</ul>
+<div class="callout callout-style-default callout-important callout-titled" title="왜 RL이 필요한가">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>왜 RL이 필요한가
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>지도학습은 “정답 토큰”이 매 스텝 필요하지만, “응답 전체가 인간 선호에 부합하는가”는 <em>끝에 가서야</em> 알 수 있는 지연 보상이다. 이 지연 보상으로 학습하는 메커니즘이 정확히 RL이며, Part II의 동기가 된다.</p>
+</div>
+</div>
+</section>
+<section id="sec-llava" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="sec-llava"><span class="header-section-number">2.4</span> LLaVA의 modality translator</h2>
+<p><strong>직접 답:</strong> LLaVA는 CLIP처럼 두 인코더를 새로 학습하는 대신, <em>이미 학습된</em> LLM(LLaMA)은 거의 고정하고, <strong>시각 임베딩을 언어 임베딩 공간으로 옮기는 변환기 <span class="math inline">W</span> 하나만</strong> 학습한다.</p>
+<p>시각 입력 <span class="math inline">x</span>의 비전 임베딩 <span class="math inline">z_v = f_\text{vision}(x)</span>에 대해</p>
+<p><span class="math display">
+h_v = W\, z_v
+</span></p>
+<p>를 통해, <span class="math inline">h_v</span>가 같은 의미를 가리키는 텍스트 토큰들과 같은 잠재 공간에 놓이도록 정렬한다. 사전학습된 LLaMA의 표현 공간을 <em>기준점</em>으로 삼아 시각 정보만 끌어다 붙이는 셈이다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 18%">
+<col style="width: 37%">
+<col style="width: 43%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th>CLIP</th>
+<th>LLaVA</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>정렬 방향</td>
+<td>양측(텍스트·이미지 인코더 동시 학습)</td>
+<td>한쪽(<span class="math inline">W</span>만 학습, LLM은 거의 고정)</td>
+</tr>
+<tr class="even">
+<td>학습 비용</td>
+<td>from scratch 수준</td>
+<td>가벼운 어댑터 튜닝</td>
+</tr>
+<tr class="odd">
+<td>기반</td>
+<td>없음</td>
+<td>사전학습 LLM(LLaMA)</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="sec-vla" class="level2" data-number="2.5">
+<h2 data-number="2.5" class="anchored" data-anchor-id="sec-vla"><span class="header-section-number">2.5</span> VLA: 행동을 출력하기</h2>
+<p><strong>직접 답:</strong> VLM의 출력을 언어 토큰에서 <strong>행동 토큰(action token)</strong> 으로 바꾸면 VLA다. 행동은 로봇 팔의 <span class="math inline">(x,y,z)</span>·그리퍼 각도일 수도, 웹 에이전트의 마우스/키보드 조작일 수도 있다.</p>
+<div class="callout callout-style-default callout-warning callout-titled" title="행동은 '다른 동물'이다 — 인과성(causality)이 더 중요">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">경고</span>행동은 ’다른 동물’이다 — 인과성(causality)이 더 중요
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>언어 생성도 이전 토큰을 참조하지만, <em>잊어도</em> 큰 문제가 없는 경우가 많다. 반면 행동 시퀀스는 <strong>앞선 행동이 다음 행동에 강하게 인과적으로 작용</strong>한다(물리적 상태가 누적되므로). 따라서 VLA에서는 강한 자기회귀(autoregressive) 생성·인과 구조가 언어보다 훨씬 중요하다.</p>
+</div>
+</div>
+<section id="sec-vla-models" class="level3" data-number="2.5.1">
+<h3 data-number="2.5.1" class="anchored" data-anchor-id="sec-vla-models"><span class="header-section-number">2.5.1</span> 대표 모델 계보</h3>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<p><strong>Perceiver-Actor (2022) — ’최초의 VLA’로 회자</strong></p>
+<ul>
+<li>입력: 3D voxel(시각) + 명령어(언어). 출력: 그리퍼 목표 위치 <span class="math inline">(x,y,z)</span> + 각도 → <strong>4차원 출력</strong>.</li>
+<li>구조: voxel encoder + language encoder → PerceiverIO transformer → voxel decoder(자기 복원으로 3D 이해 강제) → 위치/각도 디코더.</li>
+<li>사전학습된 PerceiverIO를 미세조정해 활용. (요즘은 PerceiverIO를 잘 안 쓰는 추세.)</li>
+</ul>
+<p><strong>SayCan (2022) — 가치 함수로 ‘할 수 있는’ 행동만</strong></p>
+<ul>
+<li>문제의식: LLM은 <em>환경을 모른다</em>. 명령을 그럴듯하게 분해해도 로봇이 <em>물리적으로 수행 불가능</em>한 행동을 내놓을 수 있다.</li>
+<li>해법: 각 후보 행동에 대해 <strong>LLM 점수(말이 되는가) × 가치 함수(affordance, 실제로 수행 가능한가)</strong> 를 결합.</li>
+</ul>
+<p><span class="math display">
+\text{score}(a) = \underbrace{p_\text{LLM}(a\mid \text{instruction})}_{\text{Say: 말이 되는가}} \times \underbrace{V_\text{affordance}(a\mid \text{state})}_{\text{Can: 할 수 있는가}}
+</span></p>
+<ul>
+<li>이름 “Do As I <strong>Can</strong>, Not As I <strong>Say</strong>”가 핵심을 그대로 담고 있다. Part II의 <strong>가치 함수</strong>가 여기서 등장한다는 점이 중요하다.</li>
+</ul>
+<p><strong>RT-1 (2022) / RT-2 (2023) / OpenVLA (2024)</strong></p>
+<ul>
+<li><strong>RT-1</strong>: <em>처음부터(end-to-end, from scratch)</em> 학습한 최초의 VLA. EfficientNet 기반 + FiLM 조건화 + token learner + transformer. “초창기 분야에선 <em>빠른 것</em>이 곧 기여”라는 교훈의 산물.</li>
+<li><strong>RT-2</strong>: 구조를 단순화(LLM + 이미지 인코더)하고 데이터를 키워 언어 변형(variation)을 더 풍부하게. 더 단순한데 더 정확.</li>
+<li><strong>OpenVLA</strong>: RT-2의 오픈소스 경량 버전. LLaMA-2 7B를 언어 백본, 사전학습 ViT를 이미지 백본으로 사용 → 완전 from scratch는 아님.</li>
+</ul>
+<p><strong>π0 / π0.5 (Physical Intelligence) — 하드웨어 일반화 지향</strong></p>
+<ul>
+<li><span class="math inline">\pi</span>는 RL의 <em>policy</em>에서 온 작명. <strong>인코딩된 행동 토큰</strong>을 출력하고, 하드웨어별 어댑터가 이를 실제 구동으로 번역한다.</li>
+<li>목표: 하나의 행동 임베딩을 <strong>다양한 하드웨어</strong>(14-DoF 양팔 매니퓰레이터, 18-DoF 모바일 매니퓰레이터, 6/8-DoF 단일 팔 등)에 적용. 여러 형태의 데이터로 학습 → “하드웨어 버전의 instruction fine-tuning”.</li>
+<li><strong>π0.5</strong>: 조작·이미지 캡셔닝·객체 탐지·QA 등 더 다양한 멀티모달 데이터로 학습 → “go to the kitchen and grab a bottle of water” 같은 <em>서술형 명령</em>을 이해. 2단계 파이프라인(사전학습 → 서브태스크 예측 후학습)으로 <em>out-of-the-box</em> 일반화를 지향.</li>
+</ul>
+<p><strong>GR00T N1 / N1.6 (NVIDIA) — 휴머노이드용</strong></p>
+<ul>
+<li>휴머노이드는 자유도가 크다. <strong>이중 시스템(dual-system)</strong> 구조 사용:
+<ul>
+<li><strong>System 1</strong>: 빠른 세부 행동 토큰 생성(저수준 제어).</li>
+<li><strong>System 2</strong>: 느린 고수준 계획(장기 과제 추론).</li>
+</ul></li>
+<li>지연(latency)을 줄이고 변화하는 환경에 적응. 다수 학계와의 협업 산출물.</li>
+</ul>
+<div class="callout callout-style-default callout-tip callout-titled" title="패턴 인식">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>패턴 인식
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>LLM/VLM/VLA의 발전은 거의 같은 레시피를 반복한다 — <strong>(1) 사전학습 백본에 의존 → (2) end-to-end로 끌어올림 → (3) 데이터·모달리티 다양화로 일반화</strong>. 이 패턴을 알면 새 모델이 나와도 위치를 빠르게 잡을 수 있다.</p>
+</div>
+</div>
+</section>
+<section id="sec-vla-table" class="level3" data-number="2.5.2">
+<h3 data-number="2.5.2" class="anchored" data-anchor-id="sec-vla-table"><span class="header-section-number">2.5.2</span> VLA 모델 비교표</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 13%">
+<col style="width: 24%">
+<col style="width: 24%">
+<col style="width: 24%">
+<col style="width: 13%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>모델</th>
+<th>연도/기관</th>
+<th>학습 방식</th>
+<th>행동 표현</th>
+<th>특징</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Perceiver-Actor</td>
+<td>2022 UW</td>
+<td>사전학습 미세조정</td>
+<td><span class="math inline">(x,y,z)</span>+각도</td>
+<td>최초 VLA, voxel 입력</td>
+</tr>
+<tr class="even">
+<td>SayCan</td>
+<td>2022 Google</td>
+<td>LLM+가치함수</td>
+<td>행동 후보 선택</td>
+<td>affordance grounding</td>
+</tr>
+<tr class="odd">
+<td>RT-1</td>
+<td>2022 Google</td>
+<td>from scratch</td>
+<td>행동 토큰</td>
+<td>첫 end-to-end</td>
+</tr>
+<tr class="even">
+<td>RT-2</td>
+<td>2023 Google</td>
+<td>대규모 데이터</td>
+<td>행동 토큰</td>
+<td>구조 단순화</td>
+</tr>
+<tr class="odd">
+<td>OpenVLA</td>
+<td>2024 Berkeley</td>
+<td>LLaMA-2+ViT</td>
+<td>행동 토큰</td>
+<td>오픈소스 경량</td>
+</tr>
+<tr class="even">
+<td>π0 / π0.5</td>
+<td>2024–25 PI</td>
+<td>멀티 하드웨어</td>
+<td>인코딩 행동</td>
+<td>하드웨어 일반화</td>
+</tr>
+<tr class="odd">
+<td>GR00T N1</td>
+<td>2025 NVIDIA</td>
+<td>dual-system</td>
+<td>행동 토큰</td>
+<td>휴머노이드</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="sec-omni" class="level2" data-number="2.6">
+<h2 data-number="2.6" class="anchored" data-anchor-id="sec-omni"><span class="header-section-number">2.6</span> Omni 모델과 full-duplex 상호작용</h2>
+<p>VLM/VLA의 다음 단계는 <strong>음성을 포함한 전 모달리티</strong>를 다루는 <em>Omni 모델</em>이다. “omni”는 글자 그대로 “모든 것”을 다룬다는 (다소 과장된) 작명이다.</p>
+<p>최근의 화두는 <strong>full-duplex</strong> 상호작용이다.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="full-duplex가 왜 중요한가">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>full-duplex가 왜 중요한가
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>기존 음성 모델은 <em>반이중(half-duplex)</em> — 한쪽이 말하면 다른 쪽은 들어야 한다. <strong>full-duplex</strong>는 사람끼리 대화하듯 <strong>말하면서 동시에 듣고 반응</strong>할 수 있다. 실시간 입력 스트리밍 + 동시 응답이 가능해 자연스러운 상호작용에 한 발 더 다가간다. 상호작용은 VLM/VLA가 갖춰야 할 중요한 능력이므로, Omni 모델은 이 계보의 자연스러운 다음 수순이다.</p>
+</div>
+</div>
+</section>
+<section id="sec-wireless-vlm" class="level2" data-number="2.7">
+<h2 data-number="2.7" class="anchored" data-anchor-id="sec-wireless-vlm"><span class="header-section-number">2.7</span> 무선통신 관점의 비유 (Part I)</h2>
+<div class="callout callout-style-default callout-tip callout-titled" title="신호처리·통신 직관으로 다시 읽기">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>신호처리·통신 직관으로 다시 읽기
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>CLIP의 대조 정렬</strong> ↔︎ <em>조인트 소스 코딩 / 공통 신호공간 매핑</em>: 두 모달리티(이미지·텍스트)를 하나의 의미 공간에 사상하는 것은, 서로 다른 송신원의 신호를 <em>공통 기저(constellation)</em> 위에 정렬해 매칭 가능하게 만드는 것과 같다. 코사인 유사도 최대화 = <em>매칭 필터(matched filter)</em> 출력 최대화.</li>
+<li><strong>LLaVA의 변환기 <span class="math inline">W</span></strong> ↔︎ <em>프리코더(precoder)</em>: 시각 임베딩 <span class="math inline">z_v</span>를 언어 공간으로 옮기는 <span class="math inline">h_v = W z_v</span>는, 송신 심볼을 채널/수신 공간에 맞추는 선형 프리코딩과 형태가 동일하다.</li>
+<li><strong>행동 토큰의 강한 인과성</strong> ↔︎ <em>메모리 있는 채널(ISI)</em>: 이전 행동이 다음 행동에 영향을 주는 구조는 심볼 간 간섭(ISI)이 있는 채널과 유사 — 등화기(equalizer)처럼 과거 상태를 고려해야 한다.</li>
+<li><strong>RLAIF의 보조 모델 피드백</strong> ↔︎ <em>파일럿/참조 신호</em>: 비싼 인간 피드백 대신 기존 모델의 신호를 <em>참조(pilot)</em> 로 써서 정렬을 추정하는 구조.</li>
+</ul>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="sec-rl" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Part II — 강화학습 입문</h1>
+<section id="sec-what-rl" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="sec-what-rl"><span class="header-section-number">3.1</span> RL이란 무엇이며 왜 ’강화’인가</h2>
+<p><strong>직접 답:</strong> 강화학습은 <strong>에이전트(agent)가 환경(environment)과 상호작용하며, 환경이 주는 수치 보상(reward) 신호를 최대화하는 행동(action)을 배우는</strong> 문제다.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<p>매 시점 <span class="math inline">t</span>에서: 에이전트는 상태 <span class="math inline">s_t</span>를 인지하고 정책에 따라 행동 <span class="math inline">a_t</span>를 내놓는다 → 환경은 보상 <span class="math inline">r_{t+1}</span>과 다음 상태 <span class="math inline">s_{t+1}</span>을 돌려준다. 이 루프가 반복된다.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="'강화(reinforcement)'라는 이름의 유래">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>’강화(reinforcement)’라는 이름의 유래
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>상호작용을 반복하면서 <strong>상태–행동의 관계가 점점 또렷해진다(불확실성↓, 확신↑)</strong>. 즉 학습이 진행될수록 에이전트의 행동 선택이 <em>강화(reinforced)</em> 되어 높은 확신으로 수렴한다. 그래서 “reinforcement” learning이다.</p>
+</div>
+</div>
+<p>지도/비지도/준지도/강화학습은 <strong>인간이 제공하는 정보량</strong>으로 구분된다. RL은 (비지도를 제외하면) 인간 감독이 가장 적은 축에 속한다 — 정답 행동을 일일이 주지 않고 지연된 보상만으로 배우기 때문이다.</p>
+</section>
+<section id="sec-four-elements" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="sec-four-elements"><span class="header-section-number">3.2</span> RL의 네 가지 요소</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>요소</th>
+<th>정의</th>
+<th>비고</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>정책 <span class="math inline">\pi</span></strong></td>
+<td>인지한 상태 → 취할 행동의 매핑</td>
+<td>학습 대상(또는 규칙). <span class="math inline">\pi(a\mid s)</span> 또는 <span class="math inline">a=\pi(s)</span></td>
+</tr>
+<tr class="even">
+<td><strong>보상 <span class="math inline">r</span></strong></td>
+<td>매 스텝 환경이 보내는 단일 스칼라</td>
+<td>즉각적 신호</td>
+</tr>
+<tr class="odd">
+<td><strong>가치 함수 <span class="math inline">v,q</span></strong></td>
+<td>정책 하에서 <em>미래 누적 보상의 기댓값</em></td>
+<td>가장 정교한 구성요소</td>
+</tr>
+<tr class="even">
+<td><strong>모델 (선택)</strong></td>
+<td>환경의 거동을 모사</td>
+<td>있으면 <em>model-based</em>, 없으면 <em>model-free</em></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-important callout-titled" title="보상 vs 가치 — 혼동 금지">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>보상 vs 가치 — 혼동 금지
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>보상</strong>은 <em>지금 이 순간</em>의 좋고 나쁨(근시안적).</li>
+<li><strong>가치</strong>는 <em>그 상태에서 시작해 미래까지 누적</em>될 보상의 기댓값(장기적). 체스에서 당장의 기물 이득(보상)과 그 수가 만드는 장기 형세(가치)의 차이를 떠올리면 된다.</li>
+</ul>
+</div>
+</div>
+<p><strong>모델과 world model.</strong> 환경 모델은 “가상의 세계”다. 이를 영상 생성 문제로 보면, 방 안을 둘러볼 때 보이는 장면을 <em>생성</em>하는 비디오 생성 모델이 곧 <em>world model</em>의 한 형태가 된다. world model은 그보다 더 추상화된 상위 개념으로, 그 위에서 에이전트를 학습시킬 수 있다.</p>
+</section>
+<section id="sec-history" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="sec-history"><span class="header-section-number">3.3</span> RL의 역사 = 최적 제어의 역사</h2>
+<p><strong>직접 답:</strong> RL은 <strong>최적 제어(optimal control)</strong> 에서 왔다. 시간에 따른 동역학계의 거동 척도를 최소/최대화하는 제어기를 설계하는 문제다.</p>
+<ul>
+<li><strong>Richard Bellman</strong>: 동역학계의 <em>상태(state)</em> 와 <em>가치 함수(= 최적 리턴 함수)</em> 개념 도입 → <strong>Bellman 방정식</strong>. 해법은 <strong>동적 계획법(dynamic programming)</strong>.</li>
+<li>이 최적 제어 문제의 <strong>이산·확률(stochastic) 버전</strong>이 바로 <strong>마르코프 결정 과정(MDP)</strong> 이다. 실세계는 연속·확률적이지만, 컴퓨터에서는 이산화하고 확률성을 명시적으로 다룬다.</li>
+</ul>
+</section>
+<section id="sec-mdp" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="sec-mdp"><span class="header-section-number">3.4</span> (유한) 마르코프 결정 과정 (MDP)</h2>
+<p>시점 <span class="math inline">t \in \{0,1,2,\dots\}</span>, 상태 <span class="math inline">s \in \mathcal{S}</span>, 행동 <span class="math inline">a \in \mathcal{A}(s)</span>, 보상 <span class="math inline">r \in \mathcal{R}</span>. 환경의 동역학은 하나의 결합 확률로 완전히 기술된다.</p>
+<p><span class="math display">
+p(s', r \mid s, a) = \Pr\!\big(S_{t+1}=s',\, R_{t+1}=r \,\big|\, S_t=s,\, A_t=a\big)
+</span></p>
+<div class="callout callout-style-default callout-note callout-titled" title="마르코프 성질(Markov property)">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>마르코프 성질(Markov property)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>다음 상태와 보상이 <strong>오직 현재 상태와 행동에만</strong> 의존하고 과거 전체 이력에는 의존하지 않는다. 이 <em>무기억성(memorylessness)</em> 덕분에 문제가 다룰 만해지며, 그래서 이름이 “Markov” decision process다.</p>
+</div>
+</div>
+</section>
+<section id="sec-return" class="level2" data-number="3.5">
+<h2 data-number="3.5" class="anchored" data-anchor-id="sec-return"><span class="header-section-number">3.5</span> 에피소드, 리턴, 할인</h2>
+<p><strong>에피소드 = 데이터 포인트.</strong> 지도학습에서 (이미지, 레이블)이나 (이전 토큰, 다음 토큰)이 한 데이터 포인트이듯, RL에서는 시간에 따른 <em>rollout</em> 한 토막이 하나의 데이터 포인트다. 시점 <span class="math inline">1</span>부터 <span class="math inline">T</span>까지의 보상 열 <span class="math inline">(R_1, R_2, \dots, R_T)</span>.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 64%">
+<col style="width: 35%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>과제 유형</th>
+<th>정의</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>에피소드형(episodic)</strong></td>
+<td>상호작용이 자연스럽게 <em>분리된 에피소드들</em>로 나뉨 (예: 게임 한 판)</td>
+</tr>
+<tr class="even">
+<td><strong>연속형(continuing)</strong></td>
+<td>자연스러운 분리가 없어 <em>전체가 한 덩어리</em> (예: 끝없는 제어)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>할인 리턴(discounted return).</strong> 미래 보상을 할인율 <span class="math inline">\gamma \in [0,1]</span>로 가중해 합산한다.</p>
+<p><span class="math display">
+G_t = \sum_{k=t+1}^{T} \gamma^{\,k-t-1} R_k = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots = R_{t+1} + \gamma\, G_{t+1}
+</span></p>
+<div class="callout callout-style-default callout-tip callout-titled" title="할인율 γ가 하는 두 가지 일">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>할인율 γ가 하는 두 가지 일
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><strong>수렴 보장</strong>: <span class="math inline">\gamma&lt;1</span>이면 무한 합이 발산하지 않고 유한값으로 수렴.</li>
+<li><strong>미래 불신(time preference)</strong>: 먼 미래 보상일수록 덜 신뢰 → 지수적으로 가중치 감소. 마지막 등식 <span class="math inline">G_t = R_{t+1} + \gamma G_{t+1}</span>의 <strong>재귀 구조</strong>가 Bellman 방정식의 씨앗이다.</li>
+</ol>
+</div>
+</div>
+<p><strong>목표.</strong></p>
+<p><span class="math display">
+\max_{\pi}\; \mathbb{E}_{\pi}\!\left[G_t\right]
+</span></p>
+<p>정책 <span class="math inline">\pi</span>를 바꿔가며 기대 리턴을 최대화한다. CS적으로는 정책 공간에 대한 <em>탐색(search)</em> 문제.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="작은 유한 MDP 예시">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>작은 유한 MDP 예시
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>3개 상태에 균등 초기분포 <span class="math inline">p_0(s)=\tfrac{1}{3}</span>, 균등(랜덤) 정책 <span class="math inline">\pi(a\mid s)=\tfrac{1}{2}</span>(위/아래)를 두면, 정책·초기분포·전이확률이 모두 <em>고정</em>되어 있어도 매 실행마다 다른 궤적(trajectory)이 <em>확률적으로</em> 굴러간다. 이 한 궤적이 한 에피소드(데이터 포인트)이며, 여기서는 아직 <em>아무것도 학습하지 않는다</em> — 단지 MDP가 어떻게 rollout 되는지를 보여줄 뿐이다. <a href="#sec-appendix" class="quarto-xref">섹션&nbsp;4</a> 에서 직접 시뮬레이션한다.</p>
+</div>
+</div>
+</section>
+<section id="sec-value-fn" class="level2" data-number="3.6">
+<h2 data-number="3.6" class="anchored" data-anchor-id="sec-value-fn"><span class="header-section-number">3.6</span> 가치 함수와 최적 정책</h2>
+<p><strong>직접 답:</strong> 정책 <span class="math inline">\pi</span>의 가치를 두 가지로 정의한다.</p>
+<p><span class="math display">
+\underbrace{v_\pi(s) = \mathbb{E}_\pi\!\left[G_t \mid S_t=s\right]}_{\text{상태 가치 함수(state-value)}}, \qquad
+\underbrace{q_\pi(s,a) = \mathbb{E}_\pi\!\left[G_t \mid S_t=s,\, A_t=a\right]}_{\text{행동 가치 함수(action-value)}}
+</span></p>
+<p>두 함수 모두 <em>모든 시점의 할인 리턴</em>에 대한 기댓값이라 정확히 구하기 어렵다 → 그래서 <strong>근사(approximate)</strong> 한다(신경망 등).</p>
+<p><strong>최적 정책 <span class="math inline">\pi_*</span>.</strong> 보상이 최대인 정책. 그 가치 함수는 임의의 <span class="math inline">\pi</span>보다 항상 크거나 같다.</p>
+<p><span class="math display">
+v_*(s) = \max_\pi v_\pi(s) \ge v_\pi(s),\qquad
+q_*(s,a) = \max_\pi q_\pi(s,a) \ge q_\pi(s,a)
+</span></p>
+<p><strong>최적 정책 추출.</strong> (결정적 정책이라면 <span class="math inline">a=\pi(s)</span>)</p>
+<p><span class="math display">
+\pi_*(s) = \arg\max_{a}\; q_*(s,a)
+</span></p>
+<div class="callout callout-style-default callout-important callout-titled" title="왜 v가 아니라 q로 정책을 뽑는가">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>왜 v가 아니라 q로 정책을 뽑는가
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>상태 가치 <span class="math inline">v</span>만 있으면 다음 행동을 고르기 위해 <strong>전이확률 모델 <span class="math inline">p(s'\mid s,a)</span>이 필요</strong>하다(한 스텝 내다봐야 하므로). 반면 행동 가치 <span class="math inline">q(s,a)</span>는 <em>상태와 행동을 둘 다 입력</em>으로 받으므로 모델 없이도 <span class="math inline">\arg\max_a q</span>로 바로 행동을 고를 수 있다. 그래서 <em>model-free</em> 설정에서 <span class="math inline">q</span>가 선호된다.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="보충 — d2l.ai 연결: Value Iteration과 Q-Learning">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>보충 — d2l.ai 연결: Value Iteration과 Q-Learning
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>d2l.ai의 강화학습 장(Value Iteration / Q-Learning)을 함께 보면 도움이 된다. 여기서 다루는 <strong>GPI</strong>(<a href="#sec-gpi" class="quarto-xref">섹션&nbsp;3.7</a>)는 d2l.ai의 <em>value iteration</em>과 같은 골격이며, 모델 없이 <span class="math inline">q</span>를 직접 추정·갱신하는 방식이 <em>Q-learning</em>이다. 즉 “<span class="math inline">q</span>로 정책을 뽑는다”는 본문의 논리가 Q-learning이 <em>off-policy·model-free</em> 로 동작하는 이유와 정확히 맞닿는다.</p>
+</div>
+</div>
+</section>
+<section id="sec-gpi" class="level2" data-number="3.7">
+<h2 data-number="3.7" class="anchored" data-anchor-id="sec-gpi"><span class="header-section-number">3.7</span> 정책 향상 정리와 GPI</h2>
+<p><strong>Policy Improvement (PI).</strong> 현재 정책 <span class="math inline">\pi</span>의 <span class="math inline">q_\pi</span>에 대해 탐욕적(greedy)으로 새 정책을 정의한다.</p>
+<p><span class="math display">
+\pi'(s) = \arg\max_{a}\, q_\pi(s,a)
+</span></p>
+<div class="callout callout-style-default callout-note callout-titled" title="정책 향상 정리(Policy Improvement Theorem)">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>정책 향상 정리(Policy Improvement Theorem)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math display">
+v_\pi(s) \le v_{\pi'}(s)\quad \forall s
+</span> 즉 <span class="math inline">q_\pi</span>에 대해 greedy하게 만든 새 정책은 <strong>항상 이전 정책보다 같거나 낫다</strong>. 단조 향상이 보장되므로 이를 반복하면 최적 정책으로 다가간다.</p>
+</div>
+</div>
+<p><strong>Generalized Policy Iteration (GPI).</strong> 두 과정이 서로를 끌어올리며 수렴한다.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<ul>
+<li><strong>정책 평가</strong>: <span class="math inline">\pi</span>로부터 가치 함수를 추정.</li>
+<li><strong>정책 향상</strong>: 추정 가치에 greedy → 더 나은 정책. <span class="math inline">\pi_0 \to v_{\pi_0} \to \pi_1 \to v_{\pi_1} \to \cdots</span> 를 반복하면 최적 가치·정책에 수렴(무한 반복 시).</li>
+</ul>
+</section>
+<section id="sec-bellman" class="level2" data-number="3.8">
+<h2 data-number="3.8" class="anchored" data-anchor-id="sec-bellman"><span class="header-section-number">3.8</span> Bellman 방정식</h2>
+<section id="sec-bellman-v" class="level3" data-number="3.8.1">
+<h3 data-number="3.8.1" class="anchored" data-anchor-id="sec-bellman-v"><span class="header-section-number">3.8.1</span> <span class="math inline">v_\pi</span>에 대한 Bellman 방정식</h3>
+<p>상태 가치는 행동 가치의 정책 가중 평균이고, 이는 최대 행동 가치로 상계된다.</p>
+<p><span class="math display">
+v_\pi(s) = \sum_{a \in \mathcal{A}(s)} \pi(a\mid s)\, q_\pi(s,a) \;\le\; \max_a q_\pi(s,a)
+</span></p>
+</section>
+<section id="sec-bellman-q" class="level3" data-number="3.8.2">
+<h3 data-number="3.8.2" class="anchored" data-anchor-id="sec-bellman-q"><span class="header-section-number">3.8.2</span> <span class="math inline">q_\pi</span>에 대한 Bellman 방정식</h3>
+<p>리턴의 재귀 구조 <span class="math inline">G_t = R_{t+1} + \gamma G_{t+1}</span>에서 출발한다.</p>
+<p><span class="math display">
+q_\pi(s,a) = \mathbb{E}_\pi\!\left[G_t \mid s,a\right] = \mathbb{E}_\pi\!\left[R_{t+1} + \gamma G_{t+1} \mid s,a\right]
+</span></p>
+<p>여기서 핵심 항등식 <span class="math inline">\mathbb{E}_\pi[\,v_\pi(S_{t+1}) \mid S_t=s,a\,] = \mathbb{E}_\pi[\,G_{t+1}\mid S_t=s,a\,]</span> (개별적으로는 <span class="math inline">v_\pi(S_{t+1})\ne G_{t+1}</span>이지만 <em>기댓값에서는</em> 같다)을 쓰면,</p>
+<p><span class="math display">
+q_\pi(s,a) = \mathbb{E}_\pi\!\left[R_{t+1} + \gamma\, v_\pi(S_{t+1}) \mid s,a\right]
+= \sum_{s',r} p(s',r\mid s,a)\big[\,r + \gamma\, v_\pi(s')\,\big]
+</span></p>
+<p>이를 <span class="math inline">v_\pi</span> 식에 대입하면 <strong>Bellman 기대 방정식</strong>이 완성된다.</p>
+<p><span class="math display">
+\boxed{\;
+v_\pi(s) = \underbrace{\sum_{a} \pi(a\mid s)}_{\text{에이전트가 하는 일(정책)}}
+\underbrace{\sum_{s',r} p(s',r\mid s,a)}_{\text{환경의 반응(전이·보상 모델)}}
+\big[\,\underbrace{r + \gamma\, v_\pi(s')}_{\text{보상 + 미래 가치}}\,\big]
+\;}
+</span></p>
+<div class="callout callout-style-default callout-tip callout-titled" title="구조 읽기">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>구조 읽기
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>이 한 줄이 RL의 척추다 — <strong>정책</strong>(무엇을 할지)과 <strong>환경 모델</strong>(세상이 어떻게 반응할지)이 곱해지고, 각 분기마다 <strong>즉각 보상 + 할인된 미래 가치</strong>가 더해진다. 자기 자신을 재귀적으로 부르는 구조라 동적 계획법으로 풀린다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="sec-pgm" class="level2" data-number="3.9">
+<h2 data-number="3.9" class="anchored" data-anchor-id="sec-pgm"><span class="header-section-number">3.9</span> Policy Gradient Method (PGM)</h2>
+<p><strong>직접 답:</strong> PI/GPI는 가치를 추정한 뒤 greedy하게 정책을 <em>간접</em> 결정한다. 대신 <strong>정책 자체를 파라미터 <span class="math inline">\theta</span>로 직접 매개변수화</strong>해 경사 상승으로 학습하는 것이 PGM이다.</p>
+<p><span class="math display">
+\pi(a\mid s; \theta)\quad(\text{예: 신경망})
+</span></p>
+<p>성능 목적함수를 시작 상태의 상태 가치로 정의하고(<span class="math inline">\gamma=1</span> 가정),</p>
+<p><span class="math display">
+J(\theta) = v_{\pi_\theta}(s_0)
+</span></p>
+<p><strong>정책 경사 정리(Policy Gradient Theorem).</strong> <span class="math inline">\mu(s)</span>를 상태 분포라 할 때,</p>
+<p><span class="math display">
+\nabla J(\theta) \;\propto\; \sum_{s} \mu(s) \sum_{a} q_\pi(s,a)\, \nabla \pi(a\mid s,\theta)
+</span></p>
+<div class="callout callout-style-default callout-note callout-titled" title="정리의 아름다움">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>정리의 아름다움
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>우변에 <strong>상태 분포 <span class="math inline">\mu(s)</span>의 미분이 등장하지 않는다</strong>. 환경 동역학을 미분하지 않고도 정책 파라미터의 경사를 표현할 수 있다는 것이 이 정리의 핵심 — 그래서 model-free 학습이 가능하다.</p>
+</div>
+</div>
+<section id="sec-reinforce" class="level3" data-number="3.9.1">
+<h3 data-number="3.9.1" class="anchored" data-anchor-id="sec-reinforce"><span class="header-section-number">3.9.1</span> REINFORCE 알고리즘</h3>
+<p>PGM의 대표 사례. 정책 경사 정리를 기댓값 형태로 다시 쓰면,</p>
+<p><span class="math display">
+\nabla J(\theta) \propto \sum_{s} \mu(s) \sum_{a} q_\pi(s,a)\, \nabla \pi(a\mid s,\theta)
+= \mathbb{E}_\pi\!\left[ \sum_a q_\pi(s,a)\, \nabla \pi(a\mid s,\theta) \right]
+</span></p>
+<p>여기서 <strong>로그-미분(score function) 트릭</strong> <span class="math inline">\nabla_\theta \ln f = \dfrac{\nabla_\theta f}{f}</span> 을 적용하면, 표본화된 행동에 대해 <span class="math inline">q_\pi</span>를 리턴 <span class="math inline">G_t</span>로 대체한 단순한 갱신식이 나온다.</p>
+<p><span class="math display">
+\boxed{\;
+\theta_{t+1} = \theta_t + \alpha\, G_t\, \nabla \ln \pi(A_t \mid S_t, \theta_t)
+\;}
+</span></p>
+<div class="callout callout-style-default callout-tip callout-titled" title="보충 — math4ml 연결: 로그-미분(log-derivative) 트릭">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>보충 — math4ml 연결: 로그-미분(log-derivative) 트릭
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>이 갱신식의 정당화는 Garrett Thomas의 <em>Mathematics for Machine Learning</em> 노트에서 다루는 기댓값·경사 계산과 직결된다. 핵심은 다음 항등식(score function estimator)이다. <span class="math display">
+\nabla_\theta\, \mathbb{E}_{x\sim p_\theta}[f(x)] = \mathbb{E}_{x\sim p_\theta}\!\big[f(x)\,\nabla_\theta \ln p_\theta(x)\big]
+</span> <span class="math inline">p_\theta = \pi(\cdot\mid s,\theta)</span>, <span class="math inline">f = G_t</span>로 두면 정확히 REINFORCE가 된다. “확률분포에 대한 기댓값의 경사 = 그 표본에 점수(score) <span class="math inline">\nabla\ln p</span>를 가중한 기댓값”이라는 통계적 추론의 표준 도구다.</p>
+</div>
+</div>
+<p>REINFORCE 절차 개요:</p>
+<pre><code>사전 지정: 함수형 π(a|s,θ), 초기 θ, 스텝 크기 α
+For m = 1, …, M:
+    궤적 표본: s_0, a_0, r_1, …, a_{T-1}, r_T
+    For t = 0, …, T-1:
+        G_t ← (할인) 리턴 계산
+        θ ← θ + α · G_t · ∇ln π(a_t | s_t, θ)   # 리턴이 클수록 그 행동을 더 강화</code></pre>
+</section>
+<section id="sec-policy-vs-value" class="level3" data-number="3.9.2">
+<h3 data-number="3.9.2" class="anchored" data-anchor-id="sec-policy-vs-value"><span class="header-section-number">3.9.2</span> 정책 기반 vs 가치 기반</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>가치 기반 (PI/GPI)</th>
+<th>정책 기반 (PGM)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>학습 대상</td>
+<td>가치 함수 <span class="math inline">q</span></td>
+<td>정책 <span class="math inline">\pi_\theta</span> 직접</td>
+</tr>
+<tr class="even">
+<td>정책 도출</td>
+<td><span class="math inline">\arg\max_a q</span> (greedy)</td>
+<td>파라미터에 내장</td>
+</tr>
+<tr class="odd">
+<td>행동 공간</td>
+<td>이산에 유리</td>
+<td>연속·확률적에 유리</td>
+</tr>
+<tr class="even">
+<td>업데이트</td>
+<td>DP/부트스트랩</td>
+<td>확률적 경사 상승</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="sec-ppo" class="level2" data-number="3.10">
+<h2 data-number="3.10" class="anchored" data-anchor-id="sec-ppo"><span class="header-section-number">3.10</span> PPO와 현대 LLM으로의 연결</h2>
+<p><strong>직접 답:</strong> PGM의 대표적 현대 응용이 <strong>PPO(Proximal Policy Optimization, OpenAI 2017)</strong> 다. 정책 업데이트의 <em>안정성</em>을 유지하면서(과한 갱신 억제) 단순하고 견고하게 좋은 성능을 낸다.</p>
+<div class="callout callout-style-default callout-important callout-titled" title="왜 시험에서 중요한가">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>왜 시험에서 중요한가
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>PPO는 RLHF의 엔진</strong>이다 — GPT → InstructGPT → ChatGPT 정렬에 쓰였다. 즉 <a href="#sec-rlaif" class="quarto-xref">섹션&nbsp;2.3</a> 의 RLHF/RLAIF, <a href="#sec-vla" class="quarto-xref">섹션&nbsp;2.5</a> 의 VLA 정책 학습이 모두 이 RL 골격 위에 서 있다. RL은 별개 단원이 아니라 <em>현대 거대 모델의 핵심 학습 메커니즘</em>이라는 점을 답안에 명시하면 인과 사슬이 완성된다.</p>
+</div>
+</div>
+<p><strong>전체 인과 사슬 한 줄 요약:</strong> <span class="math display">
+\text{MDP} \;\to\; \text{가치 함수}\;\to\; \text{GPI}\;\to\; \text{PGM(REINFORCE)}\;\to\; \text{PPO}\;\to\; \text{RLHF}\;\to\; \text{정렬된 LLM/VLM/VLA}
+</span></p>
+</section>
+<section id="sec-wireless-rl" class="level2" data-number="3.11">
+<h2 data-number="3.11" class="anchored" data-anchor-id="sec-wireless-rl"><span class="header-section-number">3.11</span> 무선통신 관점의 비유 (Part II)</h2>
+<div class="callout callout-style-default callout-tip callout-titled" title="신호처리·통신 직관으로 다시 읽기">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>신호처리·통신 직관으로 다시 읽기
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>에이전트–환경 폐루프</strong> ↔︎ <em>피드백 제어 시스템</em>: 송신(행동) → 채널(환경) → 수신 피드백(보상·상태) → 적응. RL은 본질적으로 폐루프 적응 제어다(실제로 최적 제어가 뿌리).</li>
+<li><strong>할인 리턴 <span class="math inline">G_t = R_{t+1}+\gamma G_{t+1}</span></strong> ↔︎ <em>지수 가중 이동평균(EWMA)</em>: 할인율 <span class="math inline">\gamma</span>는 채널 추정에서의 <em>망각 계수(forgetting factor)</em> 와 같은 역할 — 최근 정보에 더 큰 가중치.</li>
+<li><strong>가치 함수 <span class="math inline">v_\pi(s)</span></strong> ↔︎ <em>기대 잔여 SNR / cost-to-go</em>: 현재 상태에서 시작해 미래에 얻을 누적 이득의 기댓값. 최적 제어의 cost-to-go와 동형.</li>
+<li><strong>Bellman 재귀</strong> ↔︎ <em>RLS/Kalman 류 재귀 추정</em>: 현재 추정을 “관측 + 할인된 미래 추정”으로 갱신하는 구조가 재귀 최소제곱·칼만 필터의 예측–보정 사이클과 닮았다.</li>
+<li><strong>REINFORCE 경사 상승</strong> ↔︎ <em>LMS 적응 필터</em>: <span class="math inline">\theta \leftarrow \theta + \alpha\,(\text{오차·점수})</span> 형태의 확률적 경사 갱신은 LMS 계열 적응 알고리즘과 같은 골격(<span class="math inline">\alpha</span> = 스텝 크기 = 적응 속도/안정성 트레이드오프).</li>
+<li><strong>마르코프 성질</strong> ↔︎ <em>무기억(memoryless) 채널</em>: 다음 상태가 현재에만 의존 = 채널 상태가 과거 이력에 무관한 무기억 모델.</li>
+</ul>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="sec-appendix" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> 부록 — Python/NumPy 실습</h1>
+<p>아래 코드는 본문 개념을 수치로 검증한다. 모두 표준 라이브러리 + NumPy로 동작한다.</p>
+<section id="sec-app-return" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="sec-app-return"><span class="header-section-number">4.1</span> A. 할인 리턴 계산과 재귀 항등식 검증</h2>
+<div id="discounted-return" class="cell" data-execution_count="1">
+<details open="" class="code-fold">
+<summary>코드</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> discounted_return(rewards, gamma):</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""G_t 를 t=0..T-1 모두 계산 (역방향 재귀)."""</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    G <span class="op">=</span> np.zeros(<span class="bu">len</span>(rewards))</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    running <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> t <span class="kw">in</span> <span class="bu">reversed</span>(<span class="bu">range</span>(<span class="bu">len</span>(rewards))):</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        running <span class="op">=</span> rewards[t] <span class="op">+</span> gamma <span class="op">*</span> running   <span class="co"># G_t = r_{t+1} + gamma * G_{t+1}</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        G[t] <span class="op">=</span> running</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> G</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>rewards <span class="op">=</span> np.array([<span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>])   <span class="co"># 각 스텝 보상</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>gamma <span class="op">=</span> <span class="fl">0.9</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>G <span class="op">=</span> discounted_return(rewards, gamma)</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"G_t ="</span>, np.<span class="bu">round</span>(G, <span class="dv">4</span>))</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co"># 재귀 항등식 G_t = r_{t+1} + gamma * G_{t+1} 검증</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> np.allclose(G[:<span class="op">-</span><span class="dv">1</span>], rewards[:<span class="op">-</span><span class="dv">1</span>] <span class="op">+</span> gamma <span class="op">*</span> G[<span class="dv">1</span>:])</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"재귀 항등식 G_t = r + gamma*G_{t+1} 성립"</span>)</span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="sec-app-mdp" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="sec-app-mdp"><span class="header-section-number">4.2</span> B. 작은 유한 MDP에서 정책 평가 (Bellman 기대 방정식)</h2>
+<p>선형계 <span class="math inline">v_\pi = R_\pi + \gamma P_\pi v_\pi</span> 를 직접 풀어 <a href="#sec-bellman" class="quarto-xref">섹션&nbsp;3.8</a> 의 Bellman 방정식을 확인한다.</p>
+<div id="policy-evaluation" class="cell" data-execution_count="2">
+<details open="" class="code-fold">
+<summary>코드</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 상태 0,1,2 (2가 종결 상태). 균등 정책 하의 전이행렬 P와 기대보상 R.</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>P <span class="op">=</span> np.array([</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    [<span class="fl">0.0</span>, <span class="fl">0.5</span>, <span class="fl">0.5</span>],</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    [<span class="fl">0.5</span>, <span class="fl">0.0</span>, <span class="fl">0.5</span>],</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">1.0</span>],   <span class="co"># 흡수 상태</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>])</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>R <span class="op">=</span> np.array([<span class="fl">0.0</span>, <span class="fl">1.0</span>, <span class="fl">0.0</span>])   <span class="co"># 상태별 기대 즉시 보상</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>gamma <span class="op">=</span> <span class="fl">0.9</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="co"># v = R + gamma * P v  =&gt;  (I - gamma P) v = R</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>I <span class="op">=</span> np.eye(<span class="dv">3</span>)</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>v <span class="op">=</span> np.linalg.solve(I <span class="op">-</span> gamma <span class="op">*</span> P, R)</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"정책 평가 v_pi ="</span>, np.<span class="bu">round</span>(v, <span class="dv">4</span>))</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="co"># 반복적 정책 평가(부트스트랩)로도 같은 값에 수렴하는지 확인</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>v_iter <span class="op">=</span> np.zeros(<span class="dv">3</span>)</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">500</span>):</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    v_iter <span class="op">=</span> R <span class="op">+</span> gamma <span class="op">*</span> P <span class="op">@</span> v_iter</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"반복 평가     v_pi ="</span>, np.<span class="bu">round</span>(v_iter, <span class="dv">4</span>))</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> np.allclose(v, v_iter, atol<span class="op">=</span><span class="fl">1e-6</span>)</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"닫힌해와 반복해 일치 → Bellman 기대 방정식 검증 완료"</span>)</span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="sec-app-reinforce" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="sec-app-reinforce"><span class="header-section-number">4.3</span> C. REINFORCE의 로그-미분 추정량 검증</h2>
+<p><a href="#sec-reinforce" class="quarto-xref">섹션&nbsp;3.9.1</a> 의 핵심 항등식 <span class="math inline">\nabla_\theta \mathbb{E}[f] = \mathbb{E}[f\,\nabla_\theta \ln p_\theta]</span> 을 2-행동 softmax 정책에서 몬테카를로로 확인한다.</p>
+<div id="score-function" class="cell" data-execution_count="3">
+<details open="" class="code-fold">
+<summary>코드</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">0</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 2-행동 softmax 정책: theta=[θ0, θ1], p_a = softmax(theta)_a</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> softmax(z):</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    z <span class="op">=</span> z <span class="op">-</span> z.<span class="bu">max</span>()</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    e <span class="op">=</span> np.exp(z)</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> e <span class="op">/</span> e.<span class="bu">sum</span>()</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>theta <span class="op">=</span> np.array([<span class="fl">0.3</span>, <span class="op">-</span><span class="fl">0.2</span>])</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>f <span class="op">=</span> np.array([<span class="fl">1.0</span>, <span class="fl">4.0</span>])   <span class="co"># 행동별 "리턴" (행동 1이 더 좋음)</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="co"># (1) 해석적 경사: ∇_θ E[f] = ∇_θ Σ_a p_a f_a</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> softmax(theta)</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="co"># softmax 야코비안: dp_i/dθ_j = p_i (δ_ij - p_j)</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>J <span class="op">=</span> np.diag(p) <span class="op">-</span> np.outer(p, p)</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>grad_analytic <span class="op">=</span> J <span class="op">@</span> f</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"해석적 ∇E[f]      ="</span>, np.<span class="bu">round</span>(grad_analytic, <span class="dv">5</span>))</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="co"># (2) score-function(REINFORCE) 추정량: E[f * ∇ln p_a]</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="dv">200_000</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>samples <span class="op">=</span> rng.choice(<span class="dv">2</span>, size<span class="op">=</span>N, p<span class="op">=</span>p)</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="co"># ∇_θ ln p_a = e_a - p   (softmax의 score)</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>grad_mc <span class="op">=</span> np.zeros(<span class="dv">2</span>)</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> a <span class="kw">in</span> samples:</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    score <span class="op">=</span> <span class="op">-</span>p.copy()</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>    score[a] <span class="op">+=</span> <span class="fl">1.0</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    grad_mc <span class="op">+=</span> f[a] <span class="op">*</span> score</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>grad_mc <span class="op">/=</span> N</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"REINFORCE 추정 ∇E[f] ="</span>, np.<span class="bu">round</span>(grad_mc, <span class="dv">5</span>))</span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"두 경사 차이 norm    ="</span>, np.<span class="bu">round</span>(np.linalg.norm(grad_analytic <span class="op">-</span> grad_mc), <span class="dv">4</span>))</span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p>두 경사가 일치하면, “확률분포에 대한 기댓값의 경사 = 표본에 점수를 가중한 기댓값”이라는 REINFORCE의 정당화가 수치로 확인된 것이다.</p>
+</section>
+<section id="sec-app-clip" class="level2" data-number="4.4">
+<h2 data-number="4.4" class="anchored" data-anchor-id="sec-app-clip"><span class="header-section-number">4.4</span> D. CLIP 스타일 대조 유사도 (Part I 연결)</h2>
+<p><a href="#sec-clip" class="quarto-xref">섹션&nbsp;2.2</a> 의 코사인 유사도 정렬과 대칭 교차 엔트로피를 작은 합성 예시로 시연한다.</p>
+<div id="clip-contrastive" class="cell" data-execution_count="4">
+<details open="" class="code-fold">
+<summary>코드</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">1</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> l2norm(x, axis<span class="op">=-</span><span class="dv">1</span>):</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x <span class="op">/</span> (np.linalg.norm(x, axis<span class="op">=</span>axis, keepdims<span class="op">=</span><span class="va">True</span>) <span class="op">+</span> <span class="fl">1e-8</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>N, d, tau <span class="op">=</span> <span class="dv">4</span>, <span class="dv">8</span>, <span class="fl">0.07</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co"># 정답 쌍은 같은 잠재 + 약한 노이즈 → 정렬되도록</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>latent <span class="op">=</span> rng.normal(size<span class="op">=</span>(N, d))</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>img <span class="op">=</span> l2norm(latent <span class="op">+</span> <span class="fl">0.1</span> <span class="op">*</span> rng.normal(size<span class="op">=</span>(N, d)))</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>txt <span class="op">=</span> l2norm(latent <span class="op">+</span> <span class="fl">0.1</span> <span class="op">*</span> rng.normal(size<span class="op">=</span>(N, d)))</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> (img <span class="op">@</span> txt.T) <span class="op">/</span> tau        <span class="co"># 유사도 행렬 S_ij</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cross_entropy(logits, labels):</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    z <span class="op">=</span> logits <span class="op">-</span> logits.<span class="bu">max</span>(axis<span class="op">=</span><span class="dv">1</span>, keepdims<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    logp <span class="op">=</span> z <span class="op">-</span> np.log(np.exp(z).<span class="bu">sum</span>(axis<span class="op">=</span><span class="dv">1</span>, keepdims<span class="op">=</span><span class="va">True</span>))</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">-</span>logp[np.arange(<span class="bu">len</span>(labels)), labels].mean()</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>labels <span class="op">=</span> np.arange(N)</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>loss <span class="op">=</span> <span class="fl">0.5</span> <span class="op">*</span> (cross_entropy(logits, labels) <span class="op">+</span> cross_entropy(logits.T, labels))</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"대조 손실 ="</span>, <span class="bu">round</span>(<span class="bu">float</span>(loss), <span class="dv">4</span>))</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"예측 정답률(이미지→텍스트) ="</span>,</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>      <span class="bu">float</span>((logits.argmax(<span class="dv">1</span>) <span class="op">==</span> labels).mean()))</span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<hr>
+</section>
+</section>
+<section id="sec-checklist" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> 마무리 체크리스트</h1>
+<div class="callout callout-style-default callout-note callout-titled" title="시험 대비 — 인과 사슬로 답하라">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>시험 대비 — 인과 사슬로 답하라
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>VLM vs VLA</strong>: VLM은 LLM의 <em>시각 확장</em>, VLA는 VLM의 <em>물리적(행동) 확장</em>. 행동은 인과성이 더 강해 자기회귀 생성이 중요.</li>
+<li><strong>CLIP vs LLaVA</strong>: 양측 정렬(인코더 둘 다 학습) vs 한쪽 정렬(<span class="math inline">W</span>만 학습).</li>
+<li><strong>RL 4요소</strong>: 정책 · 보상 · 가치함수 · 모델(선택). <em>보상(근시안) ≠ 가치(장기)</em>.</li>
+<li><strong>Bellman</strong>: <span class="math inline">v_\pi(s)=\sum_a \pi(a|s)\sum_{s',r}p(s',r|s,a)[r+\gamma v_\pi(s')]</span> — “정책 × 환경반응 × (보상+미래가치)”.</li>
+<li><strong>왜 q로 정책을 뽑나</strong>: <span class="math inline">q</span>는 모델 없이 <span class="math inline">\arg\max_a</span>로 행동 추출 가능(model-free).</li>
+<li><strong>REINFORCE</strong>: <span class="math inline">\theta \leftarrow \theta + \alpha G_t \nabla\ln\pi(a_t|s_t,\theta)</span> — 로그-미분 트릭의 산물.</li>
+<li><strong>PPO</strong>: PGM의 안정화 버전, RLHF의 엔진 → 현대 LLM 정렬의 핵심.</li>
+</ul>
+</div>
+</div>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "복사완료!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "복사완료!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">소스 코드</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Vision–Language–Action 모델과 강화학습 입문"</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "VLM/VLA 계보, 유한 MDP, Bellman 방정식, Policy Gradient"</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-05-27</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="an">lang:</span><span class="co"> ko</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-location: left</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co">    number-depth: 3</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: true</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="co">    highlight-style: github</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: cosmo</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="co">    fig-cap-location: bottom</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="co">    html-math-method: katex</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="co">    css: |</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="co">      .callout { margin-top: 1em; margin-bottom: 1em; }</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="an">execute:</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="co">  warning: false</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="co">  message: false</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="co">  eval: false</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="fu"># 한눈에 보는 오늘의 두 갈래 {#sec-overview}</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>오늘 정리하는 내용은 서로 다른 결을 가진 두 주제다.</span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>::: {.callout-note title="핵심 한 줄 요약"}</span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**VLM → VLA**: 거대 언어 모델(LLM)을 *시각(vision)* 으로 확장하면 VLM, 여기에 *행동(action)* 출력을 더하면 VLA다. 즉 "이해"에서 "물리적 상호작용"으로 가는 사다리다.</span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**강화학습(RL) 입문**: 에이전트가 환경과 상호작용하며 *보상(reward)* 을 최대화하도록 정책을 배우는 문제. 유한 MDP → 가치 함수 → Bellman 방정식 → Policy Gradient로 이어지는 골격을 세운다.</span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>두 주제는 무관해 보이지만 한 지점에서 만난다. VLA의 정책 $\pi$는 RL이 다루는 바로 그 정책이며, 현대 LLM 정렬(RLHF)의 엔진인 PPO 역시 RL의 산물이다. 따라서 RL은 "별도 단원"이 아니라 멀티모달·생성 모델 전체를 떠받치는 학습 메커니즘이다.</span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a><span class="fu"># Part I — VLM에서 VLA로 {#sec-vlm-vla}</span></span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a><span class="fu">## 모델 계보: LLM → VLM → VLA → Omni {#sec-lineage}</span></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a>명명 규칙부터 정리하면 직관이 빨라진다.</span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 약어 <span class="pp">|</span> 펼친 이름 <span class="pp">|</span> 다루는 모달리티 <span class="pp">|</span> 출력 <span class="pp">|</span></span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|-----------|------------------|------|</span></span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **LLM** <span class="pp">|</span> Large *Language* Model <span class="pp">|</span> 텍스트 <span class="pp">|</span> 텍스트 토큰 <span class="pp">|</span></span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **VLM** <span class="pp">|</span> Vision-*Language* Model <span class="pp">|</span> 텍스트 + 이미지/비디오 <span class="pp">|</span> 텍스트 토큰 <span class="pp">|</span></span>
+<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **VLA** | Vision-Language-*Action* Model | 텍스트 + 시각 + (상태) | **행동 토큰** <span class="pp">|</span></span>
+<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Omni** | "모든 것" 모델 | 텍스트 + 시각 + **음성** + … <span class="pp">|</span> 멀티모달 <span class="pp">|</span></span>
+<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="명명에 대한 잡설(이지만 시험엔 안 나옴)"}</span>
+<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a>VLM에는 "M(model)"이 붙는데 VLA에는 안 붙는다. 이유는 단순히 *세 글자 약어*를 만들고 싶어서다. 같은 이유로 멀티모달 LLM을 종종 **MLLM**이라 부르는데, 엄밀히 따지면 멀티모달이면 더 이상 "language-only"가 아니므로 어색한 작명이다. 학계의 약어 관습은 의외로 비논리적이다.</span>
+<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
+<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a>    A[<span class="ot">"</span><span class="st">LLM&lt;br/&gt;(텍스트 이해)</span><span class="ot">"</span>] --&gt;|+시각 정렬| B[<span class="ot">"</span><span class="st">VLM&lt;br/&gt;(이미지/비디오 이해)</span><span class="ot">"</span>]</span>
+<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a>    B --&gt;|+행동 출력| C[<span class="ot">"</span><span class="st">VLA&lt;br/&gt;(물리적 상호작용)</span><span class="ot">"</span>]</span>
+<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a>    B --&gt;|+음성/기타| D[<span class="ot">"</span><span class="st">Omni 모델&lt;br/&gt;(전 모달리티)</span><span class="ot">"</span>]</span>
+<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a>    C -.-&gt;|정책 π 학습| E[<span class="ot">"</span><span class="st">강화학습(RL)</span><span class="ot">"</span>]</span>
+<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a>    style C fill:<span class="co">#ffe6cc</span></span>
+<span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a>    style E fill:<span class="co">#d5e8d4</span></span>
+<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-68"><a href="#cb6-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a><span class="fu">## 정렬(alignment)의 핵심: CLIP 복습 {#sec-clip}</span></span>
+<span id="cb6-70"><a href="#cb6-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-71"><a href="#cb6-71" aria-hidden="true" tabindex="-1"></a>VLM의 본질은 **서로 다른 모달리티의 의미(semantic)를 같은 임베딩 공간에 정렬**하는 것이다. 그 원형이 CLIP이다.</span>
+<span id="cb6-72"><a href="#cb6-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-73"><a href="#cb6-73" aria-hidden="true" tabindex="-1"></a>**직접 답:** CLIP은 텍스트 인코더와 이미지 인코더를 *각각* 학습시키되, 같은 의미를 가진 (텍스트, 이미지) 쌍의 임베딩이 서로 가까워지도록(코사인 유사도 최대화) 대조 학습(contrastive learning)한다.</span>
+<span id="cb6-74"><a href="#cb6-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-75"><a href="#cb6-75" aria-hidden="true" tabindex="-1"></a>배치 안에 $N$개의 (이미지 $I_i$, 텍스트 $T_i$) 쌍이 있을 때, 정규화된 임베딩 $\mathbf{u}_i = f_\text{img}(I_i)$, $\mathbf{v}_j = f_\text{txt}(T_j)$에 대해 유사도 행렬</span>
+<span id="cb6-76"><a href="#cb6-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-77"><a href="#cb6-77" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-78"><a href="#cb6-78" aria-hidden="true" tabindex="-1"></a>S_{ij} = \frac{\mathbf{u}_i^\top \mathbf{v}_j}{\tau}</span>
+<span id="cb6-79"><a href="#cb6-79" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-80"><a href="#cb6-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-81"><a href="#cb6-81" aria-hidden="true" tabindex="-1"></a>를 만들고, 대각선(정답 쌍)이 커지도록 행/열 방향 교차 엔트로피를 합산한다.</span>
+<span id="cb6-82"><a href="#cb6-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-83"><a href="#cb6-83" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-84"><a href="#cb6-84" aria-hidden="true" tabindex="-1"></a>\mathcal{L}_\text{CLIP} = \frac{1}{2}\Big[\underbrace{\text{CE}(\text{softmax}_j S_{ij},\, y=i)}_{\text{이미지}\to\text{텍스트}} + \underbrace{\text{CE}(\text{softmax}_i S_{ij},\, y=j)}_{\text{텍스트}\to\text{이미지}}\Big]</span>
+<span id="cb6-85"><a href="#cb6-85" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-86"><a href="#cb6-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-87"><a href="#cb6-87" aria-hidden="true" tabindex="-1"></a>::: {.callout-note title="CLIP은 '양방향' 정렬"}</span>
+<span id="cb6-88"><a href="#cb6-88" aria-hidden="true" tabindex="-1"></a>CLIP은 두 인코더를 **동시에** 처음부터 학습하므로 *양측 정렬(two-side alignment)* 이다. 뒤에 나올 LLaVA가 *한쪽 정렬(one-side alignment)* 인 것과 대비된다.</span>
+<span id="cb6-89"><a href="#cb6-89" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-90"><a href="#cb6-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-91"><a href="#cb6-91" aria-hidden="true" tabindex="-1"></a>CLIP을 확산 모델(diffusion model)과 결합하면 텍스트 프롬프트로부터 이미지/비디오를 생성하는 모델이 된다. 즉 CLIP 임베딩이 생성 모델의 조건(condition) 역할을 한다.</span>
+<span id="cb6-92"><a href="#cb6-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-93"><a href="#cb6-93" aria-hidden="true" tabindex="-1"></a><span class="fu">## RLHF에서 RLAIF로: 정렬 비용 줄이기 {#sec-rlaif}</span></span>
+<span id="cb6-94"><a href="#cb6-94" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-95"><a href="#cb6-95" aria-hidden="true" tabindex="-1"></a>**직접 답:** RLHF(인간 피드백 기반 강화학습)는 인간 평가가 비싸다는 약점이 있다. 대안으로 *다른 AI 모델*의 피드백을 보상 신호로 쓰는 것이 **RLAIF**(Reinforcement Learning from AI Feedback)다.</span>
+<span id="cb6-96"><a href="#cb6-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-97"><a href="#cb6-97" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**RLHF**: GPT-3 → (instruction fine-tuning) → InstructGPT → (RLHF) → ChatGPT. 보상이 *먼 미래*(전체 응답 품질)에 있어도 정책을 인간 선호에 맞출 수 있다는 점이 RL의 핵심.</span>
+<span id="cb6-98"><a href="#cb6-98" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**RLAIF**: 인간 대신 강력한 기존 모델(예: 다른 LLM/VLM)이 *유사(pseudo) 피드백*을 제공. **비용↓, 즉시성↑**.</span>
+<span id="cb6-99"><a href="#cb6-99" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>멀티모달로 확장하면, 문맥 인지형 보상 모델(context-aware reward model)로 비디오 질의응답 같은 과제의 정렬 품질을 끌어올릴 수 있다(VLM-RLAIF 계열).</span>
+<span id="cb6-100"><a href="#cb6-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-101"><a href="#cb6-101" aria-hidden="true" tabindex="-1"></a>::: {.callout-important title="왜 RL이 필요한가"}</span>
+<span id="cb6-102"><a href="#cb6-102" aria-hidden="true" tabindex="-1"></a>지도학습은 "정답 토큰"이 매 스텝 필요하지만, "응답 전체가 인간 선호에 부합하는가"는 *끝에 가서야* 알 수 있는 지연 보상이다. 이 지연 보상으로 학습하는 메커니즘이 정확히 RL이며, Part II의 동기가 된다.</span>
+<span id="cb6-103"><a href="#cb6-103" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-104"><a href="#cb6-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-105"><a href="#cb6-105" aria-hidden="true" tabindex="-1"></a><span class="fu">## LLaVA의 modality translator {#sec-llava}</span></span>
+<span id="cb6-106"><a href="#cb6-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-107"><a href="#cb6-107" aria-hidden="true" tabindex="-1"></a>**직접 답:** LLaVA는 CLIP처럼 두 인코더를 새로 학습하는 대신, *이미 학습된* LLM(LLaMA)은 거의 고정하고, **시각 임베딩을 언어 임베딩 공간으로 옮기는 변환기 $W$ 하나만** 학습한다.</span>
+<span id="cb6-108"><a href="#cb6-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-109"><a href="#cb6-109" aria-hidden="true" tabindex="-1"></a>시각 입력 $x$의 비전 임베딩 $z_v = f_\text{vision}(x)$에 대해</span>
+<span id="cb6-110"><a href="#cb6-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-111"><a href="#cb6-111" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-112"><a href="#cb6-112" aria-hidden="true" tabindex="-1"></a>h_v = W\, z_v</span>
+<span id="cb6-113"><a href="#cb6-113" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-114"><a href="#cb6-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-115"><a href="#cb6-115" aria-hidden="true" tabindex="-1"></a>를 통해, $h_v$가 같은 의미를 가리키는 텍스트 토큰들과 같은 잠재 공간에 놓이도록 정렬한다. 사전학습된 LLaMA의 표현 공간을 *기준점*으로 삼아 시각 정보만 끌어다 붙이는 셈이다.</span>
+<span id="cb6-116"><a href="#cb6-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-117"><a href="#cb6-117" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="pp">|</span> CLIP <span class="pp">|</span> LLaVA <span class="pp">|</span></span>
+<span id="cb6-118"><a href="#cb6-118" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|------|-------|</span></span>
+<span id="cb6-119"><a href="#cb6-119" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 정렬 방향 <span class="pp">|</span> 양측(텍스트·이미지 인코더 동시 학습) <span class="pp">|</span> 한쪽($W$만 학습, LLM은 거의 고정) <span class="pp">|</span></span>
+<span id="cb6-120"><a href="#cb6-120" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 학습 비용 <span class="pp">|</span> from scratch 수준 <span class="pp">|</span> 가벼운 어댑터 튜닝 <span class="pp">|</span></span>
+<span id="cb6-121"><a href="#cb6-121" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 기반 <span class="pp">|</span> 없음 <span class="pp">|</span> 사전학습 LLM(LLaMA) <span class="pp">|</span></span>
+<span id="cb6-122"><a href="#cb6-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-123"><a href="#cb6-123" aria-hidden="true" tabindex="-1"></a><span class="fu">## VLA: 행동을 출력하기 {#sec-vla}</span></span>
+<span id="cb6-124"><a href="#cb6-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-125"><a href="#cb6-125" aria-hidden="true" tabindex="-1"></a>**직접 답:** VLM의 출력을 언어 토큰에서 **행동 토큰(action token)** 으로 바꾸면 VLA다. 행동은 로봇 팔의 $(x,y,z)$·그리퍼 각도일 수도, 웹 에이전트의 마우스/키보드 조작일 수도 있다.</span>
+<span id="cb6-126"><a href="#cb6-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-127"><a href="#cb6-127" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning title="행동은 '다른 동물'이다 — 인과성(causality)이 더 중요"}</span>
+<span id="cb6-128"><a href="#cb6-128" aria-hidden="true" tabindex="-1"></a>언어 생성도 이전 토큰을 참조하지만, *잊어도* 큰 문제가 없는 경우가 많다. 반면 행동 시퀀스는 **앞선 행동이 다음 행동에 강하게 인과적으로 작용**한다(물리적 상태가 누적되므로). 따라서 VLA에서는 강한 자기회귀(autoregressive) 생성·인과 구조가 언어보다 훨씬 중요하다.</span>
+<span id="cb6-129"><a href="#cb6-129" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-130"><a href="#cb6-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-131"><a href="#cb6-131" aria-hidden="true" tabindex="-1"></a><span class="fu">### 대표 모델 계보 {#sec-vla-models}</span></span>
+<span id="cb6-132"><a href="#cb6-132" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-135"><a href="#cb6-135" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb6-136"><a href="#cb6-136" aria-hidden="true" tabindex="-1"></a>timeline</span>
+<span id="cb6-137"><a href="#cb6-137" aria-hidden="true" tabindex="-1"></a>    title VLA 모델의 발전</span>
+<span id="cb6-138"><a href="#cb6-138" aria-hidden="true" tabindex="-1"></a>    <span class="dv">2022</span> : Perceiver-Actor (UW) : SayCan (Google) : RT<span class="dv">-1</span> (Google)</span>
+<span id="cb6-139"><a href="#cb6-139" aria-hidden="true" tabindex="-1"></a>    <span class="dv">2023</span> : RT<span class="dv">-2</span> (Google, 더 큰 데이터)</span>
+<span id="cb6-140"><a href="#cb6-140" aria-hidden="true" tabindex="-1"></a>    <span class="dv">2024</span> : OpenVLA (Berkeley, 오픈소스) : π0 (Physical Intelligence)</span>
+<span id="cb6-141"><a href="#cb6-141" aria-hidden="true" tabindex="-1"></a>    <span class="dv">2025</span> : π0.<span class="dv">5</span> (오픈월드 일반화) : GR00T N1/N1.<span class="dv">6</span> (NVIDIA, 휴머노이드)</span>
+<span id="cb6-142"><a href="#cb6-142" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-143"><a href="#cb6-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-144"><a href="#cb6-144" aria-hidden="true" tabindex="-1"></a>**Perceiver-Actor (2022) — '최초의 VLA'로 회자**</span>
+<span id="cb6-145"><a href="#cb6-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-146"><a href="#cb6-146" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>입력: 3D voxel(시각) + 명령어(언어). 출력: 그리퍼 목표 위치 $(x,y,z)$ + 각도 → **4차원 출력**.</span>
+<span id="cb6-147"><a href="#cb6-147" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>구조: voxel encoder + language encoder → PerceiverIO transformer → voxel decoder(자기 복원으로 3D 이해 강제) → 위치/각도 디코더.</span>
+<span id="cb6-148"><a href="#cb6-148" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>사전학습된 PerceiverIO를 미세조정해 활용. (요즘은 PerceiverIO를 잘 안 쓰는 추세.)</span>
+<span id="cb6-149"><a href="#cb6-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-150"><a href="#cb6-150" aria-hidden="true" tabindex="-1"></a>**SayCan (2022) — 가치 함수로 '할 수 있는' 행동만**</span>
+<span id="cb6-151"><a href="#cb6-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-152"><a href="#cb6-152" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>문제의식: LLM은 *환경을 모른다*. 명령을 그럴듯하게 분해해도 로봇이 *물리적으로 수행 불가능*한 행동을 내놓을 수 있다.</span>
+<span id="cb6-153"><a href="#cb6-153" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>해법: 각 후보 행동에 대해 **LLM 점수(말이 되는가) × 가치 함수(affordance, 실제로 수행 가능한가)** 를 결합.</span>
+<span id="cb6-154"><a href="#cb6-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-155"><a href="#cb6-155" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-156"><a href="#cb6-156" aria-hidden="true" tabindex="-1"></a>\text{score}(a) = \underbrace{p_\text{LLM}(a\mid \text{instruction})}_{\text{Say: 말이 되는가}} \times \underbrace{V_\text{affordance}(a\mid \text{state})}_{\text{Can: 할 수 있는가}}</span>
+<span id="cb6-157"><a href="#cb6-157" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-158"><a href="#cb6-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-159"><a href="#cb6-159" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>이름 "Do As I **Can**, Not As I **Say**"가 핵심을 그대로 담고 있다. Part II의 **가치 함수**가 여기서 등장한다는 점이 중요하다.</span>
+<span id="cb6-160"><a href="#cb6-160" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-161"><a href="#cb6-161" aria-hidden="true" tabindex="-1"></a>**RT-1 (2022) / RT-2 (2023) / OpenVLA (2024)**</span>
+<span id="cb6-162"><a href="#cb6-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-163"><a href="#cb6-163" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**RT-1**: *처음부터(end-to-end, from scratch)* 학습한 최초의 VLA. EfficientNet 기반 + FiLM 조건화 + token learner + transformer. "초창기 분야에선 *빠른 것*이 곧 기여"라는 교훈의 산물.</span>
+<span id="cb6-164"><a href="#cb6-164" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**RT-2**: 구조를 단순화(LLM + 이미지 인코더)하고 데이터를 키워 언어 변형(variation)을 더 풍부하게. 더 단순한데 더 정확.</span>
+<span id="cb6-165"><a href="#cb6-165" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**OpenVLA**: RT-2의 오픈소스 경량 버전. LLaMA-2 7B를 언어 백본, 사전학습 ViT를 이미지 백본으로 사용 → 완전 from scratch는 아님.</span>
+<span id="cb6-166"><a href="#cb6-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-167"><a href="#cb6-167" aria-hidden="true" tabindex="-1"></a>**π0 / π0.5 (Physical Intelligence) — 하드웨어 일반화 지향**</span>
+<span id="cb6-168"><a href="#cb6-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-169"><a href="#cb6-169" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\pi$는 RL의 *policy*에서 온 작명. **인코딩된 행동 토큰**을 출력하고, 하드웨어별 어댑터가 이를 실제 구동으로 번역한다.</span>
+<span id="cb6-170"><a href="#cb6-170" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>목표: 하나의 행동 임베딩을 **다양한 하드웨어**(14-DoF 양팔 매니퓰레이터, 18-DoF 모바일 매니퓰레이터, 6/8-DoF 단일 팔 등)에 적용. 여러 형태의 데이터로 학습 → "하드웨어 버전의 instruction fine-tuning".</span>
+<span id="cb6-171"><a href="#cb6-171" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**π0.5**: 조작·이미지 캡셔닝·객체 탐지·QA 등 더 다양한 멀티모달 데이터로 학습 → "go to the kitchen and grab a bottle of water" 같은 *서술형 명령*을 이해. 2단계 파이프라인(사전학습 → 서브태스크 예측 후학습)으로 *out-of-the-box* 일반화를 지향.</span>
+<span id="cb6-172"><a href="#cb6-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-173"><a href="#cb6-173" aria-hidden="true" tabindex="-1"></a>**GR00T N1 / N1.6 (NVIDIA) — 휴머노이드용**</span>
+<span id="cb6-174"><a href="#cb6-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-175"><a href="#cb6-175" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>휴머노이드는 자유도가 크다. **이중 시스템(dual-system)** 구조 사용:</span>
+<span id="cb6-176"><a href="#cb6-176" aria-hidden="true" tabindex="-1"></a><span class="ss">  - </span>**System 1**: 빠른 세부 행동 토큰 생성(저수준 제어).</span>
+<span id="cb6-177"><a href="#cb6-177" aria-hidden="true" tabindex="-1"></a><span class="ss">  - </span>**System 2**: 느린 고수준 계획(장기 과제 추론).</span>
+<span id="cb6-178"><a href="#cb6-178" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>지연(latency)을 줄이고 변화하는 환경에 적응. 다수 학계와의 협업 산출물.</span>
+<span id="cb6-179"><a href="#cb6-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-180"><a href="#cb6-180" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="패턴 인식"}</span>
+<span id="cb6-181"><a href="#cb6-181" aria-hidden="true" tabindex="-1"></a>LLM/VLM/VLA의 발전은 거의 같은 레시피를 반복한다 — **(1) 사전학습 백본에 의존 → (2) end-to-end로 끌어올림 → (3) 데이터·모달리티 다양화로 일반화**. 이 패턴을 알면 새 모델이 나와도 위치를 빠르게 잡을 수 있다.</span>
+<span id="cb6-182"><a href="#cb6-182" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-183"><a href="#cb6-183" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-184"><a href="#cb6-184" aria-hidden="true" tabindex="-1"></a><span class="fu">### VLA 모델 비교표 {#sec-vla-table}</span></span>
+<span id="cb6-185"><a href="#cb6-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-186"><a href="#cb6-186" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 모델 <span class="pp">|</span> 연도/기관 <span class="pp">|</span> 학습 방식 <span class="pp">|</span> 행동 표현 <span class="pp">|</span> 특징 <span class="pp">|</span></span>
+<span id="cb6-187"><a href="#cb6-187" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|-----------|-----------|-----------|------|</span></span>
+<span id="cb6-188"><a href="#cb6-188" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Perceiver-Actor <span class="pp">|</span> 2022 UW <span class="pp">|</span> 사전학습 미세조정 <span class="pp">|</span> $(x,y,z)$+각도 <span class="pp">|</span> 최초 VLA, voxel 입력 <span class="pp">|</span></span>
+<span id="cb6-189"><a href="#cb6-189" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> SayCan <span class="pp">|</span> 2022 Google <span class="pp">|</span> LLM+가치함수 <span class="pp">|</span> 행동 후보 선택 <span class="pp">|</span> affordance grounding <span class="pp">|</span></span>
+<span id="cb6-190"><a href="#cb6-190" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> RT-1 <span class="pp">|</span> 2022 Google <span class="pp">|</span> from scratch <span class="pp">|</span> 행동 토큰 <span class="pp">|</span> 첫 end-to-end <span class="pp">|</span></span>
+<span id="cb6-191"><a href="#cb6-191" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> RT-2 <span class="pp">|</span> 2023 Google <span class="pp">|</span> 대규모 데이터 <span class="pp">|</span> 행동 토큰 <span class="pp">|</span> 구조 단순화 <span class="pp">|</span></span>
+<span id="cb6-192"><a href="#cb6-192" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> OpenVLA <span class="pp">|</span> 2024 Berkeley <span class="pp">|</span> LLaMA-2+ViT <span class="pp">|</span> 행동 토큰 <span class="pp">|</span> 오픈소스 경량 <span class="pp">|</span></span>
+<span id="cb6-193"><a href="#cb6-193" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> π0 / π0.5 <span class="pp">|</span> 2024–25 PI <span class="pp">|</span> 멀티 하드웨어 <span class="pp">|</span> 인코딩 행동 <span class="pp">|</span> 하드웨어 일반화 <span class="pp">|</span></span>
+<span id="cb6-194"><a href="#cb6-194" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> GR00T N1 <span class="pp">|</span> 2025 NVIDIA <span class="pp">|</span> dual-system <span class="pp">|</span> 행동 토큰 <span class="pp">|</span> 휴머노이드 <span class="pp">|</span></span>
+<span id="cb6-195"><a href="#cb6-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-196"><a href="#cb6-196" aria-hidden="true" tabindex="-1"></a><span class="fu">## Omni 모델과 full-duplex 상호작용 {#sec-omni}</span></span>
+<span id="cb6-197"><a href="#cb6-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-198"><a href="#cb6-198" aria-hidden="true" tabindex="-1"></a>VLM/VLA의 다음 단계는 **음성을 포함한 전 모달리티**를 다루는 *Omni 모델*이다. "omni"는 글자 그대로 "모든 것"을 다룬다는 (다소 과장된) 작명이다.</span>
+<span id="cb6-199"><a href="#cb6-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-200"><a href="#cb6-200" aria-hidden="true" tabindex="-1"></a>최근의 화두는 **full-duplex** 상호작용이다.</span>
+<span id="cb6-201"><a href="#cb6-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-202"><a href="#cb6-202" aria-hidden="true" tabindex="-1"></a>::: {.callout-note title="full-duplex가 왜 중요한가"}</span>
+<span id="cb6-203"><a href="#cb6-203" aria-hidden="true" tabindex="-1"></a>기존 음성 모델은 *반이중(half-duplex)* — 한쪽이 말하면 다른 쪽은 들어야 한다. **full-duplex**는 사람끼리 대화하듯 **말하면서 동시에 듣고 반응**할 수 있다. 실시간 입력 스트리밍 + 동시 응답이 가능해 자연스러운 상호작용에 한 발 더 다가간다. 상호작용은 VLM/VLA가 갖춰야 할 중요한 능력이므로, Omni 모델은 이 계보의 자연스러운 다음 수순이다.</span>
+<span id="cb6-204"><a href="#cb6-204" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-205"><a href="#cb6-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-206"><a href="#cb6-206" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 관점의 비유 (Part I) {#sec-wireless-vlm}</span></span>
+<span id="cb6-207"><a href="#cb6-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-208"><a href="#cb6-208" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="신호처리·통신 직관으로 다시 읽기"}</span>
+<span id="cb6-209"><a href="#cb6-209" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**CLIP의 대조 정렬** ↔ *조인트 소스 코딩 / 공통 신호공간 매핑*: 두 모달리티(이미지·텍스트)를 하나의 의미 공간에 사상하는 것은, 서로 다른 송신원의 신호를 *공통 기저(constellation)* 위에 정렬해 매칭 가능하게 만드는 것과 같다. 코사인 유사도 최대화 = *매칭 필터(matched filter)* 출력 최대화.</span>
+<span id="cb6-210"><a href="#cb6-210" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**LLaVA의 변환기 $W$** ↔ *프리코더(precoder)*: 시각 임베딩 $z_v$를 언어 공간으로 옮기는 $h_v = W z_v$는, 송신 심볼을 채널/수신 공간에 맞추는 선형 프리코딩과 형태가 동일하다.</span>
+<span id="cb6-211"><a href="#cb6-211" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**행동 토큰의 강한 인과성** ↔ *메모리 있는 채널(ISI)*: 이전 행동이 다음 행동에 영향을 주는 구조는 심볼 간 간섭(ISI)이 있는 채널과 유사 — 등화기(equalizer)처럼 과거 상태를 고려해야 한다.</span>
+<span id="cb6-212"><a href="#cb6-212" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**RLAIF의 보조 모델 피드백** ↔ *파일럿/참조 신호*: 비싼 인간 피드백 대신 기존 모델의 신호를 *참조(pilot)* 로 써서 정렬을 추정하는 구조.</span>
+<span id="cb6-213"><a href="#cb6-213" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-214"><a href="#cb6-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-215"><a href="#cb6-215" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb6-216"><a href="#cb6-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-217"><a href="#cb6-217" aria-hidden="true" tabindex="-1"></a><span class="fu"># Part II — 강화학습 입문 {#sec-rl}</span></span>
+<span id="cb6-218"><a href="#cb6-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-219"><a href="#cb6-219" aria-hidden="true" tabindex="-1"></a><span class="fu">## RL이란 무엇이며 왜 '강화'인가 {#sec-what-rl}</span></span>
+<span id="cb6-220"><a href="#cb6-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-221"><a href="#cb6-221" aria-hidden="true" tabindex="-1"></a>**직접 답:** 강화학습은 **에이전트(agent)가 환경(environment)과 상호작용하며, 환경이 주는 수치 보상(reward) 신호를 최대화하는 행동(action)을 배우는** 문제다.</span>
+<span id="cb6-222"><a href="#cb6-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-225"><a href="#cb6-225" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb6-226"><a href="#cb6-226" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
+<span id="cb6-227"><a href="#cb6-227" aria-hidden="true" tabindex="-1"></a>    A[에이전트&lt;br/&gt;Agent] --&gt;|행동 a_t| B[환경&lt;br/&gt;Environment]</span>
+<span id="cb6-228"><a href="#cb6-228" aria-hidden="true" tabindex="-1"></a>    B --&gt;|상태 s_t+<span class="dv">1</span>| A</span>
+<span id="cb6-229"><a href="#cb6-229" aria-hidden="true" tabindex="-1"></a>    B --&gt;|보상 r_t+<span class="dv">1</span>| A</span>
+<span id="cb6-230"><a href="#cb6-230" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-231"><a href="#cb6-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-232"><a href="#cb6-232" aria-hidden="true" tabindex="-1"></a>매 시점 $t$에서: 에이전트는 상태 $s_t$를 인지하고 정책에 따라 행동 $a_t$를 내놓는다 → 환경은 보상 $r_{t+1}$과 다음 상태 $s_{t+1}$을 돌려준다. 이 루프가 반복된다.</span>
+<span id="cb6-233"><a href="#cb6-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-234"><a href="#cb6-234" aria-hidden="true" tabindex="-1"></a>::: {.callout-note title="'강화(reinforcement)'라는 이름의 유래"}</span>
+<span id="cb6-235"><a href="#cb6-235" aria-hidden="true" tabindex="-1"></a>상호작용을 반복하면서 **상태–행동의 관계가 점점 또렷해진다(불확실성↓, 확신↑)**. 즉 학습이 진행될수록 에이전트의 행동 선택이 *강화(reinforced)* 되어 높은 확신으로 수렴한다. 그래서 "reinforcement" learning이다.</span>
+<span id="cb6-236"><a href="#cb6-236" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-237"><a href="#cb6-237" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-238"><a href="#cb6-238" aria-hidden="true" tabindex="-1"></a>지도/비지도/준지도/강화학습은 **인간이 제공하는 정보량**으로 구분된다. RL은 (비지도를 제외하면) 인간 감독이 가장 적은 축에 속한다 — 정답 행동을 일일이 주지 않고 지연된 보상만으로 배우기 때문이다.</span>
+<span id="cb6-239"><a href="#cb6-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-240"><a href="#cb6-240" aria-hidden="true" tabindex="-1"></a><span class="fu">## RL의 네 가지 요소 {#sec-four-elements}</span></span>
+<span id="cb6-241"><a href="#cb6-241" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-242"><a href="#cb6-242" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 요소 <span class="pp">|</span> 정의 <span class="pp">|</span> 비고 <span class="pp">|</span></span>
+<span id="cb6-243"><a href="#cb6-243" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|------|------|</span></span>
+<span id="cb6-244"><a href="#cb6-244" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **정책 $\pi$** <span class="pp">|</span> 인지한 상태 → 취할 행동의 매핑 <span class="pp">|</span> 학습 대상(또는 규칙). $\pi(a\mid s)$ 또는 $a=\pi(s)$ <span class="pp">|</span></span>
+<span id="cb6-245"><a href="#cb6-245" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **보상 $r$** <span class="pp">|</span> 매 스텝 환경이 보내는 단일 스칼라 <span class="pp">|</span> 즉각적 신호 <span class="pp">|</span></span>
+<span id="cb6-246"><a href="#cb6-246" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **가치 함수 $v,q$** <span class="pp">|</span> 정책 하에서 *미래 누적 보상의 기댓값* <span class="pp">|</span> 가장 정교한 구성요소 <span class="pp">|</span></span>
+<span id="cb6-247"><a href="#cb6-247" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **모델 (선택)** <span class="pp">|</span> 환경의 거동을 모사 <span class="pp">|</span> 있으면 *model-based*, 없으면 *model-free* <span class="pp">|</span></span>
+<span id="cb6-248"><a href="#cb6-248" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-249"><a href="#cb6-249" aria-hidden="true" tabindex="-1"></a>::: {.callout-important title="보상 vs 가치 — 혼동 금지"}</span>
+<span id="cb6-250"><a href="#cb6-250" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**보상**은 *지금 이 순간*의 좋고 나쁨(근시안적).</span>
+<span id="cb6-251"><a href="#cb6-251" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**가치**는 *그 상태에서 시작해 미래까지 누적*될 보상의 기댓값(장기적).</span>
+<span id="cb6-252"><a href="#cb6-252" aria-hidden="true" tabindex="-1"></a>체스에서 당장의 기물 이득(보상)과 그 수가 만드는 장기 형세(가치)의 차이를 떠올리면 된다.</span>
+<span id="cb6-253"><a href="#cb6-253" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-254"><a href="#cb6-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-255"><a href="#cb6-255" aria-hidden="true" tabindex="-1"></a>**모델과 world model.** 환경 모델은 "가상의 세계"다. 이를 영상 생성 문제로 보면, 방 안을 둘러볼 때 보이는 장면을 *생성*하는 비디오 생성 모델이 곧 *world model*의 한 형태가 된다. world model은 그보다 더 추상화된 상위 개념으로, 그 위에서 에이전트를 학습시킬 수 있다.</span>
+<span id="cb6-256"><a href="#cb6-256" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-257"><a href="#cb6-257" aria-hidden="true" tabindex="-1"></a><span class="fu">## RL의 역사 = 최적 제어의 역사 {#sec-history}</span></span>
+<span id="cb6-258"><a href="#cb6-258" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-259"><a href="#cb6-259" aria-hidden="true" tabindex="-1"></a>**직접 답:** RL은 **최적 제어(optimal control)** 에서 왔다. 시간에 따른 동역학계의 거동 척도를 최소/최대화하는 제어기를 설계하는 문제다.</span>
+<span id="cb6-260"><a href="#cb6-260" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-261"><a href="#cb6-261" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Richard Bellman**: 동역학계의 *상태(state)* 와 *가치 함수(= 최적 리턴 함수)* 개념 도입 → **Bellman 방정식**. 해법은 **동적 계획법(dynamic programming)**.</span>
+<span id="cb6-262"><a href="#cb6-262" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>이 최적 제어 문제의 **이산·확률(stochastic) 버전**이 바로 **마르코프 결정 과정(MDP)** 이다. 실세계는 연속·확률적이지만, 컴퓨터에서는 이산화하고 확률성을 명시적으로 다룬다.</span>
+<span id="cb6-263"><a href="#cb6-263" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-264"><a href="#cb6-264" aria-hidden="true" tabindex="-1"></a><span class="fu">## (유한) 마르코프 결정 과정 (MDP) {#sec-mdp}</span></span>
+<span id="cb6-265"><a href="#cb6-265" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-266"><a href="#cb6-266" aria-hidden="true" tabindex="-1"></a>시점 $t \in <span class="sc">\{</span>0,1,2,\dots<span class="sc">\}</span>$, 상태 $s \in \mathcal{S}$, 행동 $a \in \mathcal{A}(s)$, 보상 $r \in \mathcal{R}$. 환경의 동역학은 하나의 결합 확률로 완전히 기술된다.</span>
+<span id="cb6-267"><a href="#cb6-267" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-268"><a href="#cb6-268" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-269"><a href="#cb6-269" aria-hidden="true" tabindex="-1"></a>p(s', r \mid s, a) = \Pr<span class="sc">\!</span>\big(S_{t+1}=s',\, R_{t+1}=r \,\big|\, S_t=s,\, A_t=a\big)</span>
+<span id="cb6-270"><a href="#cb6-270" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-271"><a href="#cb6-271" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-272"><a href="#cb6-272" aria-hidden="true" tabindex="-1"></a>::: {.callout-note title="마르코프 성질(Markov property)"}</span>
+<span id="cb6-273"><a href="#cb6-273" aria-hidden="true" tabindex="-1"></a>다음 상태와 보상이 **오직 현재 상태와 행동에만** 의존하고 과거 전체 이력에는 의존하지 않는다. 이 *무기억성(memorylessness)* 덕분에 문제가 다룰 만해지며, 그래서 이름이 "Markov" decision process다.</span>
+<span id="cb6-274"><a href="#cb6-274" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-275"><a href="#cb6-275" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-276"><a href="#cb6-276" aria-hidden="true" tabindex="-1"></a><span class="fu">## 에피소드, 리턴, 할인 {#sec-return}</span></span>
+<span id="cb6-277"><a href="#cb6-277" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-278"><a href="#cb6-278" aria-hidden="true" tabindex="-1"></a>**에피소드 = 데이터 포인트.** 지도학습에서 (이미지, 레이블)이나 (이전 토큰, 다음 토큰)이 한 데이터 포인트이듯, RL에서는 시간에 따른 *rollout* 한 토막이 하나의 데이터 포인트다. 시점 $1$부터 $T$까지의 보상 열 $(R_1, R_2, \dots, R_T)$.</span>
+<span id="cb6-279"><a href="#cb6-279" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-280"><a href="#cb6-280" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 과제 유형 <span class="pp">|</span> 정의 <span class="pp">|</span></span>
+<span id="cb6-281"><a href="#cb6-281" aria-hidden="true" tabindex="-1"></a><span class="pp">|-----------|------|</span></span>
+<span id="cb6-282"><a href="#cb6-282" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **에피소드형(episodic)** <span class="pp">|</span> 상호작용이 자연스럽게 *분리된 에피소드들*로 나뉨 (예: 게임 한 판) <span class="pp">|</span></span>
+<span id="cb6-283"><a href="#cb6-283" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **연속형(continuing)** <span class="pp">|</span> 자연스러운 분리가 없어 *전체가 한 덩어리* (예: 끝없는 제어) <span class="pp">|</span></span>
+<span id="cb6-284"><a href="#cb6-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-285"><a href="#cb6-285" aria-hidden="true" tabindex="-1"></a>**할인 리턴(discounted return).** 미래 보상을 할인율 $\gamma \in <span class="co">[</span><span class="ot">0,1</span><span class="co">]</span>$로 가중해 합산한다.</span>
+<span id="cb6-286"><a href="#cb6-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-287"><a href="#cb6-287" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-288"><a href="#cb6-288" aria-hidden="true" tabindex="-1"></a>G_t = \sum_{k=t+1}^{T} \gamma^{\,k-t-1} R_k = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots = R_{t+1} + \gamma\, G_{t+1}</span>
+<span id="cb6-289"><a href="#cb6-289" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-290"><a href="#cb6-290" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-291"><a href="#cb6-291" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="할인율 γ가 하는 두 가지 일"}</span>
+<span id="cb6-292"><a href="#cb6-292" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**수렴 보장**: $\gamma&lt;1$이면 무한 합이 발산하지 않고 유한값으로 수렴.</span>
+<span id="cb6-293"><a href="#cb6-293" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**미래 불신(time preference)**: 먼 미래 보상일수록 덜 신뢰 → 지수적으로 가중치 감소.</span>
+<span id="cb6-294"><a href="#cb6-294" aria-hidden="true" tabindex="-1"></a>마지막 등식 $G_t = R_{t+1} + \gamma G_{t+1}$의 **재귀 구조**가 Bellman 방정식의 씨앗이다.</span>
+<span id="cb6-295"><a href="#cb6-295" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-296"><a href="#cb6-296" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-297"><a href="#cb6-297" aria-hidden="true" tabindex="-1"></a>**목표.**</span>
+<span id="cb6-298"><a href="#cb6-298" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-299"><a href="#cb6-299" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-300"><a href="#cb6-300" aria-hidden="true" tabindex="-1"></a>\max_{\pi}\; \mathbb{E}_{\pi}<span class="sc">\!</span>\left<span class="co">[</span><span class="ot">G_t\right</span><span class="co">]</span></span>
+<span id="cb6-301"><a href="#cb6-301" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-302"><a href="#cb6-302" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-303"><a href="#cb6-303" aria-hidden="true" tabindex="-1"></a>정책 $\pi$를 바꿔가며 기대 리턴을 최대화한다. CS적으로는 정책 공간에 대한 *탐색(search)* 문제.</span>
+<span id="cb6-304"><a href="#cb6-304" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-305"><a href="#cb6-305" aria-hidden="true" tabindex="-1"></a>::: {.callout-note title="작은 유한 MDP 예시"}</span>
+<span id="cb6-306"><a href="#cb6-306" aria-hidden="true" tabindex="-1"></a>3개 상태에 균등 초기분포 $p_0(s)=\tfrac{1}{3}$, 균등(랜덤) 정책 $\pi(a\mid s)=\tfrac{1}{2}$(위/아래)를 두면, 정책·초기분포·전이확률이 모두 *고정*되어 있어도 매 실행마다 다른 궤적(trajectory)이 *확률적으로* 굴러간다. 이 한 궤적이 한 에피소드(데이터 포인트)이며, 여기서는 아직 *아무것도 학습하지 않는다* — 단지 MDP가 어떻게 rollout 되는지를 보여줄 뿐이다. @sec-appendix 에서 직접 시뮬레이션한다.</span>
+<span id="cb6-307"><a href="#cb6-307" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-308"><a href="#cb6-308" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-309"><a href="#cb6-309" aria-hidden="true" tabindex="-1"></a><span class="fu">## 가치 함수와 최적 정책 {#sec-value-fn}</span></span>
+<span id="cb6-310"><a href="#cb6-310" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-311"><a href="#cb6-311" aria-hidden="true" tabindex="-1"></a>**직접 답:** 정책 $\pi$의 가치를 두 가지로 정의한다.</span>
+<span id="cb6-312"><a href="#cb6-312" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-313"><a href="#cb6-313" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-314"><a href="#cb6-314" aria-hidden="true" tabindex="-1"></a>\underbrace{v_\pi(s) = \mathbb{E}_\pi\!\left[G_t \mid S_t=s\right]}_{\text{상태 가치 함수(state-value)}}, \qquad</span>
+<span id="cb6-315"><a href="#cb6-315" aria-hidden="true" tabindex="-1"></a>\underbrace{q_\pi(s,a) = \mathbb{E}_\pi\!\left[G_t \mid S_t=s,\, A_t=a\right]}_{\text{행동 가치 함수(action-value)}}</span>
+<span id="cb6-316"><a href="#cb6-316" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-317"><a href="#cb6-317" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-318"><a href="#cb6-318" aria-hidden="true" tabindex="-1"></a>두 함수 모두 *모든 시점의 할인 리턴*에 대한 기댓값이라 정확히 구하기 어렵다 → 그래서 **근사(approximate)** 한다(신경망 등).</span>
+<span id="cb6-319"><a href="#cb6-319" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-320"><a href="#cb6-320" aria-hidden="true" tabindex="-1"></a>**최적 정책 $\pi_*$.** 보상이 최대인 정책. 그 가치 함수는 임의의 $\pi$보다 항상 크거나 같다.</span>
+<span id="cb6-321"><a href="#cb6-321" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-322"><a href="#cb6-322" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-323"><a href="#cb6-323" aria-hidden="true" tabindex="-1"></a>v_*(s) = \max_\pi v_\pi(s) \ge v_\pi(s),\qquad</span>
+<span id="cb6-324"><a href="#cb6-324" aria-hidden="true" tabindex="-1"></a>q_*(s,a) = \max_\pi q_\pi(s,a) \ge q_\pi(s,a)</span>
+<span id="cb6-325"><a href="#cb6-325" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-326"><a href="#cb6-326" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-327"><a href="#cb6-327" aria-hidden="true" tabindex="-1"></a>**최적 정책 추출.** (결정적 정책이라면 $a=\pi(s)$)</span>
+<span id="cb6-328"><a href="#cb6-328" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-329"><a href="#cb6-329" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-330"><a href="#cb6-330" aria-hidden="true" tabindex="-1"></a>\pi_*(s) = \arg\max_{a}\; q_*(s,a)</span>
+<span id="cb6-331"><a href="#cb6-331" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-332"><a href="#cb6-332" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-333"><a href="#cb6-333" aria-hidden="true" tabindex="-1"></a>::: {.callout-important title="왜 v가 아니라 q로 정책을 뽑는가"}</span>
+<span id="cb6-334"><a href="#cb6-334" aria-hidden="true" tabindex="-1"></a>상태 가치 $v$만 있으면 다음 행동을 고르기 위해 **전이확률 모델 $p(s'\mid s,a)$이 필요**하다(한 스텝 내다봐야 하므로). 반면 행동 가치 $q(s,a)$는 *상태와 행동을 둘 다 입력*으로 받으므로 모델 없이도 $\arg\max_a q$로 바로 행동을 고를 수 있다. 그래서 *model-free* 설정에서 $q$가 선호된다.</span>
+<span id="cb6-335"><a href="#cb6-335" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-336"><a href="#cb6-336" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-337"><a href="#cb6-337" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="보충 — d2l.ai 연결: Value Iteration과 Q-Learning"}</span>
+<span id="cb6-338"><a href="#cb6-338" aria-hidden="true" tabindex="-1"></a>d2l.ai의 강화학습 장(Value Iteration / Q-Learning)을 함께 보면 도움이 된다. 여기서 다루는 **GPI**(@sec-gpi)는 d2l.ai의 *value iteration*과 같은 골격이며, 모델 없이 $q$를 직접 추정·갱신하는 방식이 *Q-learning*이다. 즉 "$q$로 정책을 뽑는다"는 본문의 논리가 Q-learning이 *off-policy·model-free* 로 동작하는 이유와 정확히 맞닿는다.</span>
+<span id="cb6-339"><a href="#cb6-339" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-340"><a href="#cb6-340" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-341"><a href="#cb6-341" aria-hidden="true" tabindex="-1"></a><span class="fu">## 정책 향상 정리와 GPI {#sec-gpi}</span></span>
+<span id="cb6-342"><a href="#cb6-342" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-343"><a href="#cb6-343" aria-hidden="true" tabindex="-1"></a>**Policy Improvement (PI).** 현재 정책 $\pi$의 $q_\pi$에 대해 탐욕적(greedy)으로 새 정책을 정의한다.</span>
+<span id="cb6-344"><a href="#cb6-344" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-345"><a href="#cb6-345" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-346"><a href="#cb6-346" aria-hidden="true" tabindex="-1"></a>\pi'(s) = \arg\max_{a}\, q_\pi(s,a)</span>
+<span id="cb6-347"><a href="#cb6-347" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-348"><a href="#cb6-348" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-349"><a href="#cb6-349" aria-hidden="true" tabindex="-1"></a>::: {.callout-note title="정책 향상 정리(Policy Improvement Theorem)"}</span>
+<span id="cb6-350"><a href="#cb6-350" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-351"><a href="#cb6-351" aria-hidden="true" tabindex="-1"></a>v_\pi(s) \le v_{\pi'}(s)\quad \forall s</span>
+<span id="cb6-352"><a href="#cb6-352" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-353"><a href="#cb6-353" aria-hidden="true" tabindex="-1"></a>즉 $q_\pi$에 대해 greedy하게 만든 새 정책은 **항상 이전 정책보다 같거나 낫다**. 단조 향상이 보장되므로 이를 반복하면 최적 정책으로 다가간다.</span>
+<span id="cb6-354"><a href="#cb6-354" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-355"><a href="#cb6-355" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-356"><a href="#cb6-356" aria-hidden="true" tabindex="-1"></a>**Generalized Policy Iteration (GPI).** 두 과정이 서로를 끌어올리며 수렴한다.</span>
+<span id="cb6-357"><a href="#cb6-357" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-360"><a href="#cb6-360" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb6-361"><a href="#cb6-361" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
+<span id="cb6-362"><a href="#cb6-362" aria-hidden="true" tabindex="-1"></a>    P[<span class="ot">"</span><span class="st">정책 π</span><span class="ot">"</span>] --&gt;|평가&lt;br/&gt;evaluation| V[<span class="ot">"</span><span class="st">가치 함수 v_π / q_π</span><span class="ot">"</span>]</span>
+<span id="cb6-363"><a href="#cb6-363" aria-hidden="true" tabindex="-1"></a>    V --&gt;|향상&lt;br/&gt;greedy improvement| P</span>
+<span id="cb6-364"><a href="#cb6-364" aria-hidden="true" tabindex="-1"></a>    P -.-&gt;|수렴| O[<span class="ot">"</span><span class="st">π*, v*</span><span class="ot">"</span>]</span>
+<span id="cb6-365"><a href="#cb6-365" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-366"><a href="#cb6-366" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-367"><a href="#cb6-367" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**정책 평가**: $\pi$로부터 가치 함수를 추정.</span>
+<span id="cb6-368"><a href="#cb6-368" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**정책 향상**: 추정 가치에 greedy → 더 나은 정책.</span>
+<span id="cb6-369"><a href="#cb6-369" aria-hidden="true" tabindex="-1"></a>$\pi_0 \to v_{\pi_0} \to \pi_1 \to v_{\pi_1} \to \cdots$ 를 반복하면 최적 가치·정책에 수렴(무한 반복 시).</span>
+<span id="cb6-370"><a href="#cb6-370" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-371"><a href="#cb6-371" aria-hidden="true" tabindex="-1"></a><span class="fu">## Bellman 방정식 {#sec-bellman}</span></span>
+<span id="cb6-372"><a href="#cb6-372" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-373"><a href="#cb6-373" aria-hidden="true" tabindex="-1"></a><span class="fu">### $v_\pi$에 대한 Bellman 방정식 {#sec-bellman-v}</span></span>
+<span id="cb6-374"><a href="#cb6-374" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-375"><a href="#cb6-375" aria-hidden="true" tabindex="-1"></a>상태 가치는 행동 가치의 정책 가중 평균이고, 이는 최대 행동 가치로 상계된다.</span>
+<span id="cb6-376"><a href="#cb6-376" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-377"><a href="#cb6-377" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-378"><a href="#cb6-378" aria-hidden="true" tabindex="-1"></a>v_\pi(s) = \sum_{a \in \mathcal{A}(s)} \pi(a\mid s)\, q_\pi(s,a) \;\le\; \max_a q_\pi(s,a)</span>
+<span id="cb6-379"><a href="#cb6-379" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-380"><a href="#cb6-380" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-381"><a href="#cb6-381" aria-hidden="true" tabindex="-1"></a><span class="fu">### $q_\pi$에 대한 Bellman 방정식 {#sec-bellman-q}</span></span>
+<span id="cb6-382"><a href="#cb6-382" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-383"><a href="#cb6-383" aria-hidden="true" tabindex="-1"></a>리턴의 재귀 구조 $G_t = R_{t+1} + \gamma G_{t+1}$에서 출발한다.</span>
+<span id="cb6-384"><a href="#cb6-384" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-385"><a href="#cb6-385" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-386"><a href="#cb6-386" aria-hidden="true" tabindex="-1"></a>q_\pi(s,a) = \mathbb{E}_\pi\!\left[G_t \mid s,a\right] = \mathbb{E}_\pi\!\left[R_{t+1} + \gamma G_{t+1} \mid s,a\right]</span>
+<span id="cb6-387"><a href="#cb6-387" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-388"><a href="#cb6-388" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-389"><a href="#cb6-389" aria-hidden="true" tabindex="-1"></a>여기서 핵심 항등식 $\mathbb{E}_\pi[\,v_\pi(S_{t+1}) \mid S_t=s,a\,] = \mathbb{E}_\pi[\,G_{t+1}\mid S_t=s,a\,]$ (개별적으로는 $v_\pi(S_{t+1})\ne G_{t+1}$이지만 *기댓값에서는* 같다)을 쓰면,</span>
+<span id="cb6-390"><a href="#cb6-390" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-391"><a href="#cb6-391" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-392"><a href="#cb6-392" aria-hidden="true" tabindex="-1"></a>q_\pi(s,a) = \mathbb{E}_\pi\!\left[R_{t+1} + \gamma\, v_\pi(S_{t+1}) \mid s,a\right]</span>
+<span id="cb6-393"><a href="#cb6-393" aria-hidden="true" tabindex="-1"></a>= \sum_{s',r} p(s',r\mid s,a)\big<span class="co">[</span><span class="ot">\,r + \gamma\, v_\pi(s')\,\big</span><span class="co">]</span></span>
+<span id="cb6-394"><a href="#cb6-394" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-395"><a href="#cb6-395" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-396"><a href="#cb6-396" aria-hidden="true" tabindex="-1"></a>이를 $v_\pi$ 식에 대입하면 **Bellman 기대 방정식**이 완성된다.</span>
+<span id="cb6-397"><a href="#cb6-397" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-398"><a href="#cb6-398" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-399"><a href="#cb6-399" aria-hidden="true" tabindex="-1"></a>\boxed{\;</span>
+<span id="cb6-400"><a href="#cb6-400" aria-hidden="true" tabindex="-1"></a>v_\pi(s) = \underbrace{\sum_{a} \pi(a\mid s)}_{\text{에이전트가 하는 일(정책)}}</span>
+<span id="cb6-401"><a href="#cb6-401" aria-hidden="true" tabindex="-1"></a>\underbrace{\sum_{s',r} p(s',r\mid s,a)}_{\text{환경의 반응(전이·보상 모델)}}</span>
+<span id="cb6-402"><a href="#cb6-402" aria-hidden="true" tabindex="-1"></a>\big<span class="co">[</span><span class="ot">\,\underbrace{r + \gamma\, v_\pi(s')}_{\text{보상 + 미래 가치}}\,\big</span><span class="co">]</span></span>
+<span id="cb6-403"><a href="#cb6-403" aria-hidden="true" tabindex="-1"></a>\;}</span>
+<span id="cb6-404"><a href="#cb6-404" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-405"><a href="#cb6-405" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-406"><a href="#cb6-406" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="구조 읽기"}</span>
+<span id="cb6-407"><a href="#cb6-407" aria-hidden="true" tabindex="-1"></a>이 한 줄이 RL의 척추다 — **정책**(무엇을 할지)과 **환경 모델**(세상이 어떻게 반응할지)이 곱해지고, 각 분기마다 **즉각 보상 + 할인된 미래 가치**가 더해진다. 자기 자신을 재귀적으로 부르는 구조라 동적 계획법으로 풀린다.</span>
+<span id="cb6-408"><a href="#cb6-408" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-409"><a href="#cb6-409" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-410"><a href="#cb6-410" aria-hidden="true" tabindex="-1"></a><span class="fu">## Policy Gradient Method (PGM) {#sec-pgm}</span></span>
+<span id="cb6-411"><a href="#cb6-411" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-412"><a href="#cb6-412" aria-hidden="true" tabindex="-1"></a>**직접 답:** PI/GPI는 가치를 추정한 뒤 greedy하게 정책을 *간접* 결정한다. 대신 **정책 자체를 파라미터 $\theta$로 직접 매개변수화**해 경사 상승으로 학습하는 것이 PGM이다.</span>
+<span id="cb6-413"><a href="#cb6-413" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-414"><a href="#cb6-414" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-415"><a href="#cb6-415" aria-hidden="true" tabindex="-1"></a>\pi(a\mid s; \theta)\quad(\text{예: 신경망})</span>
+<span id="cb6-416"><a href="#cb6-416" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-417"><a href="#cb6-417" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-418"><a href="#cb6-418" aria-hidden="true" tabindex="-1"></a>성능 목적함수를 시작 상태의 상태 가치로 정의하고($\gamma=1$ 가정),</span>
+<span id="cb6-419"><a href="#cb6-419" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-420"><a href="#cb6-420" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-421"><a href="#cb6-421" aria-hidden="true" tabindex="-1"></a>J(\theta) = v_{\pi_\theta}(s_0)</span>
+<span id="cb6-422"><a href="#cb6-422" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-423"><a href="#cb6-423" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-424"><a href="#cb6-424" aria-hidden="true" tabindex="-1"></a>**정책 경사 정리(Policy Gradient Theorem).** $\mu(s)$를 상태 분포라 할 때,</span>
+<span id="cb6-425"><a href="#cb6-425" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-426"><a href="#cb6-426" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-427"><a href="#cb6-427" aria-hidden="true" tabindex="-1"></a>\nabla J(\theta) \;\propto\; \sum_{s} \mu(s) \sum_{a} q_\pi(s,a)\, \nabla \pi(a\mid s,\theta)</span>
+<span id="cb6-428"><a href="#cb6-428" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-429"><a href="#cb6-429" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-430"><a href="#cb6-430" aria-hidden="true" tabindex="-1"></a>::: {.callout-note title="정리의 아름다움"}</span>
+<span id="cb6-431"><a href="#cb6-431" aria-hidden="true" tabindex="-1"></a>우변에 **상태 분포 $\mu(s)$의 미분이 등장하지 않는다**. 환경 동역학을 미분하지 않고도 정책 파라미터의 경사를 표현할 수 있다는 것이 이 정리의 핵심 — 그래서 model-free 학습이 가능하다.</span>
+<span id="cb6-432"><a href="#cb6-432" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-433"><a href="#cb6-433" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-434"><a href="#cb6-434" aria-hidden="true" tabindex="-1"></a><span class="fu">### REINFORCE 알고리즘 {#sec-reinforce}</span></span>
+<span id="cb6-435"><a href="#cb6-435" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-436"><a href="#cb6-436" aria-hidden="true" tabindex="-1"></a>PGM의 대표 사례. 정책 경사 정리를 기댓값 형태로 다시 쓰면,</span>
+<span id="cb6-437"><a href="#cb6-437" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-438"><a href="#cb6-438" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-439"><a href="#cb6-439" aria-hidden="true" tabindex="-1"></a>\nabla J(\theta) \propto \sum_{s} \mu(s) \sum_{a} q_\pi(s,a)\, \nabla \pi(a\mid s,\theta)</span>
+<span id="cb6-440"><a href="#cb6-440" aria-hidden="true" tabindex="-1"></a>= \mathbb{E}_\pi\!\left[ \sum_a q_\pi(s,a)\, \nabla \pi(a\mid s,\theta) \right]</span>
+<span id="cb6-441"><a href="#cb6-441" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-442"><a href="#cb6-442" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-443"><a href="#cb6-443" aria-hidden="true" tabindex="-1"></a>여기서 **로그-미분(score function) 트릭** $\nabla_\theta \ln f = \dfrac{\nabla_\theta f}{f}$ 을 적용하면, 표본화된 행동에 대해 $q_\pi$를 리턴 $G_t$로 대체한 단순한 갱신식이 나온다.</span>
+<span id="cb6-444"><a href="#cb6-444" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-445"><a href="#cb6-445" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-446"><a href="#cb6-446" aria-hidden="true" tabindex="-1"></a>\boxed{\;</span>
+<span id="cb6-447"><a href="#cb6-447" aria-hidden="true" tabindex="-1"></a>\theta_{t+1} = \theta_t + \alpha\, G_t\, \nabla \ln \pi(A_t \mid S_t, \theta_t)</span>
+<span id="cb6-448"><a href="#cb6-448" aria-hidden="true" tabindex="-1"></a>\;}</span>
+<span id="cb6-449"><a href="#cb6-449" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-450"><a href="#cb6-450" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-451"><a href="#cb6-451" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="보충 — math4ml 연결: 로그-미분(log-derivative) 트릭"}</span>
+<span id="cb6-452"><a href="#cb6-452" aria-hidden="true" tabindex="-1"></a>이 갱신식의 정당화는 Garrett Thomas의 *Mathematics for Machine Learning* 노트에서 다루는 기댓값·경사 계산과 직결된다. 핵심은 다음 항등식(score function estimator)이다.</span>
+<span id="cb6-453"><a href="#cb6-453" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-454"><a href="#cb6-454" aria-hidden="true" tabindex="-1"></a>\nabla_\theta\, \mathbb{E}_{x\sim p_\theta}[f(x)] = \mathbb{E}_{x\sim p_\theta}\!\big[f(x)\,\nabla_\theta \ln p_\theta(x)\big]</span>
+<span id="cb6-455"><a href="#cb6-455" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-456"><a href="#cb6-456" aria-hidden="true" tabindex="-1"></a>$p_\theta = \pi(\cdot\mid s,\theta)$, $f = G_t$로 두면 정확히 REINFORCE가 된다. "확률분포에 대한 기댓값의 경사 = 그 표본에 점수(score) $\nabla\ln p$를 가중한 기댓값"이라는 통계적 추론의 표준 도구다.</span>
+<span id="cb6-457"><a href="#cb6-457" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-458"><a href="#cb6-458" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-459"><a href="#cb6-459" aria-hidden="true" tabindex="-1"></a>REINFORCE 절차 개요:</span>
+<span id="cb6-460"><a href="#cb6-460" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-461"><a href="#cb6-461" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-462"><a href="#cb6-462" aria-hidden="true" tabindex="-1"></a><span class="in">사전 지정: 함수형 π(a|s,θ), 초기 θ, 스텝 크기 α</span></span>
+<span id="cb6-463"><a href="#cb6-463" aria-hidden="true" tabindex="-1"></a><span class="in">For m = 1, …, M:</span></span>
+<span id="cb6-464"><a href="#cb6-464" aria-hidden="true" tabindex="-1"></a><span class="in">    궤적 표본: s_0, a_0, r_1, …, a_{T-1}, r_T</span></span>
+<span id="cb6-465"><a href="#cb6-465" aria-hidden="true" tabindex="-1"></a><span class="in">    For t = 0, …, T-1:</span></span>
+<span id="cb6-466"><a href="#cb6-466" aria-hidden="true" tabindex="-1"></a><span class="in">        G_t ← (할인) 리턴 계산</span></span>
+<span id="cb6-467"><a href="#cb6-467" aria-hidden="true" tabindex="-1"></a><span class="in">        θ ← θ + α · G_t · ∇ln π(a_t | s_t, θ)   # 리턴이 클수록 그 행동을 더 강화</span></span>
+<span id="cb6-468"><a href="#cb6-468" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-469"><a href="#cb6-469" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-470"><a href="#cb6-470" aria-hidden="true" tabindex="-1"></a><span class="fu">### 정책 기반 vs 가치 기반 {#sec-policy-vs-value}</span></span>
+<span id="cb6-471"><a href="#cb6-471" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-472"><a href="#cb6-472" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="pp">|</span> 가치 기반 (PI/GPI) <span class="pp">|</span> 정책 기반 (PGM) <span class="pp">|</span></span>
+<span id="cb6-473"><a href="#cb6-473" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|--------------------|------------------|</span></span>
+<span id="cb6-474"><a href="#cb6-474" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 학습 대상 <span class="pp">|</span> 가치 함수 $q$ <span class="pp">|</span> 정책 $\pi_\theta$ 직접 <span class="pp">|</span></span>
+<span id="cb6-475"><a href="#cb6-475" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 정책 도출 <span class="pp">|</span> $\arg\max_a q$ (greedy) <span class="pp">|</span> 파라미터에 내장 <span class="pp">|</span></span>
+<span id="cb6-476"><a href="#cb6-476" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 행동 공간 <span class="pp">|</span> 이산에 유리 <span class="pp">|</span> 연속·확률적에 유리 <span class="pp">|</span></span>
+<span id="cb6-477"><a href="#cb6-477" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 업데이트 <span class="pp">|</span> DP/부트스트랩 <span class="pp">|</span> 확률적 경사 상승 <span class="pp">|</span></span>
+<span id="cb6-478"><a href="#cb6-478" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-479"><a href="#cb6-479" aria-hidden="true" tabindex="-1"></a><span class="fu">## PPO와 현대 LLM으로의 연결 {#sec-ppo}</span></span>
+<span id="cb6-480"><a href="#cb6-480" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-481"><a href="#cb6-481" aria-hidden="true" tabindex="-1"></a>**직접 답:** PGM의 대표적 현대 응용이 **PPO(Proximal Policy Optimization, OpenAI 2017)** 다. 정책 업데이트의 *안정성*을 유지하면서(과한 갱신 억제) 단순하고 견고하게 좋은 성능을 낸다.</span>
+<span id="cb6-482"><a href="#cb6-482" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-483"><a href="#cb6-483" aria-hidden="true" tabindex="-1"></a>::: {.callout-important title="왜 시험에서 중요한가"}</span>
+<span id="cb6-484"><a href="#cb6-484" aria-hidden="true" tabindex="-1"></a>**PPO는 RLHF의 엔진**이다 — GPT → InstructGPT → ChatGPT 정렬에 쓰였다. 즉 @sec-rlaif 의 RLHF/RLAIF, @sec-vla 의 VLA 정책 학습이 모두 이 RL 골격 위에 서 있다. RL은 별개 단원이 아니라 *현대 거대 모델의 핵심 학습 메커니즘*이라는 점을 답안에 명시하면 인과 사슬이 완성된다.</span>
+<span id="cb6-485"><a href="#cb6-485" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-486"><a href="#cb6-486" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-487"><a href="#cb6-487" aria-hidden="true" tabindex="-1"></a>**전체 인과 사슬 한 줄 요약:**</span>
+<span id="cb6-488"><a href="#cb6-488" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-489"><a href="#cb6-489" aria-hidden="true" tabindex="-1"></a>\text{MDP} \;\to\; \text{가치 함수}\;\to\; \text{GPI}\;\to\; \text{PGM(REINFORCE)}\;\to\; \text{PPO}\;\to\; \text{RLHF}\;\to\; \text{정렬된 LLM/VLM/VLA}</span>
+<span id="cb6-490"><a href="#cb6-490" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-491"><a href="#cb6-491" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-492"><a href="#cb6-492" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 관점의 비유 (Part II) {#sec-wireless-rl}</span></span>
+<span id="cb6-493"><a href="#cb6-493" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-494"><a href="#cb6-494" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="신호처리·통신 직관으로 다시 읽기"}</span>
+<span id="cb6-495"><a href="#cb6-495" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**에이전트–환경 폐루프** ↔ *피드백 제어 시스템*: 송신(행동) → 채널(환경) → 수신 피드백(보상·상태) → 적응. RL은 본질적으로 폐루프 적응 제어다(실제로 최적 제어가 뿌리).</span>
+<span id="cb6-496"><a href="#cb6-496" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**할인 리턴 $G_t = R_{t+1}+\gamma G_{t+1}$** ↔ *지수 가중 이동평균(EWMA)*: 할인율 $\gamma$는 채널 추정에서의 *망각 계수(forgetting factor)* 와 같은 역할 — 최근 정보에 더 큰 가중치.</span>
+<span id="cb6-497"><a href="#cb6-497" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**가치 함수 $v_\pi(s)$** ↔ *기대 잔여 SNR / cost-to-go*: 현재 상태에서 시작해 미래에 얻을 누적 이득의 기댓값. 최적 제어의 cost-to-go와 동형.</span>
+<span id="cb6-498"><a href="#cb6-498" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Bellman 재귀** ↔ *RLS/Kalman 류 재귀 추정*: 현재 추정을 "관측 + 할인된 미래 추정"으로 갱신하는 구조가 재귀 최소제곱·칼만 필터의 예측–보정 사이클과 닮았다.</span>
+<span id="cb6-499"><a href="#cb6-499" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**REINFORCE 경사 상승** ↔ *LMS 적응 필터*: $\theta \leftarrow \theta + \alpha\,(\text{오차·점수})$ 형태의 확률적 경사 갱신은 LMS 계열 적응 알고리즘과 같은 골격($\alpha$ = 스텝 크기 = 적응 속도/안정성 트레이드오프).</span>
+<span id="cb6-500"><a href="#cb6-500" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**마르코프 성질** ↔ *무기억(memoryless) 채널*: 다음 상태가 현재에만 의존 = 채널 상태가 과거 이력에 무관한 무기억 모델.</span>
+<span id="cb6-501"><a href="#cb6-501" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-502"><a href="#cb6-502" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-503"><a href="#cb6-503" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb6-504"><a href="#cb6-504" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-505"><a href="#cb6-505" aria-hidden="true" tabindex="-1"></a><span class="fu"># 부록 — Python/NumPy 실습 {#sec-appendix}</span></span>
+<span id="cb6-506"><a href="#cb6-506" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-507"><a href="#cb6-507" aria-hidden="true" tabindex="-1"></a>아래 코드는 본문 개념을 수치로 검증한다. 모두 표준 라이브러리 + NumPy로 동작한다.</span>
+<span id="cb6-508"><a href="#cb6-508" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-509"><a href="#cb6-509" aria-hidden="true" tabindex="-1"></a><span class="fu">## A. 할인 리턴 계산과 재귀 항등식 검증 {#sec-app-return}</span></span>
+<span id="cb6-510"><a href="#cb6-510" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-513"><a href="#cb6-513" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb6-514"><a href="#cb6-514" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: discounted-return</span></span>
+<span id="cb6-515"><a href="#cb6-515" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-fold: show</span></span>
+<span id="cb6-516"><a href="#cb6-516" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb6-517"><a href="#cb6-517" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-518"><a href="#cb6-518" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> discounted_return(rewards, gamma):</span>
+<span id="cb6-519"><a href="#cb6-519" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""G_t 를 t=0..T-1 모두 계산 (역방향 재귀)."""</span></span>
+<span id="cb6-520"><a href="#cb6-520" aria-hidden="true" tabindex="-1"></a>    G <span class="op">=</span> np.zeros(<span class="bu">len</span>(rewards))</span>
+<span id="cb6-521"><a href="#cb6-521" aria-hidden="true" tabindex="-1"></a>    running <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb6-522"><a href="#cb6-522" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> t <span class="kw">in</span> <span class="bu">reversed</span>(<span class="bu">range</span>(<span class="bu">len</span>(rewards))):</span>
+<span id="cb6-523"><a href="#cb6-523" aria-hidden="true" tabindex="-1"></a>        running <span class="op">=</span> rewards[t] <span class="op">+</span> gamma <span class="op">*</span> running   <span class="co"># G_t = r_{t+1} + gamma * G_{t+1}</span></span>
+<span id="cb6-524"><a href="#cb6-524" aria-hidden="true" tabindex="-1"></a>        G[t] <span class="op">=</span> running</span>
+<span id="cb6-525"><a href="#cb6-525" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> G</span>
+<span id="cb6-526"><a href="#cb6-526" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-527"><a href="#cb6-527" aria-hidden="true" tabindex="-1"></a>rewards <span class="op">=</span> np.array([<span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>])   <span class="co"># 각 스텝 보상</span></span>
+<span id="cb6-528"><a href="#cb6-528" aria-hidden="true" tabindex="-1"></a>gamma <span class="op">=</span> <span class="fl">0.9</span></span>
+<span id="cb6-529"><a href="#cb6-529" aria-hidden="true" tabindex="-1"></a>G <span class="op">=</span> discounted_return(rewards, gamma)</span>
+<span id="cb6-530"><a href="#cb6-530" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"G_t ="</span>, np.<span class="bu">round</span>(G, <span class="dv">4</span>))</span>
+<span id="cb6-531"><a href="#cb6-531" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-532"><a href="#cb6-532" aria-hidden="true" tabindex="-1"></a><span class="co"># 재귀 항등식 G_t = r_{t+1} + gamma * G_{t+1} 검증</span></span>
+<span id="cb6-533"><a href="#cb6-533" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> np.allclose(G[:<span class="op">-</span><span class="dv">1</span>], rewards[:<span class="op">-</span><span class="dv">1</span>] <span class="op">+</span> gamma <span class="op">*</span> G[<span class="dv">1</span>:])</span>
+<span id="cb6-534"><a href="#cb6-534" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"재귀 항등식 G_t = r + gamma*G_{t+1} 성립"</span>)</span>
+<span id="cb6-535"><a href="#cb6-535" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-536"><a href="#cb6-536" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-537"><a href="#cb6-537" aria-hidden="true" tabindex="-1"></a><span class="fu">## B. 작은 유한 MDP에서 정책 평가 (Bellman 기대 방정식) {#sec-app-mdp}</span></span>
+<span id="cb6-538"><a href="#cb6-538" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-539"><a href="#cb6-539" aria-hidden="true" tabindex="-1"></a>선형계 $v_\pi = R_\pi + \gamma P_\pi v_\pi$ 를 직접 풀어 @sec-bellman 의 Bellman 방정식을 확인한다.</span>
+<span id="cb6-540"><a href="#cb6-540" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-543"><a href="#cb6-543" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb6-544"><a href="#cb6-544" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: policy-evaluation</span></span>
+<span id="cb6-545"><a href="#cb6-545" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-fold: show</span></span>
+<span id="cb6-546"><a href="#cb6-546" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb6-547"><a href="#cb6-547" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-548"><a href="#cb6-548" aria-hidden="true" tabindex="-1"></a><span class="co"># 상태 0,1,2 (2가 종결 상태). 균등 정책 하의 전이행렬 P와 기대보상 R.</span></span>
+<span id="cb6-549"><a href="#cb6-549" aria-hidden="true" tabindex="-1"></a>P <span class="op">=</span> np.array([</span>
+<span id="cb6-550"><a href="#cb6-550" aria-hidden="true" tabindex="-1"></a>    [<span class="fl">0.0</span>, <span class="fl">0.5</span>, <span class="fl">0.5</span>],</span>
+<span id="cb6-551"><a href="#cb6-551" aria-hidden="true" tabindex="-1"></a>    [<span class="fl">0.5</span>, <span class="fl">0.0</span>, <span class="fl">0.5</span>],</span>
+<span id="cb6-552"><a href="#cb6-552" aria-hidden="true" tabindex="-1"></a>    [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">1.0</span>],   <span class="co"># 흡수 상태</span></span>
+<span id="cb6-553"><a href="#cb6-553" aria-hidden="true" tabindex="-1"></a>])</span>
+<span id="cb6-554"><a href="#cb6-554" aria-hidden="true" tabindex="-1"></a>R <span class="op">=</span> np.array([<span class="fl">0.0</span>, <span class="fl">1.0</span>, <span class="fl">0.0</span>])   <span class="co"># 상태별 기대 즉시 보상</span></span>
+<span id="cb6-555"><a href="#cb6-555" aria-hidden="true" tabindex="-1"></a>gamma <span class="op">=</span> <span class="fl">0.9</span></span>
+<span id="cb6-556"><a href="#cb6-556" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-557"><a href="#cb6-557" aria-hidden="true" tabindex="-1"></a><span class="co"># v = R + gamma * P v  =&gt;  (I - gamma P) v = R</span></span>
+<span id="cb6-558"><a href="#cb6-558" aria-hidden="true" tabindex="-1"></a>I <span class="op">=</span> np.eye(<span class="dv">3</span>)</span>
+<span id="cb6-559"><a href="#cb6-559" aria-hidden="true" tabindex="-1"></a>v <span class="op">=</span> np.linalg.solve(I <span class="op">-</span> gamma <span class="op">*</span> P, R)</span>
+<span id="cb6-560"><a href="#cb6-560" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"정책 평가 v_pi ="</span>, np.<span class="bu">round</span>(v, <span class="dv">4</span>))</span>
+<span id="cb6-561"><a href="#cb6-561" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-562"><a href="#cb6-562" aria-hidden="true" tabindex="-1"></a><span class="co"># 반복적 정책 평가(부트스트랩)로도 같은 값에 수렴하는지 확인</span></span>
+<span id="cb6-563"><a href="#cb6-563" aria-hidden="true" tabindex="-1"></a>v_iter <span class="op">=</span> np.zeros(<span class="dv">3</span>)</span>
+<span id="cb6-564"><a href="#cb6-564" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">500</span>):</span>
+<span id="cb6-565"><a href="#cb6-565" aria-hidden="true" tabindex="-1"></a>    v_iter <span class="op">=</span> R <span class="op">+</span> gamma <span class="op">*</span> P <span class="op">@</span> v_iter</span>
+<span id="cb6-566"><a href="#cb6-566" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"반복 평가     v_pi ="</span>, np.<span class="bu">round</span>(v_iter, <span class="dv">4</span>))</span>
+<span id="cb6-567"><a href="#cb6-567" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> np.allclose(v, v_iter, atol<span class="op">=</span><span class="fl">1e-6</span>)</span>
+<span id="cb6-568"><a href="#cb6-568" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"닫힌해와 반복해 일치 → Bellman 기대 방정식 검증 완료"</span>)</span>
+<span id="cb6-569"><a href="#cb6-569" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-570"><a href="#cb6-570" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-571"><a href="#cb6-571" aria-hidden="true" tabindex="-1"></a><span class="fu">## C. REINFORCE의 로그-미분 추정량 검증 {#sec-app-reinforce}</span></span>
+<span id="cb6-572"><a href="#cb6-572" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-573"><a href="#cb6-573" aria-hidden="true" tabindex="-1"></a>@sec-reinforce 의 핵심 항등식 $\nabla_\theta \mathbb{E}<span class="co">[</span><span class="ot">f</span><span class="co">]</span> = \mathbb{E}<span class="co">[</span><span class="ot">f\,\nabla_\theta \ln p_\theta</span><span class="co">]</span>$ 을 2-행동 softmax 정책에서 몬테카를로로 확인한다.</span>
+<span id="cb6-574"><a href="#cb6-574" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-577"><a href="#cb6-577" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb6-578"><a href="#cb6-578" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: score-function</span></span>
+<span id="cb6-579"><a href="#cb6-579" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-fold: show</span></span>
+<span id="cb6-580"><a href="#cb6-580" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb6-581"><a href="#cb6-581" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">0</span>)</span>
+<span id="cb6-582"><a href="#cb6-582" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-583"><a href="#cb6-583" aria-hidden="true" tabindex="-1"></a><span class="co"># 2-행동 softmax 정책: theta=[θ0, θ1], p_a = softmax(theta)_a</span></span>
+<span id="cb6-584"><a href="#cb6-584" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> softmax(z):</span>
+<span id="cb6-585"><a href="#cb6-585" aria-hidden="true" tabindex="-1"></a>    z <span class="op">=</span> z <span class="op">-</span> z.<span class="bu">max</span>()</span>
+<span id="cb6-586"><a href="#cb6-586" aria-hidden="true" tabindex="-1"></a>    e <span class="op">=</span> np.exp(z)</span>
+<span id="cb6-587"><a href="#cb6-587" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> e <span class="op">/</span> e.<span class="bu">sum</span>()</span>
+<span id="cb6-588"><a href="#cb6-588" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-589"><a href="#cb6-589" aria-hidden="true" tabindex="-1"></a>theta <span class="op">=</span> np.array([<span class="fl">0.3</span>, <span class="op">-</span><span class="fl">0.2</span>])</span>
+<span id="cb6-590"><a href="#cb6-590" aria-hidden="true" tabindex="-1"></a>f <span class="op">=</span> np.array([<span class="fl">1.0</span>, <span class="fl">4.0</span>])   <span class="co"># 행동별 "리턴" (행동 1이 더 좋음)</span></span>
+<span id="cb6-591"><a href="#cb6-591" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-592"><a href="#cb6-592" aria-hidden="true" tabindex="-1"></a><span class="co"># (1) 해석적 경사: ∇_θ E[f] = ∇_θ Σ_a p_a f_a</span></span>
+<span id="cb6-593"><a href="#cb6-593" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> softmax(theta)</span>
+<span id="cb6-594"><a href="#cb6-594" aria-hidden="true" tabindex="-1"></a><span class="co"># softmax 야코비안: dp_i/dθ_j = p_i (δ_ij - p_j)</span></span>
+<span id="cb6-595"><a href="#cb6-595" aria-hidden="true" tabindex="-1"></a>J <span class="op">=</span> np.diag(p) <span class="op">-</span> np.outer(p, p)</span>
+<span id="cb6-596"><a href="#cb6-596" aria-hidden="true" tabindex="-1"></a>grad_analytic <span class="op">=</span> J <span class="op">@</span> f</span>
+<span id="cb6-597"><a href="#cb6-597" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"해석적 ∇E[f]      ="</span>, np.<span class="bu">round</span>(grad_analytic, <span class="dv">5</span>))</span>
+<span id="cb6-598"><a href="#cb6-598" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-599"><a href="#cb6-599" aria-hidden="true" tabindex="-1"></a><span class="co"># (2) score-function(REINFORCE) 추정량: E[f * ∇ln p_a]</span></span>
+<span id="cb6-600"><a href="#cb6-600" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="dv">200_000</span></span>
+<span id="cb6-601"><a href="#cb6-601" aria-hidden="true" tabindex="-1"></a>samples <span class="op">=</span> rng.choice(<span class="dv">2</span>, size<span class="op">=</span>N, p<span class="op">=</span>p)</span>
+<span id="cb6-602"><a href="#cb6-602" aria-hidden="true" tabindex="-1"></a><span class="co"># ∇_θ ln p_a = e_a - p   (softmax의 score)</span></span>
+<span id="cb6-603"><a href="#cb6-603" aria-hidden="true" tabindex="-1"></a>grad_mc <span class="op">=</span> np.zeros(<span class="dv">2</span>)</span>
+<span id="cb6-604"><a href="#cb6-604" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> a <span class="kw">in</span> samples:</span>
+<span id="cb6-605"><a href="#cb6-605" aria-hidden="true" tabindex="-1"></a>    score <span class="op">=</span> <span class="op">-</span>p.copy()</span>
+<span id="cb6-606"><a href="#cb6-606" aria-hidden="true" tabindex="-1"></a>    score[a] <span class="op">+=</span> <span class="fl">1.0</span></span>
+<span id="cb6-607"><a href="#cb6-607" aria-hidden="true" tabindex="-1"></a>    grad_mc <span class="op">+=</span> f[a] <span class="op">*</span> score</span>
+<span id="cb6-608"><a href="#cb6-608" aria-hidden="true" tabindex="-1"></a>grad_mc <span class="op">/=</span> N</span>
+<span id="cb6-609"><a href="#cb6-609" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"REINFORCE 추정 ∇E[f] ="</span>, np.<span class="bu">round</span>(grad_mc, <span class="dv">5</span>))</span>
+<span id="cb6-610"><a href="#cb6-610" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"두 경사 차이 norm    ="</span>, np.<span class="bu">round</span>(np.linalg.norm(grad_analytic <span class="op">-</span> grad_mc), <span class="dv">4</span>))</span>
+<span id="cb6-611"><a href="#cb6-611" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-612"><a href="#cb6-612" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-613"><a href="#cb6-613" aria-hidden="true" tabindex="-1"></a>두 경사가 일치하면, "확률분포에 대한 기댓값의 경사 = 표본에 점수를 가중한 기댓값"이라는 REINFORCE의 정당화가 수치로 확인된 것이다.</span>
+<span id="cb6-614"><a href="#cb6-614" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-615"><a href="#cb6-615" aria-hidden="true" tabindex="-1"></a><span class="fu">## D. CLIP 스타일 대조 유사도 (Part I 연결) {#sec-app-clip}</span></span>
+<span id="cb6-616"><a href="#cb6-616" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-617"><a href="#cb6-617" aria-hidden="true" tabindex="-1"></a>@sec-clip 의 코사인 유사도 정렬과 대칭 교차 엔트로피를 작은 합성 예시로 시연한다.</span>
+<span id="cb6-618"><a href="#cb6-618" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-621"><a href="#cb6-621" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb6-622"><a href="#cb6-622" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: clip-contrastive</span></span>
+<span id="cb6-623"><a href="#cb6-623" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-fold: show</span></span>
+<span id="cb6-624"><a href="#cb6-624" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb6-625"><a href="#cb6-625" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">1</span>)</span>
+<span id="cb6-626"><a href="#cb6-626" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-627"><a href="#cb6-627" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> l2norm(x, axis<span class="op">=-</span><span class="dv">1</span>):</span>
+<span id="cb6-628"><a href="#cb6-628" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x <span class="op">/</span> (np.linalg.norm(x, axis<span class="op">=</span>axis, keepdims<span class="op">=</span><span class="va">True</span>) <span class="op">+</span> <span class="fl">1e-8</span>)</span>
+<span id="cb6-629"><a href="#cb6-629" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-630"><a href="#cb6-630" aria-hidden="true" tabindex="-1"></a>N, d, tau <span class="op">=</span> <span class="dv">4</span>, <span class="dv">8</span>, <span class="fl">0.07</span></span>
+<span id="cb6-631"><a href="#cb6-631" aria-hidden="true" tabindex="-1"></a><span class="co"># 정답 쌍은 같은 잠재 + 약한 노이즈 → 정렬되도록</span></span>
+<span id="cb6-632"><a href="#cb6-632" aria-hidden="true" tabindex="-1"></a>latent <span class="op">=</span> rng.normal(size<span class="op">=</span>(N, d))</span>
+<span id="cb6-633"><a href="#cb6-633" aria-hidden="true" tabindex="-1"></a>img <span class="op">=</span> l2norm(latent <span class="op">+</span> <span class="fl">0.1</span> <span class="op">*</span> rng.normal(size<span class="op">=</span>(N, d)))</span>
+<span id="cb6-634"><a href="#cb6-634" aria-hidden="true" tabindex="-1"></a>txt <span class="op">=</span> l2norm(latent <span class="op">+</span> <span class="fl">0.1</span> <span class="op">*</span> rng.normal(size<span class="op">=</span>(N, d)))</span>
+<span id="cb6-635"><a href="#cb6-635" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-636"><a href="#cb6-636" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> (img <span class="op">@</span> txt.T) <span class="op">/</span> tau        <span class="co"># 유사도 행렬 S_ij</span></span>
+<span id="cb6-637"><a href="#cb6-637" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cross_entropy(logits, labels):</span>
+<span id="cb6-638"><a href="#cb6-638" aria-hidden="true" tabindex="-1"></a>    z <span class="op">=</span> logits <span class="op">-</span> logits.<span class="bu">max</span>(axis<span class="op">=</span><span class="dv">1</span>, keepdims<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb6-639"><a href="#cb6-639" aria-hidden="true" tabindex="-1"></a>    logp <span class="op">=</span> z <span class="op">-</span> np.log(np.exp(z).<span class="bu">sum</span>(axis<span class="op">=</span><span class="dv">1</span>, keepdims<span class="op">=</span><span class="va">True</span>))</span>
+<span id="cb6-640"><a href="#cb6-640" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">-</span>logp[np.arange(<span class="bu">len</span>(labels)), labels].mean()</span>
+<span id="cb6-641"><a href="#cb6-641" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-642"><a href="#cb6-642" aria-hidden="true" tabindex="-1"></a>labels <span class="op">=</span> np.arange(N)</span>
+<span id="cb6-643"><a href="#cb6-643" aria-hidden="true" tabindex="-1"></a>loss <span class="op">=</span> <span class="fl">0.5</span> <span class="op">*</span> (cross_entropy(logits, labels) <span class="op">+</span> cross_entropy(logits.T, labels))</span>
+<span id="cb6-644"><a href="#cb6-644" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"대조 손실 ="</span>, <span class="bu">round</span>(<span class="bu">float</span>(loss), <span class="dv">4</span>))</span>
+<span id="cb6-645"><a href="#cb6-645" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"예측 정답률(이미지→텍스트) ="</span>,</span>
+<span id="cb6-646"><a href="#cb6-646" aria-hidden="true" tabindex="-1"></a>      <span class="bu">float</span>((logits.argmax(<span class="dv">1</span>) <span class="op">==</span> labels).mean()))</span>
+<span id="cb6-647"><a href="#cb6-647" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-648"><a href="#cb6-648" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-649"><a href="#cb6-649" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb6-650"><a href="#cb6-650" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-651"><a href="#cb6-651" aria-hidden="true" tabindex="-1"></a><span class="fu"># 마무리 체크리스트 {#sec-checklist}</span></span>
+<span id="cb6-652"><a href="#cb6-652" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-653"><a href="#cb6-653" aria-hidden="true" tabindex="-1"></a>::: {.callout-note title="시험 대비 — 인과 사슬로 답하라"}</span>
+<span id="cb6-654"><a href="#cb6-654" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**VLM vs VLA**: VLM은 LLM의 *시각 확장*, VLA는 VLM의 *물리적(행동) 확장*. 행동은 인과성이 더 강해 자기회귀 생성이 중요.</span>
+<span id="cb6-655"><a href="#cb6-655" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**CLIP vs LLaVA**: 양측 정렬(인코더 둘 다 학습) vs 한쪽 정렬($W$만 학습).</span>
+<span id="cb6-656"><a href="#cb6-656" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**RL 4요소**: 정책 · 보상 · 가치함수 · 모델(선택). *보상(근시안) ≠ 가치(장기)*.</span>
+<span id="cb6-657"><a href="#cb6-657" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Bellman**: $v_\pi(s)=\sum_a \pi(a|s)\sum_{s',r}p(s',r|s,a)[r+\gamma v_\pi(s')]$ — "정책 × 환경반응 × (보상+미래가치)".</span>
+<span id="cb6-658"><a href="#cb6-658" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**왜 q로 정책을 뽑나**: $q$는 모델 없이 $\arg\max_a$로 행동 추출 가능(model-free).</span>
+<span id="cb6-659"><a href="#cb6-659" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**REINFORCE**: $\theta \leftarrow \theta + \alpha G_t \nabla\ln\pi(a_t|s_t,\theta)$ — 로그-미분 트릭의 산물.</span>
+<span id="cb6-660"><a href="#cb6-660" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**PPO**: PGM의 안정화 버전, RLHF의 엔진 → 현대 LLM 정렬의 핵심.</span>
+<span id="cb6-661"><a href="#cb6-661" aria-hidden="true" tabindex="-1"></a>:::</span>
+</code></pre></div><button title="클립보드 복사" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

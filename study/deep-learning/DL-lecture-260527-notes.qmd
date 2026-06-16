@@ -1,0 +1,645 @@
+---
+title: "Vision–Language–Action 모델과 강화학습 입문"
+subtitle: "VLM/VLA 계보, 유한 MDP, Bellman 방정식, Policy Gradient"
+date: 2026-05-27
+lang: ko
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    number-depth: 3
+    code-fold: true
+    code-tools: true
+    highlight-style: github
+    theme: cosmo
+    fig-cap-location: bottom
+    html-math-method: katex
+    css: |
+      .callout { margin-top: 1em; margin-bottom: 1em; }
+execute:
+  warning: false
+  message: false
+  eval: false
+---
+
+# 한눈에 보는 오늘의 두 갈래 {#sec-overview}
+
+오늘 정리하는 내용은 서로 다른 결을 가진 두 주제다.
+
+::: {.callout-note title="핵심 한 줄 요약"}
+1. **VLM → VLA**: 거대 언어 모델(LLM)을 *시각(vision)* 으로 확장하면 VLM, 여기에 *행동(action)* 출력을 더하면 VLA다. 즉 "이해"에서 "물리적 상호작용"으로 가는 사다리다.
+2. **강화학습(RL) 입문**: 에이전트가 환경과 상호작용하며 *보상(reward)* 을 최대화하도록 정책을 배우는 문제. 유한 MDP → 가치 함수 → Bellman 방정식 → Policy Gradient로 이어지는 골격을 세운다.
+:::
+
+두 주제는 무관해 보이지만 한 지점에서 만난다. VLA의 정책 $\pi$는 RL이 다루는 바로 그 정책이며, 현대 LLM 정렬(RLHF)의 엔진인 PPO 역시 RL의 산물이다. 따라서 RL은 "별도 단원"이 아니라 멀티모달·생성 모델 전체를 떠받치는 학습 메커니즘이다.
+
+---
+
+# Part I — VLM에서 VLA로 {#sec-vlm-vla}
+
+## 모델 계보: LLM → VLM → VLA → Omni {#sec-lineage}
+
+명명 규칙부터 정리하면 직관이 빨라진다.
+
+| 약어 | 펼친 이름 | 다루는 모달리티 | 출력 |
+|------|-----------|------------------|------|
+| **LLM** | Large *Language* Model | 텍스트 | 텍스트 토큰 |
+| **VLM** | Vision-*Language* Model | 텍스트 + 이미지/비디오 | 텍스트 토큰 |
+| **VLA** | Vision-Language-*Action* Model | 텍스트 + 시각 + (상태) | **행동 토큰** |
+| **Omni** | "모든 것" 모델 | 텍스트 + 시각 + **음성** + … | 멀티모달 |
+
+::: {.callout-tip title="명명에 대한 잡설(이지만 시험엔 안 나옴)"}
+VLM에는 "M(model)"이 붙는데 VLA에는 안 붙는다. 이유는 단순히 *세 글자 약어*를 만들고 싶어서다. 같은 이유로 멀티모달 LLM을 종종 **MLLM**이라 부르는데, 엄밀히 따지면 멀티모달이면 더 이상 "language-only"가 아니므로 어색한 작명이다. 학계의 약어 관습은 의외로 비논리적이다.
+:::
+
+```{mermaid}
+flowchart LR
+    A["LLM<br/>(텍스트 이해)"] -->|+시각 정렬| B["VLM<br/>(이미지/비디오 이해)"]
+    B -->|+행동 출력| C["VLA<br/>(물리적 상호작용)"]
+    B -->|+음성/기타| D["Omni 모델<br/>(전 모달리티)"]
+    C -.->|정책 π 학습| E["강화학습(RL)"]
+    style C fill:#ffe6cc
+    style E fill:#d5e8d4
+```
+
+## 정렬(alignment)의 핵심: CLIP 복습 {#sec-clip}
+
+VLM의 본질은 **서로 다른 모달리티의 의미(semantic)를 같은 임베딩 공간에 정렬**하는 것이다. 그 원형이 CLIP이다.
+
+**직접 답:** CLIP은 텍스트 인코더와 이미지 인코더를 *각각* 학습시키되, 같은 의미를 가진 (텍스트, 이미지) 쌍의 임베딩이 서로 가까워지도록(코사인 유사도 최대화) 대조 학습(contrastive learning)한다.
+
+배치 안에 $N$개의 (이미지 $I_i$, 텍스트 $T_i$) 쌍이 있을 때, 정규화된 임베딩 $\mathbf{u}_i = f_\text{img}(I_i)$, $\mathbf{v}_j = f_\text{txt}(T_j)$에 대해 유사도 행렬
+
+$$
+S_{ij} = \frac{\mathbf{u}_i^\top \mathbf{v}_j}{\tau}
+$$
+
+를 만들고, 대각선(정답 쌍)이 커지도록 행/열 방향 교차 엔트로피를 합산한다.
+
+$$
+\mathcal{L}_\text{CLIP} = \frac{1}{2}\Big[\underbrace{\text{CE}(\text{softmax}_j S_{ij},\, y=i)}_{\text{이미지}\to\text{텍스트}} + \underbrace{\text{CE}(\text{softmax}_i S_{ij},\, y=j)}_{\text{텍스트}\to\text{이미지}}\Big]
+$$
+
+::: {.callout-note title="CLIP은 '양방향' 정렬"}
+CLIP은 두 인코더를 **동시에** 처음부터 학습하므로 *양측 정렬(two-side alignment)* 이다. 뒤에 나올 LLaVA가 *한쪽 정렬(one-side alignment)* 인 것과 대비된다.
+:::
+
+CLIP을 확산 모델(diffusion model)과 결합하면 텍스트 프롬프트로부터 이미지/비디오를 생성하는 모델이 된다. 즉 CLIP 임베딩이 생성 모델의 조건(condition) 역할을 한다.
+
+## RLHF에서 RLAIF로: 정렬 비용 줄이기 {#sec-rlaif}
+
+**직접 답:** RLHF(인간 피드백 기반 강화학습)는 인간 평가가 비싸다는 약점이 있다. 대안으로 *다른 AI 모델*의 피드백을 보상 신호로 쓰는 것이 **RLAIF**(Reinforcement Learning from AI Feedback)다.
+
+- **RLHF**: GPT-3 → (instruction fine-tuning) → InstructGPT → (RLHF) → ChatGPT. 보상이 *먼 미래*(전체 응답 품질)에 있어도 정책을 인간 선호에 맞출 수 있다는 점이 RL의 핵심.
+- **RLAIF**: 인간 대신 강력한 기존 모델(예: 다른 LLM/VLM)이 *유사(pseudo) 피드백*을 제공. **비용↓, 즉시성↑**.
+- 멀티모달로 확장하면, 문맥 인지형 보상 모델(context-aware reward model)로 비디오 질의응답 같은 과제의 정렬 품질을 끌어올릴 수 있다(VLM-RLAIF 계열).
+
+::: {.callout-important title="왜 RL이 필요한가"}
+지도학습은 "정답 토큰"이 매 스텝 필요하지만, "응답 전체가 인간 선호에 부합하는가"는 *끝에 가서야* 알 수 있는 지연 보상이다. 이 지연 보상으로 학습하는 메커니즘이 정확히 RL이며, Part II의 동기가 된다.
+:::
+
+## LLaVA의 modality translator {#sec-llava}
+
+**직접 답:** LLaVA는 CLIP처럼 두 인코더를 새로 학습하는 대신, *이미 학습된* LLM(LLaMA)은 거의 고정하고, **시각 임베딩을 언어 임베딩 공간으로 옮기는 변환기 $W$ 하나만** 학습한다.
+
+시각 입력 $x$의 비전 임베딩 $z_v = f_\text{vision}(x)$에 대해
+
+$$
+h_v = W\, z_v
+$$
+
+를 통해, $h_v$가 같은 의미를 가리키는 텍스트 토큰들과 같은 잠재 공간에 놓이도록 정렬한다. 사전학습된 LLaMA의 표현 공간을 *기준점*으로 삼아 시각 정보만 끌어다 붙이는 셈이다.
+
+| | CLIP | LLaVA |
+|---|------|-------|
+| 정렬 방향 | 양측(텍스트·이미지 인코더 동시 학습) | 한쪽($W$만 학습, LLM은 거의 고정) |
+| 학습 비용 | from scratch 수준 | 가벼운 어댑터 튜닝 |
+| 기반 | 없음 | 사전학습 LLM(LLaMA) |
+
+## VLA: 행동을 출력하기 {#sec-vla}
+
+**직접 답:** VLM의 출력을 언어 토큰에서 **행동 토큰(action token)** 으로 바꾸면 VLA다. 행동은 로봇 팔의 $(x,y,z)$·그리퍼 각도일 수도, 웹 에이전트의 마우스/키보드 조작일 수도 있다.
+
+::: {.callout-warning title="행동은 '다른 동물'이다 — 인과성(causality)이 더 중요"}
+언어 생성도 이전 토큰을 참조하지만, *잊어도* 큰 문제가 없는 경우가 많다. 반면 행동 시퀀스는 **앞선 행동이 다음 행동에 강하게 인과적으로 작용**한다(물리적 상태가 누적되므로). 따라서 VLA에서는 강한 자기회귀(autoregressive) 생성·인과 구조가 언어보다 훨씬 중요하다.
+:::
+
+### 대표 모델 계보 {#sec-vla-models}
+
+```{mermaid}
+timeline
+    title VLA 모델의 발전
+    2022 : Perceiver-Actor (UW) : SayCan (Google) : RT-1 (Google)
+    2023 : RT-2 (Google, 더 큰 데이터)
+    2024 : OpenVLA (Berkeley, 오픈소스) : π0 (Physical Intelligence)
+    2025 : π0.5 (오픈월드 일반화) : GR00T N1/N1.6 (NVIDIA, 휴머노이드)
+```
+
+**Perceiver-Actor (2022) — '최초의 VLA'로 회자**
+
+- 입력: 3D voxel(시각) + 명령어(언어). 출력: 그리퍼 목표 위치 $(x,y,z)$ + 각도 → **4차원 출력**.
+- 구조: voxel encoder + language encoder → PerceiverIO transformer → voxel decoder(자기 복원으로 3D 이해 강제) → 위치/각도 디코더.
+- 사전학습된 PerceiverIO를 미세조정해 활용. (요즘은 PerceiverIO를 잘 안 쓰는 추세.)
+
+**SayCan (2022) — 가치 함수로 '할 수 있는' 행동만**
+
+- 문제의식: LLM은 *환경을 모른다*. 명령을 그럴듯하게 분해해도 로봇이 *물리적으로 수행 불가능*한 행동을 내놓을 수 있다.
+- 해법: 각 후보 행동에 대해 **LLM 점수(말이 되는가) × 가치 함수(affordance, 실제로 수행 가능한가)** 를 결합.
+
+$$
+\text{score}(a) = \underbrace{p_\text{LLM}(a\mid \text{instruction})}_{\text{Say: 말이 되는가}} \times \underbrace{V_\text{affordance}(a\mid \text{state})}_{\text{Can: 할 수 있는가}}
+$$
+
+- 이름 "Do As I **Can**, Not As I **Say**"가 핵심을 그대로 담고 있다. Part II의 **가치 함수**가 여기서 등장한다는 점이 중요하다.
+
+**RT-1 (2022) / RT-2 (2023) / OpenVLA (2024)**
+
+- **RT-1**: *처음부터(end-to-end, from scratch)* 학습한 최초의 VLA. EfficientNet 기반 + FiLM 조건화 + token learner + transformer. "초창기 분야에선 *빠른 것*이 곧 기여"라는 교훈의 산물.
+- **RT-2**: 구조를 단순화(LLM + 이미지 인코더)하고 데이터를 키워 언어 변형(variation)을 더 풍부하게. 더 단순한데 더 정확.
+- **OpenVLA**: RT-2의 오픈소스 경량 버전. LLaMA-2 7B를 언어 백본, 사전학습 ViT를 이미지 백본으로 사용 → 완전 from scratch는 아님.
+
+**π0 / π0.5 (Physical Intelligence) — 하드웨어 일반화 지향**
+
+- $\pi$는 RL의 *policy*에서 온 작명. **인코딩된 행동 토큰**을 출력하고, 하드웨어별 어댑터가 이를 실제 구동으로 번역한다.
+- 목표: 하나의 행동 임베딩을 **다양한 하드웨어**(14-DoF 양팔 매니퓰레이터, 18-DoF 모바일 매니퓰레이터, 6/8-DoF 단일 팔 등)에 적용. 여러 형태의 데이터로 학습 → "하드웨어 버전의 instruction fine-tuning".
+- **π0.5**: 조작·이미지 캡셔닝·객체 탐지·QA 등 더 다양한 멀티모달 데이터로 학습 → "go to the kitchen and grab a bottle of water" 같은 *서술형 명령*을 이해. 2단계 파이프라인(사전학습 → 서브태스크 예측 후학습)으로 *out-of-the-box* 일반화를 지향.
+
+**GR00T N1 / N1.6 (NVIDIA) — 휴머노이드용**
+
+- 휴머노이드는 자유도가 크다. **이중 시스템(dual-system)** 구조 사용:
+  - **System 1**: 빠른 세부 행동 토큰 생성(저수준 제어).
+  - **System 2**: 느린 고수준 계획(장기 과제 추론).
+- 지연(latency)을 줄이고 변화하는 환경에 적응. 다수 학계와의 협업 산출물.
+
+::: {.callout-tip title="패턴 인식"}
+LLM/VLM/VLA의 발전은 거의 같은 레시피를 반복한다 — **(1) 사전학습 백본에 의존 → (2) end-to-end로 끌어올림 → (3) 데이터·모달리티 다양화로 일반화**. 이 패턴을 알면 새 모델이 나와도 위치를 빠르게 잡을 수 있다.
+:::
+
+### VLA 모델 비교표 {#sec-vla-table}
+
+| 모델 | 연도/기관 | 학습 방식 | 행동 표현 | 특징 |
+|------|-----------|-----------|-----------|------|
+| Perceiver-Actor | 2022 UW | 사전학습 미세조정 | $(x,y,z)$+각도 | 최초 VLA, voxel 입력 |
+| SayCan | 2022 Google | LLM+가치함수 | 행동 후보 선택 | affordance grounding |
+| RT-1 | 2022 Google | from scratch | 행동 토큰 | 첫 end-to-end |
+| RT-2 | 2023 Google | 대규모 데이터 | 행동 토큰 | 구조 단순화 |
+| OpenVLA | 2024 Berkeley | LLaMA-2+ViT | 행동 토큰 | 오픈소스 경량 |
+| π0 / π0.5 | 2024–25 PI | 멀티 하드웨어 | 인코딩 행동 | 하드웨어 일반화 |
+| GR00T N1 | 2025 NVIDIA | dual-system | 행동 토큰 | 휴머노이드 |
+
+## Omni 모델과 full-duplex 상호작용 {#sec-omni}
+
+VLM/VLA의 다음 단계는 **음성을 포함한 전 모달리티**를 다루는 *Omni 모델*이다. "omni"는 글자 그대로 "모든 것"을 다룬다는 (다소 과장된) 작명이다.
+
+최근의 화두는 **full-duplex** 상호작용이다.
+
+::: {.callout-note title="full-duplex가 왜 중요한가"}
+기존 음성 모델은 *반이중(half-duplex)* — 한쪽이 말하면 다른 쪽은 들어야 한다. **full-duplex**는 사람끼리 대화하듯 **말하면서 동시에 듣고 반응**할 수 있다. 실시간 입력 스트리밍 + 동시 응답이 가능해 자연스러운 상호작용에 한 발 더 다가간다. 상호작용은 VLM/VLA가 갖춰야 할 중요한 능력이므로, Omni 모델은 이 계보의 자연스러운 다음 수순이다.
+:::
+
+## 무선통신 관점의 비유 (Part I) {#sec-wireless-vlm}
+
+::: {.callout-tip title="신호처리·통신 직관으로 다시 읽기"}
+- **CLIP의 대조 정렬** ↔ *조인트 소스 코딩 / 공통 신호공간 매핑*: 두 모달리티(이미지·텍스트)를 하나의 의미 공간에 사상하는 것은, 서로 다른 송신원의 신호를 *공통 기저(constellation)* 위에 정렬해 매칭 가능하게 만드는 것과 같다. 코사인 유사도 최대화 = *매칭 필터(matched filter)* 출력 최대화.
+- **LLaVA의 변환기 $W$** ↔ *프리코더(precoder)*: 시각 임베딩 $z_v$를 언어 공간으로 옮기는 $h_v = W z_v$는, 송신 심볼을 채널/수신 공간에 맞추는 선형 프리코딩과 형태가 동일하다.
+- **행동 토큰의 강한 인과성** ↔ *메모리 있는 채널(ISI)*: 이전 행동이 다음 행동에 영향을 주는 구조는 심볼 간 간섭(ISI)이 있는 채널과 유사 — 등화기(equalizer)처럼 과거 상태를 고려해야 한다.
+- **RLAIF의 보조 모델 피드백** ↔ *파일럿/참조 신호*: 비싼 인간 피드백 대신 기존 모델의 신호를 *참조(pilot)* 로 써서 정렬을 추정하는 구조.
+:::
+
+---
+
+# Part II — 강화학습 입문 {#sec-rl}
+
+## RL이란 무엇이며 왜 '강화'인가 {#sec-what-rl}
+
+**직접 답:** 강화학습은 **에이전트(agent)가 환경(environment)과 상호작용하며, 환경이 주는 수치 보상(reward) 신호를 최대화하는 행동(action)을 배우는** 문제다.
+
+```{mermaid}
+flowchart LR
+    A[에이전트<br/>Agent] -->|행동 a_t| B[환경<br/>Environment]
+    B -->|상태 s_t+1| A
+    B -->|보상 r_t+1| A
+```
+
+매 시점 $t$에서: 에이전트는 상태 $s_t$를 인지하고 정책에 따라 행동 $a_t$를 내놓는다 → 환경은 보상 $r_{t+1}$과 다음 상태 $s_{t+1}$을 돌려준다. 이 루프가 반복된다.
+
+::: {.callout-note title="'강화(reinforcement)'라는 이름의 유래"}
+상호작용을 반복하면서 **상태–행동의 관계가 점점 또렷해진다(불확실성↓, 확신↑)**. 즉 학습이 진행될수록 에이전트의 행동 선택이 *강화(reinforced)* 되어 높은 확신으로 수렴한다. 그래서 "reinforcement" learning이다.
+:::
+
+지도/비지도/준지도/강화학습은 **인간이 제공하는 정보량**으로 구분된다. RL은 (비지도를 제외하면) 인간 감독이 가장 적은 축에 속한다 — 정답 행동을 일일이 주지 않고 지연된 보상만으로 배우기 때문이다.
+
+## RL의 네 가지 요소 {#sec-four-elements}
+
+| 요소 | 정의 | 비고 |
+|------|------|------|
+| **정책 $\pi$** | 인지한 상태 → 취할 행동의 매핑 | 학습 대상(또는 규칙). $\pi(a\mid s)$ 또는 $a=\pi(s)$ |
+| **보상 $r$** | 매 스텝 환경이 보내는 단일 스칼라 | 즉각적 신호 |
+| **가치 함수 $v,q$** | 정책 하에서 *미래 누적 보상의 기댓값* | 가장 정교한 구성요소 |
+| **모델 (선택)** | 환경의 거동을 모사 | 있으면 *model-based*, 없으면 *model-free* |
+
+::: {.callout-important title="보상 vs 가치 — 혼동 금지"}
+- **보상**은 *지금 이 순간*의 좋고 나쁨(근시안적).
+- **가치**는 *그 상태에서 시작해 미래까지 누적*될 보상의 기댓값(장기적).
+체스에서 당장의 기물 이득(보상)과 그 수가 만드는 장기 형세(가치)의 차이를 떠올리면 된다.
+:::
+
+**모델과 world model.** 환경 모델은 "가상의 세계"다. 이를 영상 생성 문제로 보면, 방 안을 둘러볼 때 보이는 장면을 *생성*하는 비디오 생성 모델이 곧 *world model*의 한 형태가 된다. world model은 그보다 더 추상화된 상위 개념으로, 그 위에서 에이전트를 학습시킬 수 있다.
+
+## RL의 역사 = 최적 제어의 역사 {#sec-history}
+
+**직접 답:** RL은 **최적 제어(optimal control)** 에서 왔다. 시간에 따른 동역학계의 거동 척도를 최소/최대화하는 제어기를 설계하는 문제다.
+
+- **Richard Bellman**: 동역학계의 *상태(state)* 와 *가치 함수(= 최적 리턴 함수)* 개념 도입 → **Bellman 방정식**. 해법은 **동적 계획법(dynamic programming)**.
+- 이 최적 제어 문제의 **이산·확률(stochastic) 버전**이 바로 **마르코프 결정 과정(MDP)** 이다. 실세계는 연속·확률적이지만, 컴퓨터에서는 이산화하고 확률성을 명시적으로 다룬다.
+
+## (유한) 마르코프 결정 과정 (MDP) {#sec-mdp}
+
+시점 $t \in \{0,1,2,\dots\}$, 상태 $s \in \mathcal{S}$, 행동 $a \in \mathcal{A}(s)$, 보상 $r \in \mathcal{R}$. 환경의 동역학은 하나의 결합 확률로 완전히 기술된다.
+
+$$
+p(s', r \mid s, a) = \Pr\!\big(S_{t+1}=s',\, R_{t+1}=r \,\big|\, S_t=s,\, A_t=a\big)
+$$
+
+::: {.callout-note title="마르코프 성질(Markov property)"}
+다음 상태와 보상이 **오직 현재 상태와 행동에만** 의존하고 과거 전체 이력에는 의존하지 않는다. 이 *무기억성(memorylessness)* 덕분에 문제가 다룰 만해지며, 그래서 이름이 "Markov" decision process다.
+:::
+
+## 에피소드, 리턴, 할인 {#sec-return}
+
+**에피소드 = 데이터 포인트.** 지도학습에서 (이미지, 레이블)이나 (이전 토큰, 다음 토큰)이 한 데이터 포인트이듯, RL에서는 시간에 따른 *rollout* 한 토막이 하나의 데이터 포인트다. 시점 $1$부터 $T$까지의 보상 열 $(R_1, R_2, \dots, R_T)$.
+
+| 과제 유형 | 정의 |
+|-----------|------|
+| **에피소드형(episodic)** | 상호작용이 자연스럽게 *분리된 에피소드들*로 나뉨 (예: 게임 한 판) |
+| **연속형(continuing)** | 자연스러운 분리가 없어 *전체가 한 덩어리* (예: 끝없는 제어) |
+
+**할인 리턴(discounted return).** 미래 보상을 할인율 $\gamma \in [0,1]$로 가중해 합산한다.
+
+$$
+G_t = \sum_{k=t+1}^{T} \gamma^{\,k-t-1} R_k = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots = R_{t+1} + \gamma\, G_{t+1}
+$$
+
+::: {.callout-tip title="할인율 γ가 하는 두 가지 일"}
+1. **수렴 보장**: $\gamma<1$이면 무한 합이 발산하지 않고 유한값으로 수렴.
+2. **미래 불신(time preference)**: 먼 미래 보상일수록 덜 신뢰 → 지수적으로 가중치 감소.
+마지막 등식 $G_t = R_{t+1} + \gamma G_{t+1}$의 **재귀 구조**가 Bellman 방정식의 씨앗이다.
+:::
+
+**목표.**
+
+$$
+\max_{\pi}\; \mathbb{E}_{\pi}\!\left[G_t\right]
+$$
+
+정책 $\pi$를 바꿔가며 기대 리턴을 최대화한다. CS적으로는 정책 공간에 대한 *탐색(search)* 문제.
+
+::: {.callout-note title="작은 유한 MDP 예시"}
+3개 상태에 균등 초기분포 $p_0(s)=\tfrac{1}{3}$, 균등(랜덤) 정책 $\pi(a\mid s)=\tfrac{1}{2}$(위/아래)를 두면, 정책·초기분포·전이확률이 모두 *고정*되어 있어도 매 실행마다 다른 궤적(trajectory)이 *확률적으로* 굴러간다. 이 한 궤적이 한 에피소드(데이터 포인트)이며, 여기서는 아직 *아무것도 학습하지 않는다* — 단지 MDP가 어떻게 rollout 되는지를 보여줄 뿐이다. @sec-appendix 에서 직접 시뮬레이션한다.
+:::
+
+## 가치 함수와 최적 정책 {#sec-value-fn}
+
+**직접 답:** 정책 $\pi$의 가치를 두 가지로 정의한다.
+
+$$
+\underbrace{v_\pi(s) = \mathbb{E}_\pi\!\left[G_t \mid S_t=s\right]}_{\text{상태 가치 함수(state-value)}}, \qquad
+\underbrace{q_\pi(s,a) = \mathbb{E}_\pi\!\left[G_t \mid S_t=s,\, A_t=a\right]}_{\text{행동 가치 함수(action-value)}}
+$$
+
+두 함수 모두 *모든 시점의 할인 리턴*에 대한 기댓값이라 정확히 구하기 어렵다 → 그래서 **근사(approximate)** 한다(신경망 등).
+
+**최적 정책 $\pi_*$.** 보상이 최대인 정책. 그 가치 함수는 임의의 $\pi$보다 항상 크거나 같다.
+
+$$
+v_*(s) = \max_\pi v_\pi(s) \ge v_\pi(s),\qquad
+q_*(s,a) = \max_\pi q_\pi(s,a) \ge q_\pi(s,a)
+$$
+
+**최적 정책 추출.** (결정적 정책이라면 $a=\pi(s)$)
+
+$$
+\pi_*(s) = \arg\max_{a}\; q_*(s,a)
+$$
+
+::: {.callout-important title="왜 v가 아니라 q로 정책을 뽑는가"}
+상태 가치 $v$만 있으면 다음 행동을 고르기 위해 **전이확률 모델 $p(s'\mid s,a)$이 필요**하다(한 스텝 내다봐야 하므로). 반면 행동 가치 $q(s,a)$는 *상태와 행동을 둘 다 입력*으로 받으므로 모델 없이도 $\arg\max_a q$로 바로 행동을 고를 수 있다. 그래서 *model-free* 설정에서 $q$가 선호된다.
+:::
+
+::: {.callout-tip title="보충 — d2l.ai 연결: Value Iteration과 Q-Learning"}
+d2l.ai의 강화학습 장(Value Iteration / Q-Learning)을 함께 보면 도움이 된다. 여기서 다루는 **GPI**(@sec-gpi)는 d2l.ai의 *value iteration*과 같은 골격이며, 모델 없이 $q$를 직접 추정·갱신하는 방식이 *Q-learning*이다. 즉 "$q$로 정책을 뽑는다"는 본문의 논리가 Q-learning이 *off-policy·model-free* 로 동작하는 이유와 정확히 맞닿는다.
+:::
+
+## 정책 향상 정리와 GPI {#sec-gpi}
+
+**Policy Improvement (PI).** 현재 정책 $\pi$의 $q_\pi$에 대해 탐욕적(greedy)으로 새 정책을 정의한다.
+
+$$
+\pi'(s) = \arg\max_{a}\, q_\pi(s,a)
+$$
+
+::: {.callout-note title="정책 향상 정리(Policy Improvement Theorem)"}
+$$
+v_\pi(s) \le v_{\pi'}(s)\quad \forall s
+$$
+즉 $q_\pi$에 대해 greedy하게 만든 새 정책은 **항상 이전 정책보다 같거나 낫다**. 단조 향상이 보장되므로 이를 반복하면 최적 정책으로 다가간다.
+:::
+
+**Generalized Policy Iteration (GPI).** 두 과정이 서로를 끌어올리며 수렴한다.
+
+```{mermaid}
+flowchart LR
+    P["정책 π"] -->|평가<br/>evaluation| V["가치 함수 v_π / q_π"]
+    V -->|향상<br/>greedy improvement| P
+    P -.->|수렴| O["π*, v*"]
+```
+
+- **정책 평가**: $\pi$로부터 가치 함수를 추정.
+- **정책 향상**: 추정 가치에 greedy → 더 나은 정책.
+$\pi_0 \to v_{\pi_0} \to \pi_1 \to v_{\pi_1} \to \cdots$ 를 반복하면 최적 가치·정책에 수렴(무한 반복 시).
+
+## Bellman 방정식 {#sec-bellman}
+
+### $v_\pi$에 대한 Bellman 방정식 {#sec-bellman-v}
+
+상태 가치는 행동 가치의 정책 가중 평균이고, 이는 최대 행동 가치로 상계된다.
+
+$$
+v_\pi(s) = \sum_{a \in \mathcal{A}(s)} \pi(a\mid s)\, q_\pi(s,a) \;\le\; \max_a q_\pi(s,a)
+$$
+
+### $q_\pi$에 대한 Bellman 방정식 {#sec-bellman-q}
+
+리턴의 재귀 구조 $G_t = R_{t+1} + \gamma G_{t+1}$에서 출발한다.
+
+$$
+q_\pi(s,a) = \mathbb{E}_\pi\!\left[G_t \mid s,a\right] = \mathbb{E}_\pi\!\left[R_{t+1} + \gamma G_{t+1} \mid s,a\right]
+$$
+
+여기서 핵심 항등식 $\mathbb{E}_\pi[\,v_\pi(S_{t+1}) \mid S_t=s,a\,] = \mathbb{E}_\pi[\,G_{t+1}\mid S_t=s,a\,]$ (개별적으로는 $v_\pi(S_{t+1})\ne G_{t+1}$이지만 *기댓값에서는* 같다)을 쓰면,
+
+$$
+q_\pi(s,a) = \mathbb{E}_\pi\!\left[R_{t+1} + \gamma\, v_\pi(S_{t+1}) \mid s,a\right]
+= \sum_{s',r} p(s',r\mid s,a)\big[\,r + \gamma\, v_\pi(s')\,\big]
+$$
+
+이를 $v_\pi$ 식에 대입하면 **Bellman 기대 방정식**이 완성된다.
+
+$$
+\boxed{\;
+v_\pi(s) = \underbrace{\sum_{a} \pi(a\mid s)}_{\text{에이전트가 하는 일(정책)}}
+\underbrace{\sum_{s',r} p(s',r\mid s,a)}_{\text{환경의 반응(전이·보상 모델)}}
+\big[\,\underbrace{r + \gamma\, v_\pi(s')}_{\text{보상 + 미래 가치}}\,\big]
+\;}
+$$
+
+::: {.callout-tip title="구조 읽기"}
+이 한 줄이 RL의 척추다 — **정책**(무엇을 할지)과 **환경 모델**(세상이 어떻게 반응할지)이 곱해지고, 각 분기마다 **즉각 보상 + 할인된 미래 가치**가 더해진다. 자기 자신을 재귀적으로 부르는 구조라 동적 계획법으로 풀린다.
+:::
+
+## Policy Gradient Method (PGM) {#sec-pgm}
+
+**직접 답:** PI/GPI는 가치를 추정한 뒤 greedy하게 정책을 *간접* 결정한다. 대신 **정책 자체를 파라미터 $\theta$로 직접 매개변수화**해 경사 상승으로 학습하는 것이 PGM이다.
+
+$$
+\pi(a\mid s; \theta)\quad(\text{예: 신경망})
+$$
+
+성능 목적함수를 시작 상태의 상태 가치로 정의하고($\gamma=1$ 가정),
+
+$$
+J(\theta) = v_{\pi_\theta}(s_0)
+$$
+
+**정책 경사 정리(Policy Gradient Theorem).** $\mu(s)$를 상태 분포라 할 때,
+
+$$
+\nabla J(\theta) \;\propto\; \sum_{s} \mu(s) \sum_{a} q_\pi(s,a)\, \nabla \pi(a\mid s,\theta)
+$$
+
+::: {.callout-note title="정리의 아름다움"}
+우변에 **상태 분포 $\mu(s)$의 미분이 등장하지 않는다**. 환경 동역학을 미분하지 않고도 정책 파라미터의 경사를 표현할 수 있다는 것이 이 정리의 핵심 — 그래서 model-free 학습이 가능하다.
+:::
+
+### REINFORCE 알고리즘 {#sec-reinforce}
+
+PGM의 대표 사례. 정책 경사 정리를 기댓값 형태로 다시 쓰면,
+
+$$
+\nabla J(\theta) \propto \sum_{s} \mu(s) \sum_{a} q_\pi(s,a)\, \nabla \pi(a\mid s,\theta)
+= \mathbb{E}_\pi\!\left[ \sum_a q_\pi(s,a)\, \nabla \pi(a\mid s,\theta) \right]
+$$
+
+여기서 **로그-미분(score function) 트릭** $\nabla_\theta \ln f = \dfrac{\nabla_\theta f}{f}$ 을 적용하면, 표본화된 행동에 대해 $q_\pi$를 리턴 $G_t$로 대체한 단순한 갱신식이 나온다.
+
+$$
+\boxed{\;
+\theta_{t+1} = \theta_t + \alpha\, G_t\, \nabla \ln \pi(A_t \mid S_t, \theta_t)
+\;}
+$$
+
+::: {.callout-tip title="보충 — math4ml 연결: 로그-미분(log-derivative) 트릭"}
+이 갱신식의 정당화는 Garrett Thomas의 *Mathematics for Machine Learning* 노트에서 다루는 기댓값·경사 계산과 직결된다. 핵심은 다음 항등식(score function estimator)이다.
+$$
+\nabla_\theta\, \mathbb{E}_{x\sim p_\theta}[f(x)] = \mathbb{E}_{x\sim p_\theta}\!\big[f(x)\,\nabla_\theta \ln p_\theta(x)\big]
+$$
+$p_\theta = \pi(\cdot\mid s,\theta)$, $f = G_t$로 두면 정확히 REINFORCE가 된다. "확률분포에 대한 기댓값의 경사 = 그 표본에 점수(score) $\nabla\ln p$를 가중한 기댓값"이라는 통계적 추론의 표준 도구다.
+:::
+
+REINFORCE 절차 개요:
+
+```
+사전 지정: 함수형 π(a|s,θ), 초기 θ, 스텝 크기 α
+For m = 1, …, M:
+    궤적 표본: s_0, a_0, r_1, …, a_{T-1}, r_T
+    For t = 0, …, T-1:
+        G_t ← (할인) 리턴 계산
+        θ ← θ + α · G_t · ∇ln π(a_t | s_t, θ)   # 리턴이 클수록 그 행동을 더 강화
+```
+
+### 정책 기반 vs 가치 기반 {#sec-policy-vs-value}
+
+| | 가치 기반 (PI/GPI) | 정책 기반 (PGM) |
+|---|--------------------|------------------|
+| 학습 대상 | 가치 함수 $q$ | 정책 $\pi_\theta$ 직접 |
+| 정책 도출 | $\arg\max_a q$ (greedy) | 파라미터에 내장 |
+| 행동 공간 | 이산에 유리 | 연속·확률적에 유리 |
+| 업데이트 | DP/부트스트랩 | 확률적 경사 상승 |
+
+## PPO와 현대 LLM으로의 연결 {#sec-ppo}
+
+**직접 답:** PGM의 대표적 현대 응용이 **PPO(Proximal Policy Optimization, OpenAI 2017)** 다. 정책 업데이트의 *안정성*을 유지하면서(과한 갱신 억제) 단순하고 견고하게 좋은 성능을 낸다.
+
+::: {.callout-important title="왜 시험에서 중요한가"}
+**PPO는 RLHF의 엔진**이다 — GPT → InstructGPT → ChatGPT 정렬에 쓰였다. 즉 @sec-rlaif 의 RLHF/RLAIF, @sec-vla 의 VLA 정책 학습이 모두 이 RL 골격 위에 서 있다. RL은 별개 단원이 아니라 *현대 거대 모델의 핵심 학습 메커니즘*이라는 점을 답안에 명시하면 인과 사슬이 완성된다.
+:::
+
+**전체 인과 사슬 한 줄 요약:**
+$$
+\text{MDP} \;\to\; \text{가치 함수}\;\to\; \text{GPI}\;\to\; \text{PGM(REINFORCE)}\;\to\; \text{PPO}\;\to\; \text{RLHF}\;\to\; \text{정렬된 LLM/VLM/VLA}
+$$
+
+## 무선통신 관점의 비유 (Part II) {#sec-wireless-rl}
+
+::: {.callout-tip title="신호처리·통신 직관으로 다시 읽기"}
+- **에이전트–환경 폐루프** ↔ *피드백 제어 시스템*: 송신(행동) → 채널(환경) → 수신 피드백(보상·상태) → 적응. RL은 본질적으로 폐루프 적응 제어다(실제로 최적 제어가 뿌리).
+- **할인 리턴 $G_t = R_{t+1}+\gamma G_{t+1}$** ↔ *지수 가중 이동평균(EWMA)*: 할인율 $\gamma$는 채널 추정에서의 *망각 계수(forgetting factor)* 와 같은 역할 — 최근 정보에 더 큰 가중치.
+- **가치 함수 $v_\pi(s)$** ↔ *기대 잔여 SNR / cost-to-go*: 현재 상태에서 시작해 미래에 얻을 누적 이득의 기댓값. 최적 제어의 cost-to-go와 동형.
+- **Bellman 재귀** ↔ *RLS/Kalman 류 재귀 추정*: 현재 추정을 "관측 + 할인된 미래 추정"으로 갱신하는 구조가 재귀 최소제곱·칼만 필터의 예측–보정 사이클과 닮았다.
+- **REINFORCE 경사 상승** ↔ *LMS 적응 필터*: $\theta \leftarrow \theta + \alpha\,(\text{오차·점수})$ 형태의 확률적 경사 갱신은 LMS 계열 적응 알고리즘과 같은 골격($\alpha$ = 스텝 크기 = 적응 속도/안정성 트레이드오프).
+- **마르코프 성질** ↔ *무기억(memoryless) 채널*: 다음 상태가 현재에만 의존 = 채널 상태가 과거 이력에 무관한 무기억 모델.
+:::
+
+---
+
+# 부록 — Python/NumPy 실습 {#sec-appendix}
+
+아래 코드는 본문 개념을 수치로 검증한다. 모두 표준 라이브러리 + NumPy로 동작한다.
+
+## A. 할인 리턴 계산과 재귀 항등식 검증 {#sec-app-return}
+
+```{python}
+#| label: discounted-return
+#| code-fold: show
+import numpy as np
+
+def discounted_return(rewards, gamma):
+    """G_t 를 t=0..T-1 모두 계산 (역방향 재귀)."""
+    G = np.zeros(len(rewards))
+    running = 0.0
+    for t in reversed(range(len(rewards))):
+        running = rewards[t] + gamma * running   # G_t = r_{t+1} + gamma * G_{t+1}
+        G[t] = running
+    return G
+
+rewards = np.array([1.0, 1.0, 1.0, 1.0, 1.0])   # 각 스텝 보상
+gamma = 0.9
+G = discounted_return(rewards, gamma)
+print("G_t =", np.round(G, 4))
+
+# 재귀 항등식 G_t = r_{t+1} + gamma * G_{t+1} 검증
+assert np.allclose(G[:-1], rewards[:-1] + gamma * G[1:])
+print("재귀 항등식 G_t = r + gamma*G_{t+1} 성립")
+```
+
+## B. 작은 유한 MDP에서 정책 평가 (Bellman 기대 방정식) {#sec-app-mdp}
+
+선형계 $v_\pi = R_\pi + \gamma P_\pi v_\pi$ 를 직접 풀어 @sec-bellman 의 Bellman 방정식을 확인한다.
+
+```{python}
+#| label: policy-evaluation
+#| code-fold: show
+import numpy as np
+
+# 상태 0,1,2 (2가 종결 상태). 균등 정책 하의 전이행렬 P와 기대보상 R.
+P = np.array([
+    [0.0, 0.5, 0.5],
+    [0.5, 0.0, 0.5],
+    [0.0, 0.0, 1.0],   # 흡수 상태
+])
+R = np.array([0.0, 1.0, 0.0])   # 상태별 기대 즉시 보상
+gamma = 0.9
+
+# v = R + gamma * P v  =>  (I - gamma P) v = R
+I = np.eye(3)
+v = np.linalg.solve(I - gamma * P, R)
+print("정책 평가 v_pi =", np.round(v, 4))
+
+# 반복적 정책 평가(부트스트랩)로도 같은 값에 수렴하는지 확인
+v_iter = np.zeros(3)
+for _ in range(500):
+    v_iter = R + gamma * P @ v_iter
+print("반복 평가     v_pi =", np.round(v_iter, 4))
+assert np.allclose(v, v_iter, atol=1e-6)
+print("닫힌해와 반복해 일치 → Bellman 기대 방정식 검증 완료")
+```
+
+## C. REINFORCE의 로그-미분 추정량 검증 {#sec-app-reinforce}
+
+@sec-reinforce 의 핵심 항등식 $\nabla_\theta \mathbb{E}[f] = \mathbb{E}[f\,\nabla_\theta \ln p_\theta]$ 을 2-행동 softmax 정책에서 몬테카를로로 확인한다.
+
+```{python}
+#| label: score-function
+#| code-fold: show
+import numpy as np
+rng = np.random.default_rng(0)
+
+# 2-행동 softmax 정책: theta=[θ0, θ1], p_a = softmax(theta)_a
+def softmax(z):
+    z = z - z.max()
+    e = np.exp(z)
+    return e / e.sum()
+
+theta = np.array([0.3, -0.2])
+f = np.array([1.0, 4.0])   # 행동별 "리턴" (행동 1이 더 좋음)
+
+# (1) 해석적 경사: ∇_θ E[f] = ∇_θ Σ_a p_a f_a
+p = softmax(theta)
+# softmax 야코비안: dp_i/dθ_j = p_i (δ_ij - p_j)
+J = np.diag(p) - np.outer(p, p)
+grad_analytic = J @ f
+print("해석적 ∇E[f]      =", np.round(grad_analytic, 5))
+
+# (2) score-function(REINFORCE) 추정량: E[f * ∇ln p_a]
+N = 200_000
+samples = rng.choice(2, size=N, p=p)
+# ∇_θ ln p_a = e_a - p   (softmax의 score)
+grad_mc = np.zeros(2)
+for a in samples:
+    score = -p.copy()
+    score[a] += 1.0
+    grad_mc += f[a] * score
+grad_mc /= N
+print("REINFORCE 추정 ∇E[f] =", np.round(grad_mc, 5))
+print("두 경사 차이 norm    =", np.round(np.linalg.norm(grad_analytic - grad_mc), 4))
+```
+
+두 경사가 일치하면, "확률분포에 대한 기댓값의 경사 = 표본에 점수를 가중한 기댓값"이라는 REINFORCE의 정당화가 수치로 확인된 것이다.
+
+## D. CLIP 스타일 대조 유사도 (Part I 연결) {#sec-app-clip}
+
+@sec-clip 의 코사인 유사도 정렬과 대칭 교차 엔트로피를 작은 합성 예시로 시연한다.
+
+```{python}
+#| label: clip-contrastive
+#| code-fold: show
+import numpy as np
+rng = np.random.default_rng(1)
+
+def l2norm(x, axis=-1):
+    return x / (np.linalg.norm(x, axis=axis, keepdims=True) + 1e-8)
+
+N, d, tau = 4, 8, 0.07
+# 정답 쌍은 같은 잠재 + 약한 노이즈 → 정렬되도록
+latent = rng.normal(size=(N, d))
+img = l2norm(latent + 0.1 * rng.normal(size=(N, d)))
+txt = l2norm(latent + 0.1 * rng.normal(size=(N, d)))
+
+logits = (img @ txt.T) / tau        # 유사도 행렬 S_ij
+def cross_entropy(logits, labels):
+    z = logits - logits.max(axis=1, keepdims=True)
+    logp = z - np.log(np.exp(z).sum(axis=1, keepdims=True))
+    return -logp[np.arange(len(labels)), labels].mean()
+
+labels = np.arange(N)
+loss = 0.5 * (cross_entropy(logits, labels) + cross_entropy(logits.T, labels))
+print("대조 손실 =", round(float(loss), 4))
+print("예측 정답률(이미지→텍스트) =",
+      float((logits.argmax(1) == labels).mean()))
+```
+
+---
+
+# 마무리 체크리스트 {#sec-checklist}
+
+::: {.callout-note title="시험 대비 — 인과 사슬로 답하라"}
+- **VLM vs VLA**: VLM은 LLM의 *시각 확장*, VLA는 VLM의 *물리적(행동) 확장*. 행동은 인과성이 더 강해 자기회귀 생성이 중요.
+- **CLIP vs LLaVA**: 양측 정렬(인코더 둘 다 학습) vs 한쪽 정렬($W$만 학습).
+- **RL 4요소**: 정책 · 보상 · 가치함수 · 모델(선택). *보상(근시안) ≠ 가치(장기)*.
+- **Bellman**: $v_\pi(s)=\sum_a \pi(a|s)\sum_{s',r}p(s',r|s,a)[r+\gamma v_\pi(s')]$ — "정책 × 환경반응 × (보상+미래가치)".
+- **왜 q로 정책을 뽑나**: $q$는 모델 없이 $\arg\max_a$로 행동 추출 가능(model-free).
+- **REINFORCE**: $\theta \leftarrow \theta + \alpha G_t \nabla\ln\pi(a_t|s_t,\theta)$ — 로그-미분 트릭의 산물.
+- **PPO**: PGM의 안정화 버전, RLHF의 엔진 → 현대 LLM 정렬의 핵심.
+:::
