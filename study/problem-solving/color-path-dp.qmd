@@ -1,0 +1,267 @@
+---
+title: "색이 모두 다른 경로 개수 세기 — 색 마스크 DP + CSR 인접 리스트"
+categories: [Graph, DP, Bitmask, C++]
+description: "K ≤ 5 제약을 활용한 색 마스크 DP로 distinct-color path를 카운팅하는 문제"
+date: 2025-06-19
+---
+
+## 1. 문제 요약
+
+$N$개의 정점과 $M$개의 간선을 가진 **무방향 단순 그래프**가 주어진다. 각 정점에는 $1$ 이상 $K$ 이하의 색깔이 부여되어 있다.
+
+길이 $1$ 이상 $K-1$ 이하인 경로 중 (즉, 정점 $2$개 이상 $K$개 이하),  
+**모든 정점의 색이 서로 다른** 경로의 수를 구하라.
+
+두 경로가 다르다는 것은 방문하는 **정점 번호의 수열이 다른 것**을 뜻한다.
+
+**제약 조건**
+
+- $1 \leq N, M \leq 100{,}000$
+- $1 \leq K \leq 5$
+- 그래프에는 루프(self-loop)와 다중 간선(multiple edge)이 없다
+
+---
+
+## 2. 핵심 관찰
+
+### 2-1. "색이 모두 다르다" = "정점을 두 번 방문하지 않는다"
+
+경로 위의 모든 정점이 서로 다른 색을 가져야 하므로, 같은 정점이 두 번 등장하면 그 정점의 색이 중복된다. 따라서:
+
+$$\text{distinct color} \Rightarrow \text{simple path (자동 보장)}$$
+
+이 성질 덕분에 "방문한 정점 집합"을 별도로 추적하지 않아도 된다.
+
+### 2-2. $K \leq 5$이므로 색 집합을 비트마스크로 표현 가능
+
+색의 종류가 최대 5개이므로 색 집합은 $2^5 = 32$가지 상태로 완전히 표현된다. 이게 아래 DP의 핵심이다.
+
+### 2-3. "경로를 하나씩 나열"하면 TLE
+
+Star graph(중심 $1$개, leaf $N-1$개) 기준으로 길이 $2$ 경로만 세어도:
+
+$$\text{leaf 개수}^2 \approx (10^5)^2 = 10^{10}$$
+
+경로를 enumerate하는 방식은 시간 복잡도상 불가능하다. **카운트를 압축해서 전이**하는 DP가 필요하다.
+
+---
+
+## 3. DP 설계
+
+### 3-1. 상태 정의
+
+$$dp[v][\text{mask}] = \text{정점 } v \text{에서 끝나고, 색 집합이 mask인 경로의 수}$$
+
+- $v$: 현재 경로의 끝 정점 ($0 \leq v < N$)
+- $\text{mask}$: 경로 위 정점들의 색 집합 ($0 \leq \text{mask} < 2^K$)
+
+### 3-2. 초기 조건 (정점 1개짜리 경로)
+
+$$dp[v][1 \ll \text{color}[v]] = 1 \quad \forall v$$
+
+### 3-3. 전이
+
+$dp[v][\text{mask}]$에서 인접 정점 $u$로 확장할 때, $u$의 색이 mask에 없으면:
+
+$$dp[u][\text{mask} \mid (1 \ll \text{color}[u])] \mathrel{+}= dp[v][\text{mask}]$$
+
+이 전이가 "경로를 하나씩 만들지 않고도" 정확한 카운트를 전달하는 이유를 짚어두자.  
+$dp[v][\text{mask}]$는 "mask 색 집합을 갖고 $v$에서 끝났던 **모든 경로의 수**"가 이미 압축된 숫자다. 이 숫자 하나가 $u$로 통째로 전달되므로, 개별 경로를 나열하지 않고도 조합론적 효과를 얻는다.
+
+### 3-4. 복잡도
+
+len을 $1$부터 $K-1$까지 늘리며 전이하므로:
+
+$$O(K \cdot 2^K \cdot M)$$
+
+$K = 5$, $M = 10^5$이면 $5 \times 32 \times 10^5 = 1.6 \times 10^7$으로 충분히 빠르다.
+
+---
+
+## 4. 구현 세부 사항
+
+### 4-1. CSR(Compressed Sparse Row) 인접 리스트
+
+STL 없이 그래프를 표현하는 가장 효율적인 방법이다. 아이디어는 단순하다.
+
+> "정점마다 따로 배열을 만들지 말고, 하나의 큰 배열에 연속으로 쌓아두자"
+
+두 배열만 있으면 된다:
+
+- `head_[v]`: 정점 $v$의 인접 리스트가 `adjList`의 몇 번 인덱스부터 시작하는가
+- `adjList[]`: 모든 정점의 인접 정점을 이어붙인 배열
+
+**구축 과정 (3단계)**
+
+1. 각 정점의 차수(degree) 계산
+2. prefix sum으로 `head_` 계산 → 각 정점의 슬롯 위치 확정
+3. 실제 인접 정점을 `adjList`에 채우기 (`pos_`를 임시 포인터로 사용)
+
+**사용**
+
+```cpp
+for (int idx = head_[v]; idx < head_[v+1]; ++idx) {
+    int u = adjList[idx];  // v의 인접 정점
+}
+```
+
+`head_`의 크기를 $N+1$로 잡는 이유는 마지막 정점 $v = N-1$일 때도  
+`head_[v+1] = head_[N]`을 sentinel로 참조해야 하기 때문이다.
+
+::: {.callout-note}
+`head_[N]`은 전체 `adjList` 슬롯 수($= 2M$)와 같아야 한다.  
+이것이 CSR invariant의 검증 포인트다: $\text{head}[v+1] - \text{head}[v] = \deg(v)$.
+:::
+
+### 4-2. Rolling Array (cursor XOR trick)
+
+`dp[v][mask]`를 길이 방향으로 rolling하면 메모리를 절반으로 줄일 수 있다.  
+`cursor`를 `0`/`1`로 교대하며 현재/다음 배열을 구분한다:
+
+```cpp
+// 현재 len 단계: dp[v][mask][cursor]
+// 다음 len+1 단계: dp[v][mask][cursor ^ 1]
+
+cursor ^= 0x01;  // 전이 완료 후 swap
+```
+
+### 4-3. 색깔 0-indexed 변환
+
+색깔이 $1 \sim K$로 주어지므로, 비트 마스크를 올바르게 쓰려면 반드시 $0 \sim K-1$로 변환해야 한다.
+
+```cpp
+scanf("%d", &color[i]);
+--color[i];  // [1, K] -> [0, K-1]
+```
+
+::: {.callout-important}
+이 변환을 빠뜨리면 `color[i] = K`일 때 `1 << K`가 `full_mask`를 초과해서  
+해당 mask 슬롯이 루프 범위 밖이 되고, 그 경로들이 전부 ans에 누적되지 않는다.  
+예제는 맞아도 일부 케이스만 틀리는 정교한 버그다.
+:::
+
+### 4-4. `pos_[0]` 초기화
+
+`build_csr`에서 `pos_[0]`을 명시적으로 초기화하지 않으면, 테스트케이스가 여러 번 들어올 때 이전 값이 남아 정점 0의 인접 리스트가 엉뚱한 위치에 쓰인다.
+
+```cpp
+head_[0] = pos_[0] = 0;  // 반드시 같이 초기화
+```
+
+---
+
+## 5. 디버깅 포인트 정리
+
+| 버그 유형 | 증상 | 원인 |
+|-----------|------|------|
+| 전이 방향 오류 | 일부 TC만 틀림 | `dp[v][...]` 대신 `dp[u][...]`에 써야 함 |
+| `pos_[0]` 미초기화 | TC 여러 개일 때 틀림 | 전 TC의 값이 남아있음 |
+| 색 1-indexed 미변환 | 일부 TC만 틀림 | `full_mask` 범위를 mask가 초과 |
+| `full_mask` 고정 | 성능 저하 (정확도 무관) | `(1<<k)-1`로 동적으로 잡아야 함 |
+
+---
+
+## 6. Codes
+
+```cpp
+#include <stdio.h>
+
+#define MAX_V   (100'000)
+#define MAX_E   (100'000)
+
+unsigned long long int ans;
+int n, m, k;
+int color[MAX_V];
+
+int edge_u[MAX_E];
+int edge_v[MAX_E];
+
+int deg_[MAX_V];
+int head_[MAX_V + 1];
+int pos_[MAX_V + 1];
+
+int adj_list[MAX_E << 1];
+
+void build_csr()
+{
+    for(int i = 0; i < n; ++i)
+        deg_[i] = 0;
+
+    for(int i = 0; i < m; ++i) {
+        ++deg_[edge_u[i]];
+        ++deg_[edge_v[i]];
+    }
+
+    head_[0] = pos_[0] = 0;
+    for(int v = 1; v <= n; ++v) {
+        head_[v] = head_[v - 1] + deg_[v - 1];
+        pos_[v] = head_[v];
+    }
+
+    for(int i = 0; i < m; ++i) {
+        adj_list[pos_[edge_u[i]]++] = edge_v[i];
+        adj_list[pos_[edge_v[i]]++] = edge_u[i];
+    }
+}
+
+unsigned long long int dp[MAX_V][0b100000][2];
+
+int main(void)
+{
+    int t;
+    scanf("%d", &t);
+    while(t--) {
+        scanf("%d%d%d", &n, &m, &k);
+        for(int i = 0; i < n; ++i) {
+            scanf("%d", &color[i]);
+            --color[i];
+        }
+        for(int i = 0; i < m; ++i) {
+            int u, v;
+            scanf("%d%d", &u, &v);
+            --u, --v;
+            edge_u[i] = u;
+            edge_v[i] = v;
+        }
+        build_csr();
+
+        const int full_mask = (1 << k) - 1;
+        ans = 0;
+        int cursor = 0;
+
+        for(int v = 0; v < n; ++v) {
+            for(int mask = 0; mask <= full_mask; ++mask)
+                dp[v][mask][cursor] = 0;
+            dp[v][1 << color[v]][cursor] = 1;
+        }
+
+        for(int len = 1; len < k; ++len) {
+            for(int v = 0; v < n; ++v)
+                for(int mask = 0; mask <= full_mask; ++mask)
+                    dp[v][mask][cursor ^ 0x01] = 0;
+
+            for(int v = 0; v < n; ++v) {
+                for(int mask = 0; mask <= full_mask; ++mask) {
+                    auto& curr = dp[v][mask][cursor];
+                    if(curr == 0) continue;
+
+                    for(int i = head_[v]; i < head_[v + 1]; ++i) {
+                        int u = adj_list[i];
+                        int c_bit = color[u];
+                        if(mask & (1 << c_bit)) continue;
+
+                        dp[u][mask | (1 << c_bit)][cursor ^ 0x01] += curr;
+                    }
+                }
+            }
+
+            for(int v = 0; v < n; ++v)
+                for(int mask = 0; mask <= full_mask; ++mask)
+                    ans += dp[v][mask][cursor ^ 0x01];
+
+            cursor ^= 0x01;
+        }
+        printf("%llu\n", ans);
+    }
+}
+```
