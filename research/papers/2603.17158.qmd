@@ -1,0 +1,181 @@
+---
+title: "AI-Driven Multi-Modal Adaptive Handover Control for O-RAN"
+subtitle: "논문 요약 및 thesis 포지셔닝 노트"
+date: "2026-06-23"
+lang: ko
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    code-fold: false
+  pdf:
+    toc: true
+    number-sections: true
+    pdf-engine: xelatex
+    geometry: margin=1in
+---
+
+## 개요
+
+| 항목 | 내용 |
+|------|------|
+| 제목 | AI-Driven Multi-Modal Adaptive Handover Control Optimization for O-RAN |
+| 저자 | Abdul Wadud, Fatemeh Golpayegani, Nima Afraz (University College Dublin) |
+| 출처 | arXiv:2603.17158v1 · IEEE ICC 2026 Workshop (WS-01) 채택 |
+| 분야 | O-RAN, handover, multi-modal mobility, Non-RT/Near-RT RIC, RL |
+
+**한 줄 요약.** 이동성 모드(7종)를 먼저 분류하고 모드별 예측 모델로 미래 위치·RSRP를 추정한 뒤, PPO 정책으로 핸드오버 후보 셀을 랭킹하는 과정을 전부 non-RT RIC의 **rApp**에 배치하고, near-RT RIC의 **xApp**은 그 랭킹과 실시간 E2 측정을 결합해 표준 호환 핸드오버 결정만 경량으로 수행하는 hierarchical 구조의 mobility-aware handover 최적화.
+
+---
+
+## Motivation
+
+저자들은 세 가지 한계를 동시에 지적한다.
+
+**(1) 고정 A3 파라미터의 mobility-agnostic 문제.** Traditional A3-event handover는 고정된 TTT / Hysteresis / CIO에 의존한다. 단순하고 robust하지만, 하나의 고정 설정이 모든 단말·모든 이동 상황에 일괄 적용된다. 저속 단말은 fading에 의한 ping-pong handover를, 고속 단말은 late/failed handover와 RLF를 겪는다. 최적 파라미터가 단말 속도·궤적에 따라 달라져야 함에도 그 정보를 전혀 쓰지 않는다.
+
+**(2) 이동성을 연속 변수로만 다루는 기존 ML 기법의 한계.** 실제 이동성은 보행자·자전거·차·버스·기차처럼 질적으로 구분되는 **multi-modal** 구조를 갖는데, 기존 ML handover는 이를 단일 연속 변수로 취급해 모드별 특성을 살리지 못한다.
+
+**(3) near-RT 계층의 계산 부담.** DQN/LSTM 기반 예측 기법은 정확하지만 무거워 near-RT RIC의 지연 예산 안에서 장기 예측 맥락을 함께 다루기 어렵다.
+
+핵심 주장: multi-modal 이동성 인식 + 예측적 타깃 랭킹 + O-RAN 계층 구조에 정합한 경량 실시간 실행을 동시에 만족시킨 선행 연구가 없다.
+
+---
+
+## System Model & Architecture
+
+핵심 설계는 **예측 지능(rApp, non-RT)과 실행(xApp, near-RT)의 계층 분리**이며, 둘은 **A1** 인터페이스로 연결된다.
+
+```{mermaid}
+flowchart LR
+  subgraph RAPP["Non-RT RIC · rApp (느린 시간척도 · 예측)"]
+    MC["Mode 분류<br/>k-NN · v,a,j,ψ̇"]
+    TP["궤적 예측<br/>Random Forest"]
+    PR["RSRP 예측<br/>RF ensemble"]
+    CR["Cell Ranker<br/>PPO Actor–Critic"]
+    MC --> CR
+    TP --> CR
+    PR --> CR
+  end
+  subgraph XAPP["Near-RT RIC · xApp (빠른 시간척도 · 실행)"]
+    HO["HO 결정<br/>랭킹 + E2 실측 융합"]
+  end
+  RAN["RAN Nodes<br/>O-CU / O-DU / O-RU / UE"]
+  CR -->|A1: 랭킹된 후보 셀| HO
+  RAN -->|E2: 실시간 측정| HO
+  HO -->|E2: HO 명령| RAN
+  RAN -->|UE 이력 데이터| MC
+```
+
+설계 의도는 명확하다. 무거운 예측·정책 연산은 시간 여유가 있는 non-RT rApp에서 처리하고, near-RT xApp에는 가벼운 가드 체크와 표준 호환 실행만 남겨 저지연 실행을 보존한다. 핸드오버가 sub-second 단위의 비교적 느린 결정이라는 점이 이 RIC 기반 외부화를 가능하게 한다.
+
+---
+
+## 제안 방법 상세
+
+### 모드 분류 (MC)
+
+입력 $(v, a, j, \dot\psi)$ + 직전 모드 추정값을 받는 경량 **k-NN** 분류기. 여기서 jerk $j = d^3x/dt^3$(가속도 변화율, 궤적의 매끄러움)와 bearing rate $\dot\psi = v\kappa$(진행 방향 변화율)가 모드를 구분하는 핵심 feature다. 출력은 7개 모드 {ped, cyclist, car, bus, train, drone, uav}의 one-hot 인코딩 $\mathbf{e}(m_t^u)$.
+
+### 궤적 예측 (TP) · RSRP 예측 (P-RSRP)
+
+둘 다 **Random Forest** 회귀.
+
+- **TP**: $(v, a, m, x, y)$로 다음 스텝 위치 $\hat{p}_{t+1}^u$ 예측
+- **P-RSRP**: 동일 feature로 셀별 다음 스텝 RSRP 벡터 $\hat{r}_{t+1}^u$ 예측
+
+무거운 LSTM/DQN 대신 경량 모델을 택한 것이 "near-RT 지연 예산을 위반하지 않는다"는 주장의 근거다.
+
+### Cell Ranker (CR) — PPO Actor–Critic
+
+- **state**: $s_t^u = [\,\mathbf{e}(m_t^u),\ \hat{p}_{t+1}^u,\ \hat{r}_{t+1}^u\,]$ — 모드 + 예측 위치 + 예측 RSRP
+- **action**: 타깃 후보 셀 선택(랭킹)
+- **reward**: $r_t = \alpha\, w_u R \;-\; \beta\, H \;-\; \gamma\, PP$
+  - $R$: throughput, $H$: handover penalty, $PP$: ping-pong penalty
+- clipped surrogate objective(PPO)로 학습
+
+랭킹 결과만 A1을 통해 xApp으로 전달되고, xApp은 live E2 측정으로 load/QoS 가드를 확인한 뒤 최종 핸드오버를 실행한다.
+
+---
+
+## 평가 결과
+
+### 시뮬레이션 환경
+
+MATLAB 5G Toolbox. O-CU 1 / O-DU 3 / O-RU 27, UE 100개, 약 7 km² 도심. 2.1 GHz, 20 MHz, 송신 46 dBm, UMa path loss, 8 dB shadowing. Fronthaul 10 Gbps (0.1–0.5 ms). Control interval 200회(20초)를 30회 반복, 95% CI.
+
+비교군: Traditional A3 / O-RAN ML-Assisted(LSTM transfer learning) / Load Balance O-RAN.
+
+### KPI 비교
+
+| 지표 | MultiModal-AHC | Traditional A3 | ML-Assisted | Load Balance |
+|------|:---:|:---:|:---:|:---:|
+| Throughput (Mbps) | 77.10 ± 5.72 | 74.11 | 78.48 | 75.23 |
+| HO rate | 0.0362 | 0.0962 | 0.0209 | 0.4013 |
+| Ping-pong (%) | **0.00** | 0.00 | 12.64 | 11.29 |
+
+### 개별 모델 성능
+
+| 모듈 | 모델 | 지표 |
+|------|------|------|
+| 모드 분류 (MC) | k-NN | 정확도 99.84% |
+| 궤적 예측 (TP) | Random Forest | RMSE 14.40 m, 상관계수 ≈ 1.00 |
+| RSRP 예측 (P-RSRP) | RF ensemble | RMSE 7.35 dB |
+| Cell Ranker (CR) | PPO Actor–Critic | 평균 reward +23.4, HO failure 약 −18%, 150–180 ep 수렴 |
+
+핵심 메시지는 **stability–agility 프로파일**이다. A3는 보수적 고정 TTT 덕에 ping-pong이 0이지만, 본 기법은 미래 위치·RSRP를 예측해 지속적이고 일관된 타깃만 선택함으로써 ping-pong 0을 달성한다. 단, throughput은 baseline과 CI가 겹쳐 통계적으로 구별되지 않는다.
+
+---
+
+## 비판적 평가
+
+향후 인용·차별화 시 짚어둘 약점.
+
+**수치가 지나치게 완벽하다.** MC 99.84%, 궤적 상관계수 ≈ 1.00, RSRP 예측 평균 −66.76 vs 실측 −66.75. MATLAB에서 모드별로 서로 다른 kinematic 모델로 trace를 *생성*했기 때문에, 분류기가 애초에 분리되도록 설계된 데이터를 분리하는 상황일 가능성이 크다. 저자들도 실제 testbed 검증은 future work로 남겼다.
+
+**PPO의 배치 계층이 본문 내에서 모순된다.** Abstract·Sec IV는 PPO가 rApp(non-RT)에 있고 xApp이 최종 결정을 한다고 기술하지만, Sec III-C는 동일한 Actor–Critic을 "real-time decision engine"으로 부른다. 랭킹이 non-RT인지 real-time인지가 흐릿하다.
+
+**용어 혼탁.** "HO rate = HO failure rate"로 정의해놓고, MultiModal-AHC의 HO rate가 ML-Assisted보다 *높은* 것을 proactivity로 긍정 해석한다. 헤드라인 "18% failure 감소"는 KPI 표가 아니라 PPO reward 절의 별도 수치라 두 지표가 섞여 있다. throughput 우위가 없으므로 실질 기여는 **ping-pong 제거 + 통제된 HO rate**로 한정해 읽는 것이 정확하다.
+
+---
+
+## 연구 갭 & thesis 차별화
+
+본 논문은 thesis에 대해 두 얼굴을 가진다.
+
+### 재사용 가능한 방법론 템플릿
+
+- **예측 building block의 직접 대응**: 본 논문의 P-RSRP(채널 품질 예측)와 TP(이동 예측)는 thesis가 필요로 하는 channel quality prediction · traffic prediction과 동일한 자리를 차지한다.
+- **이종 로봇 환경으로의 매핑**: $(v,a,j,\dot\psi)$ 기반 mobility mode 분류는 thesis의 이종 이동성 환경(고정 로봇 팔 / 저속 AMR / 고속 드론)에 자연스럽게 사상된다. 본 논문의 ped / car / drone 모드의 로봇 버전에 해당한다.
+- **predict-then-decide 골격**: 미래 상태를 예측한 뒤 proactive하게 결정하는 구조는 thesis blueprint의 **Stage 4(chance-constrained 미래 PRB 사전 할당)**와 동일한 골격이다.
+
+### 아키텍처 대조군(foil)으로서의 가치
+
+본 논문은 모든 지능을 non-RT rApp + near-RT xApp에 두고 A1/E2/O1로만 동작하는 **순수 RIC 패러다임** 안에 머문다. 이것이 가능한 이유는 핸드오버가 sub-second 단위의 느린 결정이기 때문이다.
+
+이는 thesis의 핵심 경계선을 암묵적으로 증명한다.
+
+| 제어 대상 | 시간 척도 | 적절한 계층 | 근거 |
+|-----------|-----------|-------------|------|
+| Handover / mobility | sub-second | RIC (rApp/xApp, A1/E2) | 본 논문이 실증 |
+| Importance-aware MAC scheduling | sub-TTI (수백 µs) | 노드 collocation | E2 루프 지연으로 외부화 불가 |
+
+importance-aware MAC scheduling은 sub-TTI 제어라 E2를 통한 xApp 외부화가 구조적으로 불가능하고, GPU-collocated RAN+AI(pyAerial + GH200 + cuMAC)가 필요하다. 본 논문은 "predictive mobility 제어가 RIC에서 성공적으로 외부화된" 사례이므로, **인용하면서 동시에 차별화**하는 포지셔닝의 발판이 된다.
+
+### 차별화 문장(초안)
+
+> Predictive mobility 제어는 RIC 계층에서 성공적으로 외부화되어 왔다(예: MultiModal-AHC, rApp→A1→xApp). 그러나 동일한 외부화 전략은 sub-TTI importance-aware MAC scheduling에는 적용될 수 없다 — E2 기반 near-RT 제어 루프(≥10 ms)가 TTI 단위(수백 µs) 결정 주기를 포괄하지 못하기 때문이다. 본 연구는 이 지점, 즉 GPU-collocated RAN+AI 노드에서만 닫을 수 있는 sub-TTI 제어 루프에 위치한다.
+
+### AI-RAN 프레임 정합
+
+본 논문의 predict-then-allocate 구조를 sub-TTI · PRB 단위 · 노드 collocation으로 끌어내리는 것이 thesis의 novelty 공간(Stage 3·4)이다. 도구 측면에서는 알고리즘 프로토타이핑 후 GH200 + pyAerial(실제 CU·MAC/L1 접근) 위에서 cuMAC 검증, ROS2로 로봇 트래픽 생성이라는 실증 경로로 연결된다.
+
+---
+
+## 핵심 take-away
+
+1. 핸드오버처럼 sub-second 결정은 RIC 외부화가 타당함을 본 논문이 실증한다.
+2. 채널·이동 예측 + 모드 분류 + RL 랭킹의 predict-then-decide 골격은 재사용 가능하다.
+3. thesis는 이 골격을 sub-TTI · PRB 단위로 끌어내려, RIC로는 닫을 수 없는 제어 루프에 위치시킴으로써 차별화한다.
