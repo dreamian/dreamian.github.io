@@ -1,0 +1,208 @@
+---
+title: "DNA 반전 관계 부분문자열 쌍 개수 세기"
+categories: [PS, Hashing, Prefix Sum]
+description: "조건을 multiset 불변량으로 환원하고, prefix 해싱으로 O(N)에 세는 문제"
+date: 2026-06-18
+---
+
+## 1. 문제 요약
+
+'A', 'T', 'C', 'G'로 이루어진 길이 $N$의 DNA 수열 $S$가 주어진다.
+
+길이 $L$인 두 DNA 수열 $X, Y$가 **반전 관계**라는 것은, 모든 $1 \le i \le L$에 대해 $X$의 $i$번째 문자와 $Y$의 $i$번째 문자가 서로 반전 관계에 있음을 뜻한다. 'A'는 'T'와, 'C'는 'G'와 서로 반전 관계이다.
+
+다음 조건을 만족하는 정수 쌍 $1 \le i \le j \le N$의 개수를 구하라.
+
+- $S$의 $i$번째 문자부터 $j$번째 문자까지로 만든 문자열을 $T$라 할 때, $T$의 문자들을 섞어서(순서를 재배열하여) $T$와 반전 관계인 문자열을 만들 수 있다.
+
+$1 \le N \le 5000$이고, 여러 개의 테스트 케이스가 주어진다.
+
+## 2. 조건을 multiset 불변량으로 환원하기
+
+"$T$를 섞어서 어떤 문자열을 만들 수 있다"는 조건을 그대로 다루려고 하면 순서/배치를 고민하게 되는데, 사실 이 조건은 **개수(multiset) 조건 하나로 완전히 환원**된다.
+
+$P$가 $T$를 섞은 문자열이라 하고, $P$가 $T$와 반전 관계라고 하자.
+
+- $P$가 $T$의 순열이므로 $\text{multiset}(P) = \text{multiset}(T)$
+- $P$가 $T$와 반전 관계이므로 모든 위치 $k$에서 $P_k = \text{rev}(T_k)$이고, 따라서 $\text{multiset}(P) = \text{multiset}(\text{rev}(T))$
+
+반전 연산은 A$\leftrightarrow$T, C$\leftrightarrow$G를 맞바꾸는 연산이므로, $\text{rev}(T)$에서의 A 개수는 곧 $T$에서의 T 개수와 같다. 두 multiset이 같으려면:
+
+$$\#A(T) = \#T(T) \quad \text{그리고} \quad \#C(T) = \#G(T)$$
+
+::: {.callout-note}
+순서를 "섞을 수 있다"는 조건이 등장하면, 배치를 직접 시뮬레이션하기 전에 먼저 "결국 보존되어야 하는 양은 무엇인가"를 물어보는 것이 문제 차원을 낮추는 핵심 단계다.
+:::
+
+즉 원래 문제는: 구간 $[i,j]$ 중 **A 개수 = T 개수, C 개수 = G 개수**를 만족하는 구간의 개수를 세는 문제로 정확히 바뀐다.
+
+## 3. Prefix 벡터로의 환원
+
+각 문자에 다음과 같이 점수를 매기자.
+
+$$
+x_k = \begin{cases} +1 & S_k = A \\ -1 & S_k = T \\ 0 & \text{otherwise} \end{cases}
+\qquad
+y_k = \begin{cases} +1 & S_k = C \\ -1 & S_k = G \\ 0 & \text{otherwise} \end{cases}
+$$
+
+prefix 벡터 $P_m = \left(\sum_{k=1}^m x_k,\ \sum_{k=1}^m y_k\right)$를 $m=0,1,\dots,N$에 대해 정의하면 ($P_0 = (0,0)$), 구간 $[i+1, j]$의 합은 $P_j - P_i$이다. 조건은:
+
+$$P_j - P_i = (0,0) \iff P_j = P_i$$
+
+따라서 문제는 **"$N+1$개의 prefix 벡터 중 값이 같은 쌍의 개수를 세라"**는 문제로 완전히 바뀐다.
+
+### 3.1 작은 예제로 확인: `ATAT`
+
+| 단계 | 문자 | $(x,y)$ 누적 | prefix 벡터 |
+|---|---|---|---|
+| $P_0$ | - | (0,0) | (0,0) |
+| $P_1$ | A | (1,0) | (1,0) |
+| $P_2$ | T | (0,0) | (0,0) |
+| $P_3$ | A | (1,0) | (1,0) |
+| $P_4$ | T | (0,0) | (0,0) |
+
+값별로 묶으면 $(0,0)$이 3번, $(1,0)$이 2번 등장한다. 같은 값을 가진 prefix 중 2개를 고르는 조합이 답이므로:
+
+$$\binom{3}{2} + \binom{2}{2} = 3 + 1 = 4$$
+
+실제로 답은 4이며, 대응하는 구간은 $[1,2]$="AT", $[3,4]$="AT", $[1,4]$="ATAT", $[2,3]$="TA"이다.
+
+## 4. 같은 값 쌍 세기를 $O(N)$으로
+
+"같은 값을 가진 두 지점의 쌍을 세는 것"은 두 단계로 분리된다.
+
+1. 구간 조건 $\to$ prefix가 같은 두 지점 찾기 (문제 환원)
+2. 같은 값끼리 그룹화해서 세기 (해시맵 또는 정렬)
+
+1번만 하고 모든 $(i,j)$ 쌍을 직접 비교하면 여전히 $O(N^2)$이다. 2번을 그룹화/해싱으로 가속해야 실제로 $O(N)$이 나온다.
+
+값이 $m$번 등장한 그룹의 기여는 $\binom{m}{2}$이다. 이를 한 번의 순회로 누적할 수도 있는데, prefix를 하나씩 추가하면서 그 시점까지의 등장 횟수를 더해가면:
+
+$$0 + 1 + 2 + \cdots + (m-1) = \binom{m}{2}$$
+
+이 되어, 전체를 모은 뒤 마지막에 한꺼번에 $\binom{m}{2}$를 계산하는 것과 정확히 같은 값을 얻는다. 즉 "매번 누적해서 더하기"와 "끝에 모아서 $\binom{m}{2}$ 계산하기"는 수학적으로 동치이지만, 전자는 등장한 키 목록을 별도로 추적할 필요가 없어 구현이 더 간결하다.
+
+## 5. open addressing 구현 시 주의할 점
+
+벡터 $(x,y)$를 키로 쓰는 해시테이블을 직접 구현할 때 두 가지 함정이 있었다.
+
+### 5.1 종료 조건에 탐사 대상 값 자체를 쓰지 말 것
+
+```cpp
+do {
+    if (h_table[key].can_be_alloc(cp_a, cp_b)) return key;
+} while (key = (key + 1) % MAX_TABLE);
+```
+
+이 패턴은 `key`가 선형 탐사 중 0으로 wraparound되는 순간 `while` 조건이 거짓이 되어 **탐사가 충돌이 남아 있는데도 조기 종료**된다. 실제로 무작위 $(at, cg)$ 쌍을 채워 load factor를 높이면, 탐사 거리가 길어질수록 거의 항상 이 조기 종료가 발생한다.
+
+::: {.callout-warning}
+샘플 입력 $N \le 5000$ 정도로는 테이블이 충분히 비어 있어 우연히 이 버그를 피해갈 수 있다. 종료 조건을 "다음 인덱스의 값"에 의존시키지 말고, 탐사 횟수를 별도 카운터로 제한해야 한다.
+:::
+
+올바른 형태:
+
+```cpp
+for (int tries = 0; tries < MAX_TABLE; ++tries) {
+    if (h_table[key].can_be_alloc(cp_a, cp_b)) return key;
+    key = (key + 1) % MAX_TABLE;
+}
+```
+
+### 5.2 초기화 오타는 우연히 무해할 수 있다
+
+```cpp
+h_table[get_key(0, 0)].key_AT = h_table[0].key_CG = 0;
+```
+
+`get_key(0, 0)`이 실제로 가리키는 슬롯과 인덱스 `0`번 슬롯이 다를 수 있다. 이 경우 슬롯 0이 `key_AT = -1, key_CG = 0`인 반쪽 상태로 오염되지만, 바로 다음 줄에서 `get_key(0,0)`을 다시 호출해 정상 슬롯의 `count`를 세팅하므로 최종 정답에는 영향이 없다. 다만 이후 다른 입력에서 우연히 슬롯 0이 필요해지면 `can_be_alloc`의 비교 로직이 잘못된 결과를 낼 수 있는 잠재적 위험이 남는다.
+
+## 6. 일반화할 수 있는 패턴
+
+- 구간에 대한 어떤 누적량의 합이 특정 값(여기서는 0)인 부분문자열을 세는 문제는 거의 항상 **prefix + 같은 값 쌍 세기**로 환원된다. subarray sum이 $k$인 구간 세기, 균형 잡힌 괄호열 찾기 등도 동일한 골격이다.
+- "배치를 자유롭게 섞을 수 있다"는 조건은 보통 multiset(개수) 불변량 조건으로 정확히 환원된다.
+- 부분문제 사이에 분기나 선택이 없고 단순 누적만 일어난다면, 그것은 DP가 아니라 prefix sum 신호다.
+- open addressing을 직접 구현할 때, 선형 탐사의 종료 조건은 반드시 탐사 횟수 기반 카운터로 걸어야 한다.
+
+## 7. Codes
+
+```cpp
+#include <stdio.h>
+
+unsigned long long int ans;
+#define MAX_TABLE   (10007)
+struct HashTable {
+    int key_AT;
+    int key_CG;
+    int count;
+
+    void init() {
+        key_AT = key_CG = -1;
+        count = 0;
+    }
+
+    bool can_be_alloc(int at, int cg) {
+        if(key_AT == -1) {
+            key_AT = at;
+            key_CG = cg;
+
+            return true;
+        }
+        return (key_AT == at && key_CG == cg);
+    }
+} h_table[MAX_TABLE];
+
+int len;
+char str[5001];
+
+unsigned long get_key(long long at, long long cg)
+{
+    auto cp_a = at;
+    auto cp_b = cg;
+    at += 5000;
+    cg += 5000;
+
+    int key = ((at << 14) + cg) % MAX_TABLE;
+    do {
+        if(h_table[key].can_be_alloc(cp_a, cp_b)) return key;
+        key = (key + 1) % MAX_TABLE;
+    } while(true);
+
+    return 987654321ULL;
+}
+
+int main(void)
+{
+    int t;
+    scanf("%d", &t);
+    while(t--) {
+        scanf("%d %s", &len, str);
+
+        for(int i = 0; i < MAX_TABLE; ++i) {
+            h_table[i].init();
+        }
+        h_table[get_key(0, 0)].key_AT = h_table[0].key_CG = 0;
+        h_table[get_key(0, 0)].count = 1;
+
+        ans = 0;
+        int at = 0;
+        int cg = 0;
+        for(int i = 0; i < len; ++i) {
+            switch(str[i]) {
+                case 'A': ++at; break;
+                case 'T': --at; break;
+                case 'C': ++cg; break;
+                case 'G': --cg; break;
+                default: break;
+            }
+
+            auto key = get_key(at, cg);
+            ans += h_table[key].count;
+            ++h_table[key].count;
+        }
+
+        printf("%llu\n", ans);
+    }
+}
+```
