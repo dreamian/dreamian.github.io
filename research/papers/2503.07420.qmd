@@ -1,0 +1,213 @@
+---
+title: "The Interplay of AI-and-RAN: Dynamic Resource Allocation for Converged 6G Platform"
+date: "2026-06-24"
+lang: ko
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: false
+    theme: cosmo
+  pdf:
+    pdf-engine: xelatex
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    documentclass: article
+    geometry: margin=1in
+    include-in-header:
+      text: |
+        \usepackage{kotex}
+---
+
+## 서지 정보 {#sec-meta}
+
+- **제목**: The Interplay of AI-and-RAN: Dynamic Resource Allocation for Converged 6G Platform
+- **저자**: Syed Danial Ali Shah, Zeinab Nezami, Maryam Hafeez, Syed Ali Raza Zaidi (University of Leeds)
+- **출처**: IEEE INFOCOM 2025 Workshop (arXiv:2503.07420)
+- **키워드**: O-RAN, 5G, AI, xApp, RIC, SAC
+
+### 한 줄 요약
+
+AI-RAN Alliance가 정의한 **AI-and-RAN**(AI workload와 RAN workload가 하나의 가속 컴퓨팅 인프라를 공유) 시나리오를 대상으로, O-RAN의 NRT-RIC를 확장한 수렴 아키텍처 **CAORA**를 제안하고, GPU 자원(MIG)을 두 workload 사이에 분배하는 문제를 **SAC(Soft Actor-Critic) 강화학습**으로 푼 연구. 시뮬레이션에서 RAN workload 요청의 약 99%를 충족하면서 RAN 인프라 자원 활용률 100%를 달성.
+
+---
+
+## 문제 의식 (Motivation) {#sec-motivation}
+
+기존 RAN 인프라는 network function용 컴퓨팅 자원을 **dedicated하게 고정 할당**한다. 이 정적(static) 운용은 두 가지 비효율을 동시에 만든다.
+
+1. **Off-peak 자원 낭비**: RAN 부하가 낮은 시간대에 가속 컴퓨팅 자원이 유휴 상태로 남는다.
+2. **AI workload 수용 불가**: 동시에 빠르게 늘어나는 GenAI/edge AI inference 수요를 같은 인프라가 받아주지 못한다.
+
+문제의 본질은 두 workload의 성격이 상반된다는 점이다.
+
+| 특성 | RAN workload | AI workload |
+|---|---|---|
+| 시간 제약 | latency-sensitive, 실시간 (non-elastic) | 상대적으로 유연 (elastic) |
+| 자원 수요 | carrier 설정에 따라 비교적 예측 가능 | use case별로 큰 변동성 |
+| 우선순위 | 높음 (프로토콜 스택 정상 동작 필수) | 가용 자원 한도 내 best-effort |
+
+따라서 정적 할당 대신, 수요를 실시간으로 추적하고 정책을 동적으로 갱신하는 메커니즘이 필요하다는 것이 본 논문의 출발점이다. 저자들은 기존 연구가 **RAN 최적화** 또는 **AI workload 스케줄링** 중 한쪽만 다루었을 뿐, 둘의 **공존(coexistence)**을 위한 아키텍처와 최적화 정식화를 제시하지 못했다고 지적한다.
+
+---
+
+## CAORA 아키텍처 {#sec-architecture}
+
+**CAORA (Converged AI-and-ORAN Architecture)**는 O-RAN 규격 기반의 4계층 위계 제어 구조이다.
+
+### 계층 구성
+
+- **Layer 1 — External Cloud**: AI/ML workload가 상주하는 계층. edge AI inferencing, generative AI, robotics application 등이 위치하며, **AI Deployment API**를 통해 RAN 인프라(compute cluster)와 연결된다.
+- **Layer 2 — Programmable RAN**: O-RAN disaggregation에 따른 O-RU / O-DU / O-CU.
+- **Layer 3 — Controller (NRT-RIC)**: traffic prediction, resource allocation, monitoring을 담당하는 custom xApp들이 탑재된다. **E2 interface**를 통해 RAN 컴포넌트와 통신하며 빠른 자원 결정을 내린다.
+- **Layer 4 — Resource Management (E2E Orchestrator)**: 실제 compute cluster(GPU, **MIG**, NIC)를 관리하는 주체. 내부에 SAC agent가 들어 있다.
+
+### 핵심 데이터 흐름: Y1 interface
+
+본 논문의 구조적 핵심은 **Y1 interface**이다.
+
+- **Monitoring xApp** (Layer 3)이 bandwidth utilization, system latency, network load 등 RAN KPI를 지속적으로 수집한다.
+- 이 radio analytics를 **Y1 interface**를 통해 E2E orchestrator(Layer 4)에 노출한다.
+- E2E orchestrator는 **Y1 consumer**로서 정보를 받아 SAC로 자원 배분을 결정한다.
+
+즉 *"xApp = 센서, E2E orchestrator(SAC) = 두뇌"* 구조이며, SAC agent는 세 가지 메커니즘으로 공존을 지원한다: (i) 과거 패턴을 활용한 **예측적 자원 계획(predictive analysis)**, (ii) 현재 조건에 따른 **실시간 적응(real-time adaptation)**, (iii) peak 시 RAN을 우선하는 **우선순위 관리(priority management)**.
+
+이 구조는 전통적 RAN 인프라를 network 운용과 AI workload를 함께 지원하는 **multi-purpose system**으로 전환한다.
+
+---
+
+## 시스템 모델 {#sec-system-model}
+
+### Task 표현
+
+전체 task 집합을 $K$, 개별 task를 $k \in K$라 할 때:
+
+$$
+k = \{\tau, \boldsymbol{r}, p\}
+$$
+
+- $\tau$: task 유형 (RAN / AI)
+- $\boldsymbol{r} = [r_i,\ \forall i = 1, 2, \ldots, N]$: 자원 요구 벡터 (resource type별 요구량)
+- $p \in [0,1]$: 우선순위 (실시간 신호처리 > 비실시간 분석/리포팅)
+
+자원 수요는 시간에 따라 변하므로 $\boldsymbol{r}(k,t)$, $p(k)$로 표기한다.
+
+### 자원 수요 정의
+
+task $k$의 시점 $t$ 자원 수요는 요구 벡터의 $L_1$ norm으로 정의된다.
+
+$$
+\Delta(k,t) = \lVert \boldsymbol{r}(k,t) \rVert_1 = \sum_{i=1}^{n} r_i(k,t)
+$$
+
+전체 시스템 수요는 모든 task의 합이다.
+
+$$
+\Delta_{\text{total}}(t) = \sum_{k \in K} \Delta(k,t)
+$$
+
+### 시스템 동역학 (System Dynamics)
+
+전체 workload $W(t)$는 task **생성**과 **완료**, 그리고 **자원 경합(contention)**의 균형으로 진화한다.
+
+$$
+W(t) = \int_0^t \left( \sum_{k \in K} P(k,t)\,\Delta(k,t) \;-\; \sum_{k \in K} P_c(k,t)\,\Delta(k,t)\,C(k,t) \right) dt
+$$
+
+- $P(k,t)$: task 생성 확률
+- $P_c(k,t) = \alpha \cdot p(k)$: task 완료 확률 ($\alpha$는 시스템 효율 계수, $p(k)$는 우선순위)
+- $C(k,t)$: task $k$의 자원 경합
+
+첫 항은 새로 들어오는 부하, 둘째 항은 우선순위가 높을수록(그리고 효율이 높을수록) 빠르게 처리되어 빠져나가는 부하를 나타낸다.
+
+### 문제 정식화
+
+정규화된 공유 자원 풀 안에서 RAN과 AI 할당의 합이 가용 자원을 넘지 않도록 하면서, 우선순위를 반영한 효용을 최대화하는 동적 할당 문제로 귀결된다. 핵심 제약은 다음 형태이다.
+
+$$
+r_{\text{RAN}}(t) + r_{\text{AI}}(t) \;\le\; \mathcal{R}_{\max}
+$$
+
+여기서 $\mathcal{R}_{\max}$는 가용 컴퓨팅 자원 총량으로, 본 논문에서는 NVIDIA MIG 기반으로 모델링된다(아래 평가 절 참조).
+
+---
+
+## SAC 기반 동적 자원 적응 {#sec-sac}
+
+E2E orchestrator는 연속 행동공간에 적합한 **SAC(Soft Actor-Critic)** 알고리즘을 사용한다. SAC는 entropy 정규화로 탐색-활용 균형을 안정적으로 유지하여, 연속적인 자원 할당량 조정에 적합하다.
+
+구성 요소는 다음과 같이 정리된다.
+
+- **State**: monitoring xApp이 전달하는 현재 RAN/AI 자원 수요와 직전 할당 이력 등 네트워크 상태 지표 (bandwidth utilization, system latency, network load 기반).
+- **Action**: RAN과 AI에 대한 자원 할당량의 조정(증감).
+- **Reward**: 우선순위를 가중한 task 완료 정도를 보상하고, 동시에 인프라 자원이 유휴로 남지 않도록 **활용도(utilization)**를 함께 반영한다. 시변 가중치를 통해 peak 시 RAN에 자원을 우선 배정하도록 정책이 학습된다.
+
+이 설계가 *"RAN 실시간성 보장"*과 *"AI workload best-effort 수용"*이라는 두 목표를 하나의 보상 함수 안에서 절충한다.
+
+---
+
+## 성능 평가 결과 {#sec-results}
+
+### 실험 환경
+
+- 순수 **Python 시뮬레이션** (O-RAN 기반 가정).
+- 자원은 **NVIDIA MIG(Multi-Instance GPU)** 단위로 모델링. 즉 추상적 "자원"이 아니라 물리 GPU를 분할한 instance 개수로 자원 풀과 수요를 표현한다.
+- 시간에 따라 RAN/AI 수요가 변동하는 dynamic scenario에서 정책을 평가.
+
+### 주요 결과
+
+- RAN workload 요청의 **약 99% 충족** — 실시간 요구가 있는 RAN을 안정적으로 보장.
+- RAN 인프라 자원 **활용률 100%** 달성 — off-peak 유휴 자원을 AI workload가 흡수.
+- Peak 구간에서 RAN 수요가 급증하면 SAC가 즉시 AI 할당을 줄이고 RAN으로 재배분 → priority-weighted reward의 동작이 실증됨.
+- AI workload는 우선순위상 RAN보다 낮은 수준에서 수용되지만, 가용 자원 한도 내에서 지속적으로 처리됨.
+
+결론적으로, 동적 자원 공유가 정적 할당 대비 **인프라 효용을 극대화**하면서도 RAN 성능 요구를 침해하지 않음을 보였다.
+
+---
+
+## 한계 {#sec-limitations}
+
+논문이 스스로(또는 구조상) 드러내는 한계는 다음과 같으며, 이는 곧 후속 연구의 진입 지점이다.
+
+1. **순수 시뮬레이션 검증**: 실제 RAN 스택(L1/MAC)이 없고, 사용자 수를 MIG 수요로 추상화. 실측 트래픽 dataset 미사용.
+2. **자원 단위의 거칠음**: task를 MIG 단위 덩어리로 취급 → fractional/variable allocation이나 무선 자원(PRB/TB) 수준 제어는 범위 밖.
+3. **NRT-RIC 타임스케일**: Y1/E2 기반이라 제어 주기가 **10 ms~초 단위**. 즉 "거시적 컴퓨팅 자원 풀 분배"이지 sub-TTI 스케줄링이 아님.
+4. **AI workload 블랙박스화**: AI task의 내부 구조(token, attention 등)는 보지 않고 "필요 MIG 수"로만 모델링.
+
+---
+
+## 연구 Gap 및 학위논문 차별화 축 {#sec-gap}
+
+본 논문은 AI-RAN 세 갈래 중 **AI-and-RAN(컴퓨팅 공존/자원 공유)** 축에 위치한다. 반면 본인의 연구 방향인 **importance-aware MAC scheduling**은 **AI-for-RAN(지능형 제어)**에 가까우며, 두 연구는 경쟁이 아니라 **서로 다른 계층·granularity**를 다룬다.
+
+### 차별화 비교
+
+| 구분 | 본 논문 (CAORA) | 학위논문 방향 |
+|---|---|---|
+| 제어 주체 | NRT-RIC xApp + 외부 E2E orchestrator | GPU-collocated **L2 MAC scheduler** |
+| 타임스케일 | NRT-RIC (10 ms~초), Y1/E2 경유 | **sub-TTI**, 노드 내 직결 |
+| 자원 단위 | MIG (GPU 덩어리) | **PRB / TB** (무선 자원) |
+| AI workload 취급 | 블랙박스 (필요 MIG 수) | **token importance**(entropy·attention)를 scheduler utility 입력으로 |
+| "AI-and-RAN" 의미 | GPU에서 RAN+AI **compute 공존** | offloaded VLM 트래픽을 RAN이 **importance-aware로 스케줄** |
+| 평가 지표 | 요청 충족률, 자원 활용률 | **end-to-end task utility per resource** |
+| 검증 스택 | Python 시뮬레이션 | Sionna → cuMAC on GH200, ROS2 트래픽 |
+
+### 핵심 차별화 논거
+
+- **AI workload의 의미 차이**: 본 논문에서 AI workload는 *GPU 위 연산 부하*이다. 반면 본인의 use case에서 multi-robot VLM offloading은 *uplink 트래픽 그 자체*이다. 따라서 본 논문이 "AI 연산과 RAN 연산의 GPU 공유"를 푼다면, 본인은 그보다 한 단계 안쪽인 "AI가 생성한 트래픽을 RAN이 그 내용 중요도에 따라 무선 자원으로 스케줄하는" 문제를 다룬다.
+- **타임스케일 차별화**: 본 논문이 정확히 NRT-RIC/Y1 경로의 거시 자원 분배를 보여주기 때문에, sub-TTI 제어는 이 경로로 externalize할 수 없다는 주장(GPU-collocated MAC 제어의 필연성)이 본 논문에 대한 직접적 대비가 된다.
+- **예측 요소의 확장 여지**: 본 논문은 monitoring xApp의 과거 패턴을 활용한 예측을 언급하지만, **채널 품질 예측·트래픽 예측을 token 내용 기반으로 끌어와 proactive하게 미래 PRB를 선할당**하는 방향은 다루지 않는다. 이 지점이 본인 기여의 핵심 공간이다.
+
+### Positioning 메모
+
+- 본 논문은 predictive AI-and-RAN orchestration 분야의 가장 직접적 선행 연구 중 하나이므로, 세미나에서는 **convergence backbone**으로, 학위논문에서는 **macro 자원 분배의 상한선**으로 인용한다.
+- 후속편(arXiv:2507.09124, *Proactive AI-and-RAN Workload Orchestration*)과 짝지어, 본 논문의 reactive/예측 요소가 어떻게 proactive로 확장되는지를 비교하면 gap을 더 선명하게 anchoring할 수 있다.
+
+---
+
+## 한눈에 보기 {#sec-takeaway}
+
+> 본 논문은 *"가속 컴퓨팅 노드에서 RAN과 AI가 GPU(MIG)를 어떻게 나눠 쓸 것인가"*를 NRT-RIC + SAC로 푼, AI-and-RAN의 대표적 거시 자원 분배 연구이다.
+> 본인의 기여는 그 *안쪽*에 있다: RAN이 받아들이는 트래픽(특히 VLM offloading)을 **token 중요도 기반으로 sub-TTI MAC에서 importance-aware하게 스케줄**하는 것 — 본 논문이 비워 둔 미시(micro) 제어 영역이다.

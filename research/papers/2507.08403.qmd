@@ -1,0 +1,266 @@
+---
+title: "AI-Native RAN: 6G Day 1 표준화에 대한 Operator 관점"
+subtitle: "Towards AI-Native RAN — China Mobile, arXiv:2507.08403"
+date: "2026-06-24"
+lang: ko
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    code-fold: false
+  pdf:
+    toc: true
+    number-sections: true
+    pdf-engine: xelatex
+    include-in-header:
+      text: |
+        \usepackage{kotex}
+---
+
+## 한눈에 보기 {#sec-tldr}
+
+China Mobile(Nan Li, Qi Sun, Chih-Lin I 등) 저자의 **operator 관점 6G AI-Native RAN 표준화 position 논문**이다.
+새로운 알고리즘을 제안하는 연구라기보다, "6G의 첫 release(Day 1) 표준에 AI를 어떻게 native로 넣을 것인가"를
+2G~5G 운영·표준화 경험에 근거해 정리한 청사진에 가깝다.
+
+핵심 주장은 두 가지다.
+
+- 5G에서 AI/ML은 기존 구조 위에 얹은 **add-on**이었고, legacy architecture·protocol·flexibility 제약에 묶였다.
+  6G는 처음부터 AI를 native로 내장해야 한다.
+- 이때 **AI for RAN**(AI로 RAN 성능을 높임)과 **RAN for AI**(RAN이 pervasive AI를 위한 compute/connectivity를 제공)를
+  동시에 추구해야 한다.
+
+구체적 기여로 (1) AI-Native RAN의 세 가지 essential capability 정리, (2) **AI Node**라는 새 RAN node를 포함한
+Day 1 아키텍처 제안, (3) 5000+ 5G-A 기지국 규모의 대규모 field trial 검증을 제시한다.
+
+> 본 문서의 수치는 원문(arXiv:2507.08403v1)과 대조해 확인하였다.
+
+---
+
+## Motivation: add-on의 한계와 Day 1의 의의 {#sec-motivation}
+
+### 왜 native여야 하는가
+
+논문은 6G RAN이 직면하는 문제를 AI가 잘 푸는 영역으로 본다.
+대표적으로 (i) 수백 개 안테나 소자로 계산 복잡도가 급증하는 massive MIMO의 저복잡도 signal processing,
+(ii) 대규모 UE·복잡한 topology에서의 radio resource allocation 및 scheduling처럼
+대규모·비선형이거나 수학적 모델링 자체가 어려운 문제들이다.
+이런 문제는 real-time 알고리즘이 성능을 타협할 수밖에 없는데, AI가 학습 기반으로 우회할 수 있다는 것이다.
+
+### Day 1 표준이 특별한 이유
+
+각 세대의 첫 release가 실제 대규모 상용 배치의 기준이 된다는 점이 핵심 논거다.
+표준은 release당 약 1.5~2년 주기로 진화하지만, operator는 TCO 때문에 망을 그보다 훨씬 드물게 올린다.
+4G/5G에서도 첫 release(Rel-8, Rel-15)가 주력 배치 대상이었고, 이후 release 기능은 vendor 지원도, operator 구매도 적었다.
+
+예시로 **고속철(HST)**을 든다. 중국 HST망은 2024년 기준 약 48,000 km, 최고 350 km/h로 운영되는데,
+심한 Doppler shift 보상 기능이 Rel-16 이후에야 들어와 실제 live network에서는 활용도가 낮았다.
+같은 일이 6G에서 반복되면, AI를 Day 1에 넣지 못한 채 "AI-as-afterthought" 한계가 6G에서도 굳어진다는 경고다.
+
+---
+
+## 세 가지 essential capability {#sec-capabilities}
+
+논문은 AI-Native RAN을 세 capability로 정의한다(Fig. 1).
+
+### Capability 1 — AI-Driven RAN Processing / Optimization / Automation {#sec-cap1}
+
+L1/L2/L3 전반에 AI를 적용한다. AI의 강점을 세 가지로 정리한다:
+명시적 모델링이 불가능한 영역에서의 학습, 대규모·고차원 환경에서의 real-time 의사결정,
+복잡한 시공간 패턴 기반의 예측·proactive 적응.
+
+Table I이 핵심이며, use case를 두 축으로 매핑한다.
+
+- **AI for resources control & optimization (L2/L3)**: load balancing, mobility management, network energy saving,
+  network slicing, capacity & coverage optimization, **multi-user scheduling & resource allocation**,
+  QoS/QoE & SLA assurance.
+- **AI for air interface (L1)**: positioning, beam management, CSI compression/prediction,
+  AI receiver/transceiver, PA non-linearity compensation, interference prediction, RS overhead reduction.
+
+각 use case에 inference 위치(BS/UE/LMF-side), model 종류·규모(DNN/LSTM/DRL/GNN/Transformer, `<1M`~`10M-1B`),
+표준화 status(3GPP Rel-18/19, O-RAN, *6G candidate use case*)를 함께 표기한다.
+
+> **주목 포인트.** `multi-user scheduling and resources allocation`은 **6G candidate use case**로 분류되어 있고,
+> 제시 모델도 `DNN(<1M)`, `DRL(<10M)` 수준의 거친 규모다. 즉 이 논문 자체는 scheduling을
+> "AI가 적용될 만한 영역"으로 나열만 할 뿐, 어떤 신호를 utility로 삼아 어떻게 풀지는 비워 둔다(→ @sec-gap).
+
+### Capability 2 — 효율적·제어가능·신뢰성 있는 AI LCM {#sec-cap2}
+
+데이터 수집·모델 관리·분산 협업 컴퓨팅의 세 축이다.
+
+**(a) Data collection.**
+5G RAN protocol은 통신 목적으로 설계되어 AI 데이터 수집에 부적합하다.
+control plane은 payload 크기 한계, user plane은 데이터가 core의 UPF에서 종단되고 charging 대상이라 RAN AI용으로 불리하며,
+대량 수집은 radio link를 고갈시켜 기본 connectivity를 저해할 위험이 있다. 세 가지 해법을 제안한다:
+
+- *Dedicated AI radio bearer*: RAN이 동적으로 설정·관리하는 전용 bearer로 training data·model·성능 metric 등을 운반.
+  RAN node 간 AI 데이터 교환용 새 data tunnel도 함께.
+- *Cross-domain data collection*: application server의 실시간 traffic 특성과 service QoE를 RAN이 수집.
+  예로 LLM inference의 **TTFT(time to first token)**를 받아 PDU set mapping·DRB configuration을 최적화.
+- *Task-driven customizable collection*: 약 15분 주기의 OAM 방식 대비 **10 ms 이하** latency를 지원하고,
+  특정 UE 단위로, filter 조건부(예: `UE velocity > 250 km/h`)로만 수집해 불필요한 자원 낭비를 줄인다.
+
+**(b) Model management.**
+off-line 학습 모델은 실환경 분포 mismatch로 성능이 저하되므로 online 학습·fine-tuning과 pre-validation이 필요하다.
+성능 monitoring은 **model performance / network performance / resource utilization**의 3차원으로 봐야 한다(Table II).
+UE 이동 시 model context(ID·버전) 동기화, performance-triggered/periodic retraining,
+RAN Digital Twin 기반 pre-deployment 검증, FL·large foundation model 지원을 포함한다.
+
+**(c) Distributed collaborative computing.**
+개별 node의 compute·energy·데이터 부족을 중앙 AI node와의 협업으로 푼다.
+collaborative *training* / *inference* / *fine-tuning*의 세 모드를 정의하고,
+gNB·UE가 compute capability를 등록해 logical compute pool을 구성하는 resource pooling·dynamic scheduling을 제안한다.
+
+### Capability 3 — AIaaS Provisioning {#sec-cap3}
+
+operator가 connectivity 제공자 → edge AI compute 제공자 → edge AI service enabler로 진화한다.
+세 service mode(Fig. 8):
+
+- **Connection assurance for AI services**: multimodal 입력·model update 같은 불투명한 flow를 위한 QoS framework 확장,
+  **새로운 traffic pattern 지원**(embodied intelligence의 lateral flow, personal assistant의 *uplink-heavy·bursty* traffic),
+  **deterministic latency**(assistant `< 200 ms`, embodied AI `< 100 ms`) 보장.
+- **Data services**: traffic load·link quality 등 내부 metric과 mobility·location 같은 sensing 데이터를 노출.
+  예로 robotic system이 sensing/update 주기를 조정해 packet loss를 회피.
+- **RAN AI computing services**: GPU/NPU 등 이종 compute를 외부 edge AI에 노출(통신-컴퓨팅 joint scheduling 필요).
+
+이 세 가지는 모두 **open API framework** 표준화를 전제로 한다.
+
+---
+
+## Day 1 표준화 원칙 {#sec-day1}
+
+1. **Day 1 표준 범위가 효능을 좌우한다** — 늦게 들어온 기능은 활용도가 낮다(HST 사례).
+2. **Forward compatibility가 필수다** — (hardware) 먼저 깐 장비로 후속 release 소프트웨어를 돌릴 수 있어야 하고,
+   centralized resource management + distributed processing으로 site당 투자와 idle compute를 회수.
+   (software/model) AI model은 구조가 바뀌거나 재학습될 수 있으므로 processing block·protocol layer 간 인터페이스 정의가 명확해야 한다.
+3. **RAN AI service exposure로 상업 가치를 연다** — AI compute는 비싸고 전력 소모가 크므로,
+   idle AI capacity를 cloud처럼 외부 AI 서비스에 노출해 connectivity 너머의 수익원을 만든다.
+4. **3GPP 주도 + SDO 협업** — 3GPP가 end-to-end 아키텍처·인터페이스·interoperability를 맡고,
+   ITU는 umbrella framework/용어(FG-AINN), ETSI·O-RAN은 RAN cloud·RAN application(API)을 분담.
+   AI Node와 그 인터페이스를 3GPP가 정의하는 안과, O-RAN이 정의하는 대안 두 옵션을 제시.
+
+---
+
+## 제안 아키텍처: AI Node + 6gNB {#sec-arch}
+
+논문의 가장 구체적인 기여(Fig. 9). 핵심은 **timeliness 기준의 기능 분산**이다.
+
+| 구성요소 | 위치/형태 | 담당 기능 |
+|---|---|---|
+| **RAN OAM** | central cloud, non-real-time | 전역 supervision·coordination, MDA 등 자체 AI |
+| **AI Node** | locally centralized, 충분한 AI compute(edge platform) | data collection, model management, **model repository**, **AI/ML training**(L1/L2/L3 모두), **L3 inference**, RAN capability exposure |
+| **6gNB** | distributed, UE 접속 | 기본 통신(dynamic scheduling) + **L1/L2 real-time inference** + 해당 LCM/데이터 수집 |
+| **6G UE** | 단말 | 기본 통신 + (제한적) inference·데이터 수집 |
+
+AI Node와 6gNB는 **one-to-many cardinality**로, 새로운 RAN interface로 연결된다.
+
+설계 논리:
+
+- 무거운 **training은 AI Node로 중앙화** → 6gNB의 AI compute 요구를 최소화하고, sporadic training을 모아
+  **statistical multiplexing**으로 자원 효율을 올린다(AI 미탑재 BS에 inference 서비스 제공 가능 → 저비용 배치).
+- **real-time이 필요한 L1/L2 inference는 6gNB에 둔다.** 원문은 이 functional split이
+  "L1/L2의 real-time 동작을 보장한다"고 명시한다.
+- 남는 compute는 OTT/RAN App에 노출해 AIaaS 수익원으로 전환(new SBI로 core에, 관리 인터페이스로 OAM에 노출).
+
+> 이 **timeliness 기반 split**은 "L1/L2 real-time 제어는 node-local이어야 한다"는 입장과 정확히 일치한다.
+> Near-RT RIC xApp으로 externalize하는 대신 node에 collocate해야 한다는 논거의 표준화 측 근거로 쓸 수 있다(→ @sec-gap).
+
+---
+
+## 대규모 Field Trial {#sec-trial}
+
+China Mobile이 2024년 진행한 3단계 trial. AI Node에 대응하는 **CCU(Centralized Computing Unit)**를 실제 배치해 검증.
+
+- **Phase 1** (2024.1~12, 중국 **31개 도시 · 5000개 5G-A 기지국**): 중앙-분산 AI 협조 + 세 use case 검증.
+- **Phase 2**: 475,000 gNB로 확장, 경기장·공연장 등 고밀도 환경, AI 기반 RRM, experience-centric 구독 모델.
+- **Phase 3**: 전국 배치, UAV mobility management, embodied intelligence QoE, RAN capability exposure(AIaaS).
+
+### Case 1 — 차별화 서비스 보장 {#sec-case1}
+
+AI가 실시간으로 traffic을 분류(1000+ app type, 정확도 95% 초과; 8 gNB에서 4,800 동시 사용자)하고,
+열화가 감지되면 QoS 최적화를 trigger한다. 핵심 정식화는 **utility 기대값 최대화**다:
+
+$$
+\hat{\mathbf{a}}_u \;=\; \arg\max_{\mathbf{a}\in\mathcal{A}}\;
+\mathbb{E}\!\left[\,U\!\left(\hat{\mathbf{q}}_u(\mathbf{a}, \mathbf{x}_u)\right)\right]
+$$
+
+- $\mathbf{a}$: 사용자 $u$에 대한 action(scheduling weight, resource allocation)
+- $\mathbf{x}_u$: 관측 context(application type, RAN metric, mobility state)
+- $\hat{\mathbf{q}}_u(\cdot)$: AI가 **예측한 service-level quality 벡터**(latency, throughput, QoE)
+- $U(\cdot)$: operator policy를 반영한 utility function(QoE 최대화 또는 latency 최소화)
+
+결과: poor coverage(RSRP $\le -105$ dBm)·heavy load(PRB $\ge 50\%$)에서 short video latency
+**33.6% / 30.5%** 감소, 평균 **43.0 ms → 32.0 ms (25.6%)**.
+QR code는 평균 **18.5 ms → 14.5 ms (21.9%)**.
+부수효과로 link 안정화에 따라 앱들이 해상도를 720p→1080p/4K로 올려 시나리오별 **3~6% traffic 증가**.
+
+### Case 2 — 불량 경험 root cause 분석 {#sec-case2}
+
+UE·network·application 다계층 데이터를 융합해 사용자/원인 카테고리를 분류한다:
+
+$$
+\hat{y}_u \;=\; f_\theta\!\left(\mathbf{x}_u^{\text{App}},\,\mathbf{x}_u^{\text{RAN}},\,
+\mathbf{x}_u^{\text{UE}},\,\mathbf{x}_u^{\text{Mob}}\right)
+$$
+
+App 계층(TCP RTT·packet loss), RAN(SINR·RSRP·handover 통계), UE 속성, mobility(grid positioning, $50\,m\times 50\,m$)를 입력으로
+**XGBoost**가 user type(indoor/outdoor/high-speed)을 **90% 초과 precision**으로 분류.
+rule 기반 대비 진단 정확도 **+20%**, 분류 recall **+30%**.
+
+### Case 3 — network energy saving {#sec-case3}
+
+시간·주파수·공간·전력 도메인의 20여 종 ES 기법을 전제로, 전체 소비전력을 모델링한다:
+
+$$
+\mathbb{E} = \sum_{n=0}^{N}\sum_{m=0}^{M}\sum_{t=0}^{T}
+\Big[P^{PA}(P,m,t)+P^{\text{transceiver}}(m,t)+P^{\text{digital IF}}(m,t,C)\Big]
++\sum_{n=0}^{N}\sum_{t=0}^{T}\Big[P^{\text{baseband}}(t,C)+P_0\Big]
+$$
+
+기존 ES는 고정 시간창·정적 임계값 같은 수동 파라미터에 의존해 동적 traffic에 둔하다. 두 AI 해법:
+
+- *Solution 1*: NMS에 AI를 넣어 15분 주기 cell-level 데이터로 traffic을 예측하고 ES 임계값을 동적 조정 → **26.6%** 절감.
+- *Solution 2*: BS에 CCU를 두고 실시간 service type 인식, delay-tolerant traffic에 packet aggregation·sleep 연장 → **34.16%** 절감.
+
+(비 AI 기법 대비 각각 +5.32%, +12.88%.)
+
+### Trial이 드러낸 한계 {#sec-trial-gap}
+
+CCU와 **multi-vendor gNB 간 표준 인터페이스 부재**로 cross-platform collaborative inference가 막혔고,
+AI 기능의 **모듈식 API 캡슐화 부족**으로 개방성·재사용성이 제한되었다.
+→ Day 1 표준화(interoperable AI service framework)의 정당화 논거로 직결된다.
+
+---
+
+## 연구 gap 및 thesis 차별화 연결 {#sec-gap}
+
+이 논문은 **상위 레벨 청사진**이라 "L2 scheduler가 token importance나 traffic 예측을 어떻게 utility로 반영할지"는
+다루지 않는다. 이 빈 곳이 importance-aware MAC scheduling 기여가 들어갈 자리다.
+
+| 이 논문이 제공하는 것 (앵커) | 비어 있는 곳 (thesis gap) |
+|---|---|
+| Case 1의 **utility 기대값 최대화** scheduling 정식화 ($\arg\max_{\mathbf a}\mathbb E[U(\hat{\mathbf q}_u(\mathbf a,\mathbf x_u))]$) — operator가 실증한 형태 | $U(\cdot)$의 입력 $\hat{\mathbf q}_u$에 **token importance(model entropy·attention)** 를 utility 신호로 주입하는 설계는 없음 → end-to-end task utility/resource를 직접 최적화하는 정식화로 확장 |
+| Table I에서 multi-user scheduling을 **6G candidate use case**로 명시 (DNN/DRL, 거친 규모) | PRB/TB granularity에 정합하는 **importance-aware L2 scheduling**의 구체적 utility 매핑·평가지표(BLER 대신 task utility)는 미정 |
+| **Connection assurance**: embodied intelligence lateral flow, UL-heavy·bursty traffic, deterministic latency(`<100 ms` embodied) | 다수 로봇(stationary arm/AMR/drone) **이종 mobility**에서의 offloading·UL 압박을 직접 푸는 scheduling 정책은 없음 → motivation 그대로 차용 가능 |
+| **Cross-domain data collection**: LLM **TTFT** → PDU set mapping·DRB 최적화 | token content로부터 **predictive resource demand estimation**(Stage 3)은 미구현 |
+| **Task-driven 10 ms data collection**, filter(예: velocity>250 km/h) | 예측을 선반영하는 **proactive PRB pre-allocation(chance-constrained, Stage 4)** 은 미구현 |
+| **Timeliness 기반 functional split**: L1/L2 real-time inference는 6gNB(node-local) | "sub-TTI scheduling은 GPU-collocate되어야 하고 Near-RT RIC xApp으로 externalize 불가"라는 주장의 **표준화 측 근거**로 인용 |
+
+### 포지셔닝 요약
+
+- **citation 앵커로서의 가치**: China Mobile·Chih-Lin I의 operator/표준화 비전 → AI-RAN 프레임의 권위 있는 근거.
+- **motivation 정합**: UL-heavy·bursty traffic, robot offloading, deterministic latency가 use case와 직접 일치.
+- **gap의 선명함**: 이 논문은 "scheduling을 utility로 풀라"는 형(form)만 제시하고,
+  그 utility를 **무엇으로(token importance)**, **어떻게 예측·선할당으로** 채울지는 비워 둔다.
+  Stage 3(예측적 demand estimation)·Stage 4(proactive pre-allocation)가 그 빈칸이다.
+
+---
+
+## 메타데이터 {#sec-meta}
+
+- 제목: *Towards AI-Native RAN: An Operator's Perspective of 6G Day 1 Standardization*
+- 저자: Nan Li, Qi Sun, Lehan Wang, Xiaofei Xu, Jinri Huang, Chunhui Liu, Jing Gao, Yuhong Huang, Chih-Lin I (China Mobile)
+- arXiv: 2507.08403 (cs.NI), 2025-07-11
