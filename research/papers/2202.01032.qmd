@@ -1,0 +1,258 @@
+---
+title: "O-RAN의 AI/ML Workflow 관점 정리"
+subtitle: "Architecture, Interfaces, Deployment Scenarios & Research Gaps"
+date: "2026-06-23"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    theme: cosmo
+    highlight-style: github
+    code-fold: false
+    fig-cap-location: bottom
+    df-print: kable
+  pdf:
+    toc: true
+    number-sections: true
+    documentclass: article
+    geometry: margin=2.5cm
+lang: ko
+---
+
+> 대상 문헌: Polese, Bonati, D'Oro, Basagni, Melodia,
+> *"Understanding O-RAN: Architecture, Interfaces, Algorithms,
+> Security, and Research Challenges"* (arXiv:2202.01032, 2022).
+> 본 문서는 해당 논문의 내용을 **AI/ML workflow를 축**으로
+> 재배열하고, 그 위에서 도출되는 **연구 공백(research gap)**을
+> 함께 정리한다.
+
+# 들어가며: 왜 "AI/ML workflow" 축인가
+
+O-RAN의 본질은 기지국을 분해(disaggregation)하고 표준 인터페이스로
+개방하는 데 있지만, 그 구조가 존재하는 **목적**은 RAN 제어에 ML을
+배치 가능하게 만드는 것이다. 따라서 O-RAN을 "박스의 분해"가 아니라
+**"ML 파이프라인을 망의 어느 노드에 어떻게 얹는가"**의 문제로 보면
+아키텍처·인터페이스·배포 시나리오가 하나의 일관된 그림으로 정렬된다.
+
+이 관점에서 핵심 질문은 두 가지로 압축된다.
+
+1. AI/ML workflow는 어떤 **기능 단계**로 구성되는가?
+2. 각 단계를 **어느 노드(SMO / Non-RT RIC / Near-RT RIC / RAN node)**
+   에 배치할 수 있으며, 그 선택을 가르는 제약은 무엇인가?
+
+두 번째 질문의 답을 가르는 결정적 변수가 **타임스케일(timescale)**
+이며, 이것이 본 문서 전체를 관통하는 축이다.
+
+# 배경: AI/ML을 호스팅하는 O-RAN 제어 계층
+
+AI/ML workflow를 논하기 전에, 워크플로우가 "어디에" 놓이는지를
+규정하는 제어 계층을 타임스케일 기준으로 정리한다.
+
+| 계층 | 타임스케일 | 호스팅 단위 | 인터페이스 | 주 역할 |
+|---|---|---|---|---|
+| SMO / Non-RT RIC | > 1 s | rApp | A1, O1, O2 | 정책·모델 관리, 학습, intent 관리 |
+| Near-RT RIC | 10 ms – 1 s | xApp | E2 | 실시간 RRM 제어, 추론 |
+| RAN node (CU/DU) | < 10 ms | (embedded) | — | 스케줄링·HARQ 등 real-time 제어 |
+
+: O-RAN 제어 루프의 타임스케일 계층 {#tbl-timescale}
+
+이 계층 구조를 중첩 제어 루프(nested control loop)로 형식화하면,
+바깥 루프일수록 느리고 전역적이며 안쪽 루프일수록 빠르고 국소적이다.
+제어 주기를 $T_\ell$라 할 때 대략
+
+$$
+T_{\text{Non-RT}} \;>\; 1\,\text{s}
+\;\gg\;
+T_{\text{Near-RT}} \in [10\,\text{ms},\,1\,\text{s}]
+\;\gg\;
+T_{\text{RT}} \;<\; 10\,\text{ms}
+$$
+
+가 성립한다. **<10 ms real-time 루프는 현 명세에서 표준화되지 않은
+영역(further study)** 이며, 이 사실이 뒤의 리서치 갭과 직결된다.
+
+# AI/ML Workflow의 생명주기 단계
+
+O-RAN WG2가 정의하는 AI/ML 생명주기는 데이터에서 추론까지의
+순환 파이프라인으로, 다음 단계로 구성된다.
+
+1. **Data Preparation** — 수집·전처리·feature engineering
+2. **AI/ML Training** — 모델 학습 (원칙적으로 오프라인 필수)
+3. **Validation & Deployment** — 검증 후 대상 노드로 배포
+4. **Inference** — 학습된 모델로 실시간 추론 수행
+5. **Continuous Operations** — 배포 후 성능 모니터링·재학습 트리거
+
+핵심 운영 원칙은 다음과 같다.
+
+- **오프라인 학습 필수**: 검증되지 않은 모델의 실망 배포 금지.
+  온라인 학습은 fine-tuning 용도로만 제한적으로 허용.
+- **추론 호스트의 현 한계**: 추론은 현 명세상 **RIC에 한정**되며,
+  CU/DU에서의 추론은 미결(further study) 상태.
+
+# Workflow 기능의 노드 배치: 배포 시나리오 (Fig. 14)
+
+논문의 Fig. 14는 위 워크플로우의 5개 기능 열
+(Model Management / Continuous Operations / Data Preparation /
+Training / Inference)을 어느 노드에 배치하는지에 따라 5개 시나리오로
+분류한다. 이는 본 문서의 핵심 표이므로 자세히 정리한다.
+
+## 시나리오별 기능 배치
+
+| 시나리오 | Model Mgmt | Continuous Ops | Data Prep | Training | Inference |
+|---|---|---|---|---|---|
+| **1.1** | Non-RT | Non-RT | Non-RT | Non-RT | Non-RT |
+| **1.2** | SMO | Non-RT | Non-RT / Near-RT | Non-RT | **Near-RT** |
+| **1.3** | SMO | Non-RT | SMO | SMO | Non-RT |
+| **1.4** | Non-RT | **Near-RT** | Non-RT | Non-RT / SMO | **Near-RT** |
+| **1.5 (FFS)** | Non-RT | (미정) | (미정) | (미정) | **O-CU / O-DU** |
+
+: O-RAN AI/ML 배포 시나리오 (Fig. 14 재구성) {#tbl-scenarios}
+
+## 시나리오 해석
+
+- **1.1 — 완전 중앙집중**: 전 기능을 Non-RT RIC에 집중. 추론도
+  >1 s 스케일이므로 슬라이싱 정책·트래픽 예측처럼 느린 결정에 적합.
+  빠른 폐루프 제어 불가.
+
+- **1.2 — 학습/추론 분리**: 학습은 Non-RT(오프라인), **추론은 Near-RT**
+  로 내려 10 ms–1 s 폐루프를 형성. 가장 일반적으로 논의되는 구조.
+
+- **1.3 — 권한 분리**: Model Management와 Training을 **SMO**가 소유,
+  운영·추론은 Non-RT가 담당. 대규모 망에서 중앙 SMO가 공통 모델을
+  배포하고 지역 Non-RT가 추론하는 구조.
+
+- **1.4 — 온라인 적응 루프**: 1.2와 달리 **Continuous Operations까지
+  Near-RT**가 담당. 모델이 실시간 self-monitor하며 성능 저하 시 Non-RT
+  에 재학습을 요청. RIC 기반 시나리오 중 응답성이 가장 높음.
+
+- **1.5 (FFS) — RAN 노드 추론**: **추론을 O-CU/O-DU 자체**에서 실행.
+  TTI 스케일의 real-time 제어가 가능해지는 유일한 구조이나,
+  **아직 표준화되지 않은(For Further Study) 영역**.
+
+> **읽는 법**: 시나리오 1.5에서 SMO·Near-RT RIC이 표에 비어 있는 것은
+> "필요 없음"이 아니라 **FFS이므로 해당 기능의 배치가 미정의**일 뿐이다.
+> 두 컨트롤러는 FCAPS 관리·RRM 등을 위해 망에서 항상 존재한다.
+
+# Chained AI/ML 모델과 데이터 Access Platform
+
+논문은 단일 모델이 아니라 **모델 체이닝(chaining)** 으로 워크플로우가
+구성될 수 있음을 강조한다. 한 모델의 추론 출력이 다른 모델의 입력이
+되며, 이를 데이터 access platform(미들웨어)이 생산/소비 중재한다.
+
+대표 예시(논문 기준):
+
+$$
+\underbrace{\text{rApp: 트래픽 예측}}_{A}
+\;\rightarrow\;
+\underbrace{\text{xApp Y: 슬라이싱 프로파일}}_{C}
+\;\rightarrow\;
+\underbrace{\text{xApp Z: 스케줄링 프로파일}}_{D \,=\, f(A,\,B_{\text{KPM}},\,C)}
+$$
+
+이 구조는 **느린 예측(상위)이 빠른 스케줄링(하위)의 입력을 세팅**하는
+계층적 정보 흐름을 보여주며, 뒤의 hierarchical 설계 논의로 이어진다.
+
+# ML이 실제 적용되는 Use Case
+
+논문이 분류하는 ML 적용 영역 중, 자원 제어 관점에서 핵심은 다음과 같다.
+
+- **Resource Allocation** (네트워크 슬라이싱·스케줄링) — ML 적용이
+  가장 활발한 영역. 폐루프 슬라이싱 제어 사례(ColO-RAN, NexRAN 등) 다수.
+- **Mobility** — 핸드오버·로드 밸런싱 예측.
+- **QoE/QoS 제어** — 사용자 체감 품질 기반 자원 조정.
+- **RAN Sharing / Massive MIMO / 신규 응용**(UAV·차량·산업 IoT).
+
+이 중 **스케줄링**은 타임스케일이 가장 빠른 영역이라, 위 시나리오
+표에서 **1.5(노드 내 추론)만이 타이밍상 적합**하다는 점이 부각된다.
+
+# 리서치 갭 {#sec-gaps}
+
+AI/ML workflow 관점에서 논문이 명시적/암묵적으로 남겨둔 공백을 정리한다.
+모두 **시나리오 1.5(노드 내 추론)** 를 중심으로 수렴한다.
+
+## 갭 1 — Real-time(<10 ms) 추론 루프의 부재
+
+추론 호스트가 RIC(≥10 ms)에 한정되어, **TTI 스케일의 빠른 제어**
+(스케줄링, link adaptation)에 ML을 직접 적용할 표준 경로가 없다.
+형식적으로, 노드 내 추론이 성립하려면 추론 지연 $\tau_{\text{inf}}$와
+스케줄링 처리 지연 $\tau_{\text{sched}}$의 합이 TTI 예산을 넘지 않아야
+한다.
+
+$$
+\tau_{\text{inf}} + \tau_{\text{sched}} \;\le\; \text{TTI}
+\quad (\text{TTI} \approx 0.5\text{–}1\,\text{ms})
+$$
+
+이 부등식이 **현 하드웨어·모델 구조에서 성립하는지 자체가 미검증**이며,
+이것이 1.5가 FFS인 첫 번째 기술적 이유다.
+
+## 갭 2 — 모델 배포(model delivery) 인터페이스의 부재
+
+"Model Management는 Non-RT, Inference는 O-DU"라는 1.5 구조를
+실현하려면 **학습된 모델 weights를 Non-RT에서 노드로 직접 내리는
+표준 인터페이스**가 필요하다. 그러나 현 인터페이스는 용도가 다르다.
+
+| 인터페이스 | 설계 용도 | 모델 배포 적합성 |
+|---|---|---|
+| A1 | 정책·enrichment 전달 | 부분적 |
+| E2 | RRM 제어 명령 | 부적합(모델 파일 전송용 아님) |
+| O1 | FCAPS 관리 | 부적합 |
+
+: 모델 배포 경로의 표준 공백 {#tbl-delivery}
+
+## 갭 3 — 자원 격리(resource isolation)
+
+노드 내 추론은 RAN 기능과 ML workload가 **동일 하드웨어를 공유**함을
+의미한다. 결과적으로 (i) GPU/CPU 자원 경쟁, (ii) RAN 실시간성을
+해치는 지터(jitter), (iii) QoS 보장형 자원 분배 정책의 부재가 문제로
+남는다. **RAN workload와 AI inference workload의 동적 분리·할당**
+구조가 정의되지 않았다.
+
+## 갭 4 — Cross-layer 신호의 활용 부재
+
+모델 계층의 신호(예: 생성형 모델의 토큰 중요도 — entropy, logprob,
+attention)를 **MAC 스케줄러의 utility 입력**으로 끌어올리는 cross-layer
+매핑은 표준·문헌 모두에서 거의 다뤄지지 않은 영역이다. 이는 갭 1과
+결합될 때 의미를 가진다(빠른 제어 + 모델 유래 신호).
+
+# 종합: 연구 포지셔닝으로의 정렬
+
+위 갭들은 **시나리오 1.5의 미실현**이라는 하나의 축으로 수렴하며,
+이를 실증하는 연구는 자연스럽게 **계층적 구조(hierarchical control)**
+로 정리된다.
+
+```
+Non-RT RIC   →  트래픽 패턴 학습 / 중요도 prior 모델 관리   (> 1 s)
+     │ A1
+Near-RT RIC  →  채널·트래픽 예측 / 슬라이스 정책 조정      (10 ms–1 s)
+     │ E2
+O-DU (cuMAC) →  추론 + 토큰중요도 기반 PRB 할당 실행        (< 10 ms)
+```
+
+- **느린 계층(RIC)** 은 빠른 계층에 정책·가중치·예측을 공급.
+- **빠른 계층(노드)** 은 TTI 스케일에서 추론+스케줄링을 직접 실행.
+
+이 구조에서 연구의 시스템적 기여는 세 번째 행 — **노드에서 실제로
+도는 추론+스케줄링 루프** — 에 있으며, 이는 곧 **FFS로 남은 1.5의
+첫 실증**에 해당한다. 필요한 기술 요소(채널 품질 예측, 트래픽 예측)는
+각각 Near-RT 계층의 입력으로, 검증 환경(GH200 / pyAerial / cuMAC /
+ROS2)은 갭 1·3에 대한 실측 답으로 매핑된다.
+
+| 리서치 갭 | 대응 요소 | 검증 수단 |
+|---|---|---|
+| 갭 1 (real-time 추론) | sub-ms 추론 feasibility | GH200 + pyAerial 실측 |
+| 갭 3 (자원 격리) | RAN+AI workload 공존 | Aerial 동적 할당 |
+| 갭 4 (cross-layer 신호) | 토큰 중요도 → utility 입력 | cuMAC 스케줄러 |
+| 예측 요소 | 채널·트래픽 예측 | Near-RT 계층 모델 |
+
+: 리서치 갭과 연구 요소의 매핑 {#tbl-mapping}
+
+# 한 줄 요약
+
+> O-RAN의 AI/ML workflow는 5개 기능을 4개 노드에 배치하는 문제이며,
+> 그 선택을 가르는 변수는 타임스케일이다. **추론을 RAN 노드로 내리는
+> 시나리오 1.5만이 TTI 스케일 제어를 가능케 하지만 아직 FFS로 남아
+> 있고**, 바로 이 미실현 지점이 cross-layer·systems-level 연구가
+> 자리할 핵심 공백이다.

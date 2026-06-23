@@ -10918,5 +10918,54 @@
     "title": "색이 모두 다른 경로 개수 세기 — 색 마스크 DP + CSR 인접 리스트",
     "section": "6. Codes",
     "text": "6. Codes\n#include &lt;stdio.h&gt;\n\n#define MAX_V   (100'000)\n#define MAX_E   (100'000)\n\nunsigned long long int ans;\nint n, m, k;\nint color[MAX_V];\n\nint edge_u[MAX_E];\nint edge_v[MAX_E];\n\nint deg_[MAX_V];\nint head_[MAX_V + 1];\nint pos_[MAX_V + 1];\n\nint adj_list[MAX_E &lt;&lt; 1];\n\nvoid build_csr()\n{\n    for(int i = 0; i &lt; n; ++i)\n        deg_[i] = 0;\n\n    for(int i = 0; i &lt; m; ++i) {\n        ++deg_[edge_u[i]];\n        ++deg_[edge_v[i]];\n    }\n\n    head_[0] = pos_[0] = 0;\n    for(int v = 1; v &lt;= n; ++v) {\n        head_[v] = head_[v - 1] + deg_[v - 1];\n        pos_[v] = head_[v];\n    }\n\n    for(int i = 0; i &lt; m; ++i) {\n        adj_list[pos_[edge_u[i]]++] = edge_v[i];\n        adj_list[pos_[edge_v[i]]++] = edge_u[i];\n    }\n}\n\nunsigned long long int dp[MAX_V][0b100000][2];\n\nint main(void)\n{\n    int t;\n    scanf(\"%d\", &t);\n    while(t--) {\n        scanf(\"%d%d%d\", &n, &m, &k);\n        for(int i = 0; i &lt; n; ++i) {\n            scanf(\"%d\", &color[i]);\n            --color[i];\n        }\n        for(int i = 0; i &lt; m; ++i) {\n            int u, v;\n            scanf(\"%d%d\", &u, &v);\n            --u, --v;\n            edge_u[i] = u;\n            edge_v[i] = v;\n        }\n        build_csr();\n\n        const int full_mask = (1 &lt;&lt; k) - 1;\n        ans = 0;\n        int cursor = 0;\n\n        for(int v = 0; v &lt; n; ++v) {\n            for(int mask = 0; mask &lt;= full_mask; ++mask)\n                dp[v][mask][cursor] = 0;\n            dp[v][1 &lt;&lt; color[v]][cursor] = 1;\n        }\n\n        for(int len = 1; len &lt; k; ++len) {\n            for(int v = 0; v &lt; n; ++v)\n                for(int mask = 0; mask &lt;= full_mask; ++mask)\n                    dp[v][mask][cursor ^ 0x01] = 0;\n\n            for(int v = 0; v &lt; n; ++v) {\n                for(int mask = 0; mask &lt;= full_mask; ++mask) {\n                    auto& curr = dp[v][mask][cursor];\n                    if(curr == 0) continue;\n\n                    for(int i = head_[v]; i &lt; head_[v + 1]; ++i) {\n                        int u = adj_list[i];\n                        int c_bit = color[u];\n                        if(mask & (1 &lt;&lt; c_bit)) continue;\n\n                        dp[u][mask | (1 &lt;&lt; c_bit)][cursor ^ 0x01] += curr;\n                    }\n                }\n            }\n\n            for(int v = 0; v &lt; n; ++v)\n                for(int mask = 0; mask &lt;= full_mask; ++mask)\n                    ans += dp[v][mask][cursor ^ 0x01];\n\n            cursor ^= 0x01;\n        }\n        printf(\"%llu\\n\", ans);\n    }\n}"
+  },
+  {
+    "objectID": "research/papers/2202.01032.html",
+    "href": "research/papers/2202.01032.html",
+    "title": "O-RAN의 AI/ML Workflow 관점 정리",
+    "section": "",
+    "text": "대상 문헌: Polese, Bonati, D’Oro, Basagni, Melodia, “Understanding O-RAN: Architecture, Interfaces, Algorithms, Security, and Research Challenges” (arXiv:2202.01032, 2022). 본 문서는 해당 논문의 내용을 AI/ML workflow를 축으로 재배열하고, 그 위에서 도출되는 연구 공백(research gap)을 함께 정리한다."
+  },
+  {
+    "objectID": "research/papers/2202.01032.html#시나리오별-기능-배치",
+    "href": "research/papers/2202.01032.html#시나리오별-기능-배치",
+    "title": "O-RAN의 AI/ML Workflow 관점 정리",
+    "section": "4.1 시나리오별 기능 배치",
+    "text": "4.1 시나리오별 기능 배치\n\n\n\n표 2: O-RAN AI/ML 배포 시나리오 (Fig. 14 재구성)\n\n\n\n\n\n\n\n\n\n\n\n\n\n시나리오\nModel Mgmt\nContinuous Ops\nData Prep\nTraining\nInference\n\n\n\n\n1.1\nNon-RT\nNon-RT\nNon-RT\nNon-RT\nNon-RT\n\n\n1.2\nSMO\nNon-RT\nNon-RT / Near-RT\nNon-RT\nNear-RT\n\n\n1.3\nSMO\nNon-RT\nSMO\nSMO\nNon-RT\n\n\n1.4\nNon-RT\nNear-RT\nNon-RT\nNon-RT / SMO\nNear-RT\n\n\n1.5 (FFS)\nNon-RT\n(미정)\n(미정)\n(미정)\nO-CU / O-DU"
+  },
+  {
+    "objectID": "research/papers/2202.01032.html#시나리오-해석",
+    "href": "research/papers/2202.01032.html#시나리오-해석",
+    "title": "O-RAN의 AI/ML Workflow 관점 정리",
+    "section": "4.2 시나리오 해석",
+    "text": "4.2 시나리오 해석\n\n1.1 — 완전 중앙집중: 전 기능을 Non-RT RIC에 집중. 추론도 &gt;1 s 스케일이므로 슬라이싱 정책·트래픽 예측처럼 느린 결정에 적합. 빠른 폐루프 제어 불가.\n1.2 — 학습/추론 분리: 학습은 Non-RT(오프라인), 추론은 Near-RT 로 내려 10 ms–1 s 폐루프를 형성. 가장 일반적으로 논의되는 구조.\n1.3 — 권한 분리: Model Management와 Training을 SMO가 소유, 운영·추론은 Non-RT가 담당. 대규모 망에서 중앙 SMO가 공통 모델을 배포하고 지역 Non-RT가 추론하는 구조.\n1.4 — 온라인 적응 루프: 1.2와 달리 Continuous Operations까지 Near-RT가 담당. 모델이 실시간 self-monitor하며 성능 저하 시 Non-RT 에 재학습을 요청. RIC 기반 시나리오 중 응답성이 가장 높음.\n1.5 (FFS) — RAN 노드 추론: 추론을 O-CU/O-DU 자체에서 실행. TTI 스케일의 real-time 제어가 가능해지는 유일한 구조이나, 아직 표준화되지 않은(For Further Study) 영역.\n\n\n읽는 법: 시나리오 1.5에서 SMO·Near-RT RIC이 표에 비어 있는 것은 “필요 없음”이 아니라 FFS이므로 해당 기능의 배치가 미정의일 뿐이다. 두 컨트롤러는 FCAPS 관리·RRM 등을 위해 망에서 항상 존재한다."
+  },
+  {
+    "objectID": "research/papers/2202.01032.html#갭-1-real-time10-ms-추론-루프의-부재",
+    "href": "research/papers/2202.01032.html#갭-1-real-time10-ms-추론-루프의-부재",
+    "title": "O-RAN의 AI/ML Workflow 관점 정리",
+    "section": "7.1 갭 1 — Real-time(<10 ms) 추론 루프의 부재",
+    "text": "7.1 갭 1 — Real-time(&lt;10 ms) 추론 루프의 부재\n추론 호스트가 RIC(≥10 ms)에 한정되어, TTI 스케일의 빠른 제어 (스케줄링, link adaptation)에 ML을 직접 적용할 표준 경로가 없다. 형식적으로, 노드 내 추론이 성립하려면 추론 지연 \\(\\tau_{\\text{inf}}\\)와 스케줄링 처리 지연 \\(\\tau_{\\text{sched}}\\)의 합이 TTI 예산을 넘지 않아야 한다.\n\\[\n\\tau_{\\text{inf}} + \\tau_{\\text{sched}} \\;\\le\\; \\text{TTI}\n\\quad (\\text{TTI} \\approx 0.5\\text{–}1\\,\\text{ms})\n\\]\n이 부등식이 현 하드웨어·모델 구조에서 성립하는지 자체가 미검증이며, 이것이 1.5가 FFS인 첫 번째 기술적 이유다."
+  },
+  {
+    "objectID": "research/papers/2202.01032.html#갭-2-모델-배포model-delivery-인터페이스의-부재",
+    "href": "research/papers/2202.01032.html#갭-2-모델-배포model-delivery-인터페이스의-부재",
+    "title": "O-RAN의 AI/ML Workflow 관점 정리",
+    "section": "7.2 갭 2 — 모델 배포(model delivery) 인터페이스의 부재",
+    "text": "7.2 갭 2 — 모델 배포(model delivery) 인터페이스의 부재\n“Model Management는 Non-RT, Inference는 O-DU”라는 1.5 구조를 실현하려면 학습된 모델 weights를 Non-RT에서 노드로 직접 내리는 표준 인터페이스가 필요하다. 그러나 현 인터페이스는 용도가 다르다.\n\n\n\n표 3: 모델 배포 경로의 표준 공백\n\n\n\n\n\n인터페이스\n설계 용도\n모델 배포 적합성\n\n\n\n\nA1\n정책·enrichment 전달\n부분적\n\n\nE2\nRRM 제어 명령\n부적합(모델 파일 전송용 아님)\n\n\nO1\nFCAPS 관리\n부적합"
+  },
+  {
+    "objectID": "research/papers/2202.01032.html#갭-3-자원-격리resource-isolation",
+    "href": "research/papers/2202.01032.html#갭-3-자원-격리resource-isolation",
+    "title": "O-RAN의 AI/ML Workflow 관점 정리",
+    "section": "7.3 갭 3 — 자원 격리(resource isolation)",
+    "text": "7.3 갭 3 — 자원 격리(resource isolation)\n노드 내 추론은 RAN 기능과 ML workload가 동일 하드웨어를 공유함을 의미한다. 결과적으로 (i) GPU/CPU 자원 경쟁, (ii) RAN 실시간성을 해치는 지터(jitter), (iii) QoS 보장형 자원 분배 정책의 부재가 문제로 남는다. RAN workload와 AI inference workload의 동적 분리·할당 구조가 정의되지 않았다."
+  },
+  {
+    "objectID": "research/papers/2202.01032.html#갭-4-cross-layer-신호의-활용-부재",
+    "href": "research/papers/2202.01032.html#갭-4-cross-layer-신호의-활용-부재",
+    "title": "O-RAN의 AI/ML Workflow 관점 정리",
+    "section": "7.4 갭 4 — Cross-layer 신호의 활용 부재",
+    "text": "7.4 갭 4 — Cross-layer 신호의 활용 부재\n모델 계층의 신호(예: 생성형 모델의 토큰 중요도 — entropy, logprob, attention)를 MAC 스케줄러의 utility 입력으로 끌어올리는 cross-layer 매핑은 표준·문헌 모두에서 거의 다뤄지지 않은 영역이다. 이는 갭 1과 결합될 때 의미를 가진다(빠른 제어 + 모델 유래 신호)."
   }
 ]
