@@ -11387,5 +11387,320 @@
     "title": "텐서 곱 그래프의 스패닝 트리: 임계값 분해와 슬라이딩 Union-Find",
     "section": "Codes",
     "text": "Codes\n#include &lt;stdio.h&gt;\n\n#define MAXN 100005\n#define MAXM 200005\n#define MAXL 100005\n#define MAXS 300010\n\nint eu_[MAXM], ev_[MAXM], ew_[MAXM];\nint par_[MAXN], sz_[MAXN], nxt_[MAXN];\nint deg_[MAXN], head_[MAXN + 1], pos_[MAXN], adj_[MAXM];\nint sa_[MAXS], sb_[MAXS], snext_[MAXS];\nint bucket_head_[MAXL + 2];\nlong long ans_[MAXL + 2];\n\nint n_, q_, m_, lmax_;\nint sc_, max_sched_;\n\nint find_(int x) {\n    while (par_[x] != x) { par_[x] = par_[par_[x]]; x = par_[x]; }\n    return x;\n}\n\nvoid schedule_(int a, int b, int l) {\n    if (l &gt; lmax_) return;\n    sa_[sc_] = a; sb_[sc_] = b; snext_[sc_] = bucket_head_[l]; bucket_head_[l] = sc_; sc_++;\n    if (l &gt; max_sched_) max_sched_ = l;\n}\n\nvoid run_threshold_(int w) {\n    int i, x, l;\n    for (i = 0; i &lt; n_; i++) deg_[i] = 0;\n    for (i = 0; i &lt; m_; i++) if (ew_[i] &lt;= w) deg_[eu_[i]]++;\n    head_[0] = 0;\n    for (i = 0; i &lt; n_; i++) head_[i + 1] = head_[i] + deg_[i];\n    for (i = 0; i &lt; n_; i++) pos_[i] = head_[i];\n    for (i = 0; i &lt; m_; i++) if (ew_[i] &lt;= w) { adj_[pos_[eu_[i]]] = ev_[i]; pos_[eu_[i]]++; }\n\n    for (i = 0; i &lt; n_; i++) { par_[i] = i; sz_[i] = 1; }\n    sc_ = 0; max_sched_ = 0;\n\n    for (x = 0; x &lt; n_; x++) {\n        if (head_[x] == head_[x + 1]) { nxt_[x] = -1; continue; }\n        nxt_[x] = adj_[head_[x]];\n        for (i = head_[x] + 1; i &lt; head_[x + 1]; i++) schedule_(adj_[head_[x]], adj_[i], 2);\n    }\n\n    int empty_classes = 0;\n    for (x = 0; x &lt; n_; x++) if (nxt_[x] == -1) empty_classes++;\n\n    long long total_merges = 0, iso_s = 0, iso_prev = empty_classes, size_p;\n    int e;\n\n    for (l = 2; l &lt;= lmax_; l++) {\n        iso_s += iso_prev;\n        for (e = bucket_head_[l]; e != -1; e = snext_[e]) {\n            int ra = find_(sa_[e]), rb = find_(sb_[e]);\n            if (ra == rb) continue;\n            int na = nxt_[ra], nb = nxt_[rb];\n            int ea = (na == -1), eb = (nb == -1);\n            if (sz_[ra] &lt; sz_[rb]) { int t = ra; ra = rb; rb = t; }\n            par_[rb] = ra; sz_[ra] += sz_[rb];\n            nxt_[ra] = (na != -1) ? na : nb;\n            if (na != -1 && nb != -1) schedule_(na, nb, l + 1);\n            if (ea || eb) empty_classes--;\n            total_merges++;\n        }\n        bucket_head_[l] = -1;\n        size_p = (long long)n_ - total_merges;\n        ans_[l] += size_p + iso_s;\n        iso_prev = empty_classes;\n        if (l &gt;= max_sched_) {\n            int ll;\n            for (ll = l + 1; ll &lt;= lmax_; ll++) { iso_s += iso_prev; ans_[ll] += size_p + iso_s; }\n            break;\n        }\n    }\n}\n\nint main() {\n    int tc, i, w, l;\n    for (i = 0; i &lt; MAXL + 2; i++) bucket_head_[i] = -1;\n    scanf(\"%d\", &tc);\n    while (tc--) {\n        scanf(\"%d %d %d\", &n_, &q_, &m_);\n        lmax_ = q_ + 1;\n        for (i = 0; i &lt; m_; i++) {\n            scanf(\"%d %d %d\", &eu_[i], &ev_[i], &ew_[i]);\n            eu_[i]--; ev_[i]--;\n        }\n        for (l = 0; l &lt;= lmax_ + 1; l++) ans_[l] = 0;\n        for (w = 0; w &lt; 30; w++) run_threshold_(w);\n        for (l = 2; l &lt;= lmax_; l++) {\n            printf(\"%lld\", ans_[l] - 30);\n            if (l &lt; lmax_) printf(\" \");\n        }\n        printf(\"\\n\");\n    }\n    return 0;\n}"
+  },
+  {
+    "objectID": "study/random-signal-theory/index.html",
+    "href": "study/random-signal-theory/index.html",
+    "title": "Random Signal Theory",
+    "section": "",
+    "text": "Date\n\n\n\nTitle\n\n\n\nDescription\n\n\n\n\n\n\n\n\nJul 2, 2026\n\n\n확률론의 기초 (Foundations of Probability Theory) I\n\n\n\n\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html",
+    "href": "study/random-signal-theory/probability-foundations-1.html",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "",
+    "text": "표본공간 \\(\\Omega\\)는 어떤 실험(experiment)에서 나올 수 있는 모든 가능한 결과(outcome) \\(\\omega_i\\)의 집합이다.\n\n주사위 던지기: \\(\\Omega = \\{1, 2, 3, 4, 5, 6\\}\\)\n동전 던지기: \\(\\Omega = \\{H, T\\}\\)\n\n\n\n\n\n\n\nImportant\n\n\n\n확률론의 모든 개념은 표본공간 위에서 정의된다. 문제를 풀 때 표본공간을 올바르게 설정하는 것이 항상 첫 단계다.\n\n\n\n\n\n사건은 표본공간의 부분집합으로, 특정 성질을 공유하는 결과들을 모아 놓은 것이다. 불 대수(Boolean algebra)의 법칙에 따라 결합·비교할 수 있다.\n\n예: 주사위에서 “짝수가 나온다”는 사건 \\(A = \\{2, 4, 6\\}\\)\n\n\n\n\n\n\n\nTip직관\n\n\n\n사건은 실험에 대한 예/아니오 질문으로 생각할 수 있다: “결과가 이 집합에 속했는가?”"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#표본공간-sample-space",
+    "href": "study/random-signal-theory/probability-foundations-1.html#표본공간-sample-space",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "",
+    "text": "표본공간 \\(\\Omega\\)는 어떤 실험(experiment)에서 나올 수 있는 모든 가능한 결과(outcome) \\(\\omega_i\\)의 집합이다.\n\n주사위 던지기: \\(\\Omega = \\{1, 2, 3, 4, 5, 6\\}\\)\n동전 던지기: \\(\\Omega = \\{H, T\\}\\)\n\n\n\n\n\n\n\nImportant\n\n\n\n확률론의 모든 개념은 표본공간 위에서 정의된다. 문제를 풀 때 표본공간을 올바르게 설정하는 것이 항상 첫 단계다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#사건-event",
+    "href": "study/random-signal-theory/probability-foundations-1.html#사건-event",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "",
+    "text": "사건은 표본공간의 부분집합으로, 특정 성질을 공유하는 결과들을 모아 놓은 것이다. 불 대수(Boolean algebra)의 법칙에 따라 결합·비교할 수 있다.\n\n예: 주사위에서 “짝수가 나온다”는 사건 \\(A = \\{2, 4, 6\\}\\)\n\n\n\n\n\n\n\nTip직관\n\n\n\n사건은 실험에 대한 예/아니오 질문으로 생각할 수 있다: “결과가 이 집합에 속했는가?”"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#합집합-union",
+    "href": "study/random-signal-theory/probability-foundations-1.html#합집합-union",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "2.1 합집합 (Union)",
+    "text": "2.1 합집합 (Union)\n\\[A \\cup B = \\{\\omega : \\omega \\in A \\text{ or } \\omega \\in B\\}\\]\n\\(A\\) 또는 \\(B\\) 중 적어도 하나가 일어나는 사건.\n\n예: \\(A \\cup B = \\{2, 3, 4, 5, 6\\}\\)"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#교집합-intersection",
+    "href": "study/random-signal-theory/probability-foundations-1.html#교집합-intersection",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "2.2 교집합 (Intersection)",
+    "text": "2.2 교집합 (Intersection)\n\\[A \\cap B = \\{\\omega : \\omega \\in A \\text{ and } \\omega \\in B\\}\\]\n\\(A\\)와 \\(B\\)가 동시에 일어나는 사건.\n\n예: 짝수이면서 소수인 수는 2뿐이므로 \\(A \\cap B = \\{2\\}\\)"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#여집합-complement",
+    "href": "study/random-signal-theory/probability-foundations-1.html#여집합-complement",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "2.3 여집합 (Complement)",
+    "text": "2.3 여집합 (Complement)\n\\[\\bar{A} = \\{\\omega : \\omega \\notin A\\}\\]\n표본공간 안에 있으면서 \\(A\\)에 속하지 않는 모든 결과.\n\n예: \\(A = \\{2,4,6\\}\\)이면 \\(\\bar{A} = \\{1, 3, 5\\}\\)"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#드모르간-법칙-de-morgans-law",
+    "href": "study/random-signal-theory/probability-foundations-1.html#드모르간-법칙-de-morgans-law",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "2.4 드모르간 법칙 (De Morgan’s Law)",
+    "text": "2.4 드모르간 법칙 (De Morgan’s Law)\n\\[\\overline{A \\cup B} = \\bar{A} \\cap \\bar{B}\\]\n합집합의 여집합은 여집합들의 교집합과 같다.\n예제로 검증하기:\n\n\n\n단계\n계산\n결과\n\n\n\n\n1\n\\(A \\cup B\\)\n\\(\\{2,3,4,5,6\\}\\)\n\n\n2\n\\(\\overline{A \\cup B}\\)\n\\(\\{1\\}\\)\n\n\n3\n\\(\\bar{A}\\) (짝수가 아닌 수)\n\\(\\{1,3,5\\}\\)\n\n\n4\n\\(\\bar{B}\\) (소수가 아닌 수)\n\\(\\{1,4,6\\}\\)\n\n\n5\n\\(\\bar{A} \\cap \\bar{B}\\)\n\\(\\{1\\}\\)\n\n\n\n2단계와 5단계의 결과가 \\(\\{1\\}\\)로 일치하므로 드모르간 법칙이 성립함을 확인할 수 있다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#공집합과-상호배타",
+    "href": "study/random-signal-theory/probability-foundations-1.html#공집합과-상호배타",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "2.5 공집합과 상호배타",
+    "text": "2.5 공집합과 상호배타\n\n공집합(null set) \\(\\emptyset\\): 전체 표본공간의 여집합, 즉 불가능한 사건. 예: 동전 던지기 실험에서 “주사위를 굴려 7이 나온다”는 사건은 절대 일어날 수 없으므로 \\(\\emptyset\\).\n상호배타적(mutually exclusive) 사건: \\(A \\cap B = \\emptyset\\)이면 두 사건은 동시에 일어날 수 없다. 예: 한 번의 주사위 굴림에서 \\(A = \\{\\text{짝수}\\}\\), \\(B = \\{\\text{홀수}\\}\\)는 겹칠 수 없으므로 \\(A \\cap B = \\emptyset\\)."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#벤-다이어그램-venn-diagram",
+    "href": "study/random-signal-theory/probability-foundations-1.html#벤-다이어그램-venn-diagram",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "2.6 벤 다이어그램 (Venn Diagram)",
+    "text": "2.6 벤 다이어그램 (Venn Diagram)\n사각형이 표본공간 \\(\\Omega\\)를, 그 안의 원들이 사건 \\(A\\), \\(B\\)를 나타내는 그림이다. 합·교·여집합 같은 집합 연산을 시각적으로 이해하는 데 유용하다.\n\n교집합: 두 원이 겹치는 부분 → \\(A \\cap B = \\{2\\}\\)\n합집합: 두 원을 합친 전체 영역 → \\(A \\cup B = \\{2,3,4,5,6\\}\\)\n여집합: 원 \\(A\\) 바깥이면서 사각형 안쪽 영역 → \\(\\bar{A} = \\{1,3,5\\}\\)"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#합집합-법칙-union-law",
+    "href": "study/random-signal-theory/probability-foundations-1.html#합집합-법칙-union-law",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "3.1 합집합 법칙 (Union Law)",
+    "text": "3.1 합집합 법칙 (Union Law)\nCase 1 — 서로소인 경우 (\\(A \\cap B = \\emptyset\\)):\n\\[\\Pr[A \\cup B] = \\Pr[A] + \\Pr[B]\\]\nCase 2 — 겹치는 경우 (\\(A \\cap B \\neq \\emptyset\\)):\n\\[\\Pr[A \\cup B] = \\Pr[A] + \\Pr[B] - \\Pr[A \\cap B]\\]\n\n\n\n\n\n\nTip직관\n\n\n\n겹치는 경우 \\(\\Pr[A] + \\Pr[B]\\)를 그대로 더하면 교집합 부분이 두 번 세어지므로, \\(\\Pr[A \\cap B]\\)를 한 번 빼주어야 한다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#곱셈-규칙-유도",
+    "href": "study/random-signal-theory/probability-foundations-1.html#곱셈-규칙-유도",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "5.1 곱셈 규칙 유도",
+    "text": "5.1 곱셈 규칙 유도\n조건부 확률의 정의에서 출발하여:\n\\[\\Pr[A \\mid B] = \\frac{\\Pr[A \\cap B]}{\\Pr[B]} = \\Pr[A]\n\\;\\;\\Longrightarrow\\;\\;\n\\Pr[A \\cap B] = \\Pr[A] \\cdot \\Pr[B]\\]\n양변에 \\(\\Pr[B]\\)를 곱하면 독립 사건의 곱셈 규칙이 얻어진다.\n\n\n\n\n\n\nImportant핵심\n\n\n\n“\\(A\\)와 \\(B\\)가 독립이다” \\(\\iff\\) “\\(\\Pr[A \\cap B] = \\Pr[A]\\Pr[B]\\)”\n이 동치 관계는 이후 계속 반복해서 사용되는 근본적 사실이다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#정의",
+    "href": "study/random-signal-theory/probability-foundations-1.html#정의",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "7.1 정의",
+    "text": "7.1 정의\n확률변수 \\(X\\)는 표본공간의 각 결과에 실수(또는 복소수)를 할당하는 함수다:\n\\[X : \\Omega \\mapsto \\mathbb{R}\\]\n각 결과 \\(\\omega \\in \\Omega\\)는 숫자 \\(X(\\omega)\\)로 사상(map)된다. 추상적인 사건을 계산 가능한 숫자와 연결해 주는 다리 역할을 한다.\n\n예 1 (주사위): \\(\\Omega = \\{1,\\dots,6\\}\\), \\(X(\\omega) = \\omega\\) — 윗면의 값을 그대로 기록.\n예 2 (동전): \\(\\Omega = \\{H, T\\}\\), \\(X(H) = 1\\), \\(X(T) = 0\\) — 범주형 결과를 숫자로 코딩."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#분류",
+    "href": "study/random-signal-theory/probability-foundations-1.html#분류",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "7.2 분류",
+    "text": "7.2 분류\n\n\n\n\n\n\n\n\n\n종류\n조건\n예\n사용하는 도구\n\n\n\n\n이산(discrete)\n\\(\\Omega\\)가 이산적\n주사위 눈 (정수값)\nPMF (probability mass function)\n\n\n연속(continuous)\n\\(\\Omega\\)가 연속적\n버스 대기 시간, \\(\\Omega = [0, \\infty)\\)\nPDF (probability density function)"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#정의-1",
+    "href": "study/random-signal-theory/probability-foundations-1.html#정의-1",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "8.1 정의",
+    "text": "8.1 정의\n\\[P_X(x) \\overset{\\text{def}}{=} \\Pr[X \\leq x]\\]\n확률변수가 임계값 \\(x\\)를 넘지 않을 확률을 알려준다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#cdf는-비감소-함수-증명",
+    "href": "study/random-signal-theory/probability-foundations-1.html#cdf는-비감소-함수-증명",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "8.2 CDF는 비감소 함수 — 증명",
+    "text": "8.2 CDF는 비감소 함수 — 증명\n목표: \\(x_1 \\leq x_2\\)이면 \\(P_X(x_2) \\geq P_X(x_1)\\)임을 보인다.\nStep 1. \\(x_1 \\leq x_2\\)를 고정하고 두 사건을 정의한다:\n\\[A = \\{\\omega : X(\\omega) \\leq x_1\\}, \\qquad B = \\{\\omega : x_1 &lt; X(\\omega) \\leq x_2\\}\\]\n\\(A\\)는 “이미 갖고 있던 부분”, \\(B\\)는 임계값을 늘리며 “추가되는 띠(band)”로 생각할 수 있다.\nStep 2. 집합 구조 관찰: \\(A\\)와 \\(B\\)는 전혀 겹치지 않고(\\(A \\cap B = \\emptyset\\)), 붙이면 정확히 \\(A \\cup B = \\{\\omega: X(\\omega) \\leq x_2\\}\\)가 된다.\nStep 3. 서로소 사건의 가법성:\n\\[\\Pr[A \\cup B] = \\Pr[A] + \\Pr[B]\\]\nStep 4. 정의를 대입하면:\n\\[P_X(x_2) = P_X(x_1) + \\Pr[x_1 &lt; X \\leq x_2]\\]\n임계값을 \\(x_1\\)에서 \\(x_2\\)로 옮기면, 새 CDF 값은 기존 값에 그 사이 구간의 확률 질량(“새로 얻은 조각”)을 더한 것이다.\n결론: \\(\\Pr[x_1 &lt; X \\leq x_2] \\geq 0\\)이므로 \\(P_X(x_2) \\geq P_X(x_1)\\). 임계값을 오른쪽으로 밀면 CDF는 올라가거나 평평하게 유지될 뿐, 절대 내려가지 않는다. \\(\\blacksquare\\)"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#정의-cdf와의-관계",
+    "href": "study/random-signal-theory/probability-foundations-1.html#정의-cdf와의-관계",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "9.1 정의: CDF와의 관계",
+    "text": "9.1 정의: CDF와의 관계\n\\[P_X(x) = \\int_{-\\infty}^{x} p_X(\\alpha)\\, d\\alpha, \\qquad\np_X(x) = \\frac{d}{dx} P_X(x)\\]\n\n적분하면 누적 질량(CDF), 미분하면 국소 증가율(PDF)이 나온다.\n\\(p_X(x)\\)는 확률 질량이 실수축 위에 어떻게 분포되어 있는지를 기술한다.\n\n\n\n\n\n\n\nTip직관: 군중 밀도(crowd density)\n\n\n\n\\(p_X(x)\\)를 수직선 위의 군중 밀도로 상상하라.\n\n\\(p_X(x)\\)가 큰 곳: 결과들이 그 근처에 몰려 있음 → 그 지점을 지날 때 CDF가 가파르게 올라간다.\n\\(p_X(x)\\)가 작은 곳: 결과가 드묾 → CDF가 천천히 전진한다.\n\n즉, PDF의 봉우리와 골짜기만 봐도 CDF가 어디서 급등하고 어디서 평평해질지 예측할 수 있다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#가우시안-pdf와-cdf",
+    "href": "study/random-signal-theory/probability-foundations-1.html#가우시안-pdf와-cdf",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "9.2 가우시안 PDF와 CDF",
+    "text": "9.2 가우시안 PDF와 CDF\n\\[p_X(x) = \\frac{1}{\\sqrt{2\\pi\\sigma^2}} \\exp\\!\\left( -\\frac{(x-\\mu)^2}{2\\sigma^2} \\right)\\]\n\n\\(\\mu\\) (평균): 종 모양의 중심 위치. \\(\\mu\\)를 바꾸면 모양은 그대로 좌우로만 이동한다.\n\\(\\sigma^2\\) (분산): 퍼짐 정도. 작으면 좁고 높은 봉우리(값들이 촘촘히 모임), 크면 넓고 낮은 종(값들이 더 분산됨).\n대응하는 CDF는 부드러운 S자 곡선이며 \\(x = \\mu\\)에서 0.5를 지난다(대칭점). \\(\\sigma^2\\)이 클수록 S자가 완만하게, 작을수록 가파르게 꺾인다.\n모든 PDF의 총 면적은 1이므로, 모든 CDF는 \\(x \\to \\infty\\)에서 반드시 1로 수렴한다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#문제-설정",
+    "href": "study/random-signal-theory/probability-foundations-1.html#문제-설정",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "10.1 문제 설정",
+    "text": "10.1 문제 설정\n시스템이 \\(X\\)를 \\(Y = f(X)\\)로 변환한다고 하자 (제곱, 스케일링, 로그 등). 입력의 분포로부터 출력의 분포 \\(P_Y(y)\\), \\(p_Y(y)\\)를 구하고 싶다. 기본 다리는:\n\\[p_Y(y) = \\frac{d}{dy} P_Y(y)\\]\n전략: \\(f\\)가 순증가인 경우와 순감소인 경우를 따로 다룬 뒤, 하나의 공식으로 통합한다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#case-i-f가-순증가",
+    "href": "study/random-signal-theory/probability-foundations-1.html#case-i-f가-순증가",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "10.2 Case I: \\(f\\)가 순증가",
+    "text": "10.2 Case I: \\(f\\)가 순증가\n증가 함수는 순서를 보존하므로 \\(f(X) \\leq y \\iff X \\leq f^{-1}(y)\\). 따라서:\n\\[P_Y(y) = \\Pr[X \\leq f^{-1}(y)] = P_X\\big(f^{-1}(y)\\big)\\]\n연쇄법칙으로 미분:\n\\[p_Y(y) = \\frac{d f^{-1}(y)}{dy}\\; p_X\\big(f^{-1}(y)\\big)\\]\n증가하는 경우 \\(\\dfrac{d f^{-1}(y)}{dy} = \\dfrac{1}{f'(x)}\\Big|_{x = f^{-1}(y)} &gt; 0\\)이므로 부호가 이미 올바르다:\n\\[p_Y(y) = \\frac{1}{f'\\!\\big(f^{-1}(y)\\big)}\\; p_X\\big(f^{-1}(y)\\big) \\quad (\\text{증가하는 } f)\\]"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#case-ii-f가-순감소",
+    "href": "study/random-signal-theory/probability-foundations-1.html#case-ii-f가-순감소",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "10.3 Case II: \\(f\\)가 순감소",
+    "text": "10.3 Case II: \\(f\\)가 순감소\n순서가 뒤집히므로 \\(f(X) \\leq y \\iff X \\geq f^{-1}(y)\\). 따라서:\n\\[P_Y(y) = \\Pr[X \\geq f^{-1}(y)] = 1 - P_X\\big(f^{-1}(y)\\big)\\]\n미분하면 (\\(1 - P_X\\)의 미분에서 음수 하나, 역함수의 기울기가 또 음수):\n\\[p_Y(y) = -\\frac{d f^{-1}(y)}{dy}\\; p_X\\big(f^{-1}(y)\\big)\\]\n감소하는 경우 \\(\\dfrac{d f^{-1}(y)}{dy} &lt; 0\\)이므로 두 음수가 상쇄되어 밀도는 (당연히 그래야 하듯) 양수가 된다:\n\\[p_Y(y) = \\frac{1}{\\big|f'\\!\\big(f^{-1}(y)\\big)\\big|}\\; p_X\\big(f^{-1}(y)\\big) \\quad (\\text{감소하는 } f)\\]"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#통합-공식-변수변환-공식",
+    "href": "study/random-signal-theory/probability-foundations-1.html#통합-공식-변수변환-공식",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "10.4 통합 공식 (변수변환 공식)",
+    "text": "10.4 통합 공식 (변수변환 공식)\n\\[\\boxed{\\; p_Y(y) = p_X\\big(f^{-1}(y)\\big) \\left| \\frac{d}{dy} f^{-1}(y) \\right| \\;}\\]\n절댓값 덕분에 증가/감소 두 경우 모두 이 한 줄로 처리된다. 이것이 1차원 변수변환(change of variables) 공식이다.\n\n\n\n\n\n\nTip기하학적 해석\n\n\n\n\n\\(y\\)축의 점 \\(y\\)를 \\(x = f^{-1}(y)\\)로 되돌려(pull back) 원래 밀도 \\(p_X(x)\\)를 읽는다.\n국소적인 늘림/압축 비율 \\(\\left|\\frac{d}{dy}f^{-1}(y)\\right| = \\frac{1}{|f'(x)|}\\)로 스케일링한다.\n\n\n\\(f'\\)가 크면(가파른 기울기): 많은 \\(x\\)값이 좁은 \\(y\\)구간으로 압축 → 그 지점의 밀도가 커진다.\n\\(f'\\)가 작으면(완만한 기울기): \\(x\\)값들이 넓은 \\(y\\)구간으로 퍼짐 → 밀도가 작아진다.\n\n\\(f\\)를 역산할 수만 있으면, 어떤 방향이든 같은 공식으로 \\(p_Y\\)를 계산할 수 있다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#예제-지수분포-입력에-y-x2",
+    "href": "study/random-signal-theory/probability-foundations-1.html#예제-지수분포-입력에-y-x2",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "10.5 예제: 지수분포 입력에 \\(Y = X^2\\)",
+    "text": "10.5 예제: 지수분포 입력에 \\(Y = X^2\\)\n주어진 것: \\(p_X(x) = e^{-x}\\, u(x)\\), 단위계단함수 \\(u(x) = 1\\ (x \\geq 0),\\ 0\\) (otherwise).\n변환: \\(Y = f(X) = X^2\\). \\(x \\geq 0\\) 위에서 순증가이므로 역산이 간단하다.\nStep 1 — 역함수와 기울기:\n\\[y = x^2 \\;\\Rightarrow\\; x = f^{-1}(y) = \\sqrt{y} \\;\\; (y \\geq 0), \\qquad\n\\frac{d}{dy} f^{-1}(y) = \\frac{1}{2\\sqrt{y}}\\]\nStep 2 — 지지집합(support): \\(x \\geq 0 \\Rightarrow y = x^2 \\geq 0\\)이므로 \\(y &lt; 0\\)에서 \\(p_Y(y) = 0\\).\nStep 3 — 공식에 대입:\n\\[p_Y(y) = p_X(\\sqrt{y}) \\left|\\frac{1}{2\\sqrt{y}}\\right|\n= e^{-\\sqrt{y}}\\, u(\\sqrt{y}) \\cdot \\frac{1}{2\\sqrt{y}}\\]\n\\(y \\geq 0\\)에서 \\(u(\\sqrt{y}) = 1\\)이므로:\n\\[p_Y(y) = \\frac{1}{2\\sqrt{y}}\\, e^{-\\sqrt{y}}, \\;\\; y &gt; 0; \\qquad p_Y(y) = 0, \\;\\; y \\leq 0\\]\nStep 4 — 정규화 확인 (\\(y = x^2\\), \\(dy = 2x\\,dx\\) 치환):\n\\[\\int_0^\\infty \\frac{1}{2\\sqrt{y}} e^{-\\sqrt{y}}\\, dy\n= \\int_0^\\infty \\frac{1}{2x} e^{-x} (2x)\\, dx\n= \\int_0^\\infty e^{-x}\\, dx = 1 \\;\\checkmark\\]\n해석: 제곱은 큰 \\(x\\)를 작은 \\(x\\)보다 더 강하게 압축한다. Jacobian 인자 \\(\\frac{1}{2\\sqrt{y}}\\)가 없다면 질량이 잘못 배분될 것이며, 이 인자가 국소적인 압축을 정확히 보상해 준다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#정의-2",
+    "href": "study/random-signal-theory/probability-foundations-1.html#정의-2",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "11.1 정의",
+    "text": "11.1 정의\n확률변수 \\(X\\)의 함수 \\(f(\\cdot)\\)에 대한 기댓값:\n\\[E[f(X)] = \\int_{-\\infty}^{\\infty} f(x)\\, p_X(x)\\, dx\\]\n의미: \\(X\\)의 확률 법칙으로 가중된 \\(f(X)\\)의 가중 평균. \\(f(X)\\)를 여러 번 관측한다면 얻게 될 평균값으로 생각하면 된다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#주요-통계량",
+    "href": "study/random-signal-theory/probability-foundations-1.html#주요-통계량",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "11.2 주요 통계량",
+    "text": "11.2 주요 통계량\n\n\n\n\n\n\n\n\n\\(f(X)\\)\n이름\n표기\n\n\n\n\n\\(X\\)\n평균(mean) — \\(X\\)가 균형을 이루는 중심점\n\\(m_X = E[X]\\)\n\n\n\\(X^2\\)\n평균 제곱값 (“power”) — 큰 크기를 더 강하게 반영\n\\(E[X^2]\\)\n\n\n\\((X - m_X)^2\\)\n분산(variance) — 평균 주변의 퍼짐\n\\(\\sigma_X^2\\)\n\n\n\n분산의 두 가지 표현:\n\\[\\sigma_X^2 = E[(X - m_X)^2] = E[X^2] - \\big(E[X]\\big)^2\\]\n표준편차: \\(\\sigma_X = \\sqrt{\\sigma_X^2}\\). 이 값들은 \\(X\\)의 값들이 \\(m_X\\) 주변에 얼마나 촘촘히/느슨하게 모여 있는지를 알려준다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#모멘트-moments",
+    "href": "study/random-signal-theory/probability-foundations-1.html#모멘트-moments",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "11.3 모멘트 (Moments)",
+    "text": "11.3 모멘트 (Moments)\n\n\\(n\\)차 모멘트: \\(f(X) = X^n\\)일 때 \\(\\mu'_n = E[X^n]\\) — 분포 모양의 다양한 측면을 요약.\n\\(n\\)차 중심 모멘트: \\(f(X) = (X - m_X)^n\\)일 때 \\(\\mu_n = E[(X - m_X)^n]\\) — 0이 아니라 평균 \\(m_X\\) 주변의 요동을 강조.\n\n\n\n\n\\(n\\)\n중심 모멘트의 의미\n\n\n\n\n1\n평균\n\n\n2\n분산\n\n\n3\n왜도(skewness) — 모양의 비대칭성\n\n\n4\n첨도(kurtosis) — 뾰족함 / 두꺼운 꼬리"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#정의-3",
+    "href": "study/random-signal-theory/probability-foundations-1.html#정의-3",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "12.1 정의",
+    "text": "12.1 정의\n\\[\\Phi_X(jv) = E[e^{jvX}] = \\int_{-\\infty}^{\\infty} p_X(x)\\, e^{jvx}\\, dx\\]\n핵심 관찰: 이는 정확히 PDF \\(p_X(x)\\)의 푸리에 변환(Fourier transform)이다.\n이 연결이 단순한 형식 이상의 의미를 갖는 이유:\n\n특성함수는 분포를 유일하게 결정한다.\n독립 확률변수들의 합을 다룰 때 PDF끼리의 합성곱(convolution)이 특성함수끼리의 곱셈으로 바뀌어 계산이 훨씬 간단해진다.\n원점에서의 미분으로 모멘트에 접근할 수 있다 (아래 참조)."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#특성함수로부터-모멘트-추출",
+    "href": "study/random-signal-theory/probability-foundations-1.html#특성함수로부터-모멘트-추출",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "12.2 특성함수로부터 모멘트 추출",
+    "text": "12.2 특성함수로부터 모멘트 추출\n\\[\\boxed{\\; E[X^n] = j^{-n}\\, \\frac{d^n}{dv^n} \\Phi_X(jv) \\Big|_{v=0} \\;}\\]\n\\(\\Phi_X(jv)\\)를 \\(n\\)번 미분한 뒤 \\(v = 0\\)을 대입하면 \\(n\\)차 모멘트가 나온다.\n\n\n\n\n\n\nWarning주의할 두 가지\n\n\n\n\n미분값은 반드시 \\(v = 0\\)에서 평가한다.\n\\(j^{-n}\\) 인자를 잊지 말 것 — 특히 \\(n\\)이 홀수일 때 스케일과 부호를 맞춰 준다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#예제-n-2-2차-모멘트",
+    "href": "study/random-signal-theory/probability-foundations-1.html#예제-n-2-2차-모멘트",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "12.3 예제: \\(n = 2\\) (2차 모멘트)",
+    "text": "12.3 예제: \\(n = 2\\) (2차 모멘트)\nStep 1 — 정의에서 출발:\n\\[\\Phi_X(jv) = \\int_{-\\infty}^{\\infty} p_X(x)\\, e^{jvx}\\, dx\\]\nStep 2 — 1차 미분 (미분이 적분 안으로 들어가 \\(jx\\) 인자를 끌어내림):\n\\[\\frac{d}{dv}\\Phi_X(jv) = \\int_{-\\infty}^{\\infty} p_X(x)\\, (jx)\\, e^{jvx}\\, dx\\]\nStep 3 — 2차 미분 (\\(jx\\)가 하나 더 나와 \\((jx)^2\\)):\n\\[\\frac{d^2}{dv^2}\\Phi_X(jv) = \\int_{-\\infty}^{\\infty} p_X(x)\\, (jx)^2\\, e^{jvx}\\, dx\\]\nStep 4 — \\(v = 0\\) 대입 (\\(e^{jvx} \\to 1\\)):\n\\[\\frac{d^2}{dv^2}\\Phi_X(jv)\\Big|_{v=0}\n= \\int p_X(x)\\, (jx)^2\\, dx\n= -\\int x^2\\, p_X(x)\\, dx\\]\nStep 5 — 공식 적용 (\\(j^{-2} = -1\\)):\n\\[E[X^2] = j^{-2} \\cdot \\left( -\\int x^2 p_X(x)\\, dx \\right)\n= \\int_{-\\infty}^{\\infty} x^2\\, p_X(x)\\, dx \\;\\checkmark\\]\n특성함수를 원점에서 미분하는 것만으로 모멘트를 하나씩 벗겨낼 수 있다 — 이론적 트릭이 아니라 많은 문제에서 실제로 유용한 계산법이다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#정의-4",
+    "href": "study/random-signal-theory/probability-foundations-1.html#정의-4",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "13.1 정의",
+    "text": "13.1 정의\n특성함수가 순허수 매개변수 \\(jv\\)를 썼다면, MGF는 실변수 \\(s\\)를 사용한다:\n\\[\\Phi_X(s) \\overset{\\text{def}}{=} E[e^{sX}] = \\int_{-\\infty}^{\\infty} p_X(x)\\, e^{sx}\\, dx\\]\n\n이는 본질적으로 PDF의 라플라스 변환(Laplace transform)이다. 라플라스 변환의 이동 규칙, 선형성 등 친숙한 성질이 그대로 적용된다.\n존재 조건: \\(s = 0\\)을 포함하는 어떤 열린 구간에서 적분이 수렴해야 한다. 그러면 MGF는 분포를 유일하게 결정한다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#mgf로부터-모멘트-추출",
+    "href": "study/random-signal-theory/probability-foundations-1.html#mgf로부터-모멘트-추출",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "13.2 MGF로부터 모멘트 추출",
+    "text": "13.2 MGF로부터 모멘트 추출\n\\[E[X^n] = \\frac{d^n}{ds^n} \\Phi_X(s) \\Big|_{s=0}\\]\n\n\\(n = 1\\): \\(E[X] = \\Phi_X'(0)\\) (평균)\n\\(n = 2\\): \\(E[X^2] = \\Phi_X''(0)\\) (2차 모멘트)\n\n\n\n\n\n\n\nTip왜 성립하는가 — 테일러 전개\n\n\n\n\\[e^{sX} = 1 + sX + \\frac{s^2}{2!}X^2 + \\cdots\\] 항별로 기댓값을 취하면: \\[\\Phi_X(s) = 1 + s\\,E[X] + \\frac{s^2}{2!}E[X^2] + \\cdots\\] 즉, 멱급수에서 \\(\\dfrac{s^n}{n!}\\)의 계수가 정확히 \\(E[X^n]\\)이다. 그래서 \\(s = 0\\)에서 미분하면 \\(n\\)차 모멘트가 튀어나온다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#결합-cdf와-결합-pdf",
+    "href": "study/random-signal-theory/probability-foundations-1.html#결합-cdf와-결합-pdf",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "14.1 결합 CDF와 결합 PDF",
+    "text": "14.1 결합 CDF와 결합 PDF\n같은 표본공간 위에 두 확률변수를 정의할 수 있다: \\(X: \\Omega \\mapsto \\mathbb{R}\\), \\(Y: \\Omega \\mapsto \\mathbb{R}\\). 둘이 함께 2차원 결과를 기술한다.\n결합 CDF:\n\\[P_{X,Y}(x, y) \\overset{\\text{def}}{=} \\Pr[X \\leq x,\\; Y \\leq y]\\]\n두 변수가 모두 각자의 임계값 아래로 떨어질 확률.\n결합 PDF (결합 CDF가 충분히 매끄러울 때):\n\\[p_{X,Y}(x, y) = \\frac{\\partial^2}{\\partial x\\, \\partial y} P_{X,Y}(x, y)\\]\n평면 위의 국소적인 확률 밀도를 준다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#주변-분포-marginals",
+    "href": "study/random-signal-theory/probability-foundations-1.html#주변-분포-marginals",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "14.2 주변 분포 (Marginals)",
+    "text": "14.2 주변 분포 (Marginals)\n결합 PDF에서 다른 변수를 적분해 없애면(integrate out) 개별 분포가 복원된다:\n\\[p_X(x) = \\int_{-\\infty}^{\\infty} p_{X,Y}(x, y)\\, dy, \\qquad\np_Y(y) = \\int_{-\\infty}^{\\infty} p_{X,Y}(x, y)\\, dx\\]"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#조건부-pdf와-독립",
+    "href": "study/random-signal-theory/probability-foundations-1.html#조건부-pdf와-독립",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "14.3 조건부 PDF와 독립",
+    "text": "14.3 조건부 PDF와 독립\n조건부 PDF (\\(p_Y(y) \\neq 0\\)일 때):\n\\[p_{X|Y}(x \\mid y) = \\frac{p_{X,Y}(x, y)}{p_Y(y)}\\]\n\\(Y\\)의 값을 알았을 때 \\(X\\)가 어떻게 행동하는지를 알려준다.\n독립이면 결합 PDF가 인수분해된다:\n\\[p_{X,Y}(x, y) = p_X(x)\\, p_Y(y) \\;\\iff\\; p_{X|Y}(x \\mid y) = p_X(x)\\]\n즉, \\(Y\\)를 알아도 \\(X\\)의 분포는 변하지 않는다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#공분산-covariance",
+    "href": "study/random-signal-theory/probability-foundations-1.html#공분산-covariance",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "15.1 공분산 (Covariance)",
+    "text": "15.1 공분산 (Covariance)\n\\(X\\)와 \\(Y\\)가 함께 변하는 정도를 측정한다:\n\\[\\text{cov}[X, Y] = E[(X - m_X)(Y - m_Y)] = E[XY] - E[X]\\,E[Y]\\]"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#상관계수-correlation-coefficient",
+    "href": "study/random-signal-theory/probability-foundations-1.html#상관계수-correlation-coefficient",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "15.2 상관계수 (Correlation Coefficient)",
+    "text": "15.2 상관계수 (Correlation Coefficient)\n공분산을 표준화한 것:\n\\[\\rho_{X,Y} = \\frac{\\text{cov}[X, Y]}{\\sigma_X\\, \\sigma_Y}\\]\n항상 \\(-1 \\leq \\rho_{X,Y} \\leq 1\\)이며, \\(X\\)와 \\(Y\\)가 선형적으로 얼마나 강하게 연관되어 있는지를 알려준다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#무상관-vs-독립",
+    "href": "study/random-signal-theory/probability-foundations-1.html#무상관-vs-독립",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "15.3 무상관 vs 독립",
+    "text": "15.3 무상관 vs 독립\n\\(\\rho_{X,Y} = 0\\)이면 \\(\\text{cov}[X,Y] = 0\\), 즉 \\(E[XY] = E[X]E[Y]\\). 이는 독립처럼 보이지만 조심해야 한다.\n\n\n\n\n\n\nImportant핵심\n\n\n\n\\[\\text{독립} \\;\\Longrightarrow\\; \\text{무상관} \\qquad \\text{그러나} \\qquad \\text{무상관} \\;\\not\\Longrightarrow\\; \\text{독립}\\]\n두 변수는 상관관계가 없으면서도 비선형적으로 종속일 수 있다.\n\n\n반례: \\(X \\sim \\text{Uniform}(-1, 1)\\), \\(Y = X^2\\).\n\n\\(Y\\)는 \\(X\\)에 의해 완전히 결정되므로 둘은 명백히 종속이다.\n그런데 분포의 대칭성으로 \\(E[X] = 0\\)이고, \\(XY = X^3\\)이므로:\n\n\\[E[XY] = E[X^3] = \\int_{-1}^{1} x^3 \\cdot \\frac{1}{2}\\, dx = 0\\]\n(\\(x^3\\)은 홀함수, 구간은 대칭이므로 적분이 0)\n\n따라서 \\(\\text{cov}[X, Y] = E[XY] - E[X]E[Y] = 0\\) — 무상관.\n\n\\(Y\\)가 \\(X\\)의 결정론적 함수임에도 공분산이 0이다. 무상관이 독립을 함의하지 않음을 보여주는 표준적인 예다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#정의-5",
+    "href": "study/random-signal-theory/probability-foundations-1.html#정의-5",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "16.1 정의",
+    "text": "16.1 정의\n\\(Y\\)의 값을 알고 있을 때 \\(X\\)의 평균적 행동:\n\\[E[X \\mid Y = y] = \\int_{-\\infty}^{\\infty} x\\, p_{X|Y}(x \\mid y)\\, dx\\]\n\\(Y = y\\)로 고정했을 때, 그 조건 아래에서 \\(X\\)의 평균값이다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#반복-기댓값의-법칙-law-of-iterated-expectation",
+    "href": "study/random-signal-theory/probability-foundations-1.html#반복-기댓값의-법칙-law-of-iterated-expectation",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "16.2 반복 기댓값의 법칙 (Law of Iterated Expectation)",
+    "text": "16.2 반복 기댓값의 법칙 (Law of Iterated Expectation)\n\\[E\\big[E[X \\mid Y]\\big] = E[X]\\]\n해석 — 2단계 평균:\n\n먼저 각 “슬라이스” \\(Y = y\\) 안에서 \\(X\\)의 평균을 구하고,\n그 평균들을 \\(Y\\)의 모든 값에 걸쳐 다시 평균하면,\n\n원래의 \\(E[X]\\)가 복원된다. 조건부 기댓값이 전체 기댓값 안에 어떻게 중첩(nest)되어 있는지를 보여준다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#켤레와-에르미트-전치",
+    "href": "study/random-signal-theory/probability-foundations-1.html#켤레와-에르미트-전치",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "17.1 켤레와 에르미트 전치",
+    "text": "17.1 켤레와 에르미트 전치\n\n복소수: \\(z = a + jb\\)의 켤레는 \\(\\bar{z} = a - jb\\) (허수부의 부호만 반전).\n복소 벡터 \\(\\mathbf{x} \\in \\mathbb{C}^K\\): 각 원소를 개별적으로 켤레 — \\(\\bar{\\mathbf{x}} = [\\bar{x}_1; \\cdots; \\bar{x}_K]\\) (모양은 유지).\n켤레 전치 (에르미트 전치, Hermitian transpose): 켤레를 취한 뒤 전치:\n\n\\[\\mathbf{x}^H = \\bar{\\mathbf{x}}^T, \\qquad \\mathbf{A}^H = \\bar{\\mathbf{A}}^T\\]\n\n\n\n\n\n\nNote표기 규약\n\n\n\n에르미트 전치는 \\(*\\)가 아니라 일관되게 위첨자 \\(H\\)로 표기한다. 행렬 연산을 다룰 때 표현을 깔끔하고 모호하지 않게 유지하기 위함이다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#공분산-행렬-covariance-matrix",
+    "href": "study/random-signal-theory/probability-foundations-1.html#공분산-행렬-covariance-matrix",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "17.2 공분산 행렬 (Covariance Matrix)",
+    "text": "17.2 공분산 행렬 (Covariance Matrix)\n복소 확률벡터 \\(\\mathbf{X}\\)에 대해:\n\\[\\mathbf{K}_X = E\\big[ (\\mathbf{X} - E[\\mathbf{X}])(\\mathbf{X} - E[\\mathbf{X}])^H \\big]\\]\n스칼라의 분산 개념을 벡터로 일반화한 것으로, 각 성분의 변동성과 성분들 간의 관계를 함께 담는다.\n성질 1 — 에르미트 대칭:\n\\[\\mathbf{K}_X = \\mathbf{K}_X^H\\]\n행렬이 자기 자신의 켤레 전치와 같다. 이는 행렬의 구성 방식에서 자연스럽게 따라 나오며, \\(\\mathbf{X}\\)의 분포와 무관하게 항상 성립한다.\n성질 2 — 양의 준정부호(positive semidefinite): 임의의 \\(\\mathbf{a} \\in \\mathbb{C}^K\\)에 대해:\n\\[\\mathbf{a}^H \\mathbf{K}_X\\, \\mathbf{a}\n= E\\big[ |\\mathbf{a}^H (\\mathbf{X} - E[\\mathbf{X}])|^2 \\big] \\geq 0\\]\n성질 3 — 양의 정부호(positive definite) 조건: \\(\\mathbf{X}\\)의 어떤 성분도 분산이 0이 아니면(즉, 모든 성분이 실제로 요동하면) \\(\\mathbf{K}_X\\)는 양의 정부호다.\n\n\n\n\n\n\nTip직관\n\n\n\n이차형식 \\(\\mathbf{a}^H \\mathbf{K}_X \\mathbf{a}\\)는 정확히 선형결합 \\(\\mathbf{a}^H \\mathbf{X}\\)의 분산이다. 가중치 벡터 \\(\\mathbf{a}\\)를 확률벡터에 적용해 얻는 스칼라의 분산이 이 이차형식으로 주어지므로, 분산은 음수가 될 수 없다 → 준정부호성이 자명해진다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#문제-설정-1",
+    "href": "study/random-signal-theory/probability-foundations-1.html#문제-설정-1",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "18.1 문제 설정",
+    "text": "18.1 문제 설정\n확률벡터 \\(\\mathbf{X} = (X_1, \\ldots, X_L)^T\\)의 최대 성분이라는 스칼라 확률변수에 관심을 갖는다:\n\\[\\max \\mathbf{X} = \\max\\{X_1, \\ldots, X_L\\}\\]"
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#최댓값의-cdf",
+    "href": "study/random-signal-theory/probability-foundations-1.html#최댓값의-cdf",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "18.2 최댓값의 CDF",
+    "text": "18.2 최댓값의 CDF\n임계값 \\(\\mu\\)에 대해:\n\\[\\Pr[\\max \\mathbf{X} &lt; \\mu] = P_{\\mathbf{X}}(\\mu, \\ldots, \\mu)\\]\n왜 이렇게 되는가: 최댓값이 \\(\\mu\\)보다 작다는 것은 모든 성분 \\(X_i\\)가 \\(\\mu\\)보다 작다는 것과 동치다:\n\\[\\{\\max \\mathbf{X} &lt; \\mu\\} \\;\\iff\\; \\{X_i &lt; \\mu,\\; \\forall i\\}\\]\n즉, 결합 CDF를 모든 성분이 \\(\\mu\\)인 점에서 평가하는 하나의 결합 사건이 최댓값의 행동 전체를 기술한다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#독립인-경우",
+    "href": "study/random-signal-theory/probability-foundations-1.html#독립인-경우",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "18.3 독립인 경우",
+    "text": "18.3 독립인 경우\n\\(X_1, \\ldots, X_L\\)이 독립이면, 모두 \\(\\mu\\) 미만일 확률은 개별 확률들의 곱이 된다:\n\\[\\Pr[\\max \\mathbf{X} &lt; \\mu] = \\prod_{i=1}^{L} P_{X_i}(\\mu)\\]\nPDF — 곱의 미분 규칙(product rule)을 적용:\n\\[p_{\\max \\mathbf{X}}(\\mu) = \\sum_{j=1}^{L} p_{X_j}(\\mu) \\prod_{i \\neq j} P_{X_i}(\\mu)\\]\n각 항은 “\\(X_j\\)가 \\(\\mu\\) 근처의 값을 치고(\\(p_{X_j}\\)), 나머지 전부는 \\(\\mu\\) 아래에 머무는(\\(P_{X_i}\\))” 경우에 대응한다.\n가장 간단한 경우 (\\(L = 2\\)):\n\\[p_{\\max \\mathbf{X}}(\\mu)\n= \\frac{d}{d\\mu}\\Big( P_{X_1}(\\mu) P_{X_2}(\\mu) \\Big)\n= p_{X_1}(\\mu)\\, P_{X_2}(\\mu) + p_{X_2}(\\mu)\\, P_{X_1}(\\mu)\\]\n두 변수 중 어느 쪽이든 최댓값에 기여할 수 있음이 두 항으로 나타난다."
+  },
+  {
+    "objectID": "study/random-signal-theory/probability-foundations-1.html#i.i.d.인-경우",
+    "href": "study/random-signal-theory/probability-foundations-1.html#i.i.d.인-경우",
+    "title": "확률론의 기초 (Foundations of Probability Theory) I",
+    "section": "18.4 i.i.d.인 경우",
+    "text": "18.4 i.i.d.인 경우\n성분들이 독립이면서 동일한 분포(같은 CDF \\(P_X(\\mu)\\), 같은 PDF \\(p_X(\\mu)\\))를 따르면 식이 크게 단순해진다:\n\\[\\Pr[\\max \\mathbf{X} &lt; \\mu] = \\big( P_X(\\mu) \\big)^L\\]\n미분하면:\n\\[\\boxed{\\; p_{\\max \\mathbf{X}}(\\mu) = L\\, p_X(\\mu)\\, \\big( P_X(\\mu) \\big)^{L-1} \\;}\\]\n\n\n\n\n\n\nTip직관\n\n\n\n변수의 개수 \\(L\\)이 커질수록 최댓값의 분포는 오른쪽으로 이동한다. 표본이 많을수록 높은 값을 볼 가능성이 커지므로, 최댓값의 밀도는 큰 \\(\\mu\\) 쪽으로 점점 집중된다. (무선 통신에서 다중 사용자 다이버시티 등의 분석에 직접 쓰이는 결과다.)"
   }
 ]
