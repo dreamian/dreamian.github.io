@@ -1,0 +1,294 @@
+---
+title: "친구 추천 시스템 — 공유 간선 풀과 friends-of-friends 카운팅"
+categories: [algorithm, data-structure, graph]
+description: "동적 친구 관계에서 공통 친구 기반 추천을 구현하며 겪은 메모리 설계 문제와 공유 간선 풀(연결 리스트 기반)로의 전환 과정을 정리한다."
+date: 2026-07-09
+---
+
+## 1. 문제 개요
+
+사용자 간 친구 관계가 동적으로 추가(`add`)·삭제(`del`)되는 상황에서, 특정 사용자에게 **공통 친구 수가 많은 순**으로 최대 5명을 추천하는 문제다.
+
+- 사용자 수 $N \le 10{,}000$
+- `add(id, F, ids[])`: id와 ids[]의 각 사용자를 양방향 친구로 등록 (이미 친구인 쌍은 호출되지 않음이 보장됨)
+- `del(id1, id2)`: 친구 관계를 양방향으로 해제
+- `recommend(id, list[])`: id의 직접 친구가 아니면서 공통 친구가 1명 이상인 후보 중, 공통 친구 수 내림차순 · 동점 시 id 오름차순으로 최대 5명 반환
+
+## 2. 첫 접근: 사용자별 고정 배열
+
+처음에는 각 사용자가 자신의 친구 목록을 고정 크기 배열로 소유하는 구조로 시작했다.
+
+```cpp
+struct User {
+	int n_friends;
+	int friends[MAX_FF];
+};
+User user[MAX_USER];
+```
+
+`recommend`는 모든 후보 $i$에 대해 두 친구 배열을 이중 루프로 비교해 공통 친구를 세는 방식이었다. 이 접근은 두 가지 축에서 문제가 있었다.
+
+### 2.1 시간 복잡도
+
+후보 전원($N$명)에 대해 $O(F_1 \cdot F_2)$ 비교를 수행하므로 recommend 한 번에 $O(N \cdot F^2)$이다. $N = 10^4$, $F = 10^2$ 수준이면 호출당 $10^8$ 연산으로 TLE 위험이 크다.
+
+### 2.2 메모리와 오버플로우
+
+"이미 친구인 쌍은 add되지 않는다"는 제약은 **중복 등록**을 막아줄 뿐, **한 사용자의 친구 수 상한**을 보장하지 않는다. add가 누적되어 `n_friends`가 `MAX_FF`를 넘는 순간 `friends[MAX_FF]` 쓰기가 발생하는데, 구조체 배열 레이아웃상 이는 **바로 다음 사용자의 `n_friends`를 덮어쓴다**.
+
+::: {.callout-warning}
+## 구조체 배열에서의 오버플로우 증상
+
+이 오버플로우는 crash 없이 조용히 진행된다. 관찰된 증상은 다음과 같았다.
+
+- 오버플로우한 사용자 자신의 목록에는 새 친구가 기록되지 않고 **상대방 쪽에만 기록됨** → 인접 리스트의 **비대칭** 발생
+- 다음 사용자의 `n_friends`가 상대방 id 값으로 바뀌어 그 사용자의 인접 리스트 전체가 쓰레기가 됨
+
+실제 디버깅에서는 정답 리스트가 내 결과에서 특정 후보 하나만 빠지고 한 칸씩 당겨진 형태로 나타났다. 정렬·동점 규칙은 모두 일치하는데 **포함되면 안 되는 후보 하나가 끼어든** 패턴이었고, 이는 "채점기 관점에서는 직접 친구인데 내 인접 리스트에는 없는" 비대칭 상태를 가리켰다.
+:::
+
+::: {.callout-tip}
+## 대칭성 검사로 원인 확정하기
+
+무방향 그래프를 인접 리스트로 관리할 때, 원인 불명의 오답이 나오면 **대칭성 불변식**($u$의 목록에 $v$가 있으면 $v$의 목록에도 $u$가 있어야 함)을 검사하는 계측 코드를 넣어보는 것이 효과적이다. 비대칭이 잡히면 원인은 거의 항상 메모리 파괴다.
+:::
+
+`MAX_FF`를 최악치인 10000으로 키우면 오버플로우는 사라지지만, 이번엔 메모리가 문제가 된다.
+
+$$10{,}001 \times 4 \times 10{,}000 \;\text{bytes} \approx 400\,\text{MB}$$
+
+전체 친구 관계의 **총합**은 add 호출 수로 제한되는데, 이 구조는 "개인 최대치 × 전체 인원"을 미리 잡아 낭비가 인원 수 배로 증폭된다. 메모리 제한 초과의 직접 원인이다.
+
+## 3. 시간 개선: friends-of-friends 카운팅
+
+후보 → 공통 친구 방향의 비교를 뒤집어, **id의 친구의 친구를 순회하며 카운트를 누적**하면 이중 배열 비교가 사라진다.
+
+```cpp
+for (id의 각 친구 f)
+	for (f의 각 친구 g)
+		++common[g];
+```
+
+이후 `common[id] = 0`과 직접 친구들의 `common` 값을 0으로 지워 후보에서 제외한다. 핵심 루프가 $O(F^2)$로 떨어지고, 후보별 `check_frd` 호출과 `visited` 배열이 모두 불필요해진다.
+
+::: {.callout-important}
+## 제외 처리 누락 주의
+
+직접 친구 제외 루프에서 `common[target.friends[i]];`처럼 대입 없이 표현식만 평가하는 no-op을 작성하는 실수가 실제로 있었다. 컴파일은 통과하므로 발견이 늦어진다. 증상은 오버플로우 때와 동일하게 "끼어들면 안 되는 후보가 리스트에 포함되고 정답이 한 칸씩 밀리는" 형태로 나타난다. `-Wall -Wextra`를 켜면 `-Wunused-value` 경고로 잡을 수 있다.
+:::
+
+## 4. 메모리 개선: 공유 간선 풀
+
+### 4.1 구조
+
+사용자별 고정 배열 대신, 전역 간선 풀 하나를 두고 사용자별 **연결 리스트**를 구성한다.
+
+```cpp
+int head_[MAX_USER];
+int to_[MAX_EDGES];
+int next_[MAX_EDGES];
+int edge_count;
+```
+
+| 배열 | 의미 |
+|---|---|
+| `to_[e]` | 슬롯 $e$에 저장된 친구의 id |
+| `next_[e]` | 같은 사용자 목록에서 다음 슬롯의 인덱스 ($-1$이면 끝) |
+| `head_[u]` | 사용자 $u$의 목록 첫 슬롯 인덱스 ($-1$이면 빈 목록) |
+
+포인터 기반 연결 리스트의 포인터를 배열 인덱스로 치환한 것이다. 삽입은 head 앞에 끼워 넣는 prepend이므로 $O(1)$이다.
+
+```cpp
+to_[edge_count] = v;
+next_[edge_count] = head_[u];
+head_[u] = edge_count++;
+```
+
+삭제는 목록을 순회하며 대상 슬롯을 unlink한다.
+
+### 4.2 손 트레이스
+
+`add(1, 2, {2, 3})` 실행 시 add_friend가 (1→2), (2→1), (1→3), (3→1) 순으로 4번 호출된다.
+
+```
+slot e :   0    1    2    3
+to_    :   2    1    3    1
+next_  :  -1   -1    0   -1
+
+head_[1]=2,  head_[2]=1,  head_[3]=3
+```
+
+사용자 1의 목록 순회: `head_[1]=2` → `to_[2]=3` → `next_[2]=0` → `to_[0]=2` → `next_[0]=-1` 끝. prepend 방식이라 최근 추가된 친구가 먼저 나오지만, 카운팅 후 id 순으로 다시 훑으므로 순회 순서는 결과에 영향이 없다.
+
+### 4.3 메모리 산정
+
+총 소비는 실제로 생긴 관계 하나당 슬롯 하나다.
+
+$$\text{필요 슬롯 수} = (\text{add 호출 총 횟수}) \times F \times 2$$
+
+용량 기준이 (사용자 수 × 개인 최대치)에서 (전체 간선 수)로 바뀌어, $400\,\text{MB}$ 규모의 할당이 수십 KB~수 MB 수준으로 떨어진다.
+
+::: {.callout-note}
+## CSR과의 비교
+
+CSR은 간선이 모두 확정된 뒤 정렬해 연속 배치하는 정적 구조라 순회의 캐시 지역성이 좋다. 그러나 이 문제처럼 add/del이 질의와 섞여 들어오는 온라인 상황에서는 재구축 비용 때문에 사용할 수 없다. 연결 리스트 풀은 $O(1)$ 삽입과 unlink 삭제를 지원하는 대신 순회 시 메모리를 점프하며 읽는 트레이드오프다.
+:::
+
+### 4.4 삭제 슬롯은 회수되지 않는다
+
+이 구조의 할당기는 `edge_count++` 커서가 앞으로만 가는 **bump allocator**다. `del`은 unlink만 할 뿐 슬롯 인덱스를 어디에도 기록하지 않으므로, 삭제된 슬롯은 재사용 정보 자체가 없어 영구히 소비된 채 남는다.
+
+$$\text{소비 슬롯 수} = \text{누적 삽입 횟수} \quad (\text{del과 무관})$$
+
+이는 버그가 아니라 의도된 트레이드오프다. 회수를 포기하는 대신 할당이 한 줄이고, 삭제에 반납 로직이 없으며, 용량 산정이 단순한 곱셈식으로 결정된다.
+
+::: {.callout-tip}
+## bump vs free list 선택 기준
+
+**누적 삽입 상한이 계산 가능하고 메모리 제한 안에 들어오면 bump, 아니면 free list.**
+
+free list는 unlink한 슬롯을 단일 연결 스택으로 쌓아두고 할당 시 우선 재사용하는 방식이다. `next_` 배열을 free list의 링크로 겸용하므로 추가 메모리가 0이며, 용량 기준이 누적 삽입 수에서 **동시 생존 간선 수의 최대치**로 바뀐다.
+
+```cpp
+int free_head = -1;
+
+int alloc_slot() {
+	if (free_head != -1) {
+		int e = free_head;
+		free_head = next_[e];
+		return e;
+	}
+	return edge_count++;
+}
+```
+
+`del_friend`에서 unlink한 슬롯 $e$를 `next_[e] = free_head; free_head = e;`로 반납한다. `init`에서 `free_head = -1` 초기화를 잊지 말 것.
+:::
+
+## 5. 상위 5명 선별
+
+`common[i] > 0`인 후보를 id 오름차순으로 훑으며 크기 5짜리 배열에 삽입 정렬한다. 삽입 위치 `tar`를 찾고, 뒤 원소들을 한 칸씩 밀고, `tar < MAXL`일 때만 삽입한다.
+
+id를 **오름차순으로 순회**하므로 동점 시 작은 id 우선 규칙이 자동으로 보장된다 — 이미 리스트에 들어있는 동점 후보는 항상 더 작은 id를 갖기 때문이다. 따라서 동점 비교 조건은 별도로 필요 없다.
+
+## 6. 정리
+
+- 시간: 후보별 배열 비교 $O(N \cdot F^2)$ → friends-of-friends 누적 $O(F^2)$
+- 메모리: 사용자별 최악치 사전 할당 → 공유 풀에서 관계당 슬롯 하나
+- 오버플로우: 경계 검사 없는 커서 증가(`n_friends++`, `edge_count++`)는 스펙 기반 상한 산정으로 방어하고, 로컬 검증 시에는 경계 검사 계측을 넣어 확인한다
+- 무방향 그래프의 원인 불명 오답은 인접 리스트 **대칭성 검사**로 메모리 파괴 여부를 판별할 수 있다
+
+## Codes
+
+```cpp
+#define MAXL	5
+#define MAXF	10
+
+#define MAX_USER	(10'001)
+#define MAX_EDGES	(50'000)
+
+#include <stdio.h>
+
+int head_[MAX_USER];
+
+int edge_count;
+int next_[MAX_EDGES];
+int to_[MAX_EDGES];
+
+int n_users;
+struct User {
+	int mId;
+
+	void init(int id) {
+		mId = id;
+		head_[id] = -1;
+	}
+
+	void add_friend(int id) {
+		to_[edge_count] = id;
+		next_[edge_count] = head_[mId];
+		head_[mId] = edge_count;
+		++edge_count;
+	}
+
+	void del_friend(int id) {
+		int prev = -1;
+		for(int e = head_[mId]; e != -1; e = next_[e]) {
+			if(to_[e] == id) {
+				if(prev == -1) head_[mId] = next_[e];
+				else next_[prev] = next_[e];
+				return;
+			}
+			prev = e;
+		}
+	}
+} user[MAX_USER];
+
+void init(int N)
+{
+	edge_count = 0;
+	n_users = N;
+	for(int i = 1; i <= n_users; ++i) {
+		user[i].init(i);
+	}
+}
+
+void add(int id, int F, int ids[MAXF])
+{
+	for(int i = 0; i < F; ++i) {
+		user[id].add_friend(ids[i]);
+		user[ids[i]].add_friend(id);
+	}
+}
+
+void del(int id1, int id2)
+{
+	user[id1].del_friend(id2);
+	user[id2].del_friend(id1);
+}
+
+int common[MAX_USER];
+int recommend(int id, int list[MAXL])
+{
+	for(int i = 1; i <= n_users; ++i) {
+		common[i] = 0;
+	}
+
+	for(int e = head_[id]; e != -1; e = next_[e]) {
+		int f = to_[e];
+		for(int je = head_[f]; je != -1; je = next_[je]) {
+			++common[to_[je]];
+		}
+	}
+
+	common[id] = 0;
+	for(int e = head_[id]; e != -1; e = next_[e]) {
+		common[to_[e]] = 0;
+	}
+
+	int cnt = 0;
+	int max_frds[MAXL] = {0, };
+
+	for(int i = 1; i <= n_users; ++i) {
+		if(common[i] == 0) continue;
+
+		int max_c = common[i];
+
+		int tar = 0;
+		for(; tar < cnt; ++tar) {
+			if(max_frds[tar] < max_c) break;
+		}
+		for(int tt = MAXL - 1; tt > tar; --tt) {
+			max_frds[tt] = max_frds[tt - 1];
+			list[tt] = list[tt - 1];
+		}
+		if(tar != MAXL) {
+			max_frds[tar] = max_c;
+			list[tar] = i;
+		}
+		if(cnt != MAXL) ++cnt;
+	}
+
+	return cnt;
+}
+```
