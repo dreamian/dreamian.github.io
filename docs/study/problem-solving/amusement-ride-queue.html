@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.35">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-07-10">
+<meta name="description" content="우선순위 큐 기반 놀이기구 대기열 문제를 풀며, 상태 변수 end_time의 의미를 고정하지 않아 발생한 ‘유령 운행’ 버그와 두 버그의 상쇄 현상을 기록한다.">
+
+<title>놀이기구 대기열 시뮬레이션 — 상태 변수의 불변식이 무너질 때 – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-46f66b053e56abd73bb6e954d61a315b.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-da17d83626a3727898eb25bb9d1cdf08.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/random-signal-theory/index.html">
+ <span class="dropdown-text">Random Signal Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../docs/research/papers/index.html">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#문제-요약" id="toc-문제-요약" class="nav-link active" data-scroll-target="#문제-요약">1. 문제 요약</a></li>
+  <li><a href="#설계" id="toc-설계" class="nav-link" data-scroll-target="#설계">2. 설계</a>
+  <ul class="collapse">
+  <li><a href="#이벤트-기반이-아닌-지연-평가lazy-evaluation" id="toc-이벤트-기반이-아닌-지연-평가lazy-evaluation" class="nav-link" data-scroll-target="#이벤트-기반이-아닌-지연-평가lazy-evaluation">2.1 이벤트 기반이 아닌 지연 평가(lazy evaluation)</a></li>
+  <li><a href="#정산의-2단계-분리-flush_queue와-board_now" id="toc-정산의-2단계-분리-flush_queue와-board_now" class="nav-link" data-scroll-target="#정산의-2단계-분리-flush_queue와-board_now">2.2 정산의 2단계 분리: <code>flush_queue</code>와 <code>board_now</code></a></li>
+  </ul></li>
+  <li><a href="#디버깅-기록-유령-운행-모델" id="toc-디버깅-기록-유령-운행-모델" class="nav-link" data-scroll-target="#디버깅-기록-유령-운행-모델">3. 디버깅 기록: 유령 운행 모델</a>
+  <ul class="collapse">
+  <li><a href="#무엇이-틀렸나" id="toc-무엇이-틀렸나" class="nav-link" data-scroll-target="#무엇이-틀렸나">3.1 무엇이 틀렸나</a></li>
+  <li><a href="#왜-샘플은-통과했나-버그의-상쇄" id="toc-왜-샘플은-통과했나-버그의-상쇄" class="nav-link" data-scroll-target="#왜-샘플은-통과했나-버그의-상쇄">3.2 왜 샘플은 통과했나 — 버그의 상쇄</a></li>
+  <li><a href="#반례-트레이스" id="toc-반례-트레이스" class="nav-link" data-scroll-target="#반례-트레이스">3.3 반례 트레이스</a></li>
+  <li><a href="#함께-잡은-버그들" id="toc-함께-잡은-버그들" class="nav-link" data-scroll-target="#함께-잡은-버그들">3.4 함께 잡은 버그들</a></li>
+  </ul></li>
+  <li><a href="#복잡도-분석" id="toc-복잡도-분석" class="nav-link" data-scroll-target="#복잡도-분석">4. 복잡도 분석</a></li>
+  <li><a href="#교훈" id="toc-교훈" class="nav-link" data-scroll-target="#교훈">5. 교훈</a></li>
+  <li><a href="#codes" id="toc-codes" class="nav-link" data-scroll-target="#codes">Codes</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">놀이기구 대기열 시뮬레이션 — 상태 변수의 불변식이 무너질 때</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">SWEA</div>
+    <div class="quarto-category">Simulation</div>
+    <div class="quarto-category">Priority Queue</div>
+    <div class="quarto-category">Debugging</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    우선순위 큐 기반 놀이기구 대기열 문제를 풀며, 상태 변수 end_time의 의미를 고정하지 않아 발생한 ‘유령 운행’ 버그와 두 버그의 상쇄 현상을 기록한다.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">July 10, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="문제-요약" class="level2">
+<h2 class="anchored" data-anchor-id="문제-요약">1. 문제 요약</h2>
+<p>놀이공원에 <span class="math inline">\(N\)</span>개의 놀이기구가 있고, 각 놀이기구 <span class="math inline">\(i\)</span>는 1회 운행시간 <span class="math inline">\(T_i\)</span>와 1회 수용인원 <span class="math inline">\(C_i\)</span>를 갖는다. 동작 규칙은 다음과 같다.</p>
+<ol type="1">
+<li>대기자가 없으면 놀이기구는 운행을 시작하지 않는다.</li>
+<li>운행 중이 아닌 놀이기구에 시각 <span class="math inline">\(X\)</span>에 대기자가 추가되면, 시각 <span class="math inline">\(X\)</span>에 운행을 시작한다.</li>
+<li>시각 <span class="math inline">\(X\)</span>에 시작한 운행은 <span class="math inline">\(X+T\)</span>에 종료한다. 종료 시점에 대기자가 1명 이상이면 즉시 재출발하며, <span class="math inline">\(X+T\)</span>에 도착한 사람도 이 재출발에 탑승할 수 있다.</li>
+<li>운행 시작 시 대기자가 <span class="math inline">\(C\)</span>명 이하면 전원 탑승, 초과면 우선순위가 높은 순으로 <span class="math inline">\(C\)</span>명이 탑승한다.</li>
+</ol>
+<p>구현해야 하는 API는 세 가지다.</p>
+<ul>
+<li><code>init(N, mId[], mDuration[], mCapacity[])</code>: 시각 0에 호출. 놀이기구 정보 초기화.</li>
+<li><code>add(tStamp, mId, mNum, mPriority)</code>: 시각 <code>tStamp</code>에 우선순위 <code>mPriority</code>인 대기자 <code>mNum</code>명 추가. 이 시각에 운행을 시작해야 하면 방금 추가된 인원까지 포함해 탑승 처리 후, 남은 대기자 중 최고 우선순위를 반환(없으면 0).</li>
+<li><code>search(tStamp, mCount, mId[], mWait[])</code>: 시각 <code>tStamp</code> 기준 대기 인원수 내림차순(동률 시 ID 내림차순)으로 상위 <code>mCount</code>개를 반환. 이 시각에 탑승하는 인원은 대기에서 제외해야 한다.</li>
+</ul>
+<p>제약: <span class="math inline">\(3 \le N \le 100\)</span>, <span class="math inline">\(1 \le T, C \le 100\)</span>, <span class="math inline">\(1 \le \text{tStamp} &lt; 10^8\)</span>, <span class="math inline">\(1 \le \text{mNum} \le 100\)</span>, <span class="math inline">\(1 \le \text{mPriority} \le 10^4\)</span>.</p>
+</section>
+<section id="설계" class="level2">
+<h2 class="anchored" data-anchor-id="설계">2. 설계</h2>
+<section id="이벤트-기반이-아닌-지연-평가lazy-evaluation" class="level3">
+<h3 class="anchored" data-anchor-id="이벤트-기반이-아닌-지연-평가lazy-evaluation">2.1 이벤트 기반이 아닌 지연 평가(lazy evaluation)</h3>
+<p>시각이 <span class="math inline">\(10^8\)</span>까지 가므로 시간을 1씩 전진시키는 시뮬레이션은 불가능하다. 대신 각 놀이기구의 상태를 <strong>마지막 갱신 이후 방치</strong>해 두었다가, <code>add</code>나 <code>search</code>로 해당 놀이기구를 건드리는 순간 경과 시간만큼의 운행을 일괄 정산하는 지연 평가 방식을 택했다.</p>
+<p>각 놀이기구가 유지하는 상태는 다음과 같다.</p>
+<ul>
+<li><code>end_time</code>: 마지막으로 <strong>실제 승객을 태운 운행</strong>의 종료 시각. 한 번도 운행한 적 없으면 <span class="math inline">\(-1\)</span>.</li>
+<li><code>pque</code>: (인원수, 우선순위) 쌍을 담는 최대 힙. 같은 <code>add</code>로 들어온 인원은 우선순위가 같으므로 한 노드로 묶어 저장하고, 부분 탑승 시 노드의 <code>count</code>만 감소시킨다.</li>
+<li><code>tot_cnt</code>: 힙 전체의 대기 인원 합. <code>search</code>의 랭킹 계산이 <span class="math inline">\(O(1)\)</span>이 되도록 push/pop 시 함께 유지한다.</li>
+</ul>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>노드 묶음 저장의 이점
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>인원을 1명 단위로 힙에 넣으면 노드 수가 (add 횟수) × (mNum 최대 100)까지 불어난다. (count, priority) 쌍으로 묶으면 힙 크기가 add 횟수에만 비례하고, 부분 탑승은 루트 노드의 count 필드를 직접 깎는 것으로 처리된다. 우선순위 값 자체는 변하지 않으므로 힙 성질(heap property)은 그대로 유지된다.</p>
+</div>
+</div>
+</section>
+<section id="정산의-2단계-분리-flush_queue와-board_now" class="level3">
+<h3 class="anchored" data-anchor-id="정산의-2단계-분리-flush_queue와-board_now">2.2 정산의 2단계 분리: <code>flush_queue</code>와 <code>board_now</code></h3>
+<p>핵심 설계 결정은 시각 정산을 두 함수로 분리한 것이다.</p>
+<p><strong><code>flush_queue</code> — 과거의 재출발들을 일괄 정산.</strong> <code>end_time &lt; cur_time</code>이면 그 사이에 규칙 3의 재출발이 여러 번 일어났을 수 있다. 시간상 가능한 운행 횟수는</p>
+<p><span class="math display">\[
+\text{factor} = \left\lceil \frac{\text{cur\_time} - \text{end\_time}}{T} \right\rceil
+\]</span></p>
+<p>이고, 대기 인원을 전부 소진하는 데 필요한 횟수는</p>
+<p><span class="math display">\[
+\text{need} = \left\lceil \frac{\text{tot\_cnt}}{C} \right\rceil
+\]</span></p>
+<p>이다. 실제 운행 횟수는 <span class="math inline">\(\text{runs} = \min(\text{factor}, \text{need})\)</span> — 대기자가 떨어지는 순간 놀이기구는 멈추기 때문이다. <code>runs × C</code>명만큼 힙에서 우선순위 순으로 태우고 <code>end_time += T × runs</code>로 전진시킨다.</p>
+<p><strong><code>board_now</code> — 현재 시각의 출발 처리.</strong> 정산이 끝난 뒤에도 운행 중이 아니고 대기자가 있다면, 규칙 2에 따라 지금 즉시 출발한다. <span class="math inline">\(C\)</span>명을 태우고 <code>end_time = cur_time + T</code>로 <strong>대입</strong>한다. idle 구간을 거친 뒤의 출발이므로 <code>+=</code>가 아니라 <code>=</code>이어야 한다.</p>
+<p><code>add</code>는 <code>flush_queue → push → board_now</code> 순서로 호출한다. 이 순서 덕분에 “tStamp에 출발해야 하는 경우 방금 추가된 인원도 탑승 대상”이라는 요구가 자동으로 만족된다. <code>search</code>도 모든 놀이기구에 <code>flush_queue → board_now</code>를 적용한 뒤 <code>tot_cnt</code>로 랭킹을 계산하면, “tStamp에 탑승하는 인원은 대기에서 제외”라는 요구가 별도 처리 없이 만족된다.</p>
+</section>
+</section>
+<section id="디버깅-기록-유령-운행-모델" class="level2">
+<h2 class="anchored" data-anchor-id="디버깅-기록-유령-운행-모델">3. 디버깅 기록: 유령 운행 모델</h2>
+<p>첫 제출본은 샘플을 통과했지만 오답이었다. 원인은 하나의 뿌리에서 나온 두 개의 갱신 오류였고, 흥미롭게도 둘이 서로를 부분적으로 상쇄하고 있었다.</p>
+<section id="무엇이-틀렸나" class="level3">
+<h3 class="anchored" data-anchor-id="무엇이-틀렸나">3.1 무엇이 틀렸나</h3>
+<p>첫 버전의 <code>flush_queue</code>는 다음과 같이 끝났다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>end_time <span class="op">+=</span> duration <span class="op">*</span> factor<span class="op">;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>대기 큐가 factor회분보다 일찍 비어도 factor회를 통째로 전진시킨다. 즉 <strong>“첫 탑승 이후 놀이기구가 대기자 유무와 무관하게 영원히 쉬지 않고 돈다”</strong>는 모델을 암묵적으로 가정한 것이다. 규칙 1·3의 “재출발 시점에 대기자가 없으면 정지”가 상태 갱신에 반영되지 않았다.</p>
+<p>한편 현재 시각의 탑승 블록은 이렇게 끝났다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>pque<span class="op">.</span>size <span class="op">!=</span> <span class="dv">0</span><span class="op">)</span> end_time <span class="op">+=</span> duration<span class="op">;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>이것은 두 방향으로 동시에 틀렸다. 첫째, 조건의 방향이 반대다. 판단 기준은 “탑승 후 남은 대기자”가 아니라 “이번에 태운 인원이 있었는가”여야 한다. 1명이라도 태웠다면 잔여 큐가 비었더라도 운행은 시작된 것이다. 둘째, idle을 거친 출발이므로 <code>+= duration</code>이 아니라 <code>= cur_time + duration</code> 대입이어야 한다.</p>
+</section>
+<section id="왜-샘플은-통과했나-버그의-상쇄" class="level3">
+<h3 class="anchored" data-anchor-id="왜-샘플은-통과했나-버그의-상쇄">3.2 왜 샘플은 통과했나 — 버그의 상쇄</h3>
+<p>두 오류는 반대 방향으로 작용한다. 탑승 블록이 전진시키지 <strong>않은</strong> <code>end_time</code>을, 다음 <code>flush_queue</code>의 ceil 연산이 <strong>과하게</strong> 메꿔준다. 그 결과 idle 간격이 <span class="math inline">\(T\)</span> 미만인 시퀀스에서는 두 오차가 정확히 상쇄되어 정답이 나온다. 샘플 케이스가 이 범위 안에 있었던 것이다.</p>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>상쇄되는 버그 쌍
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>버그 두 개가 서로를 가리는 경우, 어느 한쪽만 고치면 오히려 이전보다 더 많은 케이스가 틀릴 수 있다. “일부 수정 후 점수 하락”은 수정이 잘못됐다는 신호가 아니라, 가려져 있던 나머지 버그가 드러났다는 신호일 수 있다.</p>
+</div>
+</div>
+</section>
+<section id="반례-트레이스" class="level3">
+<h3 class="anchored" data-anchor-id="반례-트레이스">3.3 반례 트레이스</h3>
+<p><span class="math inline">\(T=10\)</span>, <span class="math inline">\(C=5\)</span>인 놀이기구 1대로 두 모델이 갈라지는 최소 반례를 손으로 따라가 보자.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>호출</th>
+<th>정답 동작</th>
+<th>버그 버전의 동작</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>add(t=1, num=3, pri=100)</code></td>
+<td>3명 즉시 탑승, 운행 <span class="math inline">\([1,11)\)</span>, 반환 0</td>
+<td>탑승 후 큐가 비어 <code>end_time=1</code>에 머무름. 반환 0 (우연히 일치)</td>
+</tr>
+<tr class="even">
+<td><code>add(t=5, num=2, pri=50)</code></td>
+<td>운행 중이므로 대기, 반환 50</td>
+<td>flush에서 <span class="math inline">\(\text{factor}=\lceil 4/10 \rceil = 1\)</span> → <code>end_time=11</code>. 대기, 반환 50 (상쇄로 우연히 일치)</td>
+</tr>
+<tr class="odd">
+<td><code>add(t=30, num=2, pri=70)</code></td>
+<td><span class="math inline">\(t=11\)</span>에 2명 탑승 후 <span class="math inline">\([11,21)\)</span> 운행, 이후 idle. <span class="math inline">\(t=30\)</span>에 신규 2명 즉시 탑승, <strong>반환 0</strong></td>
+<td>flush에서 <span class="math inline">\(\text{factor}=\lceil 19/10 \rceil = 2\)</span> → <code>end_time=11+20=31</code>. <span class="math inline">\(31 &gt; 30\)</span>이라 “운행 중”으로 오판, 신규 2명 대기, <strong>반환 70</strong></td>
+</tr>
+</tbody>
+</table>
+<p>세 번째 호출에서 갈라지는 조건은 <strong>idle 간격이 한 주기 <span class="math inline">\(T\)</span>를 넘는 것</strong>이다. 수정 버전으로 재검증하면: flush에서 <span class="math inline">\(\text{factor}=2\)</span>, <span class="math inline">\(\text{need}=\lceil 2/5 \rceil = 1\)</span> → <span class="math inline">\(\text{runs}=1\)</span>, 2명 탑승 후 <code>end_time=21</code>. 이어서 <code>board_now</code>가 <span class="math inline">\(21 \le 30\)</span>이므로 신규 2명을 태우고 <code>end_time=40</code>, 반환 0. 정답과 일치한다.</p>
+</section>
+<section id="함께-잡은-버그들" class="level3">
+<h3 class="anchored" data-anchor-id="함께-잡은-버그들">3.4 함께 잡은 버그들</h3>
+<p><strong>동률 비교의 인덱스 오타 + 범위 밖 읽기.</strong> <code>search</code>의 랭킹 삽입에서</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">bool</span> cond2 <span class="op">=</span> <span class="op">(</span>rides<span class="op">[</span>i<span class="op">].</span>pque<span class="op">.</span>tot_cnt <span class="op">==</span> mWait<span class="op">[</span>j<span class="op">])</span> <span class="op">&amp;&amp;</span> <span class="op">(</span>rides<span class="op">[</span>i<span class="op">].</span>id <span class="op">&gt;</span> mId<span class="op">[</span>i<span class="op">]);</span>  <span class="co">// 오타</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>mId[i]</code>는 <code>mId[j]</code>여야 한다. 비교 대상은 현재 랭킹 슬롯 <span class="math inline">\(j\)</span>다. 더 심각한 것은 <code>i</code>가 놀이기구 루프 변수라 최대 99까지 가는데 <code>mId</code>는 채점부가 넘겨주는 크기 약 10짜리 배열이라는 점 — <span class="math inline">\(i \ge 10\)</span>이면 out-of-bounds read, 즉 미정의 동작이다.</p>
+<p><strong><code>factor × cap</code>의 int 오버플로.</strong> <span class="math inline">\(\text{tStamp} &lt; 10^8\)</span>, <span class="math inline">\(T=1\)</span>이면 factor가 약 <span class="math inline">\(10^8\)</span>까지 가능하고 <span class="math inline">\(C \le 100\)</span>이므로 곱이 최대 약 <span class="math inline">\(10^{10}\)</span>으로 int 범위를 넘는다. <span class="math inline">\(\text{runs} = \min(\text{factor}, \text{need})\)</span>로 클램프하면 <span class="math inline">\(\text{runs} \times C &lt; \text{tot\_cnt} + C\)</span>가 보장되어, 논리 수정이 오버플로까지 함께 해결한다.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>논리적 클램프가 수치적 안전을 겸하는 패턴
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>“의미상 필요한 만큼만 계산한다”는 수정이 오버플로 방지를 부수 효과로 제공하는 경우가 있다. runs를 need로 제한하는 것은 시뮬레이션 정확성을 위한 것이지만, 동시에 곱셈의 상한을 대기 인원 규모로 묶어 준다. 별도의 long long 캐스팅 없이 문제가 사라진다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="복잡도-분석" class="level2">
+<h2 class="anchored" data-anchor-id="복잡도-분석">4. 복잡도 분석</h2>
+<p><code>add</code> 호출 횟수를 <span class="math inline">\(Q\)</span>라 하면 힙 크기는 최대 <span class="math inline">\(Q\)</span>이다.</p>
+<ul>
+<li><code>add</code>: 선형 탐색 <code>get_ride_id</code>가 <span class="math inline">\(O(N)\)</span>, push가 <span class="math inline">\(O(\log Q)\)</span>. flush/board의 pop들은 상각(amortized)으로 계산해야 한다 — 각 힙 노드는 한 번 push되고 최대 한 번 pop되므로, 전체 실행에서 pop 비용의 총합은 <span class="math inline">\(O(Q \log Q)\)</span>이다.</li>
+<li><code>search</code>: 놀이기구별 flush/board 후, <code>tot_cnt</code>가 유지되므로 랭킹 계산은 놀이기구당 <span class="math inline">\(O(\text{mCount})\)</span>. 호출당 <span class="math inline">\(O(N \cdot \text{mCount})\)</span>에 pop의 상각 비용이 더해진다.</li>
+</ul>
+<p>전체: <span class="math inline">\(O\big((Q + S) \cdot N + Q \log Q\big)\)</span>, 여기서 <span class="math inline">\(S\)</span>는 search 호출 횟수. <span class="math inline">\(N \le 100\)</span>, mCount <span class="math inline">\(\le 10\)</span> 규모에서 충분히 여유 있다.</p>
+</section>
+<section id="교훈" class="level2">
+<h2 class="anchored" data-anchor-id="교훈">5. 교훈</h2>
+<p><strong>상태 변수의 불변식을 코드보다 먼저 한 줄로 적어라.</strong> 이번 오류의 뿌리는 <code>end_time</code>의 의미를 고정하지 않은 채 갱신 코드를 호출 지점마다 흩어 쓴 것이다. “<code>end_time</code> = 실제로 승객을 태운 마지막 운행의 종료 시각”이라고 먼저 정의했다면, 큐가 비어도 전진시키는 <code>+= duration * factor</code>와 태웠는데도 전진하지 않는 <code>if (size != 0)</code>이 정의 위반임이 코딩 단계에서 보였을 것이다.</p>
+<p><strong>“과거 정산”과 “현재 시각 처리”를 분리하라.</strong> 지연 평가 시뮬레이션에서 하나의 함수가 둘을 겸하면 <code>+=</code>와 <code>=</code>의 구분, ceil의 적용 범위 같은 경계 조건이 얽힌다. <code>flush_queue</code>(과거, 상대 전진)와 <code>board_now</code>(현재, 절대 대입)로 나누자 각 함수의 사후 조건이 단순해졌고, <code>search</code>의 “tStamp 탑승 인원 제외” 요구도 별도 코드 없이 만족됐다.</p>
+<p><strong>스트레스 테스트 생성기에 시간 간격을 지수적으로 벌린 시퀀스를 포함하라.</strong> 상쇄되는 버그 쌍은 균등 랜덤 케이스로는 잘 드러나지 않는다. 이번 버그의 발현 조건이 “idle 간격 &gt; 한 주기”였듯, 시뮬레이션 문제의 브루트포스 교차검증에서는 시각 파라미터를 좁게도, 넓게도(간격 <span class="math inline">\(1, 2, 4, \dots, 10^7\)</span>) 뿌리는 케이스를 의도적으로 섞어야 한다.</p>
+</section>
+<section id="codes" class="level2">
+<h2 class="anchored" data-anchor-id="codes">Codes</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MAX_RIDES   </span><span class="op">(</span><span class="dv">100</span><span class="op">)</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MAX_SIZE    </span><span class="op">(</span><span class="dv">10'000</span><span class="op">)</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> cur_time<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> HeapArgument <span class="op">{</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> count<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> priority<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    HeapArgument<span class="op">()</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">{}</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    HeapArgument<span class="op">(</span><span class="dt">int</span> _c<span class="op">,</span> <span class="dt">int</span> _p<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        count <span class="op">=</span> _c<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        priority <span class="op">=</span> _p<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bool</span> <span class="kw">operator</span> <span class="op">&gt;</span> <span class="op">(</span><span class="at">const</span> HeapArgument<span class="op">&amp;</span> Other<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">(</span>priority <span class="op">&gt;</span> Other<span class="op">.</span>priority<span class="op">);</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Heap <span class="op">{</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    HeapArgument heap<span class="op">[</span>MAX_SIZE<span class="op">];</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> size<span class="op">;</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> tot_cnt<span class="op">;</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> init<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        size <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>        tot_cnt <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> push<span class="op">(</span>HeapArgument arg<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>        heap<span class="op">[</span>size<span class="op">]</span> <span class="op">=</span> arg<span class="op">;</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>        tot_cnt <span class="op">+=</span> arg<span class="op">.</span>count<span class="op">;</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> current <span class="op">=</span> size<span class="op">;</span></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span>current <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> heap<span class="op">[</span>current<span class="op">]</span> <span class="op">&gt;</span> heap<span class="op">[(</span>current <span class="op">-</span> <span class="dv">1</span><span class="op">)</span> <span class="op">/</span> <span class="dv">2</span><span class="op">])</span> </span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>            <span class="kw">auto</span> temp <span class="op">=</span> heap<span class="op">[(</span>current <span class="op">-</span> <span class="dv">1</span><span class="op">)</span> <span class="op">/</span> <span class="dv">2</span><span class="op">];</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>            heap<span class="op">[(</span>current <span class="op">-</span> <span class="dv">1</span><span class="op">)</span> <span class="op">/</span> <span class="dv">2</span><span class="op">]</span> <span class="op">=</span> heap<span class="op">[</span>current<span class="op">];</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>            heap<span class="op">[</span>current<span class="op">]</span> <span class="op">=</span> temp<span class="op">;</span></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>            current <span class="op">=</span> <span class="op">(</span>current <span class="op">-</span> <span class="dv">1</span><span class="op">)</span> <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>        <span class="op">++</span>size<span class="op">;</span></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>    HeapArgument pop<span class="op">()</span></span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> ret <span class="op">=</span> heap<span class="op">[</span><span class="dv">0</span><span class="op">];</span></span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a>        tot_cnt <span class="op">-=</span> ret<span class="op">.</span>count<span class="op">;</span></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a>        <span class="op">--</span>size<span class="op">;</span></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>        heap<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">=</span> heap<span class="op">[</span>size<span class="op">];</span></span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> current <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span>current <span class="op">*</span> <span class="dv">2</span> <span class="op">+</span> <span class="dv">1</span> <span class="op">&lt;</span> size<span class="op">)</span></span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> child<span class="op">;</span></span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>current <span class="op">*</span> <span class="dv">2</span> <span class="op">+</span> <span class="dv">2</span> <span class="op">==</span> size<span class="op">)</span></span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span></span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a>                child <span class="op">=</span> current <span class="op">*</span> <span class="dv">2</span> <span class="op">+</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span></span>
+<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span></span>
+<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a>                child <span class="op">=</span> heap<span class="op">[</span>current <span class="op">*</span> <span class="dv">2</span> <span class="op">+</span> <span class="dv">1</span><span class="op">]</span> <span class="op">&gt;</span> heap<span class="op">[</span>current <span class="op">*</span> <span class="dv">2</span> <span class="op">+</span> <span class="dv">2</span><span class="op">]</span> <span class="op">?</span> current <span class="op">*</span> <span class="dv">2</span> <span class="op">+</span> <span class="dv">1</span> <span class="op">:</span> current <span class="op">*</span> <span class="dv">2</span> <span class="op">+</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>heap<span class="op">[</span>current<span class="op">]</span> <span class="op">&gt;</span> heap<span class="op">[</span>child<span class="op">])</span></span>
+<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span></span>
+<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a>                <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb4-73"><a href="#cb4-73" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-74"><a href="#cb4-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-75"><a href="#cb4-75" aria-hidden="true" tabindex="-1"></a>            <span class="kw">auto</span> temp <span class="op">=</span> heap<span class="op">[</span>current<span class="op">];</span></span>
+<span id="cb4-76"><a href="#cb4-76" aria-hidden="true" tabindex="-1"></a>            heap<span class="op">[</span>current<span class="op">]</span> <span class="op">=</span> heap<span class="op">[</span>child<span class="op">];</span></span>
+<span id="cb4-77"><a href="#cb4-77" aria-hidden="true" tabindex="-1"></a>            heap<span class="op">[</span>child<span class="op">]</span> <span class="op">=</span> temp<span class="op">;</span></span>
+<span id="cb4-78"><a href="#cb4-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-79"><a href="#cb4-79" aria-hidden="true" tabindex="-1"></a>            current <span class="op">=</span> child<span class="op">;</span></span>
+<span id="cb4-80"><a href="#cb4-80" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-81"><a href="#cb4-81" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> ret<span class="op">;</span></span>
+<span id="cb4-82"><a href="#cb4-82" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-83"><a href="#cb4-83" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-84"><a href="#cb4-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-85"><a href="#cb4-85" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> n_rides<span class="op">;</span></span>
+<span id="cb4-86"><a href="#cb4-86" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Rides <span class="op">{</span></span>
+<span id="cb4-87"><a href="#cb4-87" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id<span class="op">;</span></span>
+<span id="cb4-88"><a href="#cb4-88" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> duration<span class="op">;</span></span>
+<span id="cb4-89"><a href="#cb4-89" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> cap<span class="op">;</span></span>
+<span id="cb4-90"><a href="#cb4-90" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> end_time<span class="op">;</span></span>
+<span id="cb4-91"><a href="#cb4-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-92"><a href="#cb4-92" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bool</span> is_on_operation<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-93"><a href="#cb4-93" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">(</span>end_time <span class="op">&gt;</span> cur_time<span class="op">);</span></span>
+<span id="cb4-94"><a href="#cb4-94" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-95"><a href="#cb4-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-96"><a href="#cb4-96" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> get_highest_pri<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-97"><a href="#cb4-97" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>pque<span class="op">.</span>size <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-98"><a href="#cb4-98" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> pque<span class="op">.</span>heap<span class="op">[</span><span class="dv">0</span><span class="op">].</span>priority<span class="op">;</span></span>
+<span id="cb4-99"><a href="#cb4-99" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-100"><a href="#cb4-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-101"><a href="#cb4-101" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> flush_queue<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-102"><a href="#cb4-102" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>end_time <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-103"><a href="#cb4-103" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb4-104"><a href="#cb4-104" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-105"><a href="#cb4-105" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>is_on_operation<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb4-106"><a href="#cb4-106" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb4-107"><a href="#cb4-107" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-108"><a href="#cb4-108" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>pque<span class="op">.</span>size <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-109"><a href="#cb4-109" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb4-110"><a href="#cb4-110" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-111"><a href="#cb4-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-112"><a href="#cb4-112" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> factor <span class="op">=</span> <span class="op">(</span>cur_time <span class="op">-</span> end_time <span class="op">+</span> duration <span class="op">-</span> <span class="dv">1</span><span class="op">)</span> <span class="op">/</span> duration<span class="op">;</span></span>
+<span id="cb4-113"><a href="#cb4-113" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> need <span class="op">=</span> <span class="op">(</span>pque<span class="op">.</span>tot_cnt <span class="op">+</span> cap <span class="op">-</span> <span class="dv">1</span><span class="op">)</span> <span class="op">/</span> cap<span class="op">;</span></span>
+<span id="cb4-114"><a href="#cb4-114" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> runs <span class="op">=</span> factor <span class="op">&lt;</span> need <span class="op">?</span> factor <span class="op">:</span> need<span class="op">;</span></span>
+<span id="cb4-115"><a href="#cb4-115" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> tot_cap <span class="op">=</span> runs <span class="op">*</span> cap<span class="op">;</span></span>
+<span id="cb4-116"><a href="#cb4-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-117"><a href="#cb4-117" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cnt <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-118"><a href="#cb4-118" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span>tot_cap <span class="op">&gt;</span> cnt<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-119"><a href="#cb4-119" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>pque<span class="op">.</span>size <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-120"><a href="#cb4-120" aria-hidden="true" tabindex="-1"></a>                <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb4-121"><a href="#cb4-121" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-122"><a href="#cb4-122" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> t_cnt <span class="op">=</span> pque<span class="op">.</span>heap<span class="op">[</span><span class="dv">0</span><span class="op">].</span>count<span class="op">;</span></span>
+<span id="cb4-123"><a href="#cb4-123" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>t_cnt <span class="op">+</span> cnt <span class="op">&lt;=</span> tot_cap<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-124"><a href="#cb4-124" aria-hidden="true" tabindex="-1"></a>                cnt <span class="op">+=</span> t_cnt<span class="op">;</span></span>
+<span id="cb4-125"><a href="#cb4-125" aria-hidden="true" tabindex="-1"></a>                pque<span class="op">.</span>pop<span class="op">();</span></span>
+<span id="cb4-126"><a href="#cb4-126" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-127"><a href="#cb4-127" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-128"><a href="#cb4-128" aria-hidden="true" tabindex="-1"></a>                pque<span class="op">.</span>heap<span class="op">[</span><span class="dv">0</span><span class="op">].</span>count <span class="op">-=</span> <span class="op">(</span>tot_cap <span class="op">-</span> cnt<span class="op">);</span></span>
+<span id="cb4-129"><a href="#cb4-129" aria-hidden="true" tabindex="-1"></a>                pque<span class="op">.</span>tot_cnt <span class="op">-=</span> <span class="op">(</span>tot_cap <span class="op">-</span> cnt<span class="op">);</span></span>
+<span id="cb4-130"><a href="#cb4-130" aria-hidden="true" tabindex="-1"></a>                <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb4-131"><a href="#cb4-131" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-132"><a href="#cb4-132" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-133"><a href="#cb4-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-134"><a href="#cb4-134" aria-hidden="true" tabindex="-1"></a>        end_time <span class="op">+=</span> duration <span class="op">*</span> runs<span class="op">;</span></span>
+<span id="cb4-135"><a href="#cb4-135" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-136"><a href="#cb4-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-137"><a href="#cb4-137" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> board_now<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-138"><a href="#cb4-138" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>is_on_operation<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb4-139"><a href="#cb4-139" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb4-140"><a href="#cb4-140" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-141"><a href="#cb4-141" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>pque<span class="op">.</span>size <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-142"><a href="#cb4-142" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb4-143"><a href="#cb4-143" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-144"><a href="#cb4-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-145"><a href="#cb4-145" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cnt <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-146"><a href="#cb4-146" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span>cap <span class="op">&gt;</span> cnt<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-147"><a href="#cb4-147" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>pque<span class="op">.</span>size <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-148"><a href="#cb4-148" aria-hidden="true" tabindex="-1"></a>                <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb4-149"><a href="#cb4-149" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-150"><a href="#cb4-150" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> t_cnt <span class="op">=</span> pque<span class="op">.</span>heap<span class="op">[</span><span class="dv">0</span><span class="op">].</span>count<span class="op">;</span></span>
+<span id="cb4-151"><a href="#cb4-151" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>t_cnt <span class="op">+</span> cnt <span class="op">&lt;=</span> cap<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-152"><a href="#cb4-152" aria-hidden="true" tabindex="-1"></a>                cnt <span class="op">+=</span> t_cnt<span class="op">;</span></span>
+<span id="cb4-153"><a href="#cb4-153" aria-hidden="true" tabindex="-1"></a>                pque<span class="op">.</span>pop<span class="op">();</span></span>
+<span id="cb4-154"><a href="#cb4-154" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-155"><a href="#cb4-155" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-156"><a href="#cb4-156" aria-hidden="true" tabindex="-1"></a>                pque<span class="op">.</span>heap<span class="op">[</span><span class="dv">0</span><span class="op">].</span>count <span class="op">-=</span> <span class="op">(</span>cap <span class="op">-</span> cnt<span class="op">);</span></span>
+<span id="cb4-157"><a href="#cb4-157" aria-hidden="true" tabindex="-1"></a>                pque<span class="op">.</span>tot_cnt <span class="op">-=</span> <span class="op">(</span>cap <span class="op">-</span> cnt<span class="op">);</span></span>
+<span id="cb4-158"><a href="#cb4-158" aria-hidden="true" tabindex="-1"></a>                <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb4-159"><a href="#cb4-159" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-160"><a href="#cb4-160" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-161"><a href="#cb4-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-162"><a href="#cb4-162" aria-hidden="true" tabindex="-1"></a>        end_time <span class="op">=</span> cur_time <span class="op">+</span> duration<span class="op">;</span></span>
+<span id="cb4-163"><a href="#cb4-163" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-164"><a href="#cb4-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-165"><a href="#cb4-165" aria-hidden="true" tabindex="-1"></a>    Heap pque<span class="op">;</span></span>
+<span id="cb4-166"><a href="#cb4-166" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> rides<span class="op">[</span>MAX_RIDES<span class="op">];</span></span>
+<span id="cb4-167"><a href="#cb4-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-168"><a href="#cb4-168" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> init<span class="op">(</span><span class="dt">int</span> N<span class="op">,</span> <span class="dt">int</span> mId<span class="op">[],</span> <span class="dt">int</span> mDuration<span class="op">[],</span> <span class="dt">int</span> mCapacity<span class="op">[])</span> <span class="op">{</span></span>
+<span id="cb4-169"><a href="#cb4-169" aria-hidden="true" tabindex="-1"></a>    cur_time <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-170"><a href="#cb4-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-171"><a href="#cb4-171" aria-hidden="true" tabindex="-1"></a>    n_rides <span class="op">=</span> N<span class="op">;</span></span>
+<span id="cb4-172"><a href="#cb4-172" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n_rides<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-173"><a href="#cb4-173" aria-hidden="true" tabindex="-1"></a>        rides<span class="op">[</span>i<span class="op">].</span>id <span class="op">=</span> mId<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb4-174"><a href="#cb4-174" aria-hidden="true" tabindex="-1"></a>        rides<span class="op">[</span>i<span class="op">].</span>duration <span class="op">=</span> mDuration<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb4-175"><a href="#cb4-175" aria-hidden="true" tabindex="-1"></a>        rides<span class="op">[</span>i<span class="op">].</span>cap <span class="op">=</span> mCapacity<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb4-176"><a href="#cb4-176" aria-hidden="true" tabindex="-1"></a>        rides<span class="op">[</span>i<span class="op">].</span>pque<span class="op">.</span>init<span class="op">();</span></span>
+<span id="cb4-177"><a href="#cb4-177" aria-hidden="true" tabindex="-1"></a>        rides<span class="op">[</span>i<span class="op">].</span>end_time <span class="op">=</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-178"><a href="#cb4-178" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-179"><a href="#cb4-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-180"><a href="#cb4-180" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb4-181"><a href="#cb4-181" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-182"><a href="#cb4-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-183"><a href="#cb4-183" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> get_ride_id<span class="op">(</span><span class="dt">int</span> <span class="va">m_id</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-184"><a href="#cb4-184" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n_rides<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-185"><a href="#cb4-185" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>rides<span class="op">[</span>i<span class="op">].</span>id <span class="op">==</span> <span class="va">m_id</span><span class="op">)</span> <span class="cf">return</span> i<span class="op">;</span></span>
+<span id="cb4-186"><a href="#cb4-186" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-187"><a href="#cb4-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-188"><a href="#cb4-188" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-189"><a href="#cb4-189" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-190"><a href="#cb4-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-191"><a href="#cb4-191" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> add<span class="op">(</span><span class="dt">int</span> tStamp<span class="op">,</span> <span class="dt">int</span> mId<span class="op">,</span> <span class="dt">int</span> mNum<span class="op">,</span> <span class="dt">int</span> mPriority<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-192"><a href="#cb4-192" aria-hidden="true" tabindex="-1"></a>    cur_time <span class="op">=</span> tStamp<span class="op">;</span></span>
+<span id="cb4-193"><a href="#cb4-193" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-194"><a href="#cb4-194" aria-hidden="true" tabindex="-1"></a>    HeapArgument arg<span class="op">(</span>mNum<span class="op">,</span> mPriority<span class="op">);</span></span>
+<span id="cb4-195"><a href="#cb4-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-196"><a href="#cb4-196" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> r_id <span class="op">=</span> get_ride_id<span class="op">(</span>mId<span class="op">);</span></span>
+<span id="cb4-197"><a href="#cb4-197" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span><span class="op">&amp;</span> target <span class="op">=</span> rides<span class="op">[</span>r_id<span class="op">];</span></span>
+<span id="cb4-198"><a href="#cb4-198" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-199"><a href="#cb4-199" aria-hidden="true" tabindex="-1"></a>    target<span class="op">.</span>flush_queue<span class="op">();</span></span>
+<span id="cb4-200"><a href="#cb4-200" aria-hidden="true" tabindex="-1"></a>    target<span class="op">.</span>pque<span class="op">.</span>push<span class="op">(</span>arg<span class="op">);</span></span>
+<span id="cb4-201"><a href="#cb4-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-202"><a href="#cb4-202" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span><span class="op">(</span>target<span class="op">.</span>end_time <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-203"><a href="#cb4-203" aria-hidden="true" tabindex="-1"></a>        target<span class="op">.</span>end_time <span class="op">=</span> cur_time<span class="op">;</span></span>
+<span id="cb4-204"><a href="#cb4-204" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-205"><a href="#cb4-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-206"><a href="#cb4-206" aria-hidden="true" tabindex="-1"></a>    target<span class="op">.</span>board_now<span class="op">();</span></span>
+<span id="cb4-207"><a href="#cb4-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-208"><a href="#cb4-208" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> target<span class="op">.</span>get_highest_pri<span class="op">();</span></span>
+<span id="cb4-209"><a href="#cb4-209" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-210"><a href="#cb4-210" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-211"><a href="#cb4-211" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> search<span class="op">(</span><span class="dt">int</span> tStamp<span class="op">,</span> <span class="dt">int</span> mCount<span class="op">,</span> <span class="dt">int</span> mId<span class="op">[],</span> <span class="dt">int</span> mWait<span class="op">[])</span> <span class="op">{</span></span>
+<span id="cb4-212"><a href="#cb4-212" aria-hidden="true" tabindex="-1"></a>    cur_time <span class="op">=</span> tStamp<span class="op">;</span></span>
+<span id="cb4-213"><a href="#cb4-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-214"><a href="#cb4-214" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n_rides<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-215"><a href="#cb4-215" aria-hidden="true" tabindex="-1"></a>        rides<span class="op">[</span>i<span class="op">].</span>flush_queue<span class="op">();</span></span>
+<span id="cb4-216"><a href="#cb4-216" aria-hidden="true" tabindex="-1"></a>        rides<span class="op">[</span>i<span class="op">].</span>board_now<span class="op">();</span></span>
+<span id="cb4-217"><a href="#cb4-217" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-218"><a href="#cb4-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-219"><a href="#cb4-219" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">10</span><span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-220"><a href="#cb4-220" aria-hidden="true" tabindex="-1"></a>        mId<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> mWait<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-221"><a href="#cb4-221" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-222"><a href="#cb4-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-223"><a href="#cb4-223" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n_rides<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-224"><a href="#cb4-224" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> j <span class="op">=</span> mCount <span class="op">-</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-225"><a href="#cb4-225" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span><span class="op">(;</span>j <span class="op">&gt;=</span> <span class="dv">0</span><span class="op">;)</span> <span class="op">{</span></span>
+<span id="cb4-226"><a href="#cb4-226" aria-hidden="true" tabindex="-1"></a>            <span class="dt">bool</span> cond1 <span class="op">=</span> <span class="op">(</span>rides<span class="op">[</span>i<span class="op">].</span>pque<span class="op">.</span>tot_cnt <span class="op">&gt;</span> mWait<span class="op">[</span>j<span class="op">]);</span></span>
+<span id="cb4-227"><a href="#cb4-227" aria-hidden="true" tabindex="-1"></a>            <span class="dt">bool</span> cond2 <span class="op">=</span> <span class="op">(</span>rides<span class="op">[</span>i<span class="op">].</span>pque<span class="op">.</span>tot_cnt <span class="op">==</span> mWait<span class="op">[</span>j<span class="op">])</span> <span class="op">&amp;&amp;</span> <span class="op">(</span>rides<span class="op">[</span>i<span class="op">].</span>id <span class="op">&gt;</span> mId<span class="op">[</span>j<span class="op">]);</span></span>
+<span id="cb4-228"><a href="#cb4-228" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>cond1 <span class="op">||</span> cond2<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-229"><a href="#cb4-229" aria-hidden="true" tabindex="-1"></a>                <span class="op">--</span>j<span class="op">;</span></span>
+<span id="cb4-230"><a href="#cb4-230" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-231"><a href="#cb4-231" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb4-232"><a href="#cb4-232" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-233"><a href="#cb4-233" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> k <span class="op">=</span> mCount <span class="op">-</span> <span class="dv">2</span><span class="op">;</span> k <span class="op">&gt;=</span> j <span class="op">+</span> <span class="dv">1</span><span class="op">;</span> <span class="op">--</span>k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-234"><a href="#cb4-234" aria-hidden="true" tabindex="-1"></a>            mId<span class="op">[</span>k <span class="op">+</span> <span class="dv">1</span><span class="op">]</span> <span class="op">=</span> mId<span class="op">[</span>k<span class="op">];</span></span>
+<span id="cb4-235"><a href="#cb4-235" aria-hidden="true" tabindex="-1"></a>            mWait<span class="op">[</span>k <span class="op">+</span> <span class="dv">1</span><span class="op">]</span> <span class="op">=</span> mWait<span class="op">[</span>k<span class="op">];</span></span>
+<span id="cb4-236"><a href="#cb4-236" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-237"><a href="#cb4-237" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>j <span class="op">+</span> <span class="dv">1</span> <span class="op">&lt;=</span> mCount <span class="op">-</span> <span class="dv">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-238"><a href="#cb4-238" aria-hidden="true" tabindex="-1"></a>            mId<span class="op">[</span>j <span class="op">+</span> <span class="dv">1</span><span class="op">]</span> <span class="op">=</span> rides<span class="op">[</span>i<span class="op">].</span>id<span class="op">;</span></span>
+<span id="cb4-239"><a href="#cb4-239" aria-hidden="true" tabindex="-1"></a>            mWait<span class="op">[</span>j <span class="op">+</span> <span class="dv">1</span><span class="op">]</span> <span class="op">=</span> rides<span class="op">[</span>i<span class="op">].</span>pque<span class="op">.</span>tot_cnt<span class="op">;</span></span>
+<span id="cb4-240"><a href="#cb4-240" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-241"><a href="#cb4-241" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-242"><a href="#cb4-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-243"><a href="#cb4-243" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb4-244"><a href="#cb4-244" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

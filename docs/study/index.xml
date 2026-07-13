@@ -10,7 +10,2119 @@
 <atom:link href="https://dreamian.github.io/study/index.xml" rel="self" type="application/rss+xml"/>
 <description></description>
 <generator>quarto-1.9.35</generator>
-<lastBuildDate>Wed, 08 Jul 2026 15:00:00 GMT</lastBuildDate>
+<lastBuildDate>Thu, 09 Jul 2026 15:00:00 GMT</lastBuildDate>
+<item>
+  <title>놀이기구 대기열 시뮬레이션 — 상태 변수의 불변식이 무너질 때</title>
+  <link>https://dreamian.github.io/study/problem-solving/amusement-ride-queue.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<section id="문제-요약" class="level2">
+<h2 class="anchored" data-anchor-id="문제-요약">1. 문제 요약</h2>
+<p>놀이공원에 <img src="https://latex.codecogs.com/png.latex?N">개의 놀이기구가 있고, 각 놀이기구 <img src="https://latex.codecogs.com/png.latex?i">는 1회 운행시간 <img src="https://latex.codecogs.com/png.latex?T_i">와 1회 수용인원 <img src="https://latex.codecogs.com/png.latex?C_i">를 갖는다. 동작 규칙은 다음과 같다.</p>
+<ol type="1">
+<li>대기자가 없으면 놀이기구는 운행을 시작하지 않는다.</li>
+<li>운행 중이 아닌 놀이기구에 시각 <img src="https://latex.codecogs.com/png.latex?X">에 대기자가 추가되면, 시각 <img src="https://latex.codecogs.com/png.latex?X">에 운행을 시작한다.</li>
+<li>시각 <img src="https://latex.codecogs.com/png.latex?X">에 시작한 운행은 <img src="https://latex.codecogs.com/png.latex?X+T">에 종료한다. 종료 시점에 대기자가 1명 이상이면 즉시 재출발하며, <img src="https://latex.codecogs.com/png.latex?X+T">에 도착한 사람도 이 재출발에 탑승할 수 있다.</li>
+<li>운행 시작 시 대기자가 <img src="https://latex.codecogs.com/png.latex?C">명 이하면 전원 탑승, 초과면 우선순위가 높은 순으로 <img src="https://latex.codecogs.com/png.latex?C">명이 탑승한다.</li>
+</ol>
+<p>구현해야 하는 API는 세 가지다.</p>
+<ul>
+<li><code>init(N, mId[], mDuration[], mCapacity[])</code>: 시각 0에 호출. 놀이기구 정보 초기화.</li>
+<li><code>add(tStamp, mId, mNum, mPriority)</code>: 시각 <code>tStamp</code>에 우선순위 <code>mPriority</code>인 대기자 <code>mNum</code>명 추가. 이 시각에 운행을 시작해야 하면 방금 추가된 인원까지 포함해 탑승 처리 후, 남은 대기자 중 최고 우선순위를 반환(없으면 0).</li>
+<li><code>search(tStamp, mCount, mId[], mWait[])</code>: 시각 <code>tStamp</code> 기준 대기 인원수 내림차순(동률 시 ID 내림차순)으로 상위 <code>mCount</code>개를 반환. 이 시각에 탑승하는 인원은 대기에서 제외해야 한다.</li>
+</ul>
+<p>제약: <img src="https://latex.codecogs.com/png.latex?3%20%5Cle%20N%20%5Cle%20100">, <img src="https://latex.codecogs.com/png.latex?1%20%5Cle%20T,%20C%20%5Cle%20100">, <img src="https://latex.codecogs.com/png.latex?1%20%5Cle%20%5Ctext%7BtStamp%7D%20%3C%2010%5E8">, <img src="https://latex.codecogs.com/png.latex?1%20%5Cle%20%5Ctext%7BmNum%7D%20%5Cle%20100">, <img src="https://latex.codecogs.com/png.latex?1%20%5Cle%20%5Ctext%7BmPriority%7D%20%5Cle%2010%5E4">.</p>
+</section>
+<section id="설계" class="level2">
+<h2 class="anchored" data-anchor-id="설계">2. 설계</h2>
+<section id="이벤트-기반이-아닌-지연-평가lazy-evaluation" class="level3">
+<h3 class="anchored" data-anchor-id="이벤트-기반이-아닌-지연-평가lazy-evaluation">2.1 이벤트 기반이 아닌 지연 평가(lazy evaluation)</h3>
+<p>시각이 <img src="https://latex.codecogs.com/png.latex?10%5E8">까지 가므로 시간을 1씩 전진시키는 시뮬레이션은 불가능하다. 대신 각 놀이기구의 상태를 <strong>마지막 갱신 이후 방치</strong>해 두었다가, <code>add</code>나 <code>search</code>로 해당 놀이기구를 건드리는 순간 경과 시간만큼의 운행을 일괄 정산하는 지연 평가 방식을 택했다.</p>
+<p>각 놀이기구가 유지하는 상태는 다음과 같다.</p>
+<ul>
+<li><code>end_time</code>: 마지막으로 <strong>실제 승객을 태운 운행</strong>의 종료 시각. 한 번도 운행한 적 없으면 <img src="https://latex.codecogs.com/png.latex?-1">.</li>
+<li><code>pque</code>: (인원수, 우선순위) 쌍을 담는 최대 힙. 같은 <code>add</code>로 들어온 인원은 우선순위가 같으므로 한 노드로 묶어 저장하고, 부분 탑승 시 노드의 <code>count</code>만 감소시킨다.</li>
+<li><code>tot_cnt</code>: 힙 전체의 대기 인원 합. <code>search</code>의 랭킹 계산이 <img src="https://latex.codecogs.com/png.latex?O(1)">이 되도록 push/pop 시 함께 유지한다.</li>
+</ul>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>노드 묶음 저장의 이점
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>인원을 1명 단위로 힙에 넣으면 노드 수가 (add 횟수) × (mNum 최대 100)까지 불어난다. (count, priority) 쌍으로 묶으면 힙 크기가 add 횟수에만 비례하고, 부분 탑승은 루트 노드의 count 필드를 직접 깎는 것으로 처리된다. 우선순위 값 자체는 변하지 않으므로 힙 성질(heap property)은 그대로 유지된다.</p>
+</div>
+</div>
+</section>
+<section id="정산의-2단계-분리-flush_queue와-board_now" class="level3">
+<h3 class="anchored" data-anchor-id="정산의-2단계-분리-flush_queue와-board_now">2.2 정산의 2단계 분리: <code>flush_queue</code>와 <code>board_now</code></h3>
+<p>핵심 설계 결정은 시각 정산을 두 함수로 분리한 것이다.</p>
+<p><strong><code>flush_queue</code> — 과거의 재출발들을 일괄 정산.</strong> <code>end_time &lt; cur_time</code>이면 그 사이에 규칙 3의 재출발이 여러 번 일어났을 수 있다. 시간상 가능한 운행 횟수는</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Ctext%7Bfactor%7D%20=%20%5Cleft%5Clceil%20%5Cfrac%7B%5Ctext%7Bcur%5C_time%7D%20-%20%5Ctext%7Bend%5C_time%7D%7D%7BT%7D%20%5Cright%5Crceil%0A"></p>
+<p>이고, 대기 인원을 전부 소진하는 데 필요한 횟수는</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Ctext%7Bneed%7D%20=%20%5Cleft%5Clceil%20%5Cfrac%7B%5Ctext%7Btot%5C_cnt%7D%7D%7BC%7D%20%5Cright%5Crceil%0A"></p>
+<p>이다. 실제 운행 횟수는 <img src="https://latex.codecogs.com/png.latex?%5Ctext%7Bruns%7D%20=%20%5Cmin(%5Ctext%7Bfactor%7D,%20%5Ctext%7Bneed%7D)"> — 대기자가 떨어지는 순간 놀이기구는 멈추기 때문이다. <code>runs × C</code>명만큼 힙에서 우선순위 순으로 태우고 <code>end_time += T × runs</code>로 전진시킨다.</p>
+<p><strong><code>board_now</code> — 현재 시각의 출발 처리.</strong> 정산이 끝난 뒤에도 운행 중이 아니고 대기자가 있다면, 규칙 2에 따라 지금 즉시 출발한다. <img src="https://latex.codecogs.com/png.latex?C">명을 태우고 <code>end_time = cur_time + T</code>로 <strong>대입</strong>한다. idle 구간을 거친 뒤의 출발이므로 <code>+=</code>가 아니라 <code>=</code>이어야 한다.</p>
+<p><code>add</code>는 <code>flush_queue → push → board_now</code> 순서로 호출한다. 이 순서 덕분에 “tStamp에 출발해야 하는 경우 방금 추가된 인원도 탑승 대상”이라는 요구가 자동으로 만족된다. <code>search</code>도 모든 놀이기구에 <code>flush_queue → board_now</code>를 적용한 뒤 <code>tot_cnt</code>로 랭킹을 계산하면, “tStamp에 탑승하는 인원은 대기에서 제외”라는 요구가 별도 처리 없이 만족된다.</p>
+</section>
+</section>
+<section id="디버깅-기록-유령-운행-모델" class="level2">
+<h2 class="anchored" data-anchor-id="디버깅-기록-유령-운행-모델">3. 디버깅 기록: 유령 운행 모델</h2>
+<p>첫 제출본은 샘플을 통과했지만 오답이었다. 원인은 하나의 뿌리에서 나온 두 개의 갱신 오류였고, 흥미롭게도 둘이 서로를 부분적으로 상쇄하고 있었다.</p>
+<section id="무엇이-틀렸나" class="level3">
+<h3 class="anchored" data-anchor-id="무엇이-틀렸나">3.1 무엇이 틀렸나</h3>
+<p>첫 버전의 <code>flush_queue</code>는 다음과 같이 끝났다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb1-1">end_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+=</span> duration <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> factor<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span></code></pre></div></div>
+<p>대기 큐가 factor회분보다 일찍 비어도 factor회를 통째로 전진시킨다. 즉 <strong>“첫 탑승 이후 놀이기구가 대기자 유무와 무관하게 영원히 쉬지 않고 돈다”</strong>는 모델을 암묵적으로 가정한 것이다. 규칙 1·3의 “재출발 시점에 대기자가 없으면 정지”가 상태 갱신에 반영되지 않았다.</p>
+<p>한편 현재 시각의 탑승 블록은 이렇게 끝났다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb2-1"><span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>size <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">!=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> end_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+=</span> duration<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span></code></pre></div></div>
+<p>이것은 두 방향으로 동시에 틀렸다. 첫째, 조건의 방향이 반대다. 판단 기준은 “탑승 후 남은 대기자”가 아니라 “이번에 태운 인원이 있었는가”여야 한다. 1명이라도 태웠다면 잔여 큐가 비었더라도 운행은 시작된 것이다. 둘째, idle을 거친 출발이므로 <code>+= duration</code>이 아니라 <code>= cur_time + duration</code> 대입이어야 한다.</p>
+</section>
+<section id="왜-샘플은-통과했나-버그의-상쇄" class="level3">
+<h3 class="anchored" data-anchor-id="왜-샘플은-통과했나-버그의-상쇄">3.2 왜 샘플은 통과했나 — 버그의 상쇄</h3>
+<p>두 오류는 반대 방향으로 작용한다. 탑승 블록이 전진시키지 <strong>않은</strong> <code>end_time</code>을, 다음 <code>flush_queue</code>의 ceil 연산이 <strong>과하게</strong> 메꿔준다. 그 결과 idle 간격이 <img src="https://latex.codecogs.com/png.latex?T"> 미만인 시퀀스에서는 두 오차가 정확히 상쇄되어 정답이 나온다. 샘플 케이스가 이 범위 안에 있었던 것이다.</p>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>상쇄되는 버그 쌍
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>버그 두 개가 서로를 가리는 경우, 어느 한쪽만 고치면 오히려 이전보다 더 많은 케이스가 틀릴 수 있다. “일부 수정 후 점수 하락”은 수정이 잘못됐다는 신호가 아니라, 가려져 있던 나머지 버그가 드러났다는 신호일 수 있다.</p>
+</div>
+</div>
+</section>
+<section id="반례-트레이스" class="level3">
+<h3 class="anchored" data-anchor-id="반례-트레이스">3.3 반례 트레이스</h3>
+<p><img src="https://latex.codecogs.com/png.latex?T=10">, <img src="https://latex.codecogs.com/png.latex?C=5">인 놀이기구 1대로 두 모델이 갈라지는 최소 반례를 손으로 따라가 보자.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>호출</th>
+<th>정답 동작</th>
+<th>버그 버전의 동작</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>add(t=1, num=3, pri=100)</code></td>
+<td>3명 즉시 탑승, 운행 <img src="https://latex.codecogs.com/png.latex?%5B1,11)">, 반환 0</td>
+<td>탑승 후 큐가 비어 <code>end_time=1</code>에 머무름. 반환 0 (우연히 일치)</td>
+</tr>
+<tr class="even">
+<td><code>add(t=5, num=2, pri=50)</code></td>
+<td>운행 중이므로 대기, 반환 50</td>
+<td>flush에서 <img src="https://latex.codecogs.com/png.latex?%5Ctext%7Bfactor%7D=%5Clceil%204/10%20%5Crceil%20=%201"> → <code>end_time=11</code>. 대기, 반환 50 (상쇄로 우연히 일치)</td>
+</tr>
+<tr class="odd">
+<td><code>add(t=30, num=2, pri=70)</code></td>
+<td><img src="https://latex.codecogs.com/png.latex?t=11">에 2명 탑승 후 <img src="https://latex.codecogs.com/png.latex?%5B11,21)"> 운행, 이후 idle. <img src="https://latex.codecogs.com/png.latex?t=30">에 신규 2명 즉시 탑승, <strong>반환 0</strong></td>
+<td>flush에서 <img src="https://latex.codecogs.com/png.latex?%5Ctext%7Bfactor%7D=%5Clceil%2019/10%20%5Crceil%20=%202"> → <code>end_time=11+20=31</code>. <img src="https://latex.codecogs.com/png.latex?31%20%3E%2030">이라 “운행 중”으로 오판, 신규 2명 대기, <strong>반환 70</strong></td>
+</tr>
+</tbody>
+</table>
+<p>세 번째 호출에서 갈라지는 조건은 <strong>idle 간격이 한 주기 <img src="https://latex.codecogs.com/png.latex?T">를 넘는 것</strong>이다. 수정 버전으로 재검증하면: flush에서 <img src="https://latex.codecogs.com/png.latex?%5Ctext%7Bfactor%7D=2">, <img src="https://latex.codecogs.com/png.latex?%5Ctext%7Bneed%7D=%5Clceil%202/5%20%5Crceil%20=%201"> → <img src="https://latex.codecogs.com/png.latex?%5Ctext%7Bruns%7D=1">, 2명 탑승 후 <code>end_time=21</code>. 이어서 <code>board_now</code>가 <img src="https://latex.codecogs.com/png.latex?21%20%5Cle%2030">이므로 신규 2명을 태우고 <code>end_time=40</code>, 반환 0. 정답과 일치한다.</p>
+</section>
+<section id="함께-잡은-버그들" class="level3">
+<h3 class="anchored" data-anchor-id="함께-잡은-버그들">3.4 함께 잡은 버그들</h3>
+<p><strong>동률 비교의 인덱스 오타 + 범위 밖 읽기.</strong> <code>search</code>의 랭킹 삽입에서</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb3-1"><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">bool</span> cond2 <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>tot_cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> mWait<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>j<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">])</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&amp;&amp;</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>id <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> mId<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]);</span>  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// 오타</span></span></code></pre></div></div>
+<p><code>mId[i]</code>는 <code>mId[j]</code>여야 한다. 비교 대상은 현재 랭킹 슬롯 <img src="https://latex.codecogs.com/png.latex?j">다. 더 심각한 것은 <code>i</code>가 놀이기구 루프 변수라 최대 99까지 가는데 <code>mId</code>는 채점부가 넘겨주는 크기 약 10짜리 배열이라는 점 — <img src="https://latex.codecogs.com/png.latex?i%20%5Cge%2010">이면 out-of-bounds read, 즉 미정의 동작이다.</p>
+<p><strong><code>factor × cap</code>의 int 오버플로.</strong> <img src="https://latex.codecogs.com/png.latex?%5Ctext%7BtStamp%7D%20%3C%2010%5E8">, <img src="https://latex.codecogs.com/png.latex?T=1">이면 factor가 약 <img src="https://latex.codecogs.com/png.latex?10%5E8">까지 가능하고 <img src="https://latex.codecogs.com/png.latex?C%20%5Cle%20100">이므로 곱이 최대 약 <img src="https://latex.codecogs.com/png.latex?10%5E%7B10%7D">으로 int 범위를 넘는다. <img src="https://latex.codecogs.com/png.latex?%5Ctext%7Bruns%7D%20=%20%5Cmin(%5Ctext%7Bfactor%7D,%20%5Ctext%7Bneed%7D)">로 클램프하면 <img src="https://latex.codecogs.com/png.latex?%5Ctext%7Bruns%7D%20%5Ctimes%20C%20%3C%20%5Ctext%7Btot%5C_cnt%7D%20+%20C">가 보장되어, 논리 수정이 오버플로까지 함께 해결한다.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>논리적 클램프가 수치적 안전을 겸하는 패턴
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>“의미상 필요한 만큼만 계산한다”는 수정이 오버플로 방지를 부수 효과로 제공하는 경우가 있다. runs를 need로 제한하는 것은 시뮬레이션 정확성을 위한 것이지만, 동시에 곱셈의 상한을 대기 인원 규모로 묶어 준다. 별도의 long long 캐스팅 없이 문제가 사라진다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="복잡도-분석" class="level2">
+<h2 class="anchored" data-anchor-id="복잡도-분석">4. 복잡도 분석</h2>
+<p><code>add</code> 호출 횟수를 <img src="https://latex.codecogs.com/png.latex?Q">라 하면 힙 크기는 최대 <img src="https://latex.codecogs.com/png.latex?Q">이다.</p>
+<ul>
+<li><code>add</code>: 선형 탐색 <code>get_ride_id</code>가 <img src="https://latex.codecogs.com/png.latex?O(N)">, push가 <img src="https://latex.codecogs.com/png.latex?O(%5Clog%20Q)">. flush/board의 pop들은 상각(amortized)으로 계산해야 한다 — 각 힙 노드는 한 번 push되고 최대 한 번 pop되므로, 전체 실행에서 pop 비용의 총합은 <img src="https://latex.codecogs.com/png.latex?O(Q%20%5Clog%20Q)">이다.</li>
+<li><code>search</code>: 놀이기구별 flush/board 후, <code>tot_cnt</code>가 유지되므로 랭킹 계산은 놀이기구당 <img src="https://latex.codecogs.com/png.latex?O(%5Ctext%7BmCount%7D)">. 호출당 <img src="https://latex.codecogs.com/png.latex?O(N%20%5Ccdot%20%5Ctext%7BmCount%7D)">에 pop의 상각 비용이 더해진다.</li>
+</ul>
+<p>전체: <img src="https://latex.codecogs.com/png.latex?O%5Cbig((Q%20+%20S)%20%5Ccdot%20N%20+%20Q%20%5Clog%20Q%5Cbig)">, 여기서 <img src="https://latex.codecogs.com/png.latex?S">는 search 호출 횟수. <img src="https://latex.codecogs.com/png.latex?N%20%5Cle%20100">, mCount <img src="https://latex.codecogs.com/png.latex?%5Cle%2010"> 규모에서 충분히 여유 있다.</p>
+</section>
+<section id="교훈" class="level2">
+<h2 class="anchored" data-anchor-id="교훈">5. 교훈</h2>
+<p><strong>상태 변수의 불변식을 코드보다 먼저 한 줄로 적어라.</strong> 이번 오류의 뿌리는 <code>end_time</code>의 의미를 고정하지 않은 채 갱신 코드를 호출 지점마다 흩어 쓴 것이다. “<code>end_time</code> = 실제로 승객을 태운 마지막 운행의 종료 시각”이라고 먼저 정의했다면, 큐가 비어도 전진시키는 <code>+= duration * factor</code>와 태웠는데도 전진하지 않는 <code>if (size != 0)</code>이 정의 위반임이 코딩 단계에서 보였을 것이다.</p>
+<p><strong>“과거 정산”과 “현재 시각 처리”를 분리하라.</strong> 지연 평가 시뮬레이션에서 하나의 함수가 둘을 겸하면 <code>+=</code>와 <code>=</code>의 구분, ceil의 적용 범위 같은 경계 조건이 얽힌다. <code>flush_queue</code>(과거, 상대 전진)와 <code>board_now</code>(현재, 절대 대입)로 나누자 각 함수의 사후 조건이 단순해졌고, <code>search</code>의 “tStamp 탑승 인원 제외” 요구도 별도 코드 없이 만족됐다.</p>
+<p><strong>스트레스 테스트 생성기에 시간 간격을 지수적으로 벌린 시퀀스를 포함하라.</strong> 상쇄되는 버그 쌍은 균등 랜덤 케이스로는 잘 드러나지 않는다. 이번 버그의 발현 조건이 “idle 간격 &gt; 한 주기”였듯, 시뮬레이션 문제의 브루트포스 교차검증에서는 시각 파라미터를 좁게도, 넓게도(간격 <img src="https://latex.codecogs.com/png.latex?1,%202,%204,%20%5Cdots,%2010%5E7">) 뿌리는 케이스를 의도적으로 섞어야 한다.</p>
+</section>
+<section id="codes" class="level2">
+<h2 class="anchored" data-anchor-id="codes">Codes</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb4-1"><span class="pp" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">#define MAX_RIDES   </span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span></span>
+<span id="cb4-2"><span class="pp" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">#define MAX_SIZE    </span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">10'000</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span></span>
+<span id="cb4-3"></span>
+<span id="cb4-4"><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> cur_time<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-5"></span>
+<span id="cb4-6"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">struct</span> HeapArgument <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-7">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> count<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-8">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> priority<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-9"></span>
+<span id="cb4-10">    HeapArgument<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">()</span></span>
+<span id="cb4-11">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{}</span></span>
+<span id="cb4-12"></span>
+<span id="cb4-13">    HeapArgument<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> _c<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span> <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> _p<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-14">        count <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> _c<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-15">        priority <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> _p<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-16">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-17"></span>
+<span id="cb4-18">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">bool</span> <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">operator</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">const</span> HeapArgument<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&amp;</span> Other<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-19">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>priority <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> Other<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>priority<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span>
+<span id="cb4-20">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-21"><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">};</span></span>
+<span id="cb4-22"></span>
+<span id="cb4-23"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">struct</span> Heap <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-24">    HeapArgument heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>MAX_SIZE<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb4-25">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-26">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> tot_cnt<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-27"></span>
+<span id="cb4-28">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">void</span> init<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">()</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-29">        size <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-30">        tot_cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-31">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-32"></span>
+<span id="cb4-33">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">void</span> push<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>HeapArgument arg<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-34">        heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> arg<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-35">        tot_cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+=</span> arg<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>count<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-36"></span>
+<span id="cb4-37">        <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-38">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">while</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&amp;&amp;</span> heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>current<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[(</span>current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">])</span> </span>
+<span id="cb4-39">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-40">            <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">auto</span> temp <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[(</span>current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb4-41">            heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[(</span>current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>current<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb4-42">            heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>current<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> temp<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-43">            current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-44">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-45"></span>
+<span id="cb4-46">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">++</span>size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-47">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-48"></span>
+<span id="cb4-49">    HeapArgument pop<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">()</span></span>
+<span id="cb4-50">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-51">        <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">auto</span> ret <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb4-52">        tot_cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-=</span> ret<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>count<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-53">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">--</span>size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-54"></span>
+<span id="cb4-55">        heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb4-56"></span>
+<span id="cb4-57">        <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-58">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">while</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&lt;</span> size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span></span>
+<span id="cb4-59">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-60">            <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> child<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-61">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span></span>
+<span id="cb4-62">            <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-63">                child <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-64">            <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-65">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">else</span></span>
+<span id="cb4-66">            <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-67">                child <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">?</span> current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">:</span> current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-68">            <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-69"></span>
+<span id="cb4-70">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>current<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>child<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">])</span></span>
+<span id="cb4-71">            <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-72">                <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">break</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-73">            <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-74"></span>
+<span id="cb4-75">            <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">auto</span> temp <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>current<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb4-76">            heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>current<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>child<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb4-77">            heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>child<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> temp<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-78"></span>
+<span id="cb4-79">            current <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> child<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-80">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-81">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span> ret<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-82">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-83"><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">};</span></span>
+<span id="cb4-84"></span>
+<span id="cb4-85"><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> n_rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-86"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">struct</span> Rides <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-87">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> id<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-88">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> duration<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-89">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> cap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-90">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> end_time<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-91"></span>
+<span id="cb4-92">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">bool</span> is_on_operation<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">()</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-93">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>end_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> cur_time<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span>
+<span id="cb4-94">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-95"></span>
+<span id="cb4-96">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> get_highest_pri<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">()</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-97">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>size <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-98">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span> pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>priority<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-99">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-100"></span>
+<span id="cb4-101">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">void</span> flush_queue<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">()</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-102">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>end_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-103">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-104">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-105">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>is_on_operation<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">())</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-106">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-107">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-108">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>size <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-109">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-110">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-111"></span>
+<span id="cb4-112">        <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> factor <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>cur_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> end_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> duration <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> duration<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-113">        <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> need <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>tot_cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> cap <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> cap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-114">        <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> runs <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> factor <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&lt;</span> need <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">?</span> factor <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">:</span> need<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-115">        <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> tot_cap <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> runs <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> cap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-116"></span>
+<span id="cb4-117">        <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-118">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">while</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>tot_cap <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> cnt<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-119">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>size <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-120">                <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">break</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-121">            <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-122">            <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> t_cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>count<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-123">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>t_cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&lt;=</span> tot_cap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-124">                cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+=</span> t_cnt<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-125">                pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>pop<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">();</span></span>
+<span id="cb4-126">            <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-127">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">else</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-128">                pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>count <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-=</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>tot_cap <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> cnt<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span>
+<span id="cb4-129">                pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>tot_cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-=</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>tot_cap <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> cnt<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span>
+<span id="cb4-130">                <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">break</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-131">            <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-132">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-133"></span>
+<span id="cb4-134">        end_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+=</span> duration <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> runs<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-135">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-136"></span>
+<span id="cb4-137">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">void</span> board_now<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">()</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-138">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>is_on_operation<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">())</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-139">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-140">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-141">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>size <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-142">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-143">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-144"></span>
+<span id="cb4-145">        <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-146">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">while</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>cap <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> cnt<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-147">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>size <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-148">                <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">break</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-149">            <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-150">            <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> t_cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>count<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-151">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>t_cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&lt;=</span> cap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-152">                cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+=</span> t_cnt<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-153">                pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>pop<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">();</span></span>
+<span id="cb4-154">            <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-155">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">else</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-156">                pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>heap<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>count <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-=</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>cap <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> cnt<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span>
+<span id="cb4-157">                pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>tot_cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-=</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>cap <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> cnt<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span>
+<span id="cb4-158">                <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">break</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-159">            <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-160">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-161"></span>
+<span id="cb4-162">        end_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> cur_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> duration<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-163">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-164"></span>
+<span id="cb4-165">    Heap pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-166"><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span> rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>MAX_RIDES<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb4-167"></span>
+<span id="cb4-168"><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">void</span> init<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> N<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span> <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> mId<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[],</span> <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> mDuration<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[],</span> <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> mCapacity<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[])</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-169">    cur_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-170"></span>
+<span id="cb4-171">    n_rides <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> N<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-172">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span> i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&lt;</span> n_rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">++</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-173">        rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>id <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> mId<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb4-174">        rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>duration <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> mDuration<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb4-175">        rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>cap <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> mCapacity<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb4-176">        rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>init<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">();</span></span>
+<span id="cb4-177">        rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>end_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-178">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-179"></span>
+<span id="cb4-180">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-181"><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-182"></span>
+<span id="cb4-183"><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> get_ride_id<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> <span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">m_id</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-184">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span> i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&lt;</span> n_rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">++</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-185">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>id <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">m_id</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span> i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-186">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-187"></span>
+<span id="cb4-188">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-189"><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-190"></span>
+<span id="cb4-191"><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> add<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> tStamp<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span> <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> mId<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span> <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> mNum<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span> <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> mPriority<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-192">    cur_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> tStamp<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-193">    </span>
+<span id="cb4-194">    HeapArgument arg<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>mNum<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span> mPriority<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span>
+<span id="cb4-195"></span>
+<span id="cb4-196">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> r_id <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> get_ride_id<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>mId<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span>
+<span id="cb4-197">    <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">auto</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&amp;</span> target <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>r_id<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb4-198"></span>
+<span id="cb4-199">    target<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>flush_queue<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">();</span></span>
+<span id="cb4-200">    target<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>push<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>arg<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span>
+<span id="cb4-201"></span>
+<span id="cb4-202">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>target<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>end_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-203">        target<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>end_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> cur_time<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-204">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-205"></span>
+<span id="cb4-206">    target<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>board_now<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">();</span></span>
+<span id="cb4-207"></span>
+<span id="cb4-208">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span> target<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>get_highest_pri<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">();</span></span>
+<span id="cb4-209"><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-210"></span>
+<span id="cb4-211"><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">void</span> search<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> tStamp<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span> <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> mCount<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span> <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> mId<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[],</span> <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> mWait<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[])</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-212">    cur_time <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> tStamp<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-213"></span>
+<span id="cb4-214">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span> i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&lt;</span> n_rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">++</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-215">        rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>flush_queue<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">();</span></span>
+<span id="cb4-216">        rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>board_now<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">();</span></span>
+<span id="cb4-217">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-218"></span>
+<span id="cb4-219">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span> i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&lt;</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">10</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">++</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-220">        mId<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> mWait<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-221">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-222"></span>
+<span id="cb4-223">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span> i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&lt;</span> n_rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">++</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-224">        <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> j <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> mCount <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-225">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(;</span>j <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-226">            <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">bool</span> cond1 <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>tot_cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> mWait<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>j<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]);</span></span>
+<span id="cb4-227">            <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">bool</span> cond2 <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>tot_cnt <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> mWait<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>j<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">])</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&amp;&amp;</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>id <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> mId<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>j<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]);</span></span>
+<span id="cb4-228">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>cond1 <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">||</span> cond2<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-229">                <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">--</span>j<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-230">            <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-231">            <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">else</span> <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">break</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-232">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-233">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span> k <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> mCount <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span> k <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;=</span> j <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">--</span>k<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-234">            mId<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>k <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> mId<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>k<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb4-235">            mWait<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>k <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> mWait<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>k<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb4-236">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-237">        <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>j <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&lt;=</span> mCount <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb4-238">            mId<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>j <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>id<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-239">            mWait<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>j <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> rides<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>pque<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>tot_cnt<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-240">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-241">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb4-242"></span>
+<span id="cb4-243">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb4-244"><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span></code></pre></div></div>
+
+
+</section>
+
+ ]]></description>
+  <category>SWEA</category>
+  <category>Simulation</category>
+  <category>Priority Queue</category>
+  <category>Debugging</category>
+  <guid>https://dreamian.github.io/study/problem-solving/amusement-ride-queue.html</guid>
+  <pubDate>Thu, 09 Jul 2026 15:00:00 GMT</pubDate>
+</item>
 <item>
   <title>병사 관리 — 버킷 연결 리스트와 O(1) Splice</title>
   <link>https://dreamian.github.io/study/problem-solving/soldier-management.html</link>
@@ -18444,509 +20556,6 @@ font-style: inherit;">0.3</span>)</span>
  ]]></description>
   <guid>https://dreamian.github.io/study/algorithm/npc-partition-knapsack.html</guid>
   <pubDate>Sat, 06 Jun 2026 15:00:00 GMT</pubDate>
-</item>
-<item>
-  <title>NP-완전성: 클래스 정의, 환원, 그리고 정형 증명의 구조</title>
-  <link>https://dreamian.github.io/study/algorithm/np-completeness.html</link>
-  <description><![CDATA[ 
-
-
-
-
-<section id="들어가며-다루기-쉬움과-어려움" class="level1" data-number="1">
-<h1 data-number="1"><span class="header-section-number">1</span> 들어가며: 다루기 쉬움과 어려움</h1>
-<p>지금까지 다룬 거의 모든 알고리즘은 <strong>다항 시간(polynomial-time)</strong>, 즉 입력 크기 <img src="https://latex.codecogs.com/png.latex?n">에 대해 최악 실행시간이 <img src="https://latex.codecogs.com/png.latex?O(n%5Ek)">였다. 이렇게 풀리는 문제를 <strong>tractable(쉬운)</strong>, 어떤 상수 <img src="https://latex.codecogs.com/png.latex?k">에 대해서도 <img src="https://latex.codecogs.com/png.latex?O(n%5Ek)">로 풀 수 없는 문제를 <strong>intractable(어려운)</strong>으로 부른다.</p>
-<p>“풀 수 없음”은 두 종류로 구분된다.</p>
-<ul>
-<li><strong>결정 불가능(undecidable):</strong> 정지 문제(Halting Problem)처럼 시간을 아무리 주어도 어떤 컴퓨터로도 풀 수 없는 문제.</li>
-<li><strong>다루기 어려움(intractable):</strong> 풀리기는 하지만 어떤 상수 <img src="https://latex.codecogs.com/png.latex?k">에 대해서도 <img src="https://latex.codecogs.com/png.latex?O(n%5Ek)">로는 안 되는, 초다항(superpolynomial) 시간이 필요한 문제.</li>
-</ul>
-<p>NP-완전성 이론이 다루는 것은 후자다. 한 가지 철학적 단서: <img src="https://latex.codecogs.com/png.latex?%5CTheta(n%5E%7B100%7D)"> 같은 다항식도 현실적으로는 느리지만, 다항 시간을 tractable로 보는 이유는 수학적이라기보다 <strong>경험적</strong>이다. 어떤 문제에 대한 다항 알고리즘이 하나 발견되면 더 효율적인 알고리즘이 뒤따르는 경향이 있기 때문이다.</p>
-</section>
-<section id="난이도가-갈리는-사촌-문제들" class="level1" data-number="2">
-<h1 data-number="2"><span class="header-section-number">2</span> 난이도가 갈리는 사촌 문제들</h1>
-<p>표면적으로는 사촌처럼 보이지만 한쪽은 다항, 다른 쪽은 NP-완전인 세 쌍이 있다.</p>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 50%">
-<col style="width: 50%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>쉬운 쪽 (P)</th>
-<th>어려운 쪽 (NP-complete)</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>최단 경로: 음수 가중치가 있어도 <img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert%5C,%5Clvert%20E%5Crvert)"></td>
-<td>최장 단순 경로 판정</td>
-</tr>
-<tr class="even">
-<td>오일러 투어: <img src="https://latex.codecogs.com/png.latex?O(E)">로 판정·구성</td>
-<td>해밀턴 사이클 판정</td>
-</tr>
-<tr class="odd">
-<td>2-CNF 충족성: 다항 시간</td>
-<td>3-CNF 충족성</td>
-</tr>
-</tbody>
-</table>
-<p>문제 정의의 아주 작은 변화(간선↔︎정점, 절당 리터럴 2개↔︎3개)가 복잡도의 질적 도약을 일으킨다.</p>
-<section id="최단-경로-vs-최장-단순-경로" class="level2" data-number="2.1">
-<h2 data-number="2.1" class="anchored" data-anchor-id="최단-경로-vs-최장-단순-경로"><span class="header-section-number">2.1</span> 최단 경로 vs 최장 단순 경로</h2>
-<p><strong>LONG-PATH (결정 문제):</strong> 그래프 <img src="https://latex.codecogs.com/png.latex?G=(V,E)">와 정수 <img src="https://latex.codecogs.com/png.latex?k">가 주어졌을 때, 간선 수가 <img src="https://latex.codecogs.com/png.latex?k"> 이상인 단순 경로가 존재하는가?</p>
-<section id="왜-np-완전인가-해밀턴-경로가-특수-사례로-숨어-있다" class="level3" data-number="2.1.1">
-<h3 data-number="2.1.1" class="anchored" data-anchor-id="왜-np-완전인가-해밀턴-경로가-특수-사례로-숨어-있다"><span class="header-section-number">2.1.1</span> 왜 NP-완전인가 — 해밀턴 경로가 특수 사례로 숨어 있다</h3>
-<p>단순 경로는 정점을 중복 없이 지나므로 서로 다른 정점을 최대 <img src="https://latex.codecogs.com/png.latex?%5Clvert%20V%5Crvert">개만 쓸 수 있고, 따라서 간선 수는 최대 <img src="https://latex.codecogs.com/png.latex?%5Clvert%20V%5Crvert-1">이다. 그러므로 “간선이 <img src="https://latex.codecogs.com/png.latex?%5Clvert%20V%5Crvert-1">개 <strong>이상</strong>인 단순 경로”는 곧 “간선이 <strong>정확히</strong> <img src="https://latex.codecogs.com/png.latex?%5Clvert%20V%5Crvert-1">개인 단순 경로”, 즉 모든 정점을 한 번씩 지나는 <strong>해밀턴 경로</strong>를 뜻한다.</p>
-<p><strong>주장.</strong> <img src="https://latex.codecogs.com/png.latex?%5Ctext%7BHAM-PATH%7D%20%5Cle_P%20%5Ctext%7BLONG-PATH%7D">.</p>
-<p><em>변환.</em> 해밀턴 경로 인스턴스 <img src="https://latex.codecogs.com/png.latex?G=(V,E)">가 주어지면 같은 그래프 <img src="https://latex.codecogs.com/png.latex?G">와 <img src="https://latex.codecogs.com/png.latex?k=%5Clvert%20V%5Crvert-1">을 출력한다(상수 계산이므로 다항 시간).</p>
-<p><em>(<img src="https://latex.codecogs.com/png.latex?%5Crightarrow">)</em> <img src="https://latex.codecogs.com/png.latex?G">에 해밀턴 경로가 있으면 모든 <img src="https://latex.codecogs.com/png.latex?%5Clvert%20V%5Crvert">개 정점을 한 번씩 지나는 <img src="https://latex.codecogs.com/png.latex?%5Clvert%20V%5Crvert-1">개 간선의 단순 경로이므로 LONG-PATH의 답은 “예”.</p>
-<p><em>(<img src="https://latex.codecogs.com/png.latex?%5Cleftarrow">)</em> <img src="https://latex.codecogs.com/png.latex?G">에 간선 <img src="https://latex.codecogs.com/png.latex?%5Cge%20%5Clvert%20V%5Crvert-1">인 단순 경로가 있으면, 상한이 <img src="https://latex.codecogs.com/png.latex?%5Clvert%20V%5Crvert-1">이므로 정확히 <img src="https://latex.codecogs.com/png.latex?%5Clvert%20V%5Crvert-1">개 간선 → 모든 정점을 한 번씩 → 해밀턴 경로. <img src="https://latex.codecogs.com/png.latex?%5Cquad%5Cblacksquare"></p>
-<p>HAM-PATH가 NP-완전이므로 LONG-PATH는 NP-hard이고, 인증서(정점 순서열)로 다항 시간 검증이 가능하므로 NP에 속한다. 따라서 <strong>NP-완전</strong>이다.</p>
-</section>
-<section id="더-깊은-이유-단순-제약이-최적-부분구조를-깨뜨린다" class="level3" data-number="2.1.2">
-<h3 data-number="2.1.2" class="anchored" data-anchor-id="더-깊은-이유-단순-제약이-최적-부분구조를-깨뜨린다"><span class="header-section-number">2.1.2</span> 더 깊은 이유 — “단순” 제약이 최적 부분구조를 깨뜨린다</h3>
-<ul>
-<li><strong>최단 경로:</strong> 최단 경로의 부분 경로는 그 자체로 최단 경로다. “정점 <img src="https://latex.codecogs.com/png.latex?v">까지의 최단 거리”가 <em>어떤 경로로 왔는지와 무관하게</em> 하나의 값으로 확정되므로, Dijkstra·Bellman-Ford 같은 DP/그리디가 작동한다.</li>
-<li><strong>최장 단순 경로:</strong> “<img src="https://latex.codecogs.com/png.latex?v">까지의 가장 긴 경로”가 하나로 정의되지 않는다. <img src="https://latex.codecogs.com/png.latex?v">까지 온 경로가 <strong>어떤 정점들을 이미 써버렸는지</strong>가 이후 확장 가능성을 좌우하기 때문이다(비국소성). 따라서 DP로 풀려면 “방문한 정점 집합 전체”(<img src="https://latex.codecogs.com/png.latex?2%5E%7B%5Clvert%20V%5Crvert%7D">가지)를 상태로 기억해야 한다.</li>
-</ul>
-<p>대조 확인: 단순 제약을 빼면 사이클이 있는 그래프에서 최장 경로는 무한대가 되고, DAG에서는 위상 정렬 DP로 다항 시간에 풀린다. 즉 어려움은 <strong>“사이클이 있는 그래프 + 각 정점 한 번씩”</strong>의 조합에서 발생한다.</p>
-</section>
-</section>
-<section id="오일러-투어-vs-해밀턴-사이클" class="level2" data-number="2.2">
-<h2 data-number="2.2" class="anchored" data-anchor-id="오일러-투어-vs-해밀턴-사이클"><span class="header-section-number">2.2</span> 오일러 투어 vs 해밀턴 사이클</h2>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th></th>
-<th>Euler tour</th>
-<th>Hamiltonian cycle</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>거치는 대상</td>
-<td>모든 <strong>간선</strong>을 한 번씩</td>
-<td>모든 <strong>정점</strong>을 한 번씩</td>
-</tr>
-<tr class="even">
-<td>정점 재방문</td>
-<td>허용</td>
-<td>금지(단순 사이클)</td>
-</tr>
-<tr class="odd">
-<td>판정 난이도</td>
-<td><img src="https://latex.codecogs.com/png.latex?O(E)"></td>
-<td>NP-완전</td>
-</tr>
-</tbody>
-</table>
-<p>핵심: <strong>Euler tour는 각 정점에서 확인 가능한 국소 조건으로 존재 여부가 결정되지만, Hamiltonian cycle은 그런 국소 판정 기준이 알려져 있지 않다.</strong></p>
-<section id="euler-tour가-쉬운-이유" class="level3" data-number="2.2.1">
-<h3 data-number="2.2.1" class="anchored" data-anchor-id="euler-tour가-쉬운-이유"><span class="header-section-number">2.2.1</span> Euler tour가 쉬운 이유</h3>
-<p>방향 그래프가 연결되어 있을 때 Euler tour 존재의 <strong>필요충분조건</strong>: <img src="https://latex.codecogs.com/png.latex?%5Cforall%20v:%5C%20%5Ctext%7Bin-degree%7D(v)%20=%20%5Ctext%7Bout-degree%7D(v)."> 이 조건은 각 정점을 독립적으로 확인하면 되므로 <img src="https://latex.codecogs.com/png.latex?O(V+E)">다.</p>
-<p><em>필요성:</em> 투어가 <img src="https://latex.codecogs.com/png.latex?v">에 들어오면 반드시 나가므로, <img src="https://latex.codecogs.com/png.latex?v">를 <img src="https://latex.codecogs.com/png.latex?t">번 지나면 in-edge <img src="https://latex.codecogs.com/png.latex?t">개와 out-edge <img src="https://latex.codecogs.com/png.latex?t">개를 짝짓는다. 모든 간선을 한 번씩 써야 하므로 in-degree = out-degree.</p>
-<p><em>충분성(절대 막히지 않음, 귀류법):</em> 아무 정점에서 출발해 안 쓴 간선만 골라 걷는다.</p>
-<blockquote class="blockquote">
-<p><strong>가정(귀류).</strong> 출발점이 아닌 정점 <img src="https://latex.codecogs.com/png.latex?v">에서 막혔다고 하자(안 쓴 out-edge 없음). 지금 <img src="https://latex.codecogs.com/png.latex?v">에 앉아 있으므로 사용된 in-edge 수가 out-edge 수보다 1 많다. 그런데 in-degree<img src="https://latex.codecogs.com/png.latex?(v)="> out-degree<img src="https://latex.codecogs.com/png.latex?(v)">이므로 안 쓴 out-edge가 적어도 하나 남아 있어야 한다. 이는 막혔다는 가정과 <strong>모순</strong>이다. <img src="https://latex.codecogs.com/png.latex?%5Cquad%5Cblacksquare"></p>
-</blockquote>
-<p>따라서 워크는 출발점으로 돌아와 닫히고, 안 쓴 간선이 남으면 그 지점에서 새 사이클을 만들어 끼워 넣는다(Hierholzer, <img src="https://latex.codecogs.com/png.latex?O(E)">). 균형이 “들어오면 언제나 나갈 수 있음”을 보장하므로 국소적 선택이 발목을 잡지 않는다.</p>
-</section>
-<section id="hamiltonian-cycle이-어려운-이유" class="level3" data-number="2.2.2">
-<h3 data-number="2.2.2" class="anchored" data-anchor-id="hamiltonian-cycle이-어려운-이유"><span class="header-section-number">2.2.2</span> Hamiltonian cycle이 어려운 이유</h3>
-<p>“각 정점 한 번”에는 차수 균형 같은 효율적 필요충분조건이 알려져 있지 않다. 최장 단순 경로와 같은 <strong>비국소성</strong> — 한 정점을 쓰는 선택이 멀리 떨어진 정점의 포함 가능성을 막을 수 있어 구조 전체가 전역적으로 얽힌다. 실제로 3-CNF-SAT 등으로부터의 환원으로 NP-완전임이 증명된다.</p>
-<blockquote class="blockquote">
-<p>참고: Euler tour 존재와 Hamiltonian cycle 존재는 서로 <strong>독립적인 성질</strong>이다. 표면적 유사성이 만든 착시일 뿐이다.</p>
-</blockquote>
-</section>
-</section>
-<section id="cnf-vs-3-cnf" class="level2" data-number="2.3">
-<h2 data-number="2.3" class="anchored" data-anchor-id="cnf-vs-3-cnf"><span class="header-section-number">2.3</span> 2-CNF vs 3-CNF</h2>
-<p>불 식이 충족 가능(satisfiable)하다는 것은 변수에 0/1을 할당해 식을 1로 만들 수 있다는 뜻이다. <img src="https://latex.codecogs.com/png.latex?k">-CNF는 정확히 <img src="https://latex.codecogs.com/png.latex?k">개의 리터럴의 OR로 된 절(clause)들의 AND다. 2-CNF 충족성은 다항 시간 판정이 가능하지만, 3-CNF 충족성은 NP-완전이다.</p>
-</section>
-</section>
-<section id="복잡도-클래스-p-np-npc" class="level1" data-number="3">
-<h1 data-number="3"><span class="header-section-number">3</span> 복잡도 클래스: P, NP, NPC</h1>
-<section id="클래스-p" class="level2" data-number="3.1">
-<h2 data-number="3.1" class="anchored" data-anchor-id="클래스-p"><span class="header-section-number">3.1</span> 클래스 P</h2>
-<p>다항 시간에 <strong>풀 수 있는</strong> 결정 문제들. 즉 <img src="https://latex.codecogs.com/png.latex?O(n%5Ek)"> 알고리즘이 존재한다.</p>
-</section>
-<section id="클래스-np" class="level2" data-number="3.2">
-<h2 data-number="3.2" class="anchored" data-anchor-id="클래스-np"><span class="header-section-number">3.2</span> 클래스 NP</h2>
-<p>다항 시간에 <strong>검증할 수 있는(verifiable)</strong> 결정 문제들. <strong>인증서(certificate)</strong>, 즉 해의 후보가 주어지면 그것이 올바른지를 입력 크기의 다항 시간에 확인할 수 있다. 직접 <em>찾는</em> 것이 아니라 <em>주어진 답을 채점</em>하는 능력이다.</p>
-<section id="sec-ham-verify" class="level3" data-number="3.2.1">
-<h3 data-number="3.2.1" class="anchored" data-anchor-id="sec-ham-verify"><span class="header-section-number">3.2.1</span> 해밀턴 사이클 검증의 복잡도</h3>
-<p>인증서는 정점 순서열 <img src="https://latex.codecogs.com/png.latex?%5Clangle%20v_1,%5Cdots,v_%7B%5Clvert%20V%5Crvert%7D%5Crangle">. 검증기는 두 가지를 확인한다: (1) <img src="https://latex.codecogs.com/png.latex?V">의 순열인가, (2) 연속 쌍과 <img src="https://latex.codecogs.com/png.latex?(v_%7B%5Clvert%20V%5Crvert%7D,%20v_1)">이 모두 간선인가.</p>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 33%">
-<col style="width: 33%">
-<col style="width: 33%">
-</colgroup>
-<thead>
-<tr class="header">
-<th></th>
-<th>인접 행렬</th>
-<th>인접 리스트</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>검증 시간</td>
-<td><img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert)"></td>
-<td><img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert%20+%20%5Clvert%20E%5Crvert)"></td>
-</tr>
-<tr class="even">
-<td>보조 공간</td>
-<td><img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert)"></td>
-<td><img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert)"></td>
-</tr>
-<tr class="odd">
-<td>그래프 저장 공간</td>
-<td><img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert%5E2)"></td>
-<td><img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert%20+%20%5Clvert%20E%5Crvert)"></td>
-</tr>
-</tbody>
-</table>
-<ul>
-<li><strong>순열 검사:</strong> boolean 배열로 한 번 훑어 <img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert)">, 보조 공간 <img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert)">.</li>
-<li><strong>간선 검사:</strong> 인접 행렬은 조회당 <img src="https://latex.codecogs.com/png.latex?O(1)">이라 <img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert)">, 인접 리스트는 <img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert%20+%20%5Clvert%20E%5Crvert)">.</li>
-</ul>
-<p>행렬로 시간을 <img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert)">로 줄이면 <img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert%5E2)"> 공간을 쓰는 시간-공간 트레이드오프가 생긴다. 요점은 정확한 차수가 아니라 <strong>다항 시간</strong>이라는 사실이며, 그래서 해밀턴 사이클 문제가 NP에 속한다. (이 비용은 인증서를 채점하는 비용일 뿐, 사이클을 <em>찾는</em> 것은 NP-완전인 어려운 부분이다.)</p>
-</section>
-</section>
-<section id="p-np" class="level2" data-number="3.3">
-<h2 data-number="3.3" class="anchored" data-anchor-id="p-np"><span class="header-section-number">3.3</span> P ⊆ NP</h2>
-<p>P의 문제는 인증서 없이도 직접 풀 수 있으므로 검증한 셈이 된다. 따라서 <img src="https://latex.codecogs.com/png.latex?P%20%5Csubseteq%20NP">. 미해결 질문은 이 포함이 진부분집합인가, 즉 <img src="https://latex.codecogs.com/png.latex?P%20%5Cstackrel%7B?%7D%7B=%7D%20NP."> 대다수는 <img src="https://latex.codecogs.com/png.latex?P%20%5Cneq%20NP">를 추측한다.</p>
-</section>
-<section id="클래스-npc" class="level2" data-number="3.4">
-<h2 data-number="3.4" class="anchored" data-anchor-id="클래스-npc"><span class="header-section-number">3.4</span> 클래스 NPC</h2>
-<p>비형식적으로 NP에 속하면서 NP의 어떤 문제만큼이나 어려운 문제들. 결정적 성질:</p>
-<blockquote class="blockquote">
-<p><strong>NP-완전 문제 중 단 하나라도 다항 시간에 풀린다면, NP의 모든 문제가 다항 시간에 풀린다(<img src="https://latex.codecogs.com/png.latex?P=NP">).</strong></p>
-</blockquote>
-<section id="하나-풀면-전부-풀린다는-모순이-아니다" class="level3" data-number="3.4.1">
-<h3 data-number="3.4.1" class="anchored" data-anchor-id="하나-풀면-전부-풀린다는-모순이-아니다"><span class="header-section-number">3.4.1</span> “하나 풀면 전부 풀린다”는 모순이 아니다</h3>
-<p>흔한 오해: “NPC는 어려운데 그걸 다항 시간에 푼다고 가정하니 정의와 모순 아닌가?” 이는 <strong>NP-완전의 정의에 ’다항 시간에 풀 수 없다’가 포함된다</strong>는 잘못된 전제에서 나온다.</p>
-<ul>
-<li>NP-완전의 정의는 “NP에 속하고, 환원을 통해 NP의 모든 문제만큼 어렵다”이며, <strong>절대적 불가능성과 무관</strong>하다.</li>
-<li>“intractable”은 정의가 아니라 <strong>추측(<img src="https://latex.codecogs.com/png.latex?P%5Cneq%20NP">)</strong>이다.</li>
-<li>위 명제는 NP-hard 정의를 풀어 쓴 <strong>참인 정리</strong>다(Section&nbsp;7.1).</li>
-</ul>
-<p><strong>마스터 키 비유:</strong> NP의 모든 문제를 건물의 문, NPC 문제를 마스터 잠금장치라 하자. 환원이란 모든 자물쇠가 “마스터 키로 열리면 자기도 열리도록” 설계되었다는 뜻이다. “마스터 잠금장치를 빠르게 따면 모든 문이 열린다”는 무의미하기는커녕 설계상 당연히 참이다. 우리가 “못 딴다(NPC는 어렵다)”고 믿는 이유가 바로 이 함의다.</p>
-</section>
-</section>
-</section>
-<section id="p-vs-np의-현재-상태" class="level1" data-number="4">
-<h1 data-number="4"><span class="header-section-number">4</span> P vs NP의 현재 상태</h1>
-<p>2026년 현재 P 대 NP 문제는 미해결로 남아 있다. <strong>여태껏 단 하나의 NP-완전 문제에 대해서도 다항 시간 알고리즘이 발견된 적이 없다.</strong> 클레이 수학연구소가 2000년에 100만 달러 상금을 걸었으나 미수령 상태다. 즉 <img src="https://latex.codecogs.com/png.latex?P=NP">도 <img src="https://latex.codecogs.com/png.latex?P%5Cneq%20NP">도 증명되지 않았다.</p>
-<p>알고리즘·하드웨어·머신러닝의 발전으로 많은 NP-난해 문제를 <em>실용적으로</em> 다룰 수 있게 되었지만, 이는 휴리스틱·근사·특수 사례 처리이지 <strong>모든 인스턴스에 대해 최악의 경우에도 다항 시간을 보장하는 알고리즘</strong>과는 다르다. 후자의 의미에서는 여전히 돌파구가 없다.</p>
-</section>
-<section id="결정-문제-vs-최적화-문제" class="level1" data-number="5">
-<h1 data-number="5"><span class="header-section-number">5</span> 결정 문제 vs 최적화 문제</h1>
-<p>대부분의 관심사는 <strong>최적화 문제</strong>(각 가능해에 값이 매겨지고 최선의 값을 찾음)지만, NP-완전성은 답이 “예/아니오”인 <strong>결정 문제</strong>에 직접 적용된다. 최적화 문제는 값에 경계 <img src="https://latex.codecogs.com/png.latex?k">를 부과해 결정 문제로 바꾼다.</p>
-<ul>
-<li>SHORTEST-PATH(최적화): <img src="https://latex.codecogs.com/png.latex?u">에서 <img src="https://latex.codecogs.com/png.latex?v">까지 간선 수가 최소인 경로.</li>
-<li>PATH(결정): <img src="https://latex.codecogs.com/png.latex?u">에서 <img src="https://latex.codecogs.com/png.latex?v">까지 간선 <img src="https://latex.codecogs.com/png.latex?%5Cle%20k">인 경로가 존재하는가?</li>
-</ul>
-<p><strong>결정 문제는 최적화 문제보다 어렵지 않다.</strong> SHORTEST-PATH를 풀면 간선 수를 <img src="https://latex.codecogs.com/png.latex?k">와 비교해 PATH를 풀 수 있기 때문이다. 따라서 결정 문제가 어렵다는 증거는 최적화 문제가 어렵다는 증거를 함의한다. 이론을 결정 문제에 한정하는 이유다.</p>
-</section>
-<section id="환원-polynomial-time-reduction" class="level1" data-number="6">
-<h1 data-number="6"><span class="header-section-number">6</span> 환원 (Polynomial-time Reduction)</h1>
-<section id="정의" class="level2" data-number="6.1">
-<h2 data-number="6.1" class="anchored" data-anchor-id="정의"><span class="header-section-number">6.1</span> 정의</h2>
-<p>결정 문제 <img src="https://latex.codecogs.com/png.latex?A">의 임의의 인스턴스 <img src="https://latex.codecogs.com/png.latex?%5Calpha">를 결정 문제 <img src="https://latex.codecogs.com/png.latex?B">의 인스턴스 <img src="https://latex.codecogs.com/png.latex?%5Cbeta">로 변환하는 절차가 다음을 만족하면 <strong>다항 시간 환원 알고리즘</strong>이라 한다.</p>
-<ol type="1">
-<li>변환이 다항 시간 안에 끝난다.</li>
-<li><img src="https://latex.codecogs.com/png.latex?%5Calpha">의 답이 “예” <img src="https://latex.codecogs.com/png.latex?%5Ciff"> <img src="https://latex.codecogs.com/png.latex?%5Cbeta">의 답이 “예” (<strong>양방향 iff</strong>).</li>
-</ol>
-<p>이때 <img src="https://latex.codecogs.com/png.latex?A%20%5Cle_P%20B">로 쓰며, 직관적으로 <strong>“<img src="https://latex.codecogs.com/png.latex?A">는 <img src="https://latex.codecogs.com/png.latex?B">보다 풀기 어렵지 않다”</strong>를 뜻한다.</p>
-<p>데이터는 <img src="https://latex.codecogs.com/png.latex?A%20%5Cto%20B">로 흐르지만(α를 β로 변환), 의미는 “<img src="https://latex.codecogs.com/png.latex?B">를 풀 수 있으면 <img src="https://latex.codecogs.com/png.latex?A">도 풀 수 있다”, 즉 난이도 <img src="https://latex.codecogs.com/png.latex?A%20%5Cle%20B">다.</p>
-</section>
-<section id="두-가지-사용법" class="level2" data-number="6.2">
-<h2 data-number="6.2" class="anchored" data-anchor-id="두-가지-사용법"><span class="header-section-number">6.2</span> 두 가지 사용법</h2>
-<ul>
-<li><strong>성질 1 (쉬움은 <img src="https://latex.codecogs.com/png.latex?%5Cle">를 거슬러 흐른다):</strong> <img src="https://latex.codecogs.com/png.latex?A%20%5Cle_P%20B">이고 <img src="https://latex.codecogs.com/png.latex?B%20%5Cin%20P">이면 <img src="https://latex.codecogs.com/png.latex?A%20%5Cin%20P">.</li>
-<li><strong>성질 2 (어려움은 <img src="https://latex.codecogs.com/png.latex?%5Cle">를 따라 흐른다):</strong> <img src="https://latex.codecogs.com/png.latex?A%20%5Cle_P%20B">이고 <img src="https://latex.codecogs.com/png.latex?A">가 NP-hard이면 <img src="https://latex.codecogs.com/png.latex?B">도 NP-hard.</li>
-</ul>
-</section>
-<section id="방향direction이-결정적이다" class="level2" data-number="6.3">
-<h2 data-number="6.3" class="anchored" data-anchor-id="방향direction이-결정적이다"><span class="header-section-number">6.3</span> 방향(direction)이 결정적이다</h2>
-<p>증명 목표에 따라 새 문제 <img src="https://latex.codecogs.com/png.latex?X">가 부등호의 어느 쪽에 놓이는지가 정반대가 된다.</p>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 33%">
-<col style="width: 33%">
-<col style="width: 33%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>증명 목표</th>
-<th>환원 방식</th>
-<th><img src="https://latex.codecogs.com/png.latex?X">의 위치</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><img src="https://latex.codecogs.com/png.latex?X">가 쉽다 (<img src="https://latex.codecogs.com/png.latex?X%20%5Cin%20P">)</td>
-<td>이미 쉬운 <img src="https://latex.codecogs.com/png.latex?C">에 대해 <img src="https://latex.codecogs.com/png.latex?X%20%5Cle_P%20C"></td>
-<td>출발점(왼쪽)</td>
-</tr>
-<tr class="even">
-<td><img src="https://latex.codecogs.com/png.latex?X">가 어렵다 (<img src="https://latex.codecogs.com/png.latex?X"> NP-hard)</td>
-<td>이미 어려운 <img src="https://latex.codecogs.com/png.latex?A">에 대해 <img src="https://latex.codecogs.com/png.latex?A%20%5Cle_P%20X"></td>
-<td>도착점(오른쪽)</td>
-</tr>
-</tbody>
-</table>
-<p>NP-완전 증명은 항상 후자다. 표어:</p>
-<blockquote class="blockquote">
-<p><strong>이미 어렵다고 알려진 문제로부터 내 문제로 환원하라 (reduce FROM known-hard TO yours).</strong></p>
-</blockquote>
-<section id="방향을-거꾸로-하면-무의미해진다-귀류법" class="level3" data-number="6.3.1">
-<h3 data-number="6.3.1" class="anchored" data-anchor-id="방향을-거꾸로-하면-무의미해진다-귀류법"><span class="header-section-number">6.3.1</span> 방향을 거꾸로 하면 무의미해진다 (귀류법)</h3>
-<p>VERTEX-COVER가 NP-hard임을 보이려면 <img src="https://latex.codecogs.com/png.latex?%5Ctext%7BCLIQUE%7D%20%5Cle_P%20%5Ctext%7BVERTEX-COVER%7D">를 써야 한다.</p>
-<blockquote class="blockquote">
-<p><strong>가정.</strong> VC가 다항 시간에 풀린다고 하자. CLIQUE <img src="https://latex.codecogs.com/png.latex?%5Cle_P"> VC이므로 CLIQUE 인스턴스를 변환해 VC 해결기에 넘기면 CLIQUE도 다항 시간에 풀린다. 그런데 CLIQUE는 NP-완전(어렵다)이다. <strong>모순.</strong> 따라서 VC는 다항 시간에 풀릴 수 없다. <img src="https://latex.codecogs.com/png.latex?%5Cquad%5Cblacksquare"></p>
-</blockquote>
-<p>방향을 거꾸로(<img src="https://latex.codecogs.com/png.latex?%5Ctext%7BVC%7D%20%5Cle_P%20%5Ctext%7BCLIQUE%7D">) 잡으면 “CLIQUE가 쉬우면 VC도 쉽다”만 알려주어, VC가 어렵다는 것에 대해 아무 말도 못 한다. <strong>엉뚱한 정리를 증명</strong>하게 되는 것이다.</p>
-</section>
-</section>
-<section id="전이성과-환원-사슬" class="level2" data-number="6.4">
-<h2 data-number="6.4" class="anchored" data-anchor-id="전이성과-환원-사슬"><span class="header-section-number">6.4</span> 전이성과 환원 사슬</h2>
-<p><img src="https://latex.codecogs.com/png.latex?%5Cle_P">는 <strong>전이적</strong>이다: <img src="https://latex.codecogs.com/png.latex?X%20%5Cle_P%20Y%20%5C%20%5Ctext%7B%EC%9D%B4%EA%B3%A0%7D%5C%20Y%20%5Cle_P%20Z%20%5C%20%5CLongrightarrow%5C%20X%20%5Cle_P%20Z,"> 왜냐하면 다항 변환의 합성도 다항이기 때문이다(다항의 다항은 다항). 그래서 사슬은 양 끝만 남기고 붕괴한다.</p>
-<p>이로부터 NP-완전 증명의 지름길이 나온다. 모든 <img src="https://latex.codecogs.com/png.latex?A'%20%5Cin%20NP">에 대해 직접 <img src="https://latex.codecogs.com/png.latex?A'%20%5Cle_P%20A">를 보이는 대신, <strong>이미 NP-완전인 <img src="https://latex.codecogs.com/png.latex?A''">에 대해 <img src="https://latex.codecogs.com/png.latex?A''%20%5Cle_P%20A"></strong>만 보이면 된다: <img src="https://latex.codecogs.com/png.latex?A'%20%5Cle_P%20A''%20%5Cle_P%20A%20%5Cquad%20(%5Cforall%20A'%20%5Cin%20NP)."></p>
-<section id="사슬-중간-문제도-함께-증명된다" class="level3" data-number="6.4.1">
-<h3 data-number="6.4.1" class="anchored" data-anchor-id="사슬-중간-문제도-함께-증명된다"><span class="header-section-number">6.4.1</span> 사슬 중간 문제도 함께 증명된다</h3>
-<p>사슬 <img src="https://latex.codecogs.com/png.latex?A'%20%5Cle_P%20A''%20%5Cle_P%20B%20%5Cle_P%20A">에서(<img src="https://latex.codecogs.com/png.latex?A''">는 알려진 NPC, <img src="https://latex.codecogs.com/png.latex?A'">은 NP 전체를 훑는 변수):</p>
-<ul>
-<li>전이성으로 <img src="https://latex.codecogs.com/png.latex?A'%20%5Cle_P%20A"> → <strong><img src="https://latex.codecogs.com/png.latex?A">는 NP-hard</strong> (중간의 <img src="https://latex.codecogs.com/png.latex?B">가 끼어도 안 깨진다).</li>
-<li>같은 전이성으로 <img src="https://latex.codecogs.com/png.latex?A'%20%5Cle_P%20A''%20%5Cle_P%20B"> → <img src="https://latex.codecogs.com/png.latex?A'%20%5Cle_P%20B"> → <strong><img src="https://latex.codecogs.com/png.latex?B">도 NP-hard</strong>.</li>
-</ul>
-<p><strong>위치가 신분을 결정한다.</strong> anchor <img src="https://latex.codecogs.com/png.latex?A''">의 왼쪽(<img src="https://latex.codecogs.com/png.latex?A'">)은 증명 대상이 아니라 “전부를 훑는 변수”(쉬운 문제일 수도 있음)이고, anchor의 오른쪽(<img src="https://latex.codecogs.com/png.latex?B">, <img src="https://latex.codecogs.com/png.latex?A">)은 어려움을 전이받아 모두 NP-hard다. 어려움은 <img src="https://latex.codecogs.com/png.latex?%5Cle_P">를 따라 오른쪽으로 흐른다.</p>
-<blockquote class="blockquote">
-<p>단, <img src="https://latex.codecogs.com/png.latex?B">가 NP-<strong>완전</strong>이려면 추가로 <img src="https://latex.codecogs.com/png.latex?B%20%5Cin%20NP">를 보여야 한다. 또한 중간 문제 <img src="https://latex.codecogs.com/png.latex?B">는 미리 “알려진 NPC”일 필요가 없다 — 다항 변환이 성립하는 징검돌이면 된다.</p>
-</blockquote>
-</section>
-</section>
-<section id="환원의-목적" class="level2" data-number="6.5">
-<h2 data-number="6.5" class="anchored" data-anchor-id="환원의-목적"><span class="header-section-number">6.5</span> 환원의 목적</h2>
-<p>환원은 절대적 불가능성을 증명하지 <strong>못한다</strong>(그건 <img src="https://latex.codecogs.com/png.latex?P%5Cneq%20NP">를 증명하는 셈). 대신 <strong>상대적·조건부</strong> 사실을 증명하며, 그로부터 네 가지 목적을 얻는다.</p>
-<ol type="1">
-<li><strong>상대적 난이도 분류:</strong> “<img src="https://latex.codecogs.com/png.latex?B">는 <img src="https://latex.codecogs.com/png.latex?A">보다 어렵지 않을 리 없다.” <img src="https://latex.codecogs.com/png.latex?P=NP"> 해결 여부와 무관하게 영원히 참인 난이도 순서.</li>
-<li><strong>intractability의 강력한 증거 + 공학적 판단:</strong> <img src="https://latex.codecogs.com/png.latex?B">가 NP-완전이면 빠른 정확해 탐색을 멈추고 근사 알고리즘·휴리스틱·특수 사례로 방향을 튼다. (“증명”이 아니라 “증거”임에 유의.)</li>
-<li><strong>쉬움의 전이(실제 해결):</strong> 새 문제를 이미 풀린 문제로 환원해 해결기를 얻는다(예: 일차방정식 → 이차방정식, 이분 매칭 → 최대 유량).</li>
-<li><strong>NP의 통일:</strong> 수천 개의 NP-완전 문제가 서로 변환 가능한 “한 문제의 변장”임을 드러낸다 — 하나가 풀리면 전부 풀리고, 하나가 어려우면 전부 어렵다.</li>
-</ol>
-</section>
-</section>
-<section id="np-hard-np-complete-형식적-정의" class="level1" data-number="7">
-<h1 data-number="7"><span class="header-section-number">7</span> NP-hard / NP-complete 형식적 정의</h1>
-<ul>
-<li><img src="https://latex.codecogs.com/png.latex?A">가 <strong>NP-hard</strong>: 모든 <img src="https://latex.codecogs.com/png.latex?A'%20%5Cin%20NP">에 대해 <img src="https://latex.codecogs.com/png.latex?A'%20%5Cle_P%20A">.</li>
-<li><img src="https://latex.codecogs.com/png.latex?A">가 <strong>NP-complete</strong>: <img src="https://latex.codecogs.com/png.latex?A%20%5Cin%20NP"> <strong>그리고</strong> <img src="https://latex.codecogs.com/png.latex?A">가 NP-hard.</li>
-</ul>
-<p>정의 어디에도 “다항 시간에 풀 수 없다”는 없다. “hard함”은 절대적이 아니라 <strong>환원으로 정의되는 상대적</strong> 개념이다.</p>
-<section id="sec-thm344" class="level2" data-number="7.1">
-<h2 data-number="7.1" class="anchored" data-anchor-id="sec-thm344"><span class="header-section-number">7.1</span> Theorem (34.4)</h2>
-<blockquote class="blockquote">
-<p>임의의 NP-완전 문제가 다항 시간에 풀린다면 <img src="https://latex.codecogs.com/png.latex?P=NP">이다.</p>
-</blockquote>
-<p><strong>증명.</strong> <img src="https://latex.codecogs.com/png.latex?L%20%5Cin%20P">이면서 <img src="https://latex.codecogs.com/png.latex?L%20%5Cin%20NPC">라 하자. 임의의 <img src="https://latex.codecogs.com/png.latex?L'%20%5Cin%20NP">에 대해 NP-완전의 정의에 의해 <img src="https://latex.codecogs.com/png.latex?L'%20%5Cle_P%20L">이다. <img src="https://latex.codecogs.com/png.latex?L%20%5Cin%20P">이므로 성질 1에 의해 <img src="https://latex.codecogs.com/png.latex?L'%20%5Cin%20P">. 따라서 <img src="https://latex.codecogs.com/png.latex?NP%20%5Csubseteq%20P">, 이미 <img src="https://latex.codecogs.com/png.latex?P%20%5Csubseteq%20NP">였으므로 <img src="https://latex.codecogs.com/png.latex?P=NP">. <img src="https://latex.codecogs.com/png.latex?%5Cquad%5Cblacksquare"></p>
-<p>대우로 읽으면: NP의 어떤 문제 하나라도 다항 시간에 풀 수 없다면 어떤 NP-완전 문제도 다항 시간에 풀 수 없다. 이것이 “NP-완전 = intractability의 강력한 증거”의 근거다.</p>
-</section>
-</section>
-<section id="환원-증명의-구조" class="level1" data-number="8">
-<h1 data-number="8"><span class="header-section-number">8</span> 환원 증명의 구조</h1>
-<p>모든 NP-완전 증명은 동일한 골격을 따른다.</p>
-<ol type="1">
-<li><strong><img src="https://latex.codecogs.com/png.latex?X%20%5Cin%20NP">:</strong> 인증서를 정의하고 다항 시간 검증을 보인다.</li>
-<li><strong><img src="https://latex.codecogs.com/png.latex?X">가 NP-hard:</strong> 이미 NP-완전인 <img src="https://latex.codecogs.com/png.latex?Y">를 골라 <img src="https://latex.codecogs.com/png.latex?Y%20%5Cle_P%20X"> 환원을 설계한다.
-<ul>
-<li><ol type="a">
-<li>변환 <img src="https://latex.codecogs.com/png.latex?f"> 정의 + 다항 시간 논증.</li>
-</ol></li>
-<li><ol start="2" type="a">
-<li><strong>(<img src="https://latex.codecogs.com/png.latex?%5Crightarrow">) 완전성:</strong> 원래 yes ⟹ 변환된 yes (yes-인스턴스 보존).</li>
-</ol></li>
-<li><ol start="3" type="a">
-<li><strong>(<img src="https://latex.codecogs.com/png.latex?%5Cleftarrow">) 건전성:</strong> 변환된 yes ⟹ 원래 yes (거짓 인스턴스를 yes로 둔갑시키지 않음).</li>
-</ol></li>
-</ul></li>
-</ol>
-<section id="no-no는-따로-증명하지-않는다" class="level2" data-number="8.1">
-<h2 data-number="8.1" class="anchored" data-anchor-id="no-no는-따로-증명하지-않는다"><span class="header-section-number">8.1</span> “no ↔︎ no”는 따로 증명하지 않는다</h2>
-<p>정확성 조건은 단 하나의 쌍조건 <img src="https://latex.codecogs.com/png.latex?%5Calpha%20%5Cin%20A%20%5Ciff%20f(%5Calpha)%20%5Cin%20B">다. 그리고 <img src="https://latex.codecogs.com/png.latex?P%20%5Cleftrightarrow%20Q%20%5Cquad%5Cequiv%5Cquad%20%5Cneg%20P%20%5Cleftrightarrow%20%5Cneg%20Q"> 이므로 “yes <img src="https://latex.codecogs.com/png.latex?%5Cleftrightarrow"> yes”를 보이는 순간 “no <img src="https://latex.codecogs.com/png.latex?%5Cleftrightarrow"> no”는 <strong>공짜로 따라온다</strong>(같은 문장을 뒤집은 것).</p>
-<p>더 정확히는, 증명한 두 방향의 <strong>대우</strong>가 곧 no-방향들이다:</p>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 33%">
-<col style="width: 33%">
-<col style="width: 33%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>증명한 방향</th>
-<th>yes-진술</th>
-<th>대우 = no-진술</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>(<img src="https://latex.codecogs.com/png.latex?%5Crightarrow">)</td>
-<td><img src="https://latex.codecogs.com/png.latex?C%5C,%5Ctext%7BSAT%7D%20%5CRightarrow%20%5Cphi%5C,%5Ctext%7BSAT%7D"></td>
-<td><img src="https://latex.codecogs.com/png.latex?%5Cphi%5C,%5Ctext%7BUNSAT%7D%20%5CRightarrow%20C%5C,%5Ctext%7BUNSAT%7D"></td>
-</tr>
-<tr class="even">
-<td>(<img src="https://latex.codecogs.com/png.latex?%5Cleftarrow">)</td>
-<td><img src="https://latex.codecogs.com/png.latex?%5Cphi%5C,%5Ctext%7BSAT%7D%20%5CRightarrow%20C%5C,%5Ctext%7BSAT%7D"></td>
-<td><img src="https://latex.codecogs.com/png.latex?C%5C,%5Ctext%7BUNSAT%7D%20%5CRightarrow%20%5Cphi%5C,%5Ctext%7BUNSAT%7D"></td>
-</tr>
-</tbody>
-</table>
-<p>오른쪽 열을 합치면 <img src="https://latex.codecogs.com/png.latex?C%5C,%5Ctext%7BUNSAT%7D%20%5Ciff%20%5Cphi%5C,%5Ctext%7BUNSAT%7D">, 즉 no <img src="https://latex.codecogs.com/png.latex?%5Cleftrightarrow"> no가 완성된다. 특히 <strong>(<img src="https://latex.codecogs.com/png.latex?%5Cleftarrow">) 건전성</strong>의 대우 “<img src="https://latex.codecogs.com/png.latex?C%5C,%5Ctext%7BUNSAT%7D%20%5CRightarrow%20%5Cphi%5C,%5Ctext%7BUNSAT%7D">”가 “충족 불가능한 회로가 충족 가능한 식으로 둔갑하지 않음”을 보장한다. no 케이스를 막는 것이 곧 두 방향 iff를 모두 증명하는 일이다.</p>
-</section>
-</section>
-<section id="np-완전-문제의-연쇄" class="level1" data-number="9">
-<h1 data-number="9"><span class="header-section-number">9</span> NP-완전 문제의 연쇄</h1>
-<p>다음 연쇄로 NP-완전성이 도미노처럼 전파된다. <img src="https://latex.codecogs.com/png.latex?%5Ctext%7BCIRCUIT-SAT%7D%20%5Cto%20%5Ctext%7BSAT%7D%20%5Cto%20%5Ctext%7B3-CNF-SAT%7D%20%5Cto%20%5Ctext%7BCLIQUE%7D%20%5Cto%20%5Ctext%7BVERTEX-COVER%7D"></p>
-<section id="circuit-sat-최초의-np-완전-문제" class="level2" data-number="9.1">
-<h2 data-number="9.1" class="anchored" data-anchor-id="circuit-sat-최초의-np-완전-문제"><span class="header-section-number">9.1</span> CIRCUIT-SAT — 최초의 NP-완전 문제</h2>
-<p><strong>문제:</strong> AND/OR/NOT 게이트로 된 불 조합 회로가 충족 가능한가(출력을 1로 만드는 입력이 있는가)?</p>
-<ul>
-<li><strong>NP:</strong> 인증서는 모든 와이어의 값 할당. 각 게이트의 출력이 입력으로부터 올바르게 계산되는지, 전체 출력이 1인지 확인 → 다항 시간.</li>
-<li><strong>NP-hard (Lemma 34.6):</strong> 증명은 매우 어려워 교재도 스케치만 제공한다(임의의 NP 문제의 검증 알고리즘을 다항 크기 회로로 컴파일). 이 문제가 도미노의 첫 패다.</li>
-</ul>
-</section>
-<section id="sat-circuit-sat-le_p-sat" class="level2" data-number="9.2">
-<h2 data-number="9.2" class="anchored" data-anchor-id="sat-circuit-sat-le_p-sat"><span class="header-section-number">9.2</span> SAT — CIRCUIT-SAT <img src="https://latex.codecogs.com/png.latex?%5Cle_P"> SAT</h2>
-<p><strong>문제:</strong> 임의의 불 식 <img src="https://latex.codecogs.com/png.latex?%5Cphi">가 충족 가능한가?</p>
-<ul>
-<li><strong>NP:</strong> 변수에 값을 대입해 평가하면 다항 시간.</li>
-<li><strong>환원:</strong> 회로 <img src="https://latex.codecogs.com/png.latex?C">의 각 와이어 <img src="https://latex.codecogs.com/png.latex?x_i">마다 변수 <img src="https://latex.codecogs.com/png.latex?x_i">를 두고, 각 게이트 동작을 작은 절로 표현해 그 논리곱을 <img src="https://latex.codecogs.com/png.latex?%5Cphi">로 만든다.</li>
-</ul>
-<p><strong>(<img src="https://latex.codecogs.com/png.latex?%5Crightarrow">)</strong> <img src="https://latex.codecogs.com/png.latex?C">에 충족 할당이 있으면 모든 와이어가 잘 정의된 값을 갖고 출력은 1. 각 절은 한 게이트의 입출력 와이어 값들로 구성되므로 모두 1로 평가되고, 논리곱 <img src="https://latex.codecogs.com/png.latex?%5Cphi">도 1.</p>
-<p><strong>(<img src="https://latex.codecogs.com/png.latex?%5Cleftarrow">)</strong> <img src="https://latex.codecogs.com/png.latex?%5Cphi">를 1로 만드는 할당이 있으면 모든 절이 1. 각 절이 게이트의 와이어 값을 강제하므로, 그 입력 변수 값을 <img src="https://latex.codecogs.com/png.latex?C">의 입력으로 주면 출력이 1이 된다. <img src="https://latex.codecogs.com/png.latex?%5Cquad%5Cblacksquare"></p>
-<section id="sec-operators" class="level3" data-number="9.2.1">
-<h3 data-number="9.2.1" class="anchored" data-anchor-id="sec-operators"><span class="header-section-number">9.2.1</span> 보조: 불 연산자와 화살표의 의미</h3>
-<p><strong>함의 <img src="https://latex.codecogs.com/png.latex?%5Cto"> (“<img src="https://latex.codecogs.com/png.latex?p">이면 <img src="https://latex.codecogs.com/png.latex?q">”):</strong> 거짓이 되는 경우는 <img src="https://latex.codecogs.com/png.latex?1%20%5Cto%200"> 하나뿐이고, <strong>전건이 거짓이면 자동으로 참</strong>이다(공허하게 참).</p>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th style="text-align: center;"><img src="https://latex.codecogs.com/png.latex?p"></th>
-<th style="text-align: center;"><img src="https://latex.codecogs.com/png.latex?q"></th>
-<th style="text-align: center;"><img src="https://latex.codecogs.com/png.latex?p%20%5Cto%20q"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: center;">1</td>
-<td style="text-align: center;">1</td>
-<td style="text-align: center;">1</td>
-</tr>
-<tr class="even">
-<td style="text-align: center;">1</td>
-<td style="text-align: center;">0</td>
-<td style="text-align: center;">0</td>
-</tr>
-<tr class="odd">
-<td style="text-align: center;">0</td>
-<td style="text-align: center;">1</td>
-<td style="text-align: center;">1</td>
-</tr>
-<tr class="even">
-<td style="text-align: center;">0</td>
-<td style="text-align: center;">0</td>
-<td style="text-align: center;">1</td>
-</tr>
-</tbody>
-</table>
-<p>직관: <img src="https://latex.codecogs.com/png.latex?p%20%5Cto%20q%20%5Cequiv%20%5Cneg%20p%20%5Clor%20q">. 또는 “약속” — <img src="https://latex.codecogs.com/png.latex?p">가 일어나지 않으면 약속을 어길 기회가 없으니 참.</p>
-<p><strong>쌍조건 <img src="https://latex.codecogs.com/png.latex?%5Cleftrightarrow"> (“서로 같으면 참”):</strong> <img src="https://latex.codecogs.com/png.latex?p%20%5Cleftrightarrow%20q">는 두 값이 같을 때 1.</p>
-<p><strong>예제 평가.</strong> <img src="https://latex.codecogs.com/png.latex?%5Cphi%20=%20%5Cbig((x_1%20%5Cto%20x_2)%20%5Clor%20%5Cneg(%5Cneg%20x_1%20%5Cleftrightarrow%20x_3)%20%5Clor%20x_4%5Cbig)%20%5Cland%20%5Cneg%20x_2">, 대입 <img src="https://latex.codecogs.com/png.latex?x_1%7B=%7D0,%20x_2%7B=%7D0,%20x_3%7B=%7D1,%20x_4%7B=%7D1">.</p>
-<ul>
-<li><img src="https://latex.codecogs.com/png.latex?x_1%20%5Cto%20x_2%20=%200%20%5Cto%200%20=%201"> (전건이 거짓이라 공허하게 참).</li>
-<li><img src="https://latex.codecogs.com/png.latex?%5Cneg(%5Cneg%20x_1%20%5Cleftrightarrow%20x_3)%20=%20%5Cneg(1%20%5Cleftrightarrow%201)%20=%20%5Cneg%201%20=%200">.</li>
-<li><img src="https://latex.codecogs.com/png.latex?x_4%20=%201">.</li>
-<li>안쪽 OR: <img src="https://latex.codecogs.com/png.latex?1%20%5Clor%200%20%5Clor%201%20=%201">.</li>
-<li><img src="https://latex.codecogs.com/png.latex?%5Cneg%20x_2%20=%201">.</li>
-<li><img src="https://latex.codecogs.com/png.latex?%5Cphi%20=%201%20%5Cland%201%20=%201"> → <strong>참</strong>.</li>
-</ul>
-<p>화살표 <img src="https://latex.codecogs.com/png.latex?0%20%5Cto%200%20=%201">이 이 식을 떠받치는 핵심 단계다.</p>
-</section>
-</section>
-<section id="cnf-sat-sat-le_p-3-cnf-sat-theorem-34.10" class="level2" data-number="9.3">
-<h2 data-number="9.3" class="anchored" data-anchor-id="cnf-sat-sat-le_p-3-cnf-sat-theorem-34.10"><span class="header-section-number">9.3</span> 3-CNF-SAT — SAT <img src="https://latex.codecogs.com/png.latex?%5Cle_P"> 3-CNF-SAT (Theorem 34.10)</h2>
-<p><strong>3-CNF:</strong> 정확히 3개 리터럴의 OR로 된 절들의 AND. 예: <img src="https://latex.codecogs.com/png.latex?(x_1%20%5Clor%20%5Cneg%20x_1%20%5Clor%20%5Cneg%20x_2)%20%5Cland%20(x_3%20%5Clor%20x_2%20%5Clor%20x_4)%20%5Cland%20(%5Cneg%20x_1%20%5Clor%20%5Cneg%20x_3%20%5Clor%20%5Cneg%20x_4)">.</p>
-<ul>
-<li><strong>NP:</strong> SAT가 NP에 속하는 논증이 그대로 적용된다.</li>
-<li><strong>환원:</strong> 임의의 <img src="https://latex.codecogs.com/png.latex?%5Cphi">를 충족성이 보존되는 3-CNF 식 <img src="https://latex.codecogs.com/png.latex?%5Cphi'">로 구성(파스 트리 → 절당 3리터럴로 절단 → 보조 변수로 길이 맞춤).</li>
-</ul>
-<p><strong>Theorem 34.10.</strong> 3-CNF 충족성은 NP-완전이다.</p>
-</section>
-<section id="clique-3-cnf-sat-le_p-clique" class="level2" data-number="9.4">
-<h2 data-number="9.4" class="anchored" data-anchor-id="clique-3-cnf-sat-le_p-clique"><span class="header-section-number">9.4</span> CLIQUE — 3-CNF-SAT <img src="https://latex.codecogs.com/png.latex?%5Cle_P"> CLIQUE</h2>
-<p><strong>클리크:</strong> 무향 그래프 <img src="https://latex.codecogs.com/png.latex?G=(V,E)">에서 모든 쌍이 간선으로 연결된 정점 부분집합(완전 부분그래프). <strong>결정 문제:</strong> 크기 <img src="https://latex.codecogs.com/png.latex?k">의 클리크가 존재하는가?</p>
-<ul>
-<li><strong>NP:</strong> 인증서 <img src="https://latex.codecogs.com/png.latex?V'">의 모든 쌍이 간선인지 확인 → 다항 시간.</li>
-</ul>
-<p><strong>환원.</strong> <img src="https://latex.codecogs.com/png.latex?%5Cphi%20=%20C_1%20%5Cland%20%5Cdots%20%5Cland%20C_k">, <img src="https://latex.codecogs.com/png.latex?C_r%20=%20(l_1%5Er%20%5Clor%20l_2%5Er%20%5Clor%20l_3%5Er)">.</p>
-<ul>
-<li><strong>정점:</strong> 각 절 <img src="https://latex.codecogs.com/png.latex?C_r">의 세 리터럴에 대응하는 삼중쌍 <img src="https://latex.codecogs.com/png.latex?v_1%5Er,%20v_2%5Er,%20v_3%5Er"> (총 <img src="https://latex.codecogs.com/png.latex?3k">개).</li>
-<li><strong>간선:</strong> <img src="https://latex.codecogs.com/png.latex?v_i%5Er">과 <img src="https://latex.codecogs.com/png.latex?v_j%5Es">를 잇는다 <img src="https://latex.codecogs.com/png.latex?%5Ciff"> (1) 다른 삼중쌍(<img src="https://latex.codecogs.com/png.latex?r%20%5Cneq%20s">) <strong>그리고</strong> (2) 두 리터럴이 모순되지 않음(<img src="https://latex.codecogs.com/png.latex?l_i%5Er">이 <img src="https://latex.codecogs.com/png.latex?l_j%5Es">의 부정이 아님).</li>
-</ul>
-<p>목표 클리크 크기는 <img src="https://latex.codecogs.com/png.latex?k">. 그래프는 <img src="https://latex.codecogs.com/png.latex?O((3k)%5E2)">에 구성된다.</p>
-<p><strong>(<img src="https://latex.codecogs.com/png.latex?%5Crightarrow">)</strong> <img src="https://latex.codecogs.com/png.latex?%5Cphi">가 충족되면 각 절에 1로 평가되는 리터럴이 있다. 각 절에서 그런 리터럴의 정점을 하나씩 골라 <img src="https://latex.codecogs.com/png.latex?V'">(<img src="https://latex.codecogs.com/png.latex?k">개)을 만든다. <img src="https://latex.codecogs.com/png.latex?V'">의 두 정점 <img src="https://latex.codecogs.com/png.latex?v_i%5Er,%20v_j%5Es">(<img src="https://latex.codecogs.com/png.latex?r%20%5Cneq%20s">)는 둘 다 1로 평가되므로 서로의 부정일 수 없고(동시에 1일 수 없으면 <strong>모순</strong>), 따라서 간선 조건을 만족 → 간선 존재 → <img src="https://latex.codecogs.com/png.latex?V'">은 클리크.</p>
-<p><strong>(<img src="https://latex.codecogs.com/png.latex?%5Cleftarrow">)</strong> <img src="https://latex.codecogs.com/png.latex?G">에 크기 <img src="https://latex.codecogs.com/png.latex?k"> 클리크 <img src="https://latex.codecogs.com/png.latex?V'">이 있으면, 같은 삼중쌍 안엔 간선이 없으므로 <img src="https://latex.codecogs.com/png.latex?V'">은 각 삼중쌍에서 정확히 하나의 정점을 포함한다. <img src="https://latex.codecogs.com/png.latex?v_i%5Er%20%5Cin%20V'">인 리터럴에 1을 부여하면, 모순 리터럴 사이에 간선이 없으므로 일관된 할당이 가능하고 각 절이 만족 → <img src="https://latex.codecogs.com/png.latex?%5Cphi"> 충족. <img src="https://latex.codecogs.com/png.latex?%5Cquad%5Cblacksquare"></p>
-<blockquote class="blockquote">
-<p><strong>제한된 그래프 논점:</strong> 우리는 특수 구조(삼중쌍, 같은 삼중쌍 내 간선 없음)의 그래프만 만들었지만, 일반 그래프용 다항 알고리즘이 있다면 이 특수 사례도 풀 것이므로 일반 그래프에서의 NP-hard성이 따라온다.</p>
-</blockquote>
-</section>
-<section id="vertex-cover-clique-le_p-vertex-cover" class="level2" data-number="9.5">
-<h2 data-number="9.5" class="anchored" data-anchor-id="vertex-cover-clique-le_p-vertex-cover"><span class="header-section-number">9.5</span> VERTEX-COVER — CLIQUE <img src="https://latex.codecogs.com/png.latex?%5Cle_P"> VERTEX-COVER</h2>
-<p><strong>정점 덮개:</strong> 모든 간선 <img src="https://latex.codecogs.com/png.latex?(u,v)">에 대해 <img src="https://latex.codecogs.com/png.latex?u%20%5Cin%20V'"> 또는 <img src="https://latex.codecogs.com/png.latex?v%20%5Cin%20V'">인 부분집합 <img src="https://latex.codecogs.com/png.latex?V'">. <strong>결정 문제:</strong> 크기 <img src="https://latex.codecogs.com/png.latex?k">의 정점 덮개가 존재하는가?</p>
-<ul>
-<li><strong>NP:</strong> 인증서 <img src="https://latex.codecogs.com/png.latex?V'">에 대해 <img src="https://latex.codecogs.com/png.latex?%5Clvert%20V'%5Crvert%20=%20k">, 각 간선이 덮이는지 확인 → <img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert%5C,%5Clvert%20E%5Crvert)">.</li>
-</ul>
-<p><strong>환원.</strong> <img src="https://latex.codecogs.com/png.latex?G=(V,E)">의 여그래프 <img src="https://latex.codecogs.com/png.latex?%5Cbar%20G%20=%20(V,%20%5Cbar%20E)">, <img src="https://latex.codecogs.com/png.latex?%5Cbar%20E%20=%20%5C%7B(u,v):%20u%5Cneq%20v,%5C%20(u,v)%5Cnotin%20E%5C%7D">. 입력 <img src="https://latex.codecogs.com/png.latex?(G,%20k)">를 <img src="https://latex.codecogs.com/png.latex?(%5Cbar%20G,%5C%20%5Clvert%20V%5Crvert%20-%20k)">로 변환(<img src="https://latex.codecogs.com/png.latex?O(%5Clvert%20V%5Crvert%5E2)">).</p>
-<p>보일 것: <img src="https://latex.codecogs.com/png.latex?G">가 크기 <img src="https://latex.codecogs.com/png.latex?k"> 클리크를 가짐 <img src="https://latex.codecogs.com/png.latex?%5Ciff"> <img src="https://latex.codecogs.com/png.latex?%5Cbar%20G">가 크기 <img src="https://latex.codecogs.com/png.latex?%5Clvert%20V%5Crvert%20-%20k"> 정점 덮개를 가짐.</p>
-<p><strong>(<img src="https://latex.codecogs.com/png.latex?%5Crightarrow">)</strong> <img src="https://latex.codecogs.com/png.latex?G">에 크기 <img src="https://latex.codecogs.com/png.latex?k"> 클리크 <img src="https://latex.codecogs.com/png.latex?V'">이 있다고 하자. <img src="https://latex.codecogs.com/png.latex?V'">이 클리크 ⟺ “<img src="https://latex.codecogs.com/png.latex?u,v%20%5Cin%20V'%20%5CRightarrow%20(u,v)%5Cin%20E">.” 대우는 “<img src="https://latex.codecogs.com/png.latex?(u,v)%5Cnotin%20E%20%5CRightarrow%20u%5Cnotin%20V'"> 또는 <img src="https://latex.codecogs.com/png.latex?v%5Cnotin%20V'">”, 즉 “<img src="https://latex.codecogs.com/png.latex?(u,v)%5Cin%20%5Cbar%20E%20%5CRightarrow%20u%20%5Cin%20V-V'"> 또는 <img src="https://latex.codecogs.com/png.latex?v%20%5Cin%20V-V'">.” 따라서 <img src="https://latex.codecogs.com/png.latex?V-V'">이 <img src="https://latex.codecogs.com/png.latex?%5Cbar%20G">의 모든 간선을 덮는다(크기 <img src="https://latex.codecogs.com/png.latex?%5Clvert%20V%5Crvert%20-%20k">).</p>
-<p><strong>(<img src="https://latex.codecogs.com/png.latex?%5Cleftarrow">)</strong> <img src="https://latex.codecogs.com/png.latex?%5Cbar%20G">에 크기 <img src="https://latex.codecogs.com/png.latex?%5Clvert%20V%5Crvert%20-%20k"> 덮개 <img src="https://latex.codecogs.com/png.latex?V'">이 있다고 하자. 덮개 ⟺ “<img src="https://latex.codecogs.com/png.latex?(u,v)%5Cin%20%5Cbar%20E%20%5CRightarrow%20u%5Cin%20V'"> 또는 <img src="https://latex.codecogs.com/png.latex?v%5Cin%20V'">.” 대우는 “<img src="https://latex.codecogs.com/png.latex?u%5Cnotin%20V'"> 그리고 <img src="https://latex.codecogs.com/png.latex?v%5Cnotin%20V'%20%5CRightarrow%20(u,v)%5Cnotin%20%5Cbar%20E">, 즉 <img src="https://latex.codecogs.com/png.latex?(u,v)%5Cin%20E">.” 따라서 <img src="https://latex.codecogs.com/png.latex?V-V'">의 두 정점은 <img src="https://latex.codecogs.com/png.latex?G">에서 항상 인접 → <img src="https://latex.codecogs.com/png.latex?V-V'">은 클리크(크기 <img src="https://latex.codecogs.com/png.latex?k">). <img src="https://latex.codecogs.com/png.latex?%5Cquad%5Cblacksquare"></p>
-</section>
-</section>
-<section id="부록-핵심-패턴-요약" class="level1" data-number="10">
-<h1 data-number="10"><span class="header-section-number">10</span> 부록: 핵심 패턴 요약</h1>
-<p><strong>NP-완전 증명 골격</strong></p>
-<ol type="1">
-<li><img src="https://latex.codecogs.com/png.latex?X%20%5Cin%20NP"> — 인증서 + 다항 검증.</li>
-<li><img src="https://latex.codecogs.com/png.latex?X">가 NP-hard — 알려진 NPC 문제 <img src="https://latex.codecogs.com/png.latex?Y">로부터 <img src="https://latex.codecogs.com/png.latex?Y%20%5Cle_P%20X"> 환원.
-<ul>
-<li><ol type="a">
-<li>다항 변환, (b) (<img src="https://latex.codecogs.com/png.latex?%5Crightarrow">) 완전성, (c) (<img src="https://latex.codecogs.com/png.latex?%5Cleftarrow">) 건전성.</li>
-</ol></li>
-</ul></li>
-<li>(필요 시) 특수 구조에서의 NP-hard성을 일반 사례로 확장.</li>
-</ol>
-<p><strong>환원 방향 규칙</strong></p>
-<ul>
-<li>어려움 증명: known-hard <img src="https://latex.codecogs.com/png.latex?%5Cto"> yours (yours가 <img src="https://latex.codecogs.com/png.latex?%5Cle_P">의 오른쪽).</li>
-<li>쉬움 증명: yours <img src="https://latex.codecogs.com/png.latex?%5Cto"> known-easy (yours가 <img src="https://latex.codecogs.com/png.latex?%5Cle_P">의 왼쪽).</li>
-<li>어려움은 <img src="https://latex.codecogs.com/png.latex?%5Cle_P">를 따라 오른쪽으로, 쉬움은 왼쪽으로 흐른다.</li>
-</ul>
-<p><strong>논리 항등식</strong></p>
-<ul>
-<li><img src="https://latex.codecogs.com/png.latex?p%20%5Cto%20q%20%5Cequiv%20%5Cneg%20p%20%5Clor%20q"> (전건 거짓이면 공허하게 참).</li>
-<li><img src="https://latex.codecogs.com/png.latex?P%20%5Cleftrightarrow%20Q%20%5Cequiv%20%5Cneg%20P%20%5Cleftrightarrow%20%5Cneg%20Q"> (yes↔︎yes 증명이 no↔︎no를 포함).</li>
-<li><img src="https://latex.codecogs.com/png.latex?(P%20%5Cto%20Q)%20%5Cequiv%20(%5Cneg%20Q%20%5Cto%20%5Cneg%20P)"> (대우).</li>
-</ul>
-
-
-</section>
-
- ]]></description>
-  <guid>https://dreamian.github.io/study/algorithm/np-completeness.html</guid>
-  <pubDate>Fri, 05 Jun 2026 15:00:00 GMT</pubDate>
 </item>
 </channel>
 </rss>

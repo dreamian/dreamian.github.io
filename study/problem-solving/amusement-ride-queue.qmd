@@ -1,0 +1,391 @@
+---
+title: "놀이기구 대기열 시뮬레이션 — 상태 변수의 불변식이 무너질 때"
+categories: [SWEA, Simulation, Priority Queue, Debugging]
+description: "우선순위 큐 기반 놀이기구 대기열 문제를 풀며, 상태 변수 end_time의 의미를 고정하지 않아 발생한 '유령 운행' 버그와 두 버그의 상쇄 현상을 기록한다."
+date: "2026-07-10"
+---
+
+## 1. 문제 요약
+
+놀이공원에 $N$개의 놀이기구가 있고, 각 놀이기구 $i$는 1회 운행시간 $T_i$와 1회 수용인원 $C_i$를 갖는다. 동작 규칙은 다음과 같다.
+
+1. 대기자가 없으면 놀이기구는 운행을 시작하지 않는다.
+2. 운행 중이 아닌 놀이기구에 시각 $X$에 대기자가 추가되면, 시각 $X$에 운행을 시작한다.
+3. 시각 $X$에 시작한 운행은 $X+T$에 종료한다. 종료 시점에 대기자가 1명 이상이면 즉시 재출발하며, $X+T$에 도착한 사람도 이 재출발에 탑승할 수 있다.
+4. 운행 시작 시 대기자가 $C$명 이하면 전원 탑승, 초과면 우선순위가 높은 순으로 $C$명이 탑승한다.
+
+구현해야 하는 API는 세 가지다.
+
+- `init(N, mId[], mDuration[], mCapacity[])`: 시각 0에 호출. 놀이기구 정보 초기화.
+- `add(tStamp, mId, mNum, mPriority)`: 시각 `tStamp`에 우선순위 `mPriority`인 대기자 `mNum`명 추가. 이 시각에 운행을 시작해야 하면 방금 추가된 인원까지 포함해 탑승 처리 후, 남은 대기자 중 최고 우선순위를 반환(없으면 0).
+- `search(tStamp, mCount, mId[], mWait[])`: 시각 `tStamp` 기준 대기 인원수 내림차순(동률 시 ID 내림차순)으로 상위 `mCount`개를 반환. 이 시각에 탑승하는 인원은 대기에서 제외해야 한다.
+
+제약: $3 \le N \le 100$, $1 \le T, C \le 100$, $1 \le \text{tStamp} < 10^8$, $1 \le \text{mNum} \le 100$, $1 \le \text{mPriority} \le 10^4$.
+
+## 2. 설계
+
+### 2.1 이벤트 기반이 아닌 지연 평가(lazy evaluation)
+
+시각이 $10^8$까지 가므로 시간을 1씩 전진시키는 시뮬레이션은 불가능하다. 대신 각 놀이기구의 상태를 **마지막 갱신 이후 방치**해 두었다가, `add`나 `search`로 해당 놀이기구를 건드리는 순간 경과 시간만큼의 운행을 일괄 정산하는 지연 평가 방식을 택했다.
+
+각 놀이기구가 유지하는 상태는 다음과 같다.
+
+- `end_time`: 마지막으로 **실제 승객을 태운 운행**의 종료 시각. 한 번도 운행한 적 없으면 $-1$.
+- `pque`: (인원수, 우선순위) 쌍을 담는 최대 힙. 같은 `add`로 들어온 인원은 우선순위가 같으므로 한 노드로 묶어 저장하고, 부분 탑승 시 노드의 `count`만 감소시킨다.
+- `tot_cnt`: 힙 전체의 대기 인원 합. `search`의 랭킹 계산이 $O(1)$이 되도록 push/pop 시 함께 유지한다.
+
+::: {.callout-note}
+## 노드 묶음 저장의 이점
+
+인원을 1명 단위로 힙에 넣으면 노드 수가 (add 횟수) × (mNum 최대 100)까지 불어난다. (count, priority) 쌍으로 묶으면 힙 크기가 add 횟수에만 비례하고, 부분 탑승은 루트 노드의 count 필드를 직접 깎는 것으로 처리된다. 우선순위 값 자체는 변하지 않으므로 힙 성질(heap property)은 그대로 유지된다.
+:::
+
+### 2.2 정산의 2단계 분리: `flush_queue`와 `board_now`
+
+핵심 설계 결정은 시각 정산을 두 함수로 분리한 것이다.
+
+**`flush_queue` — 과거의 재출발들을 일괄 정산.** `end_time < cur_time`이면 그 사이에 규칙 3의 재출발이 여러 번 일어났을 수 있다. 시간상 가능한 운행 횟수는
+
+$$
+\text{factor} = \left\lceil \frac{\text{cur\_time} - \text{end\_time}}{T} \right\rceil
+$$
+
+이고, 대기 인원을 전부 소진하는 데 필요한 횟수는
+
+$$
+\text{need} = \left\lceil \frac{\text{tot\_cnt}}{C} \right\rceil
+$$
+
+이다. 실제 운행 횟수는 $\text{runs} = \min(\text{factor}, \text{need})$ — 대기자가 떨어지는 순간 놀이기구는 멈추기 때문이다. `runs × C`명만큼 힙에서 우선순위 순으로 태우고 `end_time += T × runs`로 전진시킨다.
+
+**`board_now` — 현재 시각의 출발 처리.** 정산이 끝난 뒤에도 운행 중이 아니고 대기자가 있다면, 규칙 2에 따라 지금 즉시 출발한다. $C$명을 태우고 `end_time = cur_time + T`로 **대입**한다. idle 구간을 거친 뒤의 출발이므로 `+=`가 아니라 `=`이어야 한다.
+
+`add`는 `flush_queue → push → board_now` 순서로 호출한다. 이 순서 덕분에 "tStamp에 출발해야 하는 경우 방금 추가된 인원도 탑승 대상"이라는 요구가 자동으로 만족된다. `search`도 모든 놀이기구에 `flush_queue → board_now`를 적용한 뒤 `tot_cnt`로 랭킹을 계산하면, "tStamp에 탑승하는 인원은 대기에서 제외"라는 요구가 별도 처리 없이 만족된다.
+
+## 3. 디버깅 기록: 유령 운행 모델
+
+첫 제출본은 샘플을 통과했지만 오답이었다. 원인은 하나의 뿌리에서 나온 두 개의 갱신 오류였고, 흥미롭게도 둘이 서로를 부분적으로 상쇄하고 있었다.
+
+### 3.1 무엇이 틀렸나
+
+첫 버전의 `flush_queue`는 다음과 같이 끝났다.
+
+```cpp
+end_time += duration * factor;
+```
+
+대기 큐가 factor회분보다 일찍 비어도 factor회를 통째로 전진시킨다. 즉 **"첫 탑승 이후 놀이기구가 대기자 유무와 무관하게 영원히 쉬지 않고 돈다"**는 모델을 암묵적으로 가정한 것이다. 규칙 1·3의 "재출발 시점에 대기자가 없으면 정지"가 상태 갱신에 반영되지 않았다.
+
+한편 현재 시각의 탑승 블록은 이렇게 끝났다.
+
+```cpp
+if (pque.size != 0) end_time += duration;
+```
+
+이것은 두 방향으로 동시에 틀렸다. 첫째, 조건의 방향이 반대다. 판단 기준은 "탑승 후 남은 대기자"가 아니라 "이번에 태운 인원이 있었는가"여야 한다. 1명이라도 태웠다면 잔여 큐가 비었더라도 운행은 시작된 것이다. 둘째, idle을 거친 출발이므로 `+= duration`이 아니라 `= cur_time + duration` 대입이어야 한다.
+
+### 3.2 왜 샘플은 통과했나 — 버그의 상쇄
+
+두 오류는 반대 방향으로 작용한다. 탑승 블록이 전진시키지 **않은** `end_time`을, 다음 `flush_queue`의 ceil 연산이 **과하게** 메꿔준다. 그 결과 idle 간격이 $T$ 미만인 시퀀스에서는 두 오차가 정확히 상쇄되어 정답이 나온다. 샘플 케이스가 이 범위 안에 있었던 것이다.
+
+::: {.callout-warning}
+## 상쇄되는 버그 쌍
+
+버그 두 개가 서로를 가리는 경우, 어느 한쪽만 고치면 오히려 이전보다 더 많은 케이스가 틀릴 수 있다. "일부 수정 후 점수 하락"은 수정이 잘못됐다는 신호가 아니라, 가려져 있던 나머지 버그가 드러났다는 신호일 수 있다.
+:::
+
+### 3.3 반례 트레이스
+
+$T=10$, $C=5$인 놀이기구 1대로 두 모델이 갈라지는 최소 반례를 손으로 따라가 보자.
+
+| 호출 | 정답 동작 | 버그 버전의 동작 |
+|---|---|---|
+| `add(t=1, num=3, pri=100)` | 3명 즉시 탑승, 운행 $[1,11)$, 반환 0 | 탑승 후 큐가 비어 `end_time=1`에 머무름. 반환 0 (우연히 일치) |
+| `add(t=5, num=2, pri=50)` | 운행 중이므로 대기, 반환 50 | flush에서 $\text{factor}=\lceil 4/10 \rceil = 1$ → `end_time=11`. 대기, 반환 50 (상쇄로 우연히 일치) |
+| `add(t=30, num=2, pri=70)` | $t=11$에 2명 탑승 후 $[11,21)$ 운행, 이후 idle. $t=30$에 신규 2명 즉시 탑승, **반환 0** | flush에서 $\text{factor}=\lceil 19/10 \rceil = 2$ → `end_time=11+20=31`. $31 > 30$이라 "운행 중"으로 오판, 신규 2명 대기, **반환 70** |
+
+세 번째 호출에서 갈라지는 조건은 **idle 간격이 한 주기 $T$를 넘는 것**이다. 수정 버전으로 재검증하면: flush에서 $\text{factor}=2$, $\text{need}=\lceil 2/5 \rceil = 1$ → $\text{runs}=1$, 2명 탑승 후 `end_time=21`. 이어서 `board_now`가 $21 \le 30$이므로 신규 2명을 태우고 `end_time=40`, 반환 0. 정답과 일치한다.
+
+### 3.4 함께 잡은 버그들
+
+**동률 비교의 인덱스 오타 + 범위 밖 읽기.** `search`의 랭킹 삽입에서
+
+```cpp
+bool cond2 = (rides[i].pque.tot_cnt == mWait[j]) && (rides[i].id > mId[i]);  // 오타
+```
+
+`mId[i]`는 `mId[j]`여야 한다. 비교 대상은 현재 랭킹 슬롯 $j$다. 더 심각한 것은 `i`가 놀이기구 루프 변수라 최대 99까지 가는데 `mId`는 채점부가 넘겨주는 크기 약 10짜리 배열이라는 점 — $i \ge 10$이면 out-of-bounds read, 즉 미정의 동작이다.
+
+**`factor × cap`의 int 오버플로.** $\text{tStamp} < 10^8$, $T=1$이면 factor가 약 $10^8$까지 가능하고 $C \le 100$이므로 곱이 최대 약 $10^{10}$으로 int 범위를 넘는다. $\text{runs} = \min(\text{factor}, \text{need})$로 클램프하면 $\text{runs} \times C < \text{tot\_cnt} + C$가 보장되어, 논리 수정이 오버플로까지 함께 해결한다.
+
+::: {.callout-tip}
+## 논리적 클램프가 수치적 안전을 겸하는 패턴
+
+"의미상 필요한 만큼만 계산한다"는 수정이 오버플로 방지를 부수 효과로 제공하는 경우가 있다. runs를 need로 제한하는 것은 시뮬레이션 정확성을 위한 것이지만, 동시에 곱셈의 상한을 대기 인원 규모로 묶어 준다. 별도의 long long 캐스팅 없이 문제가 사라진다.
+:::
+
+## 4. 복잡도 분석
+
+`add` 호출 횟수를 $Q$라 하면 힙 크기는 최대 $Q$이다.
+
+- `add`: 선형 탐색 `get_ride_id`가 $O(N)$, push가 $O(\log Q)$. flush/board의 pop들은 상각(amortized)으로 계산해야 한다 — 각 힙 노드는 한 번 push되고 최대 한 번 pop되므로, 전체 실행에서 pop 비용의 총합은 $O(Q \log Q)$이다.
+- `search`: 놀이기구별 flush/board 후, `tot_cnt`가 유지되므로 랭킹 계산은 놀이기구당 $O(\text{mCount})$. 호출당 $O(N \cdot \text{mCount})$에 pop의 상각 비용이 더해진다.
+
+전체: $O\big((Q + S) \cdot N + Q \log Q\big)$, 여기서 $S$는 search 호출 횟수. $N \le 100$, mCount $\le 10$ 규모에서 충분히 여유 있다.
+
+## 5. 교훈
+
+**상태 변수의 불변식을 코드보다 먼저 한 줄로 적어라.** 이번 오류의 뿌리는 `end_time`의 의미를 고정하지 않은 채 갱신 코드를 호출 지점마다 흩어 쓴 것이다. "`end_time` = 실제로 승객을 태운 마지막 운행의 종료 시각"이라고 먼저 정의했다면, 큐가 비어도 전진시키는 `+= duration * factor`와 태웠는데도 전진하지 않는 `if (size != 0)`이 정의 위반임이 코딩 단계에서 보였을 것이다.
+
+**"과거 정산"과 "현재 시각 처리"를 분리하라.** 지연 평가 시뮬레이션에서 하나의 함수가 둘을 겸하면 `+=`와 `=`의 구분, ceil의 적용 범위 같은 경계 조건이 얽힌다. `flush_queue`(과거, 상대 전진)와 `board_now`(현재, 절대 대입)로 나누자 각 함수의 사후 조건이 단순해졌고, `search`의 "tStamp 탑승 인원 제외" 요구도 별도 코드 없이 만족됐다.
+
+**스트레스 테스트 생성기에 시간 간격을 지수적으로 벌린 시퀀스를 포함하라.** 상쇄되는 버그 쌍은 균등 랜덤 케이스로는 잘 드러나지 않는다. 이번 버그의 발현 조건이 "idle 간격 > 한 주기"였듯, 시뮬레이션 문제의 브루트포스 교차검증에서는 시각 파라미터를 좁게도, 넓게도(간격 $1, 2, 4, \dots, 10^7$) 뿌리는 케이스를 의도적으로 섞어야 한다.
+
+## Codes
+
+```cpp
+#define MAX_RIDES   (100)
+#define MAX_SIZE    (10'000)
+
+int cur_time;
+
+struct HeapArgument {
+    int count;
+    int priority;
+
+    HeapArgument()
+    {}
+
+    HeapArgument(int _c, int _p) {
+        count = _c;
+        priority = _p;
+    }
+
+    bool operator > (const HeapArgument& Other) {
+        return (priority > Other.priority);
+    }
+};
+
+struct Heap {
+    HeapArgument heap[MAX_SIZE];
+    int size;
+    int tot_cnt;
+
+    void init() {
+        size = 0;
+        tot_cnt = 0;
+    }
+
+    void push(HeapArgument arg) {
+        heap[size] = arg;
+        tot_cnt += arg.count;
+
+        int current = size;
+        while (current > 0 && heap[current] > heap[(current - 1) / 2]) 
+        {
+            auto temp = heap[(current - 1) / 2];
+            heap[(current - 1) / 2] = heap[current];
+            heap[current] = temp;
+            current = (current - 1) / 2;
+        }
+
+        ++size;
+    }
+
+    HeapArgument pop()
+    {
+        auto ret = heap[0];
+        tot_cnt -= ret.count;
+        --size;
+
+        heap[0] = heap[size];
+
+        int current = 0;
+        while (current * 2 + 1 < size)
+        {
+            int child;
+            if (current * 2 + 2 == size)
+            {
+                child = current * 2 + 1;
+            }
+            else
+            {
+                child = heap[current * 2 + 1] > heap[current * 2 + 2] ? current * 2 + 1 : current * 2 + 2;
+            }
+
+            if (heap[current] > heap[child])
+            {
+                break;
+            }
+
+            auto temp = heap[current];
+            heap[current] = heap[child];
+            heap[child] = temp;
+
+            current = child;
+        }
+        return ret;
+    }
+};
+
+int n_rides;
+struct Rides {
+    int id;
+    int duration;
+    int cap;
+    int end_time;
+
+    bool is_on_operation() {
+        return (end_time > cur_time);
+    }
+
+    int get_highest_pri() {
+        if(pque.size == 0) return 0;
+        return pque.heap[0].priority;
+    }
+
+    void flush_queue() {
+        if (end_time == -1) {
+            return;
+        }
+        if (is_on_operation()) {
+            return;
+        }
+        if (pque.size == 0) {
+            return;
+        }
+
+        int factor = (cur_time - end_time + duration - 1) / duration;
+        int need = (pque.tot_cnt + cap - 1) / cap;
+        int runs = factor < need ? factor : need;
+        int tot_cap = runs * cap;
+
+        int cnt = 0;
+        while (tot_cap > cnt) {
+            if (pque.size == 0) {
+                break;
+            }
+            int t_cnt = pque.heap[0].count;
+            if (t_cnt + cnt <= tot_cap) {
+                cnt += t_cnt;
+                pque.pop();
+            }
+            else {
+                pque.heap[0].count -= (tot_cap - cnt);
+                pque.tot_cnt -= (tot_cap - cnt);
+                break;
+            }
+        }
+
+        end_time += duration * runs;
+    }
+
+    void board_now() {
+        if (is_on_operation()) {
+            return;
+        }
+        if (pque.size == 0) {
+            return;
+        }
+
+        int cnt = 0;
+        while (cap > cnt) {
+            if (pque.size == 0) {
+                break;
+            }
+            int t_cnt = pque.heap[0].count;
+            if (t_cnt + cnt <= cap) {
+                cnt += t_cnt;
+                pque.pop();
+            }
+            else {
+                pque.heap[0].count -= (cap - cnt);
+                pque.tot_cnt -= (cap - cnt);
+                break;
+            }
+        }
+
+        end_time = cur_time + duration;
+    }
+
+    Heap pque;
+} rides[MAX_RIDES];
+
+void init(int N, int mId[], int mDuration[], int mCapacity[]) {
+	cur_time = 0;
+
+    n_rides = N;
+    for(int i = 0; i < n_rides; ++i) {
+        rides[i].id = mId[i];
+        rides[i].duration = mDuration[i];
+        rides[i].cap = mCapacity[i];
+        rides[i].pque.init();
+        rides[i].end_time = -1;
+    }
+
+    return;
+}
+
+int get_ride_id(int m_id) {
+    for(int i = 0; i < n_rides; ++i) {
+        if(rides[i].id == m_id) return i;
+    }
+
+    return -1;
+}
+
+int add(int tStamp, int mId, int mNum, int mPriority) {
+	cur_time = tStamp;
+    
+    HeapArgument arg(mNum, mPriority);
+
+    int r_id = get_ride_id(mId);
+    auto& target = rides[r_id];
+
+    target.flush_queue();
+    target.pque.push(arg);
+
+    if(target.end_time == -1) {
+        target.end_time = cur_time;
+    }
+
+    target.board_now();
+
+    return target.get_highest_pri();
+}
+
+void search(int tStamp, int mCount, int mId[], int mWait[]) {
+	cur_time = tStamp;
+
+    for(int i = 0; i < n_rides; ++i) {
+        rides[i].flush_queue();
+        rides[i].board_now();
+    }
+
+    for(int i = 0; i < 10; ++i) {
+        mId[i] = mWait[i] = -1;
+    }
+
+    for(int i = 0; i < n_rides; ++i) {
+        int j = mCount - 1;
+        for(;j >= 0;) {
+            bool cond1 = (rides[i].pque.tot_cnt > mWait[j]);
+            bool cond2 = (rides[i].pque.tot_cnt == mWait[j]) && (rides[i].id > mId[j]);
+            if(cond1 || cond2) {
+                --j;
+            }
+            else break;
+        }
+        for(int k = mCount - 2; k >= j + 1; --k) {
+            mId[k + 1] = mId[k];
+            mWait[k + 1] = mWait[k];
+        }
+        if(j + 1 <= mCount - 1) {
+            mId[j + 1] = rides[i].id;
+            mWait[j + 1] = rides[i].pque.tot_cnt;
+        }
+    }
+
+    return;
+}
+```
