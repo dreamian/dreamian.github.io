@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.35">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-07-14">
+<meta name="description" content="삽입·삭제·최솟값·최댓값·lower_bound를 모두 기대 O(log N)에 지원하는 Treap을 반복문으로 구현하고, 오픈 어드레싱 해시 테이블과 결합하여 성적 관리 시스템 문제를 해결한 과정을 정리한다.">
+
+<title>Treap으로 풀어보는 성적 관리 시스템 – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-46f66b053e56abd73bb6e954d61a315b.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-da17d83626a3727898eb25bb9d1cdf08.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/random-signal-theory/index.html">
+ <span class="dropdown-text">Random Signal Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../docs/research/papers/index.html">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#문제-개요" id="toc-문제-개요" class="nav-link active" data-scroll-target="#문제-개요">1. 문제 개요</a></li>
+  <li><a href="#문제-환원" id="toc-문제-환원" class="nav-link" data-scroll-target="#문제-환원">2. 문제 환원</a></li>
+  <li><a href="#자료구조-선택" id="toc-자료구조-선택" class="nav-link" data-scroll-target="#자료구조-선택">3. 자료구조 선택</a>
+  <ul class="collapse">
+  <li><a href="#기각된-대안들" id="toc-기각된-대안들" class="nav-link" data-scroll-target="#기각된-대안들">3.1 기각된 대안들</a></li>
+  <li><a href="#treap을-선택한-이유" id="toc-treap을-선택한-이유" class="nav-link" data-scroll-target="#treap을-선택한-이유">3.2 Treap을 선택한 이유</a></li>
+  </ul></li>
+  <li><a href="#treap의-원리" id="toc-treap의-원리" class="nav-link" data-scroll-target="#treap의-원리">4. Treap의 원리</a>
+  <ul class="collapse">
+  <li><a href="#두-개의-불변식" id="toc-두-개의-불변식" class="nav-link" data-scroll-target="#두-개의-불변식">4.1 두 개의 불변식</a></li>
+  <li><a href="#회전" id="toc-회전" class="nav-link" data-scroll-target="#회전">4.2 회전</a></li>
+  </ul></li>
+  <li><a href="#구현-설계" id="toc-구현-설계" class="nav-link" data-scroll-target="#구현-설계">5. 구현 설계</a>
+  <ul class="collapse">
+  <li><a href="#노드-풀-포인터-대신-평행-배열" id="toc-노드-풀-포인터-대신-평행-배열" class="nav-link" data-scroll-target="#노드-풀-포인터-대신-평행-배열">5.1 노드 풀: 포인터 대신 평행 배열</a></li>
+  <li><a href="#난수-우선순위" id="toc-난수-우선순위" class="nav-link" data-scroll-target="#난수-우선순위">5.2 난수 우선순위</a></li>
+  <li><a href="#반복문-삽입-path-스택" id="toc-반복문-삽입-path-스택" class="nav-link" data-scroll-target="#반복문-삽입-path-스택">5.3 반복문 삽입: path 스택</a></li>
+  <li><a href="#반복문-삭제-회전으로-끌어내리기" id="toc-반복문-삭제-회전으로-끌어내리기" class="nav-link" data-scroll-target="#반복문-삭제-회전으로-끌어내리기">5.4 반복문 삭제: 회전으로 끌어내리기</a></li>
+  <li><a href="#질의-회전-없는-하강" id="toc-질의-회전-없는-하강" class="nav-link" data-scroll-target="#질의-회전-없는-하강">5.5 질의: 회전 없는 하강</a></li>
+  </ul></li>
+  <li><a href="#해시-테이블-id-학생-레코드" id="toc-해시-테이블-id-학생-레코드" class="nav-link" data-scroll-target="#해시-테이블-id-학생-레코드">6. 해시 테이블: ID → 학생 레코드</a></li>
+  <li><a href="#api-조립" id="toc-api-조립" class="nav-link" data-scroll-target="#api-조립">7. API 조립</a></li>
+  <li><a href="#검증-방법론" id="toc-검증-방법론" class="nav-link" data-scroll-target="#검증-방법론">8. 검증 방법론</a>
+  <ul class="collapse">
+  <li><a href="#불변식-검사기" id="toc-불변식-검사기" class="nav-link" data-scroll-target="#불변식-검사기">8.1 불변식 검사기</a></li>
+  <li><a href="#무작위-스트레스-브루트포스-대조" id="toc-무작위-스트레스-브루트포스-대조" class="nav-link" data-scroll-target="#무작위-스트레스-브루트포스-대조">8.2 무작위 스트레스 + 브루트포스 대조</a></li>
+  <li><a href="#api-레벨-대조" id="toc-api-레벨-대조" class="nav-link" data-scroll-target="#api-레벨-대조">8.3 API 레벨 대조</a></li>
+  </ul></li>
+  <li><a href="#이-문제에서-수집한-버그-패턴" id="toc-이-문제에서-수집한-버그-패턴" class="nav-link" data-scroll-target="#이-문제에서-수집한-버그-패턴">9. 이 문제에서 수집한 버그 패턴</a></li>
+  <li><a href="#마무리" id="toc-마무리" class="nav-link" data-scroll-target="#마무리">10. 마무리</a></li>
+  <li><a href="#codes" id="toc-codes" class="nav-link" data-scroll-target="#codes">Codes</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Treap으로 풀어보는 성적 관리 시스템</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">Algorithm</div>
+    <div class="quarto-category">Data Structure</div>
+    <div class="quarto-category">Treap</div>
+    <div class="quarto-category">Hash Table</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    삽입·삭제·최솟값·최댓값·lower_bound를 모두 기대 O(log N)에 지원하는 Treap을 반복문으로 구현하고, 오픈 어드레싱 해시 테이블과 결합하여 성적 관리 시스템 문제를 해결한 과정을 정리한다.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">July 14, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="문제-개요" class="level2">
+<h2 class="anchored" data-anchor-id="문제-개요">1. 문제 개요</h2>
+<p>성적 관리 시스템을 구현하는 문제다. 세 가지 API를 제공해야 한다.</p>
+<ul>
+<li><code>add(mId, mGrade, mGender, mScore)</code>: 학생을 추가하고, 같은 (학년, 성별) 그룹에서 점수가 가장 높은 학생의 ID를 반환한다. 동점이면 ID가 가장 큰 값을 반환한다.</li>
+<li><code>remove(mId)</code>: ID만 주어진 학생을 삭제하고, 같은 그룹에서 점수가 가장 낮은 학생의 ID를 반환한다. 동점이면 ID가 가장 작은 값이다. 학생이 없거나 그룹이 비면 0을 반환한다.</li>
+<li><code>query(...)</code>: 학년 집합과 성별 집합에 속하면서 점수가 <code>mScore</code> 이상인 학생 중, 점수가 가장 낮은 학생의 ID를 반환한다. 동점이면 ID 최소, 없으면 0이다.</li>
+</ul>
+<p>제약은 ID ≤ 10⁹, 점수 ≤ 300,000, 학년 1~3, 성별 2종이다. 삭제된 ID는 다시 추가될 수 있다.</p>
+</section>
+<section id="문제-환원" class="level2">
+<h2 class="anchored" data-anchor-id="문제-환원">2. 문제 환원</h2>
+<p>학년(3) × 성별(2) = 6개 그룹이 전부다. 각 API를 그룹 단위 연산으로 번역하면 다음과 같다.</p>
+<ul>
+<li><code>add</code> → 그룹에 삽입 후 그룹 내 최댓값</li>
+<li><code>remove</code> → ID로 그룹과 키를 찾아 삭제 후 그룹 내 최솟값</li>
+<li><code>query</code> → 선택된 그룹들(최대 6개)에서 임계값 이상의 최솟값</li>
+</ul>
+<p>여기서 핵심 트릭은 <strong>복합 키 패킹</strong>이다.</p>
+<p><span class="math display">\[\text{key} = (\text{score} \ll 30) \;|\; \text{id}\]</span></p>
+<p>ID ≤ 10⁹ &lt; 2³⁰이므로 하위 30비트에 ID가 정확히 들어가고, 전체 키는 약 49비트로 64비트 정수에 안전하게 담긴다. 이 키 하나로 세 연산의 동점 규칙이 전부 흡수된다.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>복합 키가 동점 로직을 흡수하는 방식
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><code>add</code>의 반환 조건 “점수 최대, 동점 시 ID 최대”는 복합 키의 <strong>최댓값</strong>과 정확히 일치하고, <code>remove</code>/<code>query</code>의 “점수 최소, 동점 시 ID 최소”는 복합 키의 <strong>최솟값</strong>/lower_bound와 일치한다. 상위 비트에 1차 기준(점수), 하위 비트에 2차 기준(ID)을 배치하면 2단 비교문이 단일 정수 비교로 환원된다. 동점 처리 방향이 연산마다 반대(<code>add</code>는 ID 최대, 나머지는 ID 최소)라는 함정이 있는데, 복합 키를 쓰면 max/min으로 자연스럽게 갈린다.</p>
+</div>
+</div>
+<p>따라서 필요한 자료구조는 그룹당 하나씩, <strong>insert / erase / min / max / lower_bound</strong>를 지원하는 순서 집합이다.</p>
+</section>
+<section id="자료구조-선택" class="level2">
+<h2 class="anchored" data-anchor-id="자료구조-선택">3. 자료구조 선택</h2>
+<section id="기각된-대안들" class="level3">
+<h3 class="anchored" data-anchor-id="기각된-대안들">3.1 기각된 대안들</h3>
+<p><strong>점수 버킷 + Fenwick 트리</strong>: Fenwick 하강으로 “X 이상인 최소 점수”를 찾고 버킷에서 ID를 정렬 유지하는 방식. 버킷 내 정렬 삽입이 O(버킷 크기)라서 모든 학생이 같은 점수인 적대적 입력에서 O(N²)로 무너진다. 샘플은 통과하고 본채점에서 TLE가 나는 전형적 패턴이다.</p>
+<p><strong>lazy deletion 힙</strong>: <code>add</code>/<code>remove</code>의 반환값만 보면 min-heap + max-heap으로 충분해 보이지만, <code>query</code>의 “점수 ≥ X인 최소”는 힙 top이 X 미만일 때 유효한 원소를 버리지 않고는 건너뛸 수 없어 성립하지 않는다. lower_bound가 필요한 문제에서 힙은 부적합하다.</p>
+</section>
+<section id="treap을-선택한-이유" class="level3">
+<h3 class="anchored" data-anchor-id="treap을-선택한-이유">3.2 Treap을 선택한 이유</h3>
+<p>이진 탐색 트리(BST)는 다섯 연산을 전부 트리 높이에 비례하는 시간에 지원한다. 문제는 높이다. 정렬된 순서로 삽입하면 트리가 연결 리스트로 퇴화하여 모든 연산이 O(N)이 된다.</p>
+<p>흥미로운 관찰: 같은 키 집합이라도 <strong>삽입 순서가 무작위이면 BST의 기대 높이는 O(log N)</strong> 이다. 퀵소트의 무작위 피벗과 같은 원리다(실제로 무작위 BST와 퀵소트의 재귀 구조는 동형이다). 그런데 삽입 순서는 채점기가 정하므로 통제할 수 없다.</p>
+<p>Treap의 아이디어: <strong>삽입 순서를 통제할 수 없다면, 트리 모양이 “무작위 순서로 삽입한 것처럼” 보이도록 강제하자.</strong></p>
+</section>
+</section>
+<section id="treap의-원리" class="level2">
+<h2 class="anchored" data-anchor-id="treap의-원리">4. Treap의 원리</h2>
+<section id="두-개의-불변식" class="level3">
+<h3 class="anchored" data-anchor-id="두-개의-불변식">4.1 두 개의 불변식</h3>
+<p>Treap(<strong>Tr</strong>ee + H<strong>eap</strong>)의 각 노드는 두 값을 가진다. 저장하려는 <code>key</code>, 그리고 삽입 시 난수로 부여하는 <code>pri</code>(우선순위)다. 두 불변식을 동시에 유지한다.</p>
+<ol type="1">
+<li><strong>BST 불변식 (key)</strong>: 왼쪽 서브트리의 모든 key &lt; 내 key &lt; 오른쪽 서브트리의 모든 key</li>
+<li><strong>Max-heap 불변식 (pri)</strong>: 내 pri ≥ 자식들의 pri</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>트리 모양의 유일성
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>(key, pri) 쌍들이 주어지면(pri가 모두 다를 때) 두 불변식을 만족하는 트리 모양은 유일하다. pri 최대 노드가 heap 불변식에 의해 루트로 강제되고, BST 불변식이 나머지를 좌우로 유일하게 분할하며, 각 부분에 재귀적으로 같은 논리가 적용되기 때문이다.</p>
+<p>이 유일성 덕분에 treap의 모양은 “pri 내림차순으로 삽입한 일반 BST”와 정확히 같다. pri가 균등 난수이면 pri 내림차순은 곧 무작위 순열이므로, treap은 무작위 삽입 BST의 높이 분포를 그대로 따른다. 기대 높이 O(log N)이 여기서 나온다.</p>
+</div>
+</div>
+<p>깊이가 <span class="math inline">\(c \log N\)</span>을 초과할 확률은 <span class="math inline">\(c\)</span>에 대해 지수적으로 감소하므로, 기대 복잡도임에도 실용적으로는 최악 복잡도처럼 신뢰할 수 있다. 결정적으로 난수는 구현 내부에서 뽑히므로, 채점기는 입력으로 트리를 나쁘게 만들 방법 자체가 없다.</p>
+</section>
+<section id="회전" class="level3">
+<h3 class="anchored" data-anchor-id="회전">4.2 회전</h3>
+<p>두 불변식을 동시에 유지하는 도구가 회전이다. 회전은 BST 순서(중위 순회 결과)를 보존하면서 부모-자식의 상하 관계만 바꾸는 국소 변환이다. 오른쪽 회전(P의 왼쪽 자식 C를 P 위로)을 코드로 옮기면:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> rotate_right<span class="op">(</span><span class="dt">int</span> p<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> c <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>p<span class="op">];</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="va">lc_</span><span class="op">[</span>p<span class="op">]</span> <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>c<span class="op">];</span>   <span class="co">// C의 오른쪽 서브트리 B가 P의 왼쪽으로</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="va">rc_</span><span class="op">[</span>c<span class="op">]</span> <span class="op">=</span> p<span class="op">;</span>        <span class="co">// P가 C의 오른쪽 자식으로 강등</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> c<span class="op">;</span>          <span class="co">// 이 서브트리의 새 루트</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>B의 이동이 회전의 유일하게 비자명한 부분이다. B의 키들은 C보다 크고 P보다 작으므로 “C의 오른쪽”과 “P의 왼쪽” 두 위치 모두 합법이다.</p>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>세 번째 쓰기를 잊지 말 것
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>회전 함수 안의 쓰기는 두 번뿐이지만, 회전이 완결되려면 <strong>세 번째 쓰기</strong>가 필요하다. 원래 P를 가리키던 칸(조부모의 자식 포인터 또는 루트)이 여전히 P를 가리키고 있으므로, 호출한 쪽이 반환값을 그 칸에 적어야 한다. 이를 빠뜨리면 회전으로 올라간 노드와 그 서브트리가 트리에서 통째로 분리된다. 회전 구현 버그의 대부분이 이 지점에서 발생한다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="구현-설계" class="level2">
+<h2 class="anchored" data-anchor-id="구현-설계">5. 구현 설계</h2>
+<section id="노드-풀-포인터-대신-평행-배열" class="level3">
+<h3 class="anchored" data-anchor-id="노드-풀-포인터-대신-평행-배열">5.1 노드 풀: 포인터 대신 평행 배열</h3>
+<p><code>new</code>/<code>delete</code> 없이 전역 배열로 노드 창고를 미리 확보하고, 노드를 배열 인덱스로 가리킨다. <code>struct Node</code>를 필드별로 찢어 평행 배열 4개(<code>key_</code>, <code>pri_</code>, <code>lc_</code>, <code>rc_</code>)에 담는 방식으로, CSR 인접 리스트와 같은 철학이다.</p>
+<ul>
+<li><strong>NIL = 0 관례</strong>: 0번 인덱스를 널 노드로 예약하고 실제 노드는 1번부터 발급한다. 전역 배열이 0으로 초기화되는 성질과 맞물려 <code>lc_[NIL] == NIL</code>이 자동 성립하므로, 실수로 NIL 너머로 내려가도 NIL에 머문다.</li>
+<li><strong>bump allocator + free list</strong>: <code>pool_top</code>을 증가시키며 번호를 발급하되, 삭제된 노드는 free list에 반납하고 재사용한다. free list가 없으면 배열 용량이 “현재 노드 수”가 아니라 “누적 삽입 횟수”로 결정된다.</li>
+<li><strong>재사용 노드의 자식 포인터 리셋</strong>: free list에서 재발급된 노드에는 이전 생애의 자식 포인터가 남아 있다. <code>alloc_node</code>에서 <code>lc_</code>/<code>rc_</code>를 반드시 NIL로 초기화해야 유령 자식이 달려 나오는 오염을 막는다.</li>
+</ul>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>초기화는 지우는 것이 아니라 경로를 끊는 것
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>테스트 케이스 리셋 시 큰 배열을 memset할 필요가 없다. <code>root = NIL</code>로 트리 입구를 끊고 <code>pool_top = 0</code>으로 번호표를 되감으면, 옛 데이터는 도달 불가능한 쓰레기가 되고 재발급 시점에 반드시 새 값으로 덮인다. 단, 해시 테이블처럼 단일 입구가 없는 구조는 상태 배열을 실제로 청소해야 한다.</p>
+</div>
+</div>
+</section>
+<section id="난수-우선순위" class="level3">
+<h3 class="anchored" data-anchor-id="난수-우선순위">5.2 난수 우선순위</h3>
+<p><code>rand()</code>는 일부 환경에서 RAND_MAX가 32767(15비트)에 불과해 노드가 수만 개면 생일 문제로 우선순위 충돌이 잦아진다. LCG나 xorshift로 32비트 전체를 쓰는 것이 안전하다. 시드는 고정 상수로 둔다. 난수성이 필요한 상대는 입력 데이터이지 실행 회차가 아니며, 고정 시드는 “같은 입력 → 같은 트리”라는 재현성을 보장해 디버깅을 가능하게 한다.</p>
+</section>
+<section id="반복문-삽입-path-스택" class="level3">
+<h3 class="anchored" data-anchor-id="반복문-삽입-path-스택">5.3 반복문 삽입: path 스택</h3>
+<p>1MB 스택 제한 환경에서는 재귀 대신 반복문이 원칙이다. 삽입은 두 단계다.</p>
+<ol type="1">
+<li><strong>BST 삽입</strong>: pri를 무시하고 리프에 붙인다. 하강 중 밟은 노드와 방향을 <code>path[]</code>/<code>pdir[]</code> 스택에 기록한다.</li>
+<li><strong>회전으로 끌어올리기</strong>: 새 노드의 pri가 부모보다 큰 동안, 스택을 되감으며 회전한다. 새 노드가 부모의 왼쪽 자식이면 오른쪽 회전, 오른쪽 자식이면 왼쪽 회전이다. 회전 후 스택의 다음 원소(조부모)의 자식 포인터에 새 서브트리 루트를 적고, <strong>스택이 비면 루트를 갱신</strong>한다.</li>
+</ol>
+<p>반복문 트리 수정의 핵심 감각은 “어디에 붙일지”가 아니라 <strong>“어느 포인터를 고칠지”</strong> 를 추적하는 것이다. 삽입이 고치는 포인터는 하강이 끝난 지점의 빈 칸 하나(<code>lc_[par]</code> 또는 <code>rc_[par]</code>)다. 이를 위해 하강 중 <code>par</code>(마지막으로 밟은 노드)와 <code>dir</code>(어느 쪽으로 내려가려 했는지)를 유지한다.</p>
+<p>스택 크기 64는 기대 최대 깊이 <span class="math inline">\(\approx 4.3 \ln N\)</span>에 충분한 안전 마진을 더한 값이다. N = 10⁶에서도 기대 깊이는 60 이하다.</p>
+</section>
+<section id="반복문-삭제-회전으로-끌어내리기" class="level3">
+<h3 class="anchored" data-anchor-id="반복문-삭제-회전으로-끌어내리기">5.4 반복문 삭제: 회전으로 끌어내리기</h3>
+<p>삭제는 삽입의 역연산이다.</p>
+<ol type="1">
+<li><code>par</code>/<code>dir</code>을 추적하며 대상 t를 탐색한다. 없으면 실패를 반환한다.</li>
+<li>t의 자식이 둘인 동안: 두 자식 중 <strong>pri가 큰 쪽을 올리는 회전</strong>을 한다(작은 쪽을 올리면 heap 불변식이 깨진다). 회전의 반환값을 “t를 가리키던 칸”에 적고, <code>par</code>를 새 서브트리 루트로 갱신한다.</li>
+<li>자식이 하나 이하가 되면 남은 자식을 직결하고, t를 free list에 반납한다.</li>
+</ol>
+<p>삽입과 달리 회전이 위에서 아래로만 진행되므로 스택이 필요 없다. <code>par</code>/<code>dir</code> 두 변수면 충분하다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>대상의 pri를 실제로 낮출 필요는 없다
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>교과서적 설명은 “대상의 pri를 <span class="math inline">\(-\infty\)</span>로 간주하고 내린다”이지만, 이 구현에서 대상의 pri는 어디서도 읽히지 않는다. <code>while (자식이 둘)</code>이라는 무조건 하강이 “<span class="math inline">\(-\infty\)</span>인 노드는 어떤 위치에서도 위반 상태이므로 무조건 밀려난다”는 행동을 제어 흐름으로 새긴 것이다. 값을 바꾸는 대신 비교 자체를 생략한 설계다. pri에 0을 실제로 쓰는 방식은 다른 노드의 pri도 0일 수 있어 “진짜 <span class="math inline">\(-\infty\)</span>”가 아니라는 증명 부담이 생긴다.</p>
+</div>
+</div>
+<p>또 하나의 요점은 회전 반환값의 역할이다. 삽입의 회전은 고정된 노드 x를 계속 올리므로 새 루트가 항상 x지만, 삭제의 회전은 매번 “그 시점의 pri 큰 자식”이 올라오므로 <strong>반환값이 새 루트의 유일한 식별 수단</strong>이다.</p>
+<p>그리고 회전 후 dir 갱신은 회전 방향이 결정한다. <code>rotate_left(t)</code> 후 t는 새 루트의 <strong>왼쪽</strong> 자식이 된다(<code>lc_[c] = p</code> 그 줄이다). 회전 이름과 t가 떨어지는 방향이 반대라는 점이 함정이므로, 변수 이름을 “어떤 회전을 했나”가 아니라 “t가 어디로 갔나”로 짓는 편이 안전하다.</p>
+</section>
+<section id="질의-회전-없는-하강" class="level3">
+<h3 class="anchored" data-anchor-id="질의-회전-없는-하강">5.5 질의: 회전 없는 하강</h3>
+<p>min/max는 왼쪽/오른쪽 끝까지 하강이다. lower_bound는 다음 논리로 하강한다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>ull lower_bound<span class="op">(</span>ull k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> cur <span class="op">=</span> root<span class="op">;</span> ull best <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(</span>cur<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span><span class="va">key_</span><span class="op">[</span>cur<span class="op">]</span> <span class="op">&gt;=</span> k<span class="op">)</span> <span class="op">{</span> best <span class="op">=</span> <span class="va">key_</span><span class="op">[</span>cur<span class="op">];</span> cur <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>cur<span class="op">];</span> <span class="op">}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>                <span class="op">{</span>                   cur <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>cur<span class="op">];</span> <span class="op">}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> best<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>key_[cur] &gt;= k</code>이면 cur은 후보이고, 더 작은 후보는 BST 성질상 왼쪽 서브트리에만 존재할 수 있다. 이때 오른쪽 서브트리를 영영 버려도 되는 이유: 오른쪽의 ≥ k인 키들은 전부 현재 후보보다 크므로 “≥ k인 것 중 최솟값” 경쟁에서 이미 탈락이다. 루프 내내 “정답은 best이거나 cur 이하 서브트리 안에 있다”는 불변식이 유지된다.</p>
+<p>빈 트리와 “해당 없음”의 반환값은 0으로 통일했다. 이 문제의 합법 키는 id ≥ 1이므로 절대 0이 될 수 없어, 0이 구조적으로 예약 가능한 센티널이기 때문이다.</p>
+</section>
+</section>
+<section id="해시-테이블-id-학생-레코드" class="level2">
+<h2 class="anchored" data-anchor-id="해시-테이블-id-학생-레코드">6. 해시 테이블: ID → 학생 레코드</h2>
+<p><code>remove(mId)</code>는 ID만 주므로 ID → (grade, gender, score) 매핑이 필요하다. 오픈 어드레싱(선형 탐사) 해시 테이블을 쓰되, 삭제가 있으므로 <strong>EMPTY / OCCUPIED / DELETED 3-상태</strong>가 필수다.</p>
+<ul>
+<li><strong>find</strong>: EMPTY를 만날 때까지 탐사하되, <code>state == OCCUPIED &amp;&amp; id 일치</code>일 때만 매치한다. DELETED는 “탐사는 통과시키되 매치는 시키지 않는” 상태다. DELETED 슬롯에는 옛 id가 시체로 남아 있으므로, OCCUPIED 조건 없이 id만 비교하면 삭제된 학생이 발견되는 버그가 난다.</li>
+<li><strong>insert</strong>: 탐사 중 처음 만나는 비-OCCUPIED 슬롯(EMPTY든 DELETED든)에 쓴다. DELETED 재사용이 안전한 근거는 두 가지다. (1) 문제 조건상 살아 있는 ID는 add로 들어오지 않으므로 OCCUPIED 중복이 생기지 않는다. (2) 같은 id의 DELETED 시체가 다른 슬롯에 남아 있어도 find가 OCCUPIED만 매치하므로 무해하다. 재사용하지 않으면 삭제가 반복될수록 probe chain이 단조 증가해 O(1)이 무너진다.</li>
+<li><strong>erase</strong>: 상태만 DELETED로 바꾼다. EMPTY로 되돌리면 그 슬롯을 지나 배치됐던 다른 키들의 탐사 사슬이 끊긴다.</li>
+</ul>
+<p>용량은 2의 거듭제곱으로 잡아 <code>&amp; (CAP - 1)</code>로 감싸고, 해시 함수는 Fibonacci hashing 계열의 곱셈 해시(<code>id * 2654435761u</code>)면 충분하다.</p>
+</section>
+<section id="api-조립" class="level2">
+<h2 class="anchored" data-anchor-id="api-조립">7. API 조립</h2>
+<p>재료가 모이면 조립은 공식 몇 줄이다.</p>
+<pre><code>그룹 인덱스: g = (grade - 1) * 2 + (gender[0] == 'm' ? 0 : 1)
+복합 키:     k = ((ull)score &lt;&lt; 30) | (ull)id
+키에서 ID:   k &amp; ((1 &lt;&lt; 30) - 1)</code></pre>
+<ul>
+<li><code>add</code>: 그룹 treap에 삽입, 해시에 기록, <code>find_max()</code>에서 ID 추출.</li>
+<li><code>remove</code>: 해시 find(실패 시 0) → 슬롯에서 그룹과 키 복원 → treap erase → 슬롯 DELETED → <code>find_min()</code>이 0이면 0, 아니면 ID 추출.</li>
+<li><code>query</code>: (학년 목록 × 성별 목록) 이중 루프로 각 그룹에 <code>lower_bound((ull)mScore &lt;&lt; 30)</code>, 0이 아닌 결과들의 최솟값에서 ID 추출. 실제 키는 id ≥ 1이라 <code>(mScore &lt;&lt; 30)</code>보다 항상 크므로, score == mScore인 학생이 정확히 포함된다(이상 조건 충족).</li>
+</ul>
+<p>성별 판정은 두 문자열의 첫 글자가 다르므로 <code>mGender[0] == 'm'</code>으로 충분하며 strcmp가 필요 없다.</p>
+<p>복잡도는 연산당 기대 O(log N), query는 최대 6그룹 × lower_bound다. 메모리는 노드 풀과 해시 테이블로 O(N)이다.</p>
+</section>
+<section id="검증-방법론" class="level2">
+<h2 class="anchored" data-anchor-id="검증-방법론">8. 검증 방법론</h2>
+<p>이 문제에서 검증은 세 층으로 진행했고, 각 층이 서로 다른 종류의 버그를 잡았다.</p>
+<section id="불변식-검사기" class="level3">
+<h3 class="anchored" data-anchor-id="불변식-검사기">8.1 불변식 검사기</h3>
+<p>중위 순회 한 번으로 BST 불변식(키 강증가)과 heap 불변식(자식 pri ≤ 부모 pri)을 동시에 검사하는 <code>check()</code> 함수를 만들어 스트레스 테스트 중 주기적으로 호출했다. 단, 불변식 검사는 “트리인 부분”의 건강만 보므로 노드 증발은 못 잡는다. <strong>노드 개수 검사</strong>를 병행해야 한다. 실제로 회전을 빠뜨린 초기 구현은 노드가 증발하는데도 불변식 검사를 통과했다.</p>
+</section>
+<section id="무작위-스트레스-브루트포스-대조" class="level3">
+<h3 class="anchored" data-anchor-id="무작위-스트레스-브루트포스-대조">8.2 무작위 스트레스 + 브루트포스 대조</h3>
+<p>삽입 55% / 삭제 45%의 무작위 시퀀스 20만 스텝을 돌리며, 생존 키 배열(그 자체가 브루트포스 자료구조)로 계산한 min/max/lower_bound 정답과 주기적으로 대조했다. 삭제 버그는 특정 모양에서 특정 노드를 지울 때만 발현되는 경우가 많아 결정적 테스트로는 잡히지 않는다.</p>
+<p>이 과정에서 이론과의 정량 대조도 가능했다. 오름차순 삽입 + 무작위 pri에서 최우측 경로 길이는 무작위 순열의 prefix maximum 개수와 같은 분포를 가지며 기댓값은 조화수다.</p>
+<p><span class="math display">\[H_n = \sum_{k=1}^{n} \frac{1}{k} \approx \ln n\]</span></p>
+<p>N = 20000에서 <span class="math inline">\(\ln 20000 \approx 9.9\)</span>, 실측 10. 구현이 “대충 균형 잡힌” 것이 아니라 이론이 예측한 분포 그대로 동작함을 확인했다. free list의 건강도 <code>pool_top</code>으로 정량 확인했다. 총 삽입 약 11만 회에 pool_top이 최대 동시 생존 수(약 2만) 근처에 머물렀다는 것은 9만 회의 삽입이 전부 재사용받았다는 뜻이다.</p>
+</section>
+<section id="api-레벨-대조" class="level3">
+<h3 class="anchored" data-anchor-id="api-레벨-대조">8.3 API 레벨 대조</h3>
+<p>자료구조가 옳아도 조립 계층(그룹 인덱싱, 키 패킹, 해시 연동)의 버그는 별개다. 실제로 query가 필터 파라미터를 무시하고 6그룹 전체를 스캔하는 버그, 키를 int에 담아 절단되는 버그는 스모크 테스트를 통과했다. 문제 명세를 직역한 브루트포스와 무작위 시나리오(삭제-재추가, 없는 ID의 remove, 동점 다발을 위한 좁은 점수 범위 포함)에서 전 호출 대조하는 것이 최종 안전망이다.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>검증의 독립성
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>브루트포스는 검증 대상과 같은 트릭을 공유하면 안 된다. 동점 처리를 복합 키로 풀지 않고 명세 그대로 “score 비교 → 같으면 id 비교”의 2단 비교문으로 쓰는 이유다. 두 구현이 트릭을 공유하면 그 트릭의 버그를 서로 잡아주지 못한다.</p>
+<p>또한 테스트가 침묵하면 성공인지, 검사가 아예 일어나지 않은 것인지 구분해야 한다. 검증 블록에 수행 횟수 카운터를 넣고 성공 시에도 통계와 함께 출력하면, 빈 검증이 즉시 들통난다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="이-문제에서-수집한-버그-패턴" class="level2">
+<h2 class="anchored" data-anchor-id="이-문제에서-수집한-버그-패턴">9. 이 문제에서 수집한 버그 패턴</h2>
+<p>구현 과정에서 실제로 만들었거나 만날 뻔한 버그들이다. 패턴으로 기억해 둘 가치가 있다.</p>
+<ol type="1">
+<li><strong>힙 인덱스 산술과의 혼동</strong>: 배열 기반 이진 힙의 <code>2i</code>, <code>2i+1</code>은 완전 이진 트리라는 배치 강제가 있어야 성립한다. 일반 트리에서 자식은 계산되는 것이 아니라 <code>lc_</code>/<code>rc_</code>에 저장되는 것이다.</li>
+<li><strong>signed/unsigned 비교</strong>: <code>ull key &lt;= (long long)-1</code> 비교에서 -1이 <span class="math inline">\(2^{64}-1\)</span>로 변환되어 항상 참이 된다. 건강한 트리에 BROKEN 판정을 내린 원인이었다. 세 지표(불변식, 개수, 깊이) 중 둘이 건강하면 진단 기계 쪽을 의심하라. <code>-Wall -Wextra</code>의 <code>-Wsign-compare</code>가 이 줄을 지목한다.</li>
+<li><strong>회전 후 방향 갱신의 극성</strong>: rotate_left 후 대상은 새 루트의 <em>왼쪽</em> 자식이 된다. 회전 이름과 낙하 방향이 반대다. “어떤 회전을 했나”가 아니라 “대상이 어디로 갔나”를 저장하는 변수명이 재발을 막는다.</li>
+<li><strong>키·인덱스·ID의 혼용</strong>: find_min 등의 반환값은 복합 키이지 노드 인덱스도 ID도 아니다. 키를 배열 인덱스로 쓰면 범위 밖 접근, int에 담으면 점수 상위 비트가 절단된다(하위 2비트만 남아 점수 84와 88이 구분 불가). 키는 끝까지 64비트로 들고 다니고 반환 직전에만 마스킹한다.</li>
+<li><strong>센티널 관례의 불일치</strong>: treap의 “없음”은 0이지만 해시 find의 “없음”은 -1이다(0은 합법 슬롯 번호). 자료구조마다 센티널이 다르므로 함수 계약을 그대로 따라야 한다. 가드 절 수리 시 조건의 극성이 뒤집히는 2차 사고도 흔하다. “이 줄은 비정상 경로를 조기 탈출시키는 문장인가”를 소리 내어 확인하라.</li>
+<li><strong>이중 발급 앨리어싱</strong>: 테스트 케이스 리셋에서 <code>free_top</code> 초기화를 빠뜨리면, 이전 케이스의 반납 인덱스가 재사용된 뒤 pool_top이 같은 인덱스를 따라잡는 순간 살아 있는 노드가 이중 발급된다. 언어 차원의 UB가 아니라 자료구조 불변식의 논리적 오염이므로 크래시 없이 오답만 낸다.</li>
+<li><strong>스트레스 하니스 자체의 용량 계산</strong>: 삽입 확률 p, 삭제 확률 1-p의 랜덤 워크에서 생존 수의 기댓값은 <span class="math inline">\((2p-1) \times \text{step}\)</span>, 표준편차는 <span class="math inline">\(O(\sqrt{\text{step}})\)</span>이다. 보조 배열과 노드 풀 용량은 기대 점유량이 아니라 꼬리까지 포함한 최대 점유량으로 잡아야 한다.</li>
+</ol>
+</section>
+<section id="마무리" class="level2">
+<h2 class="anchored" data-anchor-id="마무리">10. 마무리</h2>
+<p>이 문제의 골격은 “복합 키 + 그룹별 순서 집합 + ID 역인덱스”라는 3단 구성이며, STL 없는 환경에서 순서 집합의 현실적 선택지가 treap이다. Treap은 회전이라는 단일 부품 위에 삽입(끌어올리기)과 삭제(끌어내리기)가 대칭으로 서 있는 구조라, 회전의 “세 번째 쓰기”와 반복문 하강의 <code>par</code>/<code>dir</code> 패턴만 정확히 잡으면 나머지는 기계적으로 조립된다. 무작위성이 알고리즘 내부에 있어 적대적 입력이 원천 봉쇄된다는 점, 그리고 높이·free list 같은 내부 지표가 이론값과 정량적으로 대조 가능하다는 점이 이 자료구조의 매력이다.</p>
+</section>
+<section id="codes" class="level2">
+<h2 class="anchored" data-anchor-id="codes">Codes</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> ull <span class="op">=</span> <span class="dt">unsigned</span> <span class="dt">long</span> <span class="dt">long</span> <span class="dt">int</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MAX_N   </span><span class="op">(</span><span class="dv">20'001</span><span class="op">)</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MAX_GRP </span><span class="op">(</span><span class="dv">6</span><span class="op">)</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="pp">#define HCAP </span><span class="op">(</span><span class="dv">1</span><span class="pp"> </span><span class="op">&lt;&lt;</span><span class="pp"> </span><span class="dv">17</span><span class="op">)</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="pp">#define H_EMPTY    </span><span class="dv">0</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="pp">#define H_OCCUPIED </span><span class="dv">1</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="pp">#define H_DELETED  </span><span class="dv">2</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Hash <span class="op">{</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> state<span class="op">[</span>HCAP<span class="op">];</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="va">id_</span><span class="op">[</span>HCAP<span class="op">];</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="va">grade_</span><span class="op">[</span>HCAP<span class="op">],</span> <span class="va">gender_</span><span class="op">[</span>HCAP<span class="op">],</span> <span class="va">score_</span><span class="op">[</span>HCAP<span class="op">];</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> init<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> HCAP<span class="op">;</span> i<span class="op">++)</span> state<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> H_EMPTY<span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> hslot<span class="op">(</span><span class="dt">int</span> id<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">(</span><span class="dt">int</span><span class="op">)(((</span><span class="dt">unsigned</span><span class="op">)</span>id <span class="op">*</span> <span class="dv">2654435761</span><span class="bu">u</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">(</span>HCAP <span class="op">-</span> <span class="dv">1</span><span class="op">));</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> find<span class="op">(</span><span class="dt">int</span> id<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> i <span class="op">=</span> hslot<span class="op">(</span>id<span class="op">);</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span>state<span class="op">[</span>i<span class="op">]</span> <span class="op">!=</span> H_EMPTY<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span><span class="va">id_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">==</span> id <span class="op">&amp;&amp;</span> state<span class="op">[</span>i<span class="op">]</span> <span class="op">==</span> H_OCCUPIED<span class="op">)</span> <span class="cf">return</span> i<span class="op">;</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>            i <span class="op">=</span> <span class="op">(</span>i <span class="op">+</span> <span class="dv">1</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">(</span>HCAP <span class="op">-</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> insert<span class="op">(</span><span class="dt">int</span> id<span class="op">,</span> <span class="dt">int</span> g<span class="op">,</span> <span class="dt">int</span> gen<span class="op">,</span> <span class="dt">int</span> sc<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> i <span class="op">=</span> hslot<span class="op">(</span>id<span class="op">);</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span>state<span class="op">[</span>i<span class="op">]</span> <span class="op">==</span> H_OCCUPIED<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>            i <span class="op">=</span> <span class="op">(</span>i <span class="op">+</span> <span class="dv">1</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">(</span>HCAP <span class="op">-</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>        state<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> H_OCCUPIED<span class="op">;</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>        <span class="va">id_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> id<span class="op">;</span> <span class="va">grade_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> g<span class="op">;</span> <span class="va">gender_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> gen<span class="op">;</span> <span class="va">score_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> sc<span class="op">;</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> erase_slot<span class="op">(</span><span class="dt">int</span> i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>        state<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> H_DELETED<span class="op">;</span></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> ht<span class="op">;</span></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Treap <span class="op">{</span></span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> pool_top<span class="op">;</span></span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> free_top<span class="op">;</span></span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> free_list<span class="op">[</span>MAX_N<span class="op">];</span></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a>    ull <span class="va">key_</span><span class="op">[</span>MAX_N<span class="op">];</span></span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>    ull <span class="va">pri_</span><span class="op">[</span>MAX_N<span class="op">];</span></span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="va">lc_</span><span class="op">[</span>MAX_N<span class="op">],</span> <span class="va">rc_</span><span class="op">[</span>MAX_N<span class="op">];</span></span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> root<span class="op">;</span></span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a>    ull seed<span class="op">;</span></span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> pseudo_rand<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a>        seed <span class="op">=</span> seed <span class="op">*</span> <span class="dv">25214903917</span><span class="bu">ULL</span> <span class="op">+</span> <span class="dv">11</span><span class="bu">ULL</span><span class="op">;</span></span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">(</span>seed <span class="op">&gt;&gt;</span> <span class="dv">16</span><span class="op">)</span> <span class="op">&amp;</span> <span class="bn">0x3fffffff</span><span class="op">;</span></span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> init<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a>        pool_top <span class="op">=</span> free_top <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a>        root <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a>        seed <span class="op">=</span> <span class="dv">6545344357</span><span class="bu">ULL</span><span class="op">;</span></span>
+<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> alloc_node<span class="op">(</span>ull k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> x<span class="op">;</span></span>
+<span id="cb4-73"><a href="#cb4-73" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>free_top <span class="op">&gt;</span> <span class="dv">0</span><span class="op">)</span> x <span class="op">=</span> free_list<span class="op">[--</span>free_top<span class="op">];</span></span>
+<span id="cb4-74"><a href="#cb4-74" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span> x <span class="op">=</span> <span class="op">++</span>pool_top<span class="op">;</span></span>
+<span id="cb4-75"><a href="#cb4-75" aria-hidden="true" tabindex="-1"></a>        <span class="va">key_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">=</span> k<span class="op">;</span></span>
+<span id="cb4-76"><a href="#cb4-76" aria-hidden="true" tabindex="-1"></a>        <span class="va">pri_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">=</span> pseudo_rand<span class="op">();</span></span>
+<span id="cb4-77"><a href="#cb4-77" aria-hidden="true" tabindex="-1"></a>        <span class="va">lc_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-78"><a href="#cb4-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-79"><a href="#cb4-79" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> x<span class="op">;</span></span>
+<span id="cb4-80"><a href="#cb4-80" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-81"><a href="#cb4-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-82"><a href="#cb4-82" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> rotate_left<span class="op">(</span><span class="dt">int</span> p<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-83"><a href="#cb4-83" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> c <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>p<span class="op">];</span></span>
+<span id="cb4-84"><a href="#cb4-84" aria-hidden="true" tabindex="-1"></a>        <span class="va">rc_</span><span class="op">[</span>p<span class="op">]</span> <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>c<span class="op">];</span></span>
+<span id="cb4-85"><a href="#cb4-85" aria-hidden="true" tabindex="-1"></a>        <span class="va">lc_</span><span class="op">[</span>c<span class="op">]</span> <span class="op">=</span> p<span class="op">;</span></span>
+<span id="cb4-86"><a href="#cb4-86" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> c<span class="op">;</span></span>
+<span id="cb4-87"><a href="#cb4-87" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-88"><a href="#cb4-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-89"><a href="#cb4-89" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> rotate_right<span class="op">(</span><span class="dt">int</span> p<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-90"><a href="#cb4-90" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> c <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>p<span class="op">];</span></span>
+<span id="cb4-91"><a href="#cb4-91" aria-hidden="true" tabindex="-1"></a>        <span class="va">lc_</span><span class="op">[</span>p<span class="op">]</span> <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>c<span class="op">];</span></span>
+<span id="cb4-92"><a href="#cb4-92" aria-hidden="true" tabindex="-1"></a>        <span class="va">rc_</span><span class="op">[</span>c<span class="op">]</span> <span class="op">=</span> p<span class="op">;</span></span>
+<span id="cb4-93"><a href="#cb4-93" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> c<span class="op">;</span></span>
+<span id="cb4-94"><a href="#cb4-94" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-95"><a href="#cb4-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-96"><a href="#cb4-96" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> insert<span class="op">(</span>ull k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-97"><a href="#cb4-97" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> x <span class="op">=</span> alloc_node<span class="op">(</span>k<span class="op">);</span></span>
+<span id="cb4-98"><a href="#cb4-98" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>root <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-99"><a href="#cb4-99" aria-hidden="true" tabindex="-1"></a>            root <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb4-100"><a href="#cb4-100" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb4-101"><a href="#cb4-101" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-102"><a href="#cb4-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-103"><a href="#cb4-103" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> path<span class="op">[</span><span class="dv">64</span><span class="op">],</span> pdir<span class="op">[</span><span class="dv">64</span><span class="op">],</span> top <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-104"><a href="#cb4-104" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cur <span class="op">=</span> root<span class="op">;</span></span>
+<span id="cb4-105"><a href="#cb4-105" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span>cur<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-106"><a href="#cb4-106" aria-hidden="true" tabindex="-1"></a>            path<span class="op">[</span>top<span class="op">]</span> <span class="op">=</span> cur<span class="op">;</span></span>
+<span id="cb4-107"><a href="#cb4-107" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>k <span class="op">&lt;</span> <span class="va">key_</span><span class="op">[</span>cur<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb4-108"><a href="#cb4-108" aria-hidden="true" tabindex="-1"></a>                pdir<span class="op">[</span>top<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-109"><a href="#cb4-109" aria-hidden="true" tabindex="-1"></a>                cur <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-110"><a href="#cb4-110" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-111"><a href="#cb4-111" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-112"><a href="#cb4-112" aria-hidden="true" tabindex="-1"></a>                pdir<span class="op">[</span>top<span class="op">]</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-113"><a href="#cb4-113" aria-hidden="true" tabindex="-1"></a>                cur <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-114"><a href="#cb4-114" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-115"><a href="#cb4-115" aria-hidden="true" tabindex="-1"></a>            <span class="op">++</span>top<span class="op">;</span></span>
+<span id="cb4-116"><a href="#cb4-116" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-117"><a href="#cb4-117" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-118"><a href="#cb4-118" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> par <span class="op">=</span> path<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">];</span></span>
+<span id="cb4-119"><a href="#cb4-119" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>pdir<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">]</span> <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-120"><a href="#cb4-120" aria-hidden="true" tabindex="-1"></a>            <span class="va">lc_</span><span class="op">[</span>par<span class="op">]</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb4-121"><a href="#cb4-121" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-122"><a href="#cb4-122" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-123"><a href="#cb4-123" aria-hidden="true" tabindex="-1"></a>            <span class="va">rc_</span><span class="op">[</span>par<span class="op">]</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb4-124"><a href="#cb4-124" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-125"><a href="#cb4-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-126"><a href="#cb4-126" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span><span class="op">(</span>top <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> <span class="va">pri_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">&gt;</span> <span class="va">pri_</span><span class="op">[</span>path<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">]])</span> <span class="op">{</span></span>
+<span id="cb4-127"><a href="#cb4-127" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> p <span class="op">=</span> path<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">];</span></span>
+<span id="cb4-128"><a href="#cb4-128" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> sub<span class="op">;</span></span>
+<span id="cb4-129"><a href="#cb4-129" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>pdir<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">]</span> <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> sub <span class="op">=</span> rotate_right<span class="op">(</span>p<span class="op">);</span></span>
+<span id="cb4-130"><a href="#cb4-130" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> sub <span class="op">=</span> rotate_left<span class="op">(</span>p<span class="op">);</span></span>
+<span id="cb4-131"><a href="#cb4-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-132"><a href="#cb4-132" aria-hidden="true" tabindex="-1"></a>            <span class="op">--</span>top<span class="op">;</span></span>
+<span id="cb4-133"><a href="#cb4-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-134"><a href="#cb4-134" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>top <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-135"><a href="#cb4-135" aria-hidden="true" tabindex="-1"></a>                root <span class="op">=</span> sub<span class="op">;</span></span>
+<span id="cb4-136"><a href="#cb4-136" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-137"><a href="#cb4-137" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="cf">if</span> <span class="op">(</span>pdir<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">]</span> <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-138"><a href="#cb4-138" aria-hidden="true" tabindex="-1"></a>                <span class="va">lc_</span><span class="op">[</span>path<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">]]</span> <span class="op">=</span> sub<span class="op">;</span></span>
+<span id="cb4-139"><a href="#cb4-139" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-140"><a href="#cb4-140" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-141"><a href="#cb4-141" aria-hidden="true" tabindex="-1"></a>                <span class="va">rc_</span><span class="op">[</span>path<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">]]</span> <span class="op">=</span> sub<span class="op">;</span></span>
+<span id="cb4-142"><a href="#cb4-142" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-143"><a href="#cb4-143" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-144"><a href="#cb4-144" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-145"><a href="#cb4-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-146"><a href="#cb4-146" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> erase<span class="op">(</span>ull k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-147"><a href="#cb4-147" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cur <span class="op">=</span> root<span class="op">;</span></span>
+<span id="cb4-148"><a href="#cb4-148" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> par <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-149"><a href="#cb4-149" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> dir <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-150"><a href="#cb4-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-151"><a href="#cb4-151" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span><span class="op">(</span>cur <span class="op">&amp;&amp;</span> <span class="va">key_</span><span class="op">[</span>cur<span class="op">]</span> <span class="op">!=</span> k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-152"><a href="#cb4-152" aria-hidden="true" tabindex="-1"></a>            par <span class="op">=</span> cur<span class="op">;</span></span>
+<span id="cb4-153"><a href="#cb4-153" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>k <span class="op">&lt;</span> <span class="va">key_</span><span class="op">[</span>cur<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb4-154"><a href="#cb4-154" aria-hidden="true" tabindex="-1"></a>                dir <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-155"><a href="#cb4-155" aria-hidden="true" tabindex="-1"></a>                cur <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-156"><a href="#cb4-156" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-157"><a href="#cb4-157" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-158"><a href="#cb4-158" aria-hidden="true" tabindex="-1"></a>                dir <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-159"><a href="#cb4-159" aria-hidden="true" tabindex="-1"></a>                cur <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-160"><a href="#cb4-160" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-161"><a href="#cb4-161" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-162"><a href="#cb4-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-163"><a href="#cb4-163" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>cur <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-164"><a href="#cb4-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-165"><a href="#cb4-165" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> t <span class="op">=</span> cur<span class="op">;</span></span>
+<span id="cb4-166"><a href="#cb4-166" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span><span class="op">(</span><span class="va">lc_</span><span class="op">[</span>t<span class="op">]</span> <span class="op">&amp;&amp;</span> <span class="va">rc_</span><span class="op">[</span>t<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb4-167"><a href="#cb4-167" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> sub<span class="op">;</span></span>
+<span id="cb4-168"><a href="#cb4-168" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> t_dir<span class="op">;</span></span>
+<span id="cb4-169"><a href="#cb4-169" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span><span class="va">pri_</span><span class="op">[</span><span class="va">lc_</span><span class="op">[</span>t<span class="op">]]</span> <span class="op">&gt;</span> <span class="va">pri_</span><span class="op">[</span><span class="va">rc_</span><span class="op">[</span>t<span class="op">]])</span> <span class="op">{</span></span>
+<span id="cb4-170"><a href="#cb4-170" aria-hidden="true" tabindex="-1"></a>                sub <span class="op">=</span> rotate_right<span class="op">(</span>t<span class="op">);</span></span>
+<span id="cb4-171"><a href="#cb4-171" aria-hidden="true" tabindex="-1"></a>                t_dir <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-172"><a href="#cb4-172" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-173"><a href="#cb4-173" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-174"><a href="#cb4-174" aria-hidden="true" tabindex="-1"></a>                sub <span class="op">=</span> rotate_left<span class="op">(</span>t<span class="op">);</span></span>
+<span id="cb4-175"><a href="#cb4-175" aria-hidden="true" tabindex="-1"></a>                t_dir <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-176"><a href="#cb4-176" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-177"><a href="#cb4-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-178"><a href="#cb4-178" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>par <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-179"><a href="#cb4-179" aria-hidden="true" tabindex="-1"></a>                root <span class="op">=</span> sub<span class="op">;</span></span>
+<span id="cb4-180"><a href="#cb4-180" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-181"><a href="#cb4-181" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="cf">if</span> <span class="op">(</span>dir <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-182"><a href="#cb4-182" aria-hidden="true" tabindex="-1"></a>                <span class="va">lc_</span><span class="op">[</span>par<span class="op">]</span> <span class="op">=</span> sub<span class="op">;</span></span>
+<span id="cb4-183"><a href="#cb4-183" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-184"><a href="#cb4-184" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-185"><a href="#cb4-185" aria-hidden="true" tabindex="-1"></a>                <span class="va">rc_</span><span class="op">[</span>par<span class="op">]</span> <span class="op">=</span> sub<span class="op">;</span></span>
+<span id="cb4-186"><a href="#cb4-186" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-187"><a href="#cb4-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-188"><a href="#cb4-188" aria-hidden="true" tabindex="-1"></a>            par <span class="op">=</span> sub<span class="op">;</span></span>
+<span id="cb4-189"><a href="#cb4-189" aria-hidden="true" tabindex="-1"></a>            dir <span class="op">=</span> t_dir<span class="op">;</span></span>
+<span id="cb4-190"><a href="#cb4-190" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-191"><a href="#cb4-191" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-192"><a href="#cb4-192" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> child <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>t<span class="op">]</span> <span class="op">?</span> <span class="va">lc_</span><span class="op">[</span>t<span class="op">]</span> <span class="op">:</span> <span class="va">rc_</span><span class="op">[</span>t<span class="op">];</span></span>
+<span id="cb4-193"><a href="#cb4-193" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>par <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-194"><a href="#cb4-194" aria-hidden="true" tabindex="-1"></a>            root <span class="op">=</span> child<span class="op">;</span></span>
+<span id="cb4-195"><a href="#cb4-195" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-196"><a href="#cb4-196" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span> <span class="cf">if</span><span class="op">(</span>dir <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-197"><a href="#cb4-197" aria-hidden="true" tabindex="-1"></a>            <span class="va">lc_</span><span class="op">[</span>par<span class="op">]</span> <span class="op">=</span> child<span class="op">;</span></span>
+<span id="cb4-198"><a href="#cb4-198" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-199"><a href="#cb4-199" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-200"><a href="#cb4-200" aria-hidden="true" tabindex="-1"></a>            <span class="va">rc_</span><span class="op">[</span>par<span class="op">]</span> <span class="op">=</span> child<span class="op">;</span></span>
+<span id="cb4-201"><a href="#cb4-201" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-202"><a href="#cb4-202" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-203"><a href="#cb4-203" aria-hidden="true" tabindex="-1"></a>        free_list<span class="op">[</span>free_top<span class="op">++]</span> <span class="op">=</span> t<span class="op">;</span></span>
+<span id="cb4-204"><a href="#cb4-204" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-205"><a href="#cb4-205" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-206"><a href="#cb4-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-207"><a href="#cb4-207" aria-hidden="true" tabindex="-1"></a>    ull find_min<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-208"><a href="#cb4-208" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>root <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-209"><a href="#cb4-209" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cur <span class="op">=</span> root<span class="op">;</span></span>
+<span id="cb4-210"><a href="#cb4-210" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span><span class="op">(</span><span class="va">lc_</span><span class="op">[</span>cur<span class="op">])</span> cur <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-211"><a href="#cb4-211" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">key_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-212"><a href="#cb4-212" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-213"><a href="#cb4-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-214"><a href="#cb4-214" aria-hidden="true" tabindex="-1"></a>    ull find_max<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-215"><a href="#cb4-215" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>root <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-216"><a href="#cb4-216" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cur <span class="op">=</span> root<span class="op">;</span></span>
+<span id="cb4-217"><a href="#cb4-217" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span><span class="op">(</span><span class="va">rc_</span><span class="op">[</span>cur<span class="op">])</span> cur <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-218"><a href="#cb4-218" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">key_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-219"><a href="#cb4-219" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-220"><a href="#cb4-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-221"><a href="#cb4-221" aria-hidden="true" tabindex="-1"></a>    ull lower_bound<span class="op">(</span>ull k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-222"><a href="#cb4-222" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cur <span class="op">=</span> root<span class="op">;</span></span>
+<span id="cb4-223"><a href="#cb4-223" aria-hidden="true" tabindex="-1"></a>        ull best <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-224"><a href="#cb4-224" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span><span class="op">(</span>cur<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-225"><a href="#cb4-225" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span><span class="va">key_</span><span class="op">[</span>cur<span class="op">]</span> <span class="op">&gt;=</span> k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-226"><a href="#cb4-226" aria-hidden="true" tabindex="-1"></a>                best <span class="op">=</span> <span class="va">key_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-227"><a href="#cb4-227" aria-hidden="true" tabindex="-1"></a>                cur <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-228"><a href="#cb4-228" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-229"><a href="#cb4-229" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-230"><a href="#cb4-230" aria-hidden="true" tabindex="-1"></a>                cur <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-231"><a href="#cb4-231" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-232"><a href="#cb4-232" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-233"><a href="#cb4-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-234"><a href="#cb4-234" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> best<span class="op">;</span></span>
+<span id="cb4-235"><a href="#cb4-235" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-236"><a href="#cb4-236" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> treap<span class="op">[</span>MAX_GRP<span class="op">];</span></span>
+<span id="cb4-237"><a href="#cb4-237" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-238"><a href="#cb4-238" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> ull id_filter <span class="op">=</span> <span class="op">((</span><span class="dv">1</span> <span class="op">&lt;&lt;</span> <span class="dv">30</span><span class="op">)</span> <span class="op">-</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb4-239"><a href="#cb4-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-240"><a href="#cb4-240" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> init<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-241"><a href="#cb4-241" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> MAX_GRP<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> treap<span class="op">[</span>i<span class="op">].</span>init<span class="op">();</span></span>
+<span id="cb4-242"><a href="#cb4-242" aria-hidden="true" tabindex="-1"></a>    ht<span class="op">.</span>init<span class="op">();</span></span>
+<span id="cb4-243"><a href="#cb4-243" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-244"><a href="#cb4-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-245"><a href="#cb4-245" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> add<span class="op">(</span><span class="dt">int</span> mId<span class="op">,</span> <span class="dt">int</span> mGrade<span class="op">,</span> <span class="dt">char</span> mGender<span class="op">[</span><span class="dv">7</span><span class="op">],</span> <span class="dt">int</span> mScore<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-246"><a href="#cb4-246" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> gen <span class="op">=</span> <span class="op">(</span>mGender<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">==</span> <span class="ch">'m'</span> <span class="op">?</span> <span class="dv">0</span> <span class="op">:</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb4-247"><a href="#cb4-247" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> g <span class="op">=</span> <span class="op">((</span>mGrade <span class="op">-</span> <span class="dv">1</span><span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">)</span> <span class="op">+</span> gen<span class="op">;</span></span>
+<span id="cb4-248"><a href="#cb4-248" aria-hidden="true" tabindex="-1"></a>    ull k <span class="op">=</span>  <span class="op">((</span>ull<span class="op">)</span>mScore <span class="op">&lt;&lt;</span> <span class="dv">30</span><span class="op">)</span> <span class="op">|</span> <span class="op">(</span>ull<span class="op">)</span> mId<span class="op">;</span></span>
+<span id="cb4-249"><a href="#cb4-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-250"><a href="#cb4-250" aria-hidden="true" tabindex="-1"></a>    treap<span class="op">[</span>g<span class="op">].</span>insert<span class="op">(</span>k<span class="op">);</span></span>
+<span id="cb4-251"><a href="#cb4-251" aria-hidden="true" tabindex="-1"></a>    ht<span class="op">.</span>insert<span class="op">(</span>mId<span class="op">,</span> mGrade<span class="op">,</span> gen<span class="op">,</span> mScore<span class="op">);</span></span>
+<span id="cb4-252"><a href="#cb4-252" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-253"><a href="#cb4-253" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> treap<span class="op">[</span>g<span class="op">].</span>find_max<span class="op">()</span> <span class="op">&amp;</span> id_filter<span class="op">;</span></span>
+<span id="cb4-254"><a href="#cb4-254" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-255"><a href="#cb4-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-256"><a href="#cb4-256" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> remove<span class="op">(</span><span class="dt">int</span> mId<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-257"><a href="#cb4-257" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> slot <span class="op">=</span> ht<span class="op">.</span>find<span class="op">(</span>mId<span class="op">);</span></span>
+<span id="cb4-258"><a href="#cb4-258" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span><span class="op">(</span>slot <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-259"><a href="#cb4-259" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-260"><a href="#cb4-260" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> g <span class="op">=</span> <span class="op">((</span>ht<span class="op">.</span><span class="va">grade_</span><span class="op">[</span>slot<span class="op">]</span> <span class="op">-</span> <span class="dv">1</span><span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">)</span> <span class="op">+</span> ht<span class="op">.</span><span class="va">gender_</span><span class="op">[</span>slot<span class="op">];</span></span>
+<span id="cb4-261"><a href="#cb4-261" aria-hidden="true" tabindex="-1"></a>    ull k <span class="op">=</span> <span class="op">((</span>ull<span class="op">)</span>ht<span class="op">.</span><span class="va">score_</span><span class="op">[</span>slot<span class="op">]</span> <span class="op">&lt;&lt;</span> <span class="dv">30</span><span class="op">)</span> <span class="op">|</span> <span class="op">(</span>ull<span class="op">)</span> ht<span class="op">.</span><span class="va">id_</span><span class="op">[</span>slot<span class="op">];</span></span>
+<span id="cb4-262"><a href="#cb4-262" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-263"><a href="#cb4-263" aria-hidden="true" tabindex="-1"></a>    treap<span class="op">[</span>g<span class="op">].</span>erase<span class="op">(</span>k<span class="op">);</span></span>
+<span id="cb4-264"><a href="#cb4-264" aria-hidden="true" tabindex="-1"></a>    ht<span class="op">.</span>erase_slot<span class="op">(</span>slot<span class="op">);</span></span>
+<span id="cb4-265"><a href="#cb4-265" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-266"><a href="#cb4-266" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> m <span class="op">=</span> treap<span class="op">[</span>g<span class="op">].</span>find_min<span class="op">();</span></span>
+<span id="cb4-267"><a href="#cb4-267" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span><span class="op">(</span>m <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-268"><a href="#cb4-268" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> m <span class="op">&amp;</span> id_filter<span class="op">;</span></span>
+<span id="cb4-269"><a href="#cb4-269" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-270"><a href="#cb4-270" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-271"><a href="#cb4-271" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> query<span class="op">(</span><span class="dt">int</span> mGradeCnt<span class="op">,</span> <span class="dt">int</span> mGrade<span class="op">[],</span> <span class="dt">int</span> mGenderCnt<span class="op">,</span> <span class="dt">char</span> mGender<span class="op">[][</span><span class="dv">7</span><span class="op">],</span> <span class="dt">int</span> mScore<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-272"><a href="#cb4-272" aria-hidden="true" tabindex="-1"></a>    ull best <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-273"><a href="#cb4-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-274"><a href="#cb4-274" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> grd <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> grd <span class="op">&lt;</span> mGradeCnt<span class="op">;</span> <span class="op">++</span>grd<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-275"><a href="#cb4-275" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> gen <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> gen <span class="op">&lt;</span> mGenderCnt<span class="op">;</span> <span class="op">++</span>gen<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-276"><a href="#cb4-276" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> grp <span class="op">=</span> <span class="op">((</span>mGrade<span class="op">[</span>grd<span class="op">]</span> <span class="op">-</span> <span class="dv">1</span><span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span>mGender<span class="op">[</span>gen<span class="op">][</span><span class="dv">0</span><span class="op">]</span> <span class="op">==</span> <span class="ch">'m'</span> <span class="op">?</span> <span class="dv">0</span> <span class="op">:</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb4-277"><a href="#cb4-277" aria-hidden="true" tabindex="-1"></a>            <span class="kw">auto</span> lb <span class="op">=</span> treap<span class="op">[</span>grp<span class="op">].</span>lower_bound<span class="op">((</span>ull<span class="op">)</span>mScore <span class="op">&lt;&lt;</span> <span class="dv">30</span><span class="op">);</span></span>
+<span id="cb4-278"><a href="#cb4-278" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>lb <span class="op">!=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-279"><a href="#cb4-279" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span><span class="op">(</span>best <span class="op">==</span> <span class="dv">0</span> <span class="op">||</span> lb <span class="op">&lt;</span> best<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-280"><a href="#cb4-280" aria-hidden="true" tabindex="-1"></a>                    best <span class="op">=</span> lb<span class="op">;</span></span>
+<span id="cb4-281"><a href="#cb4-281" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
+<span id="cb4-282"><a href="#cb4-282" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-283"><a href="#cb4-283" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-284"><a href="#cb4-284" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-285"><a href="#cb4-285" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-286"><a href="#cb4-286" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span><span class="op">(</span>best <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-287"><a href="#cb4-287" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-288"><a href="#cb4-288" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> best <span class="op">&amp;</span> id_filter<span class="op">;</span></span>
+<span id="cb4-289"><a href="#cb4-289" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

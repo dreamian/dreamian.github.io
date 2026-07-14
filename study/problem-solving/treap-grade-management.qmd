@@ -1,0 +1,532 @@
+---
+title: "Treap으로 풀어보는 성적 관리 시스템"
+categories: [Algorithm, Data Structure, Treap, Hash Table]
+description: "삽입·삭제·최솟값·최댓값·lower_bound를 모두 기대 O(log N)에 지원하는 Treap을 반복문으로 구현하고, 오픈 어드레싱 해시 테이블과 결합하여 성적 관리 시스템 문제를 해결한 과정을 정리한다."
+date: "2026-07-14"
+---
+
+## 1. 문제 개요
+
+성적 관리 시스템을 구현하는 문제다. 세 가지 API를 제공해야 한다.
+
+- `add(mId, mGrade, mGender, mScore)`: 학생을 추가하고, 같은 (학년, 성별) 그룹에서 점수가 가장 높은 학생의 ID를 반환한다. 동점이면 ID가 가장 큰 값을 반환한다.
+- `remove(mId)`: ID만 주어진 학생을 삭제하고, 같은 그룹에서 점수가 가장 낮은 학생의 ID를 반환한다. 동점이면 ID가 가장 작은 값이다. 학생이 없거나 그룹이 비면 0을 반환한다.
+- `query(...)`: 학년 집합과 성별 집합에 속하면서 점수가 `mScore` 이상인 학생 중, 점수가 가장 낮은 학생의 ID를 반환한다. 동점이면 ID 최소, 없으면 0이다.
+
+제약은 ID ≤ 10⁹, 점수 ≤ 300,000, 학년 1~3, 성별 2종이다. 삭제된 ID는 다시 추가될 수 있다.
+
+## 2. 문제 환원
+
+학년(3) × 성별(2) = 6개 그룹이 전부다. 각 API를 그룹 단위 연산으로 번역하면 다음과 같다.
+
+- `add` → 그룹에 삽입 후 그룹 내 최댓값
+- `remove` → ID로 그룹과 키를 찾아 삭제 후 그룹 내 최솟값
+- `query` → 선택된 그룹들(최대 6개)에서 임계값 이상의 최솟값
+
+여기서 핵심 트릭은 **복합 키 패킹**이다.
+
+$$\text{key} = (\text{score} \ll 30) \;|\; \text{id}$$
+
+ID ≤ 10⁹ < 2³⁰이므로 하위 30비트에 ID가 정확히 들어가고, 전체 키는 약 49비트로 64비트 정수에 안전하게 담긴다. 이 키 하나로 세 연산의 동점 규칙이 전부 흡수된다.
+
+::: {.callout-important}
+## 복합 키가 동점 로직을 흡수하는 방식
+
+`add`의 반환 조건 "점수 최대, 동점 시 ID 최대"는 복합 키의 **최댓값**과 정확히 일치하고, `remove`/`query`의 "점수 최소, 동점 시 ID 최소"는 복합 키의 **최솟값**/lower_bound와 일치한다. 상위 비트에 1차 기준(점수), 하위 비트에 2차 기준(ID)을 배치하면 2단 비교문이 단일 정수 비교로 환원된다. 동점 처리 방향이 연산마다 반대(`add`는 ID 최대, 나머지는 ID 최소)라는 함정이 있는데, 복합 키를 쓰면 max/min으로 자연스럽게 갈린다.
+:::
+
+따라서 필요한 자료구조는 그룹당 하나씩, **insert / erase / min / max / lower_bound**를 지원하는 순서 집합이다.
+
+## 3. 자료구조 선택
+
+### 3.1 기각된 대안들
+
+**점수 버킷 + Fenwick 트리**: Fenwick 하강으로 "X 이상인 최소 점수"를 찾고 버킷에서 ID를 정렬 유지하는 방식. 버킷 내 정렬 삽입이 O(버킷 크기)라서 모든 학생이 같은 점수인 적대적 입력에서 O(N²)로 무너진다. 샘플은 통과하고 본채점에서 TLE가 나는 전형적 패턴이다.
+
+**lazy deletion 힙**: `add`/`remove`의 반환값만 보면 min-heap + max-heap으로 충분해 보이지만, `query`의 "점수 ≥ X인 최소"는 힙 top이 X 미만일 때 유효한 원소를 버리지 않고는 건너뛸 수 없어 성립하지 않는다. lower_bound가 필요한 문제에서 힙은 부적합하다.
+
+### 3.2 Treap을 선택한 이유
+
+이진 탐색 트리(BST)는 다섯 연산을 전부 트리 높이에 비례하는 시간에 지원한다. 문제는 높이다. 정렬된 순서로 삽입하면 트리가 연결 리스트로 퇴화하여 모든 연산이 O(N)이 된다.
+
+흥미로운 관찰: 같은 키 집합이라도 **삽입 순서가 무작위이면 BST의 기대 높이는 O(log N)** 이다. 퀵소트의 무작위 피벗과 같은 원리다(실제로 무작위 BST와 퀵소트의 재귀 구조는 동형이다). 그런데 삽입 순서는 채점기가 정하므로 통제할 수 없다.
+
+Treap의 아이디어: **삽입 순서를 통제할 수 없다면, 트리 모양이 "무작위 순서로 삽입한 것처럼" 보이도록 강제하자.**
+
+## 4. Treap의 원리
+
+### 4.1 두 개의 불변식
+
+Treap(**Tr**ee + H**eap**)의 각 노드는 두 값을 가진다. 저장하려는 `key`, 그리고 삽입 시 난수로 부여하는 `pri`(우선순위)다. 두 불변식을 동시에 유지한다.
+
+1. **BST 불변식 (key)**: 왼쪽 서브트리의 모든 key < 내 key < 오른쪽 서브트리의 모든 key
+2. **Max-heap 불변식 (pri)**: 내 pri ≥ 자식들의 pri
+
+::: {.callout-note}
+## 트리 모양의 유일성
+
+(key, pri) 쌍들이 주어지면(pri가 모두 다를 때) 두 불변식을 만족하는 트리 모양은 유일하다. pri 최대 노드가 heap 불변식에 의해 루트로 강제되고, BST 불변식이 나머지를 좌우로 유일하게 분할하며, 각 부분에 재귀적으로 같은 논리가 적용되기 때문이다.
+
+이 유일성 덕분에 treap의 모양은 "pri 내림차순으로 삽입한 일반 BST"와 정확히 같다. pri가 균등 난수이면 pri 내림차순은 곧 무작위 순열이므로, treap은 무작위 삽입 BST의 높이 분포를 그대로 따른다. 기대 높이 O(log N)이 여기서 나온다.
+:::
+
+깊이가 $c \log N$을 초과할 확률은 $c$에 대해 지수적으로 감소하므로, 기대 복잡도임에도 실용적으로는 최악 복잡도처럼 신뢰할 수 있다. 결정적으로 난수는 구현 내부에서 뽑히므로, 채점기는 입력으로 트리를 나쁘게 만들 방법 자체가 없다.
+
+### 4.2 회전
+
+두 불변식을 동시에 유지하는 도구가 회전이다. 회전은 BST 순서(중위 순회 결과)를 보존하면서 부모-자식의 상하 관계만 바꾸는 국소 변환이다. 오른쪽 회전(P의 왼쪽 자식 C를 P 위로)을 코드로 옮기면:
+
+```cpp
+int rotate_right(int p) {
+    int c = lc_[p];
+    lc_[p] = rc_[c];   // C의 오른쪽 서브트리 B가 P의 왼쪽으로
+    rc_[c] = p;        // P가 C의 오른쪽 자식으로 강등
+    return c;          // 이 서브트리의 새 루트
+}
+```
+
+B의 이동이 회전의 유일하게 비자명한 부분이다. B의 키들은 C보다 크고 P보다 작으므로 "C의 오른쪽"과 "P의 왼쪽" 두 위치 모두 합법이다.
+
+::: {.callout-warning}
+## 세 번째 쓰기를 잊지 말 것
+
+회전 함수 안의 쓰기는 두 번뿐이지만, 회전이 완결되려면 **세 번째 쓰기**가 필요하다. 원래 P를 가리키던 칸(조부모의 자식 포인터 또는 루트)이 여전히 P를 가리키고 있으므로, 호출한 쪽이 반환값을 그 칸에 적어야 한다. 이를 빠뜨리면 회전으로 올라간 노드와 그 서브트리가 트리에서 통째로 분리된다. 회전 구현 버그의 대부분이 이 지점에서 발생한다.
+:::
+
+## 5. 구현 설계
+
+### 5.1 노드 풀: 포인터 대신 평행 배열
+
+`new`/`delete` 없이 전역 배열로 노드 창고를 미리 확보하고, 노드를 배열 인덱스로 가리킨다. `struct Node`를 필드별로 찢어 평행 배열 4개(`key_`, `pri_`, `lc_`, `rc_`)에 담는 방식으로, CSR 인접 리스트와 같은 철학이다.
+
+- **NIL = 0 관례**: 0번 인덱스를 널 노드로 예약하고 실제 노드는 1번부터 발급한다. 전역 배열이 0으로 초기화되는 성질과 맞물려 `lc_[NIL] == NIL`이 자동 성립하므로, 실수로 NIL 너머로 내려가도 NIL에 머문다.
+- **bump allocator + free list**: `pool_top`을 증가시키며 번호를 발급하되, 삭제된 노드는 free list에 반납하고 재사용한다. free list가 없으면 배열 용량이 "현재 노드 수"가 아니라 "누적 삽입 횟수"로 결정된다.
+- **재사용 노드의 자식 포인터 리셋**: free list에서 재발급된 노드에는 이전 생애의 자식 포인터가 남아 있다. `alloc_node`에서 `lc_`/`rc_`를 반드시 NIL로 초기화해야 유령 자식이 달려 나오는 오염을 막는다.
+
+::: {.callout-tip}
+## 초기화는 지우는 것이 아니라 경로를 끊는 것
+
+테스트 케이스 리셋 시 큰 배열을 memset할 필요가 없다. `root = NIL`로 트리 입구를 끊고 `pool_top = 0`으로 번호표를 되감으면, 옛 데이터는 도달 불가능한 쓰레기가 되고 재발급 시점에 반드시 새 값으로 덮인다. 단, 해시 테이블처럼 단일 입구가 없는 구조는 상태 배열을 실제로 청소해야 한다.
+:::
+
+### 5.2 난수 우선순위
+
+`rand()`는 일부 환경에서 RAND_MAX가 32767(15비트)에 불과해 노드가 수만 개면 생일 문제로 우선순위 충돌이 잦아진다. LCG나 xorshift로 32비트 전체를 쓰는 것이 안전하다. 시드는 고정 상수로 둔다. 난수성이 필요한 상대는 입력 데이터이지 실행 회차가 아니며, 고정 시드는 "같은 입력 → 같은 트리"라는 재현성을 보장해 디버깅을 가능하게 한다.
+
+### 5.3 반복문 삽입: path 스택
+
+1MB 스택 제한 환경에서는 재귀 대신 반복문이 원칙이다. 삽입은 두 단계다.
+
+1. **BST 삽입**: pri를 무시하고 리프에 붙인다. 하강 중 밟은 노드와 방향을 `path[]`/`pdir[]` 스택에 기록한다.
+2. **회전으로 끌어올리기**: 새 노드의 pri가 부모보다 큰 동안, 스택을 되감으며 회전한다. 새 노드가 부모의 왼쪽 자식이면 오른쪽 회전, 오른쪽 자식이면 왼쪽 회전이다. 회전 후 스택의 다음 원소(조부모)의 자식 포인터에 새 서브트리 루트를 적고, **스택이 비면 루트를 갱신**한다.
+
+반복문 트리 수정의 핵심 감각은 "어디에 붙일지"가 아니라 **"어느 포인터를 고칠지"** 를 추적하는 것이다. 삽입이 고치는 포인터는 하강이 끝난 지점의 빈 칸 하나(`lc_[par]` 또는 `rc_[par]`)다. 이를 위해 하강 중 `par`(마지막으로 밟은 노드)와 `dir`(어느 쪽으로 내려가려 했는지)를 유지한다.
+
+스택 크기 64는 기대 최대 깊이 $\approx 4.3 \ln N$에 충분한 안전 마진을 더한 값이다. N = 10⁶에서도 기대 깊이는 60 이하다.
+
+### 5.4 반복문 삭제: 회전으로 끌어내리기
+
+삭제는 삽입의 역연산이다.
+
+1. `par`/`dir`을 추적하며 대상 t를 탐색한다. 없으면 실패를 반환한다.
+2. t의 자식이 둘인 동안: 두 자식 중 **pri가 큰 쪽을 올리는 회전**을 한다(작은 쪽을 올리면 heap 불변식이 깨진다). 회전의 반환값을 "t를 가리키던 칸"에 적고, `par`를 새 서브트리 루트로 갱신한다.
+3. 자식이 하나 이하가 되면 남은 자식을 직결하고, t를 free list에 반납한다.
+
+삽입과 달리 회전이 위에서 아래로만 진행되므로 스택이 필요 없다. `par`/`dir` 두 변수면 충분하다.
+
+::: {.callout-note}
+## 대상의 pri를 실제로 낮출 필요는 없다
+
+교과서적 설명은 "대상의 pri를 $-\infty$로 간주하고 내린다"이지만, 이 구현에서 대상의 pri는 어디서도 읽히지 않는다. `while (자식이 둘)`이라는 무조건 하강이 "$-\infty$인 노드는 어떤 위치에서도 위반 상태이므로 무조건 밀려난다"는 행동을 제어 흐름으로 새긴 것이다. 값을 바꾸는 대신 비교 자체를 생략한 설계다. pri에 0을 실제로 쓰는 방식은 다른 노드의 pri도 0일 수 있어 "진짜 $-\infty$"가 아니라는 증명 부담이 생긴다.
+:::
+
+또 하나의 요점은 회전 반환값의 역할이다. 삽입의 회전은 고정된 노드 x를 계속 올리므로 새 루트가 항상 x지만, 삭제의 회전은 매번 "그 시점의 pri 큰 자식"이 올라오므로 **반환값이 새 루트의 유일한 식별 수단**이다.
+
+그리고 회전 후 dir 갱신은 회전 방향이 결정한다. `rotate_left(t)` 후 t는 새 루트의 **왼쪽** 자식이 된다(`lc_[c] = p` 그 줄이다). 회전 이름과 t가 떨어지는 방향이 반대라는 점이 함정이므로, 변수 이름을 "어떤 회전을 했나"가 아니라 "t가 어디로 갔나"로 짓는 편이 안전하다.
+
+### 5.5 질의: 회전 없는 하강
+
+min/max는 왼쪽/오른쪽 끝까지 하강이다. lower_bound는 다음 논리로 하강한다.
+
+```cpp
+ull lower_bound(ull k) {
+    int cur = root; ull best = 0;
+    while (cur) {
+        if (key_[cur] >= k) { best = key_[cur]; cur = lc_[cur]; }
+        else                {                   cur = rc_[cur]; }
+    }
+    return best;
+}
+```
+
+`key_[cur] >= k`이면 cur은 후보이고, 더 작은 후보는 BST 성질상 왼쪽 서브트리에만 존재할 수 있다. 이때 오른쪽 서브트리를 영영 버려도 되는 이유: 오른쪽의 ≥ k인 키들은 전부 현재 후보보다 크므로 "≥ k인 것 중 최솟값" 경쟁에서 이미 탈락이다. 루프 내내 "정답은 best이거나 cur 이하 서브트리 안에 있다"는 불변식이 유지된다.
+
+빈 트리와 "해당 없음"의 반환값은 0으로 통일했다. 이 문제의 합법 키는 id ≥ 1이므로 절대 0이 될 수 없어, 0이 구조적으로 예약 가능한 센티널이기 때문이다.
+
+## 6. 해시 테이블: ID → 학생 레코드
+
+`remove(mId)`는 ID만 주므로 ID → (grade, gender, score) 매핑이 필요하다. 오픈 어드레싱(선형 탐사) 해시 테이블을 쓰되, 삭제가 있으므로 **EMPTY / OCCUPIED / DELETED 3-상태**가 필수다.
+
+- **find**: EMPTY를 만날 때까지 탐사하되, `state == OCCUPIED && id 일치`일 때만 매치한다. DELETED는 "탐사는 통과시키되 매치는 시키지 않는" 상태다. DELETED 슬롯에는 옛 id가 시체로 남아 있으므로, OCCUPIED 조건 없이 id만 비교하면 삭제된 학생이 발견되는 버그가 난다.
+- **insert**: 탐사 중 처음 만나는 비-OCCUPIED 슬롯(EMPTY든 DELETED든)에 쓴다. DELETED 재사용이 안전한 근거는 두 가지다. (1) 문제 조건상 살아 있는 ID는 add로 들어오지 않으므로 OCCUPIED 중복이 생기지 않는다. (2) 같은 id의 DELETED 시체가 다른 슬롯에 남아 있어도 find가 OCCUPIED만 매치하므로 무해하다. 재사용하지 않으면 삭제가 반복될수록 probe chain이 단조 증가해 O(1)이 무너진다.
+- **erase**: 상태만 DELETED로 바꾼다. EMPTY로 되돌리면 그 슬롯을 지나 배치됐던 다른 키들의 탐사 사슬이 끊긴다.
+
+용량은 2의 거듭제곱으로 잡아 `& (CAP - 1)`로 감싸고, 해시 함수는 Fibonacci hashing 계열의 곱셈 해시(`id * 2654435761u`)면 충분하다.
+
+## 7. API 조립
+
+재료가 모이면 조립은 공식 몇 줄이다.
+
+```
+그룹 인덱스: g = (grade - 1) * 2 + (gender[0] == 'm' ? 0 : 1)
+복합 키:     k = ((ull)score << 30) | (ull)id
+키에서 ID:   k & ((1 << 30) - 1)
+```
+
+- `add`: 그룹 treap에 삽입, 해시에 기록, `find_max()`에서 ID 추출.
+- `remove`: 해시 find(실패 시 0) → 슬롯에서 그룹과 키 복원 → treap erase → 슬롯 DELETED → `find_min()`이 0이면 0, 아니면 ID 추출.
+- `query`: (학년 목록 × 성별 목록) 이중 루프로 각 그룹에 `lower_bound((ull)mScore << 30)`, 0이 아닌 결과들의 최솟값에서 ID 추출. 실제 키는 id ≥ 1이라 `(mScore << 30)`보다 항상 크므로, score == mScore인 학생이 정확히 포함된다(이상 조건 충족).
+
+성별 판정은 두 문자열의 첫 글자가 다르므로 `mGender[0] == 'm'`으로 충분하며 strcmp가 필요 없다.
+
+복잡도는 연산당 기대 O(log N), query는 최대 6그룹 × lower_bound다. 메모리는 노드 풀과 해시 테이블로 O(N)이다.
+
+## 8. 검증 방법론
+
+이 문제에서 검증은 세 층으로 진행했고, 각 층이 서로 다른 종류의 버그를 잡았다.
+
+### 8.1 불변식 검사기
+
+중위 순회 한 번으로 BST 불변식(키 강증가)과 heap 불변식(자식 pri ≤ 부모 pri)을 동시에 검사하는 `check()` 함수를 만들어 스트레스 테스트 중 주기적으로 호출했다. 단, 불변식 검사는 "트리인 부분"의 건강만 보므로 노드 증발은 못 잡는다. **노드 개수 검사**를 병행해야 한다. 실제로 회전을 빠뜨린 초기 구현은 노드가 증발하는데도 불변식 검사를 통과했다.
+
+### 8.2 무작위 스트레스 + 브루트포스 대조
+
+삽입 55% / 삭제 45%의 무작위 시퀀스 20만 스텝을 돌리며, 생존 키 배열(그 자체가 브루트포스 자료구조)로 계산한 min/max/lower_bound 정답과 주기적으로 대조했다. 삭제 버그는 특정 모양에서 특정 노드를 지울 때만 발현되는 경우가 많아 결정적 테스트로는 잡히지 않는다.
+
+이 과정에서 이론과의 정량 대조도 가능했다. 오름차순 삽입 + 무작위 pri에서 최우측 경로 길이는 무작위 순열의 prefix maximum 개수와 같은 분포를 가지며 기댓값은 조화수다.
+
+$$H_n = \sum_{k=1}^{n} \frac{1}{k} \approx \ln n$$
+
+N = 20000에서 $\ln 20000 \approx 9.9$, 실측 10. 구현이 "대충 균형 잡힌" 것이 아니라 이론이 예측한 분포 그대로 동작함을 확인했다. free list의 건강도 `pool_top`으로 정량 확인했다. 총 삽입 약 11만 회에 pool_top이 최대 동시 생존 수(약 2만) 근처에 머물렀다는 것은 9만 회의 삽입이 전부 재사용받았다는 뜻이다.
+
+### 8.3 API 레벨 대조
+
+자료구조가 옳아도 조립 계층(그룹 인덱싱, 키 패킹, 해시 연동)의 버그는 별개다. 실제로 query가 필터 파라미터를 무시하고 6그룹 전체를 스캔하는 버그, 키를 int에 담아 절단되는 버그는 스모크 테스트를 통과했다. 문제 명세를 직역한 브루트포스와 무작위 시나리오(삭제-재추가, 없는 ID의 remove, 동점 다발을 위한 좁은 점수 범위 포함)에서 전 호출 대조하는 것이 최종 안전망이다.
+
+::: {.callout-important}
+## 검증의 독립성
+
+브루트포스는 검증 대상과 같은 트릭을 공유하면 안 된다. 동점 처리를 복합 키로 풀지 않고 명세 그대로 "score 비교 → 같으면 id 비교"의 2단 비교문으로 쓰는 이유다. 두 구현이 트릭을 공유하면 그 트릭의 버그를 서로 잡아주지 못한다.
+
+또한 테스트가 침묵하면 성공인지, 검사가 아예 일어나지 않은 것인지 구분해야 한다. 검증 블록에 수행 횟수 카운터를 넣고 성공 시에도 통계와 함께 출력하면, 빈 검증이 즉시 들통난다.
+:::
+
+## 9. 이 문제에서 수집한 버그 패턴
+
+구현 과정에서 실제로 만들었거나 만날 뻔한 버그들이다. 패턴으로 기억해 둘 가치가 있다.
+
+1. **힙 인덱스 산술과의 혼동**: 배열 기반 이진 힙의 `2i`, `2i+1`은 완전 이진 트리라는 배치 강제가 있어야 성립한다. 일반 트리에서 자식은 계산되는 것이 아니라 `lc_`/`rc_`에 저장되는 것이다.
+2. **signed/unsigned 비교**: `ull key <= (long long)-1` 비교에서 -1이 $2^{64}-1$로 변환되어 항상 참이 된다. 건강한 트리에 BROKEN 판정을 내린 원인이었다. 세 지표(불변식, 개수, 깊이) 중 둘이 건강하면 진단 기계 쪽을 의심하라. `-Wall -Wextra`의 `-Wsign-compare`가 이 줄을 지목한다.
+3. **회전 후 방향 갱신의 극성**: rotate_left 후 대상은 새 루트의 *왼쪽* 자식이 된다. 회전 이름과 낙하 방향이 반대다. "어떤 회전을 했나"가 아니라 "대상이 어디로 갔나"를 저장하는 변수명이 재발을 막는다.
+4. **키·인덱스·ID의 혼용**: find_min 등의 반환값은 복합 키이지 노드 인덱스도 ID도 아니다. 키를 배열 인덱스로 쓰면 범위 밖 접근, int에 담으면 점수 상위 비트가 절단된다(하위 2비트만 남아 점수 84와 88이 구분 불가). 키는 끝까지 64비트로 들고 다니고 반환 직전에만 마스킹한다.
+5. **센티널 관례의 불일치**: treap의 "없음"은 0이지만 해시 find의 "없음"은 -1이다(0은 합법 슬롯 번호). 자료구조마다 센티널이 다르므로 함수 계약을 그대로 따라야 한다. 가드 절 수리 시 조건의 극성이 뒤집히는 2차 사고도 흔하다. "이 줄은 비정상 경로를 조기 탈출시키는 문장인가"를 소리 내어 확인하라.
+6. **이중 발급 앨리어싱**: 테스트 케이스 리셋에서 `free_top` 초기화를 빠뜨리면, 이전 케이스의 반납 인덱스가 재사용된 뒤 pool_top이 같은 인덱스를 따라잡는 순간 살아 있는 노드가 이중 발급된다. 언어 차원의 UB가 아니라 자료구조 불변식의 논리적 오염이므로 크래시 없이 오답만 낸다.
+7. **스트레스 하니스 자체의 용량 계산**: 삽입 확률 p, 삭제 확률 1-p의 랜덤 워크에서 생존 수의 기댓값은 $(2p-1) \times \text{step}$, 표준편차는 $O(\sqrt{\text{step}})$이다. 보조 배열과 노드 풀 용량은 기대 점유량이 아니라 꼬리까지 포함한 최대 점유량으로 잡아야 한다.
+
+## 10. 마무리
+
+이 문제의 골격은 "복합 키 + 그룹별 순서 집합 + ID 역인덱스"라는 3단 구성이며, STL 없는 환경에서 순서 집합의 현실적 선택지가 treap이다. Treap은 회전이라는 단일 부품 위에 삽입(끌어올리기)과 삭제(끌어내리기)가 대칭으로 서 있는 구조라, 회전의 "세 번째 쓰기"와 반복문 하강의 `par`/`dir` 패턴만 정확히 잡으면 나머지는 기계적으로 조립된다. 무작위성이 알고리즘 내부에 있어 적대적 입력이 원천 봉쇄된다는 점, 그리고 높이·free list 같은 내부 지표가 이론값과 정량적으로 대조 가능하다는 점이 이 자료구조의 매력이다.
+
+## Codes
+
+```cpp
+#include <stdio.h>
+
+using ull = unsigned long long int;
+
+#define MAX_N   (20'001)
+#define MAX_GRP (6)
+#define HCAP (1 << 17)
+#define H_EMPTY    0
+#define H_OCCUPIED 1
+#define H_DELETED  2
+
+struct Hash {
+    int state[HCAP];
+    int id_[HCAP];
+    int grade_[HCAP], gender_[HCAP], score_[HCAP];
+
+    void init() {
+        for (int i = 0; i < HCAP; i++) state[i] = H_EMPTY;
+    }
+
+    int hslot(int id) {
+        return (int)(((unsigned)id * 2654435761u) & (HCAP - 1));
+    }
+
+    int find(int id) {
+        int i = hslot(id);
+        while (state[i] != H_EMPTY) {
+            if (id_[i] == id && state[i] == H_OCCUPIED) return i;
+            i = (i + 1) & (HCAP - 1);
+        }
+        return -1;
+    }
+
+    void insert(int id, int g, int gen, int sc) {
+        int i = hslot(id);
+        while (state[i] == H_OCCUPIED) {
+            i = (i + 1) & (HCAP - 1);
+        }
+
+        state[i] = H_OCCUPIED;
+        id_[i] = id; grade_[i] = g; gender_[i] = gen; score_[i] = sc;
+    }
+
+    void erase_slot(int i) {
+        state[i] = H_DELETED;
+    }
+} ht;
+
+struct Treap {
+    int pool_top;
+    int free_top;
+    int free_list[MAX_N];
+
+    ull key_[MAX_N];
+    ull pri_[MAX_N];
+    int lc_[MAX_N], rc_[MAX_N];
+    int root;
+
+    ull seed;
+    unsigned int pseudo_rand() {
+        seed = seed * 25214903917ULL + 11ULL;
+        return (seed >> 16) & 0x3fffffff;
+    }
+
+    void init() {
+        pool_top = free_top = 0;
+        root = 0;
+        seed = 6545344357ULL;
+    }
+
+    int alloc_node(ull k) {
+        int x;
+        if(free_top > 0) x = free_list[--free_top];
+        else x = ++pool_top;
+        key_[x] = k;
+        pri_[x] = pseudo_rand();
+        lc_[x] = rc_[x] = 0;
+
+        return x;
+    }
+
+    int rotate_left(int p) {
+        int c = rc_[p];
+        rc_[p] = lc_[c];
+        lc_[c] = p;
+        return c;
+    }
+
+    int rotate_right(int p) {
+        int c = lc_[p];
+        lc_[p] = rc_[c];
+        rc_[c] = p;
+        return c;
+    }
+
+    void insert(ull k) {
+        int x = alloc_node(k);
+        if (root == 0) {
+            root = x;
+            return;
+        }
+
+        int path[64], pdir[64], top = 0;
+        int cur = root;
+        while (cur) {
+            path[top] = cur;
+            if(k < key_[cur]) {
+                pdir[top] = 0;
+                cur = lc_[cur];
+            }
+            else {
+                pdir[top] = 1;
+                cur = rc_[cur];
+            }
+            ++top;
+        }
+
+        int par = path[top - 1];
+        if(pdir[top - 1] == 0) {
+            lc_[par] = x;
+        }
+        else {
+            rc_[par] = x;
+        }
+
+        while(top > 0 && pri_[x] > pri_[path[top - 1]]) {
+            int p = path[top - 1];
+            int sub;
+            if(pdir[top - 1] == 0) sub = rotate_right(p);
+            else sub = rotate_left(p);
+
+            --top;
+
+            if(top == 0) {
+                root = sub;
+            }
+            else if (pdir[top - 1] == 0) {
+                lc_[path[top - 1]] = sub;
+            }
+            else {
+                rc_[path[top - 1]] = sub;
+            }
+        }
+    }
+
+    int erase(ull k) {
+        int cur = root;
+        int par = 0;
+        int dir = 0;
+
+        while(cur && key_[cur] != k) {
+            par = cur;
+            if(k < key_[cur]) {
+                dir = 0;
+                cur = lc_[cur];
+            }
+            else {
+                dir = 1;
+                cur = rc_[cur];
+            }
+        }
+
+        if(cur == 0) return 0;
+
+        int t = cur;
+        while(lc_[t] && rc_[t]) {
+            int sub;
+            int t_dir;
+            if(pri_[lc_[t]] > pri_[rc_[t]]) {
+                sub = rotate_right(t);
+                t_dir = 1;
+            }
+            else {
+                sub = rotate_left(t);
+                t_dir = 0;
+            }
+
+            if(par == 0) {
+                root = sub;
+            }
+            else if (dir == 0) {
+                lc_[par] = sub;
+            }
+            else {
+                rc_[par] = sub;
+            }
+
+            par = sub;
+            dir = t_dir;
+        }
+
+        int child = lc_[t] ? lc_[t] : rc_[t];
+        if(par == 0) {
+            root = child;
+        }
+        else if(dir == 0) {
+            lc_[par] = child;
+        }
+        else {
+            rc_[par] = child;
+        }
+
+        free_list[free_top++] = t;
+        return 1;
+    }
+
+    ull find_min() {
+        if(root == 0) return 0;
+        int cur = root;
+        while(lc_[cur]) cur = lc_[cur];
+        return key_[cur];
+    }
+
+    ull find_max() {
+        if(root == 0) return 0;
+        int cur = root;
+        while(rc_[cur]) cur = rc_[cur];
+        return key_[cur];
+    }
+
+    ull lower_bound(ull k) {
+        int cur = root;
+        ull best = 0;
+        while(cur) {
+            if(key_[cur] >= k) {
+                best = key_[cur];
+                cur = lc_[cur];
+            }
+            else {
+                cur = rc_[cur];
+            }
+        }
+
+        return best;
+    }
+} treap[MAX_GRP];
+
+constexpr ull id_filter = ((1 << 30) - 1);
+
+void init() {
+    for(int i = 0; i < MAX_GRP; ++i) treap[i].init();
+    ht.init();
+}
+
+int add(int mId, int mGrade, char mGender[7], int mScore) {
+    int gen = (mGender[0] == 'm' ? 0 : 1);
+    int g = ((mGrade - 1) << 1) + gen;
+    ull k =  ((ull)mScore << 30) | (ull) mId;
+
+    treap[g].insert(k);
+    ht.insert(mId, mGrade, gen, mScore);
+
+    return treap[g].find_max() & id_filter;
+}
+
+int remove(int mId) {
+    auto slot = ht.find(mId);
+    if(slot == -1) return 0;
+
+    int g = ((ht.grade_[slot] - 1) << 1) + ht.gender_[slot];
+    ull k = ((ull)ht.score_[slot] << 30) | (ull) ht.id_[slot];
+
+    treap[g].erase(k);
+    ht.erase_slot(slot);
+
+    auto m = treap[g].find_min();
+    if(m == 0) return 0;
+    return m & id_filter;
+}
+
+int query(int mGradeCnt, int mGrade[], int mGenderCnt, char mGender[][7], int mScore) {
+    ull best = 0;
+
+    for(int grd = 0; grd < mGradeCnt; ++grd) {
+        for(int gen = 0; gen < mGenderCnt; ++gen) {
+            int grp = ((mGrade[grd] - 1) << 1) + (mGender[gen][0] == 'm' ? 0 : 1);
+            auto lb = treap[grp].lower_bound((ull)mScore << 30);
+            if(lb != 0) {
+                if(best == 0 || lb < best) {
+                    best = lb;
+                }
+            }
+        }
+    }
+
+    if(best == 0) return 0;
+
+    return best & id_filter;
+}
+```
