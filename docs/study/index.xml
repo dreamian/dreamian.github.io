@@ -997,6 +997,707 @@ font-style: inherit;">}</span></span></code></pre></div></div>
   <pubDate>Tue, 14 Jul 2026 15:00:00 GMT</pubDate>
 </item>
 <item>
+  <title>pandas 데이터프레임 처리 핵심 정리</title>
+  <link>https://dreamian.github.io/study/data-science/pandas_dataframe_notes.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<div id="cell-setup" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">import</span> pandas <span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">as</span> pd</span>
+<span id="cb1-2"><span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">import</span> numpy <span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">as</span> np</span>
+<span id="cb1-3"></span>
+<span id="cb1-4">url <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv'</span></span>
+<span id="cb1-5">df_titanic <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> pd.read_csv(url)</span>
+<span id="cb1-6">df_titanic.head(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span>)</span></code></pre></div></div>
+<div id="setup" class="cell-output cell-output-display" data-execution_count="1">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">PassengerId</th>
+<th data-quarto-table-cell-role="th">Survived</th>
+<th data-quarto-table-cell-role="th">Pclass</th>
+<th data-quarto-table-cell-role="th">Name</th>
+<th data-quarto-table-cell-role="th">Sex</th>
+<th data-quarto-table-cell-role="th">Age</th>
+<th data-quarto-table-cell-role="th">SibSp</th>
+<th data-quarto-table-cell-role="th">Parch</th>
+<th data-quarto-table-cell-role="th">Ticket</th>
+<th data-quarto-table-cell-role="th">Fare</th>
+<th data-quarto-table-cell-role="th">Cabin</th>
+<th data-quarto-table-cell-role="th">Embarked</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>1</td>
+<td>0</td>
+<td>3</td>
+<td>Braund, Mr. Owen Harris</td>
+<td>male</td>
+<td>22.0</td>
+<td>1</td>
+<td>0</td>
+<td>A/5 21171</td>
+<td>7.2500</td>
+<td>NaN</td>
+<td>S</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>2</td>
+<td>1</td>
+<td>1</td>
+<td>Cumings, Mrs. John Bradley (Florence Briggs Th...</td>
+<td>female</td>
+<td>38.0</td>
+<td>1</td>
+<td>0</td>
+<td>PC 17599</td>
+<td>71.2833</td>
+<td>C85</td>
+<td>C</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>3</td>
+<td>1</td>
+<td>3</td>
+<td>Heikkinen, Miss. Laina</td>
+<td>female</td>
+<td>26.0</td>
+<td>0</td>
+<td>0</td>
+<td>STON/O2. 3101282</td>
+<td>7.9250</td>
+<td>NaN</td>
+<td>S</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<section id="결측치-탐지와-불리언-인덱싱" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 결측치 탐지와 불리언 인덱싱</h1>
+<section id="notna-isna" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="notna-isna"><span class="header-section-number">1.1</span> <code>notna()</code> / <code>isna()</code></h2>
+<p><code>notna()</code>는 각 원소가 결측(NaN)이 아니면 <code>True</code>, <code>isna()</code>는 그 반대인 <strong>불리언 Series</strong>를 반환한다. 불리언 Series는 그 자체가 하나의 “행 필터”로 기능한다.</p>
+<div id="9e10a58a" class="cell" data-execution_count="2">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1">df_titanic[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Embarked'</span>].isna().<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">sum</span>()   <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># True의 합 = 결측 개수</span></span></code></pre></div></div>
+<div class="cell-output cell-output-display" data-execution_count="2">
+<pre><code>np.int64(2)</code></pre>
+</div>
+</div>
+</section>
+<section id="series에서의-.loc-인자-1개" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="series에서의-.loc-인자-1개"><span class="header-section-number">1.2</span> Series에서의 <code>.loc</code> — 인자 1개</h2>
+<p>Series는 1차원이므로 <code>.loc</code>에 행 선택자 하나만 들어간다.</p>
+<div id="204e76aa" class="cell" data-execution_count="3">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1">x <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> df_titanic[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Embarked'</span>]</span>
+<span id="cb4-2">x.loc[x.notna()].unique()             <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># 결측 제거 후 유일값</span></span></code></pre></div></div>
+<div class="cell-output cell-output-display" data-execution_count="3">
+<pre><code>&lt;StringArray&gt;
+['S', 'C', 'Q']
+Length: 3, dtype: str</code></pre>
+</div>
+</div>
+</section>
+<section id="dataframe에서의-.loc행-열-인자-2개" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="dataframe에서의-.loc행-열-인자-2개"><span class="header-section-number">1.3</span> DataFrame에서의 <code>.loc[행, 열]</code> — 인자 2개</h2>
+<p>DataFrame은 2차원이므로 콤마로 <strong>행 선택자와 열 선택자를 동시에</strong> 지정한다.</p>
+<div id="3f6d03a2" class="cell" data-execution_count="4">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1">df_titanic.loc[df_titanic[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Cabin'</span>].notna(), <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Cabin'</span>].head()</span></code></pre></div></div>
+<div class="cell-output cell-output-display" data-execution_count="4">
+<pre><code>1      C85
+3     C123
+6      E46
+10      G6
+11    C103
+Name: Cabin, dtype: str</code></pre>
+</div>
+</div>
+<p>열 선택자의 형태에 따라 반환 타입이 달라진다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>열 선택자</th>
+<th>예</th>
+<th>반환</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>문자열 하나</td>
+<td><code>.loc[cond, 'Cabin']</code></td>
+<td>Series</td>
+</tr>
+<tr class="even">
+<td>리스트</td>
+<td><code>.loc[cond, ['Name', 'Sex']]</code></td>
+<td>DataFrame</td>
+</tr>
+<tr class="odd">
+<td>라벨 슬라이스</td>
+<td><code>.loc[cond, 'Pclass':'Cabin']</code></td>
+<td>DataFrame (<strong>양 끝 포함</strong>)</td>
+</tr>
+<tr class="even">
+<td>생략 또는 <code>:</code></td>
+<td><code>.loc[cond]</code></td>
+<td>모든 열</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>값 대입은 반드시 <code>.loc[행, 열] = 값</code>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><code>df['col'][cond] = 값</code> 형태의 <strong>연쇄 인덱싱(chained indexing)</strong> 은 대입이 복사본에 적용될 수 있어 원본이 바뀌지 않는 버그의 흔한 원인이다. 한 번의 <code>.loc</code> 호출로 좌표를 지정하는 것이 표준 패턴이다.</p>
+</div>
+</div>
+<div id="4de63c9f" class="cell" data-execution_count="5">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1">df2 <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> df_titanic.copy()</span>
+<span id="cb8-2">df2.loc[df2[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Embarked'</span>].isna(), <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Embarked'</span>] <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> df2[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Embarked'</span>].mode()[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>]</span>
+<span id="cb8-3">df2[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Embarked'</span>].isna().<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">sum</span>()</span></code></pre></div></div>
+<div class="cell-output cell-output-display" data-execution_count="5">
+<pre><code>np.int64(0)</code></pre>
+</div>
+</div>
+<p>복합 조건은 <code>&amp;</code>, <code>|</code>로 결합하되 <strong>각 조건을 괄호로 감싼다</strong> (비교 연산자보다 <code>&amp;</code>의 우선순위가 높기 때문).</p>
+<div id="2489998b" class="cell" data-execution_count="6">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1">df_titanic.loc[</span>
+<span id="cb10-2">    (df_titanic[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Sex'</span>] <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'female'</span>) <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&amp;</span> (df_titanic[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Pclass'</span>] <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>),</span>
+<span id="cb10-3">    <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Survived'</span></span>
+<span id="cb10-4">].mean()</span></code></pre></div></div>
+<div class="cell-output cell-output-display" data-execution_count="6">
+<pre><code>np.float64(0.9680851063829787)</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="apply-열-단위-반복-연산" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> <code>apply</code> — 열 단위 반복 연산</h1>
+<p>DataFrame에 <code>apply(func)</code>를 쓰면 기본값 <code>axis=0</code>으로 <strong>각 열이 Series로서 함수에 차례로 전달</strong>된다. for 루프로 열을 순회하는 것과 논리적으로 같지만, 결과를 자동으로 하나의 객체로 모아 준다.</p>
+<div id="92f5d1b1" class="cell" data-execution_count="7">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1">df_titanic[[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Survived'</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Pclass'</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Sex'</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Embarked'</span>]].<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">apply</span>(</span>
+<span id="cb12-2">    <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">lambda</span> x: x.loc[x.notna()].unique().tolist()</span>
+<span id="cb12-3">)</span></code></pre></div></div>
+<div class="cell-output cell-output-display" data-execution_count="7">
+<pre><code>Survived            [0, 1]
+Pclass           [3, 1, 2]
+Sex         [male, female]
+Embarked         [S, C, Q]
+dtype: object</code></pre>
+</div>
+</div>
+<p>함수가 스칼라를 반환하면 결과는 Series, 리스트 같은 객체를 반환하면 “값이 리스트인 Series”가 된다.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span><code>apply</code> + <code>pd.Series</code> = 한 열을 여러 열로
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Series에 <code>apply</code>를 적용할 때 람다가 <strong><code>pd.Series</code>를 반환하면</strong>, pandas가 그 인덱스를 열 이름으로 삼아 결과를 <strong>DataFrame으로 조립</strong>해 준다.</p>
+</div>
+</div>
+<div id="6327c92f" class="cell" data-execution_count="8">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1">df_titanic.loc[df_titanic[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Cabin'</span>].notna(), <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Cabin'</span>].<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">str</span>.split(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">' '</span>)<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">\</span></span>
+<span id="cb14-2">    .explode()<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">\</span></span>
+<span id="cb14-3">    .<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">apply</span>(</span>
+<span id="cb14-4">        <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">lambda</span> x: pd.Series((x[:<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>], x[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>:]), index<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Cabin_Type'</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Cabin_No'</span>])</span>
+<span id="cb14-5">    ).head()</span></code></pre></div></div>
+<div class="cell-output cell-output-display" data-execution_count="8">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Cabin_Type</th>
+<th data-quarto-table-cell-role="th">Cabin_No</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">1</th>
+<td>C</td>
+<td>85</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>C</td>
+<td>123</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">6</th>
+<td>E</td>
+<td>46</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">10</th>
+<td>G</td>
+<td>6</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">11</th>
+<td>C</td>
+<td>103</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<p><code>x[0]</code> 대신 <code>x[:1]</code>을 쓰면 빈 문자열에서 <code>IndexError</code> 없이 빈 문자열을 반환하므로 슬라이싱이 더 방어적이다.</p>
+<p>벡터화된 대안이 있으면 그쪽이 간결하고 빠르다는 점도 기억해 둔다.</p>
+<div id="1d45378a" class="cell" data-execution_count="9">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># apply 버전:  .apply(lambda x: x.isna().sum())</span></span>
+<span id="cb15-2">df_titanic[[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Age'</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Cabin'</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Embarked'</span>]].isna().<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">sum</span>()   <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># 벡터화 버전</span></span></code></pre></div></div>
+<div class="cell-output cell-output-display" data-execution_count="9">
+<pre><code>Age         177
+Cabin       687
+Embarked      2
+dtype: int64</code></pre>
+</div>
+</div>
+</section>
+<section id="str-접근자-문자열-일괄-처리" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> <code>.str</code> 접근자 — 문자열 일괄 처리</h1>
+<p><code>.str</code>은 Series의 각 문자열 원소에 문자열 메서드를 벡터화하여 적용한다. <code>split</code> 결과(리스트의 Series)에서 원소를 꺼낼 때는 <code>.str[i]</code>를 이어 쓴다.</p>
+<div id="f45b7fa5" class="cell" data-execution_count="10">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># "성, 호칭. 이름" 형식에서 호칭만 추출</span></span>
+<span id="cb17-2">title <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> df_titanic[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Name'</span>].<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">str</span>.split(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">', '</span>).<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">str</span>[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>].<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">str</span>.split(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'.'</span>).<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">str</span>[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>]</span>
+<span id="cb17-3">title.value_counts().head()</span></code></pre></div></div>
+<div class="cell-output cell-output-display" data-execution_count="10">
+<pre><code>Name
+Mr        517
+Miss      182
+Mrs       125
+Master     40
+Dr          7
+Name: count, dtype: int64</code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span><code>.str.split</code> / <code>.str.rsplit</code>의 <code>n</code>은 키워드 전용 인자
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>순수 파이썬 문자열은 <code>'A/5 21171'.rsplit(' ', 1)</code>처럼 위치 인자를 허용하지만, pandas <code>.str</code> 접근자의 시그니처는 <code>rsplit(pat=None, *, n=-1, expand=False)</code>로 <code>*</code> 뒤의 인자를 <strong>키워드로만</strong> 받는다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1">s.<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">str</span>.rsplit(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">' '</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>)     <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># TypeError!</span></span>
+<span id="cb19-2">s.<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">str</span>.rsplit(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">' '</span>, n<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>)   <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># OK</span></span></code></pre></div></div>
+<p>에러 메시지의 “3 were given”은 <code>self</code>가 첫 위치 인자로 자동 전달되기 때문이다. <code>apply(lambda x: x.rsplit(' ', 1))</code>이 동작하는 이유는 람다 안의 <code>x</code>가 Series가 아닌 <strong>개별 파이썬 문자열</strong>이기 때문이다.</p>
+</div>
+</div>
+<p><code>rsplit(' ', n=1)</code>은 오른쪽에서 한 번만 나누므로, 접두사에 공백이 있는 <code>'STON/O 2. 3101282'</code> 같은 값에서도 마지막 조각(번호)이 보존된다.</p>
+</section>
+<section id="explode-관측-단위-재구성" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> <code>explode</code> — 관측 단위 재구성</h1>
+<p>한 셀에 값 여러 개가 뭉쳐 있으면(“C23 C25 C27”) 표준 집계 연산을 쓸 수 없다. <code>explode</code>는 <strong>리스트의 각 원소를 독립된 행으로 펼쳐</strong> “한 셀 = 한 값”을 만든다.</p>
+<div id="6c53bc76" class="cell" data-execution_count="11">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1">cabin_exploded <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> df_titanic.loc[df_titanic[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Cabin'</span>].notna(), <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Cabin'</span>]<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">\</span></span>
+<span id="cb20-2">    .<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">str</span>.split(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">' '</span>)<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">\</span></span>
+<span id="cb20-3">    .explode()</span>
+<span id="cb20-4">cabin_exploded.loc[[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">27</span>]]    <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># 인덱스 27: 객실 3개 → 행 3개</span></span></code></pre></div></div>
+<div class="cell-output cell-output-display" data-execution_count="11">
+<pre><code>27    C23
+27    C25
+27    C27
+Name: Cabin, dtype: str</code></pre>
+</div>
+</div>
+<p>핵심 성질 두 가지:</p>
+<ol type="1">
+<li><strong>인덱스가 복제</strong>된다 — 펼쳐진 각 값이 어느 원래 행에서 나왔는지가 보존된다.</li>
+<li>길이가 늘어난다 — 관측 단위가 “승객”에서 “객실”로 바뀐다.</li>
+</ol>
+</section>
+<section id="groupby-심화" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> <code>groupby</code> 심화</h1>
+<section id="level0-인덱스로-그룹화" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="level0-인덱스로-그룹화"><span class="header-section-number">5.1</span> <code>level=0</code> — 인덱스로 그룹화</h2>
+<p><code>groupby</code>의 기준이 열이 아니라 <strong>인덱스에 있을 때</strong> <code>level</code> 인자를 쓴다. <code>level=0</code>은 인덱스의 첫 번째 층을 뜻하며, 단일 인덱스라면 “인덱스 그 자체로 묶어라”가 된다. explode가 보존해 준 인덱스를 그룹 키로 되살리는 전형적 조합이다.</p>
+<div id="23176d32" class="cell" data-execution_count="12">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1">cabins_per_passenger <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> cabin_exploded.groupby(level<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>).size()</span>
+<span id="cb22-2">cabins_per_passenger.value_counts()   <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># 객실 개수별 승객 수</span></span></code></pre></div></div>
+<div class="cell-output cell-output-display" data-execution_count="12">
+<pre><code>Cabin
+1    180
+2     16
+3      6
+4      2
+Name: count, dtype: int64</code></pre>
+</div>
+</div>
+<p><code>size()</code>는 그룹의 <strong>행 개수</strong>, <code>count()</code>는 <strong>결측이 아닌 값의 개수</strong>를 센다.</p>
+</section>
+<section id="agg-vs-transform" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="agg-vs-transform"><span class="header-section-number">5.2</span> <code>agg</code> vs <code>transform</code></h2>
+<p>같은 그룹 연산이지만 <strong>결과를 돌려주는 방식</strong>이 다르다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th>계산</th>
+<th>반환 형태</th>
+<th>관측 단위</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>agg</code> (<code>median()</code> 등)</td>
+<td>그룹별 통계량</td>
+<td><strong>그룹 개수</strong>만큼의 행</td>
+<td>그룹</td>
+</tr>
+<tr class="even">
+<td><code>transform</code></td>
+<td>그룹별 통계량</td>
+<td><strong>원본과 같은 길이·인덱스</strong></td>
+<td>원래 행</td>
+</tr>
+</tbody>
+</table>
+<p><code>transform</code>은 split → 그룹별 계산 → <strong>broadcast</strong>(각 행에 자기 그룹의 값을 되돌려 뿌리기)의 3단계로 동작한다. 개념적으로는 조건부 통계량 <img src="https://latex.codecogs.com/png.latex?E%5BY%20%5Cmid%20%5Ctext%7B%EA%B7%B8%EB%A3%B9%7D%5D">을 각 관측치에 매핑하는 연산이다.</p>
+<div id="fbdb9e6c" class="cell" data-execution_count="13">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1">df3 <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> df_titanic.copy()</span>
+<span id="cb24-2"></span>
+<span id="cb24-3"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># 호칭별 나이 중앙값을 각 승객에게 대응시킨 891행 Series</span></span>
+<span id="cb24-4">age_median_by_title <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> df3.groupby(title)[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Age'</span>].transform(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'median'</span>)</span>
+<span id="cb24-5"></span>
+<span id="cb24-6"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># .loc 대입은 인덱스 정렬 기반 → 원본과 인덱스가 같아야 결측 위치에 정확히 들어간다</span></span>
+<span id="cb24-7">df3.loc[df3[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Age'</span>].isna(), <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Age'</span>] <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> age_median_by_title</span>
+<span id="cb24-8"></span>
+<span id="cb24-9"><span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">print</span>(df3[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Age'</span>].isna().<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">sum</span>())</span>
+<span id="cb24-10"><span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">print</span>(<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">round</span>(df_titanic[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Age'</span>].mean(), <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span>), <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'→'</span>, <span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">round</span>(df3[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'Age'</span>].mean(), <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span>))</span></code></pre></div></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>0
+29.699 → 29.39</code></pre>
+</div>
+</div>
+<p>agg 결과(인덱스가 호칭인 짧은 Series)를 우변에 넣으면 인덱스가 맞지 않아 전부 NaN이 대입된다. <code>transform</code>이 필요한 이유는 이 <strong>정렬 호환성</strong>이다.</p>
+<p>전형적 용례: 그룹별 결측 대체, 그룹 내 표준화 <code>(x - x.mean()) / x.std()</code>, 그룹 합 대비 비중 <code>x / x.sum()</code>.</p>
+</section>
+</section>
+<section id="요약-치트시트" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> 요약 치트시트</h1>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>하고 싶은 일</th>
+<th>패턴</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>결측 아닌 행의 특정 열</td>
+<td><code>df.loc[df['c'].notna(), 'c']</code></td>
+</tr>
+<tr class="even">
+<td>결측 위치에 값 대입</td>
+<td><code>df.loc[df['c'].isna(), 'c'] = 값</code></td>
+</tr>
+<tr class="odd">
+<td>열별 반복 연산</td>
+<td><code>df[cols].apply(lambda x: ...)</code></td>
+</tr>
+<tr class="even">
+<td>한 열 → 여러 열</td>
+<td><code>s.apply(lambda x: pd.Series(..., index=[...]))</code></td>
+</tr>
+<tr class="odd">
+<td>문자열 나누고 원소 꺼내기</td>
+<td><code>s.str.split(p).str[i]</code></td>
+</tr>
+<tr class="even">
+<td>오른쪽에서 1회 분할</td>
+<td><code>s.str.rsplit(' ', n=1)</code> (<code>n=</code> 필수)</td>
+</tr>
+<tr class="odd">
+<td>한 셀의 여러 값 → 여러 행</td>
+<td><code>s.str.split(' ').explode()</code></td>
+</tr>
+<tr class="even">
+<td>explode 후 원래 행 기준 집계</td>
+<td><code>.groupby(level=0).size()</code></td>
+</tr>
+<tr class="odd">
+<td>그룹 통계량을 각 행에 붙이기</td>
+<td><code>.groupby(k)['c'].transform('median')</code></td>
+</tr>
+</tbody>
+</table>
+
+
+</section>
+
+ ]]></description>
+  <guid>https://dreamian.github.io/study/data-science/pandas_dataframe_notes.html</guid>
+  <pubDate>Tue, 14 Jul 2026 15:00:00 GMT</pubDate>
+</item>
+<item>
   <title>Treap으로 풀어보는 성적 관리 시스템</title>
   <link>https://dreamian.github.io/study/problem-solving/treap-grade-management.html</link>
   <description><![CDATA[ 
@@ -23159,724 +23860,6 @@ font-style: inherit;"># ~1e-16</span></span></code></pre></div></div>
  ]]></description>
   <guid>https://dreamian.github.io/study/deep-learning/DL-lecture-260608-notes.html</guid>
   <pubDate>Sun, 07 Jun 2026 15:00:00 GMT</pubDate>
-</item>
-<item>
-  <title>Markov Decision Processes</title>
-  <link>https://dreamian.github.io/study/data-network/markov-decision-processes.html</link>
-  <description><![CDATA[ 
-
-
-
-
-<section id="큰-그림-왜-mdp인가" class="level1" data-number="1">
-<h1 data-number="1"><span class="header-section-number">1</span> 큰 그림: 왜 MDP인가</h1>
-<p>MDP는 <strong>완전 관측 가능(fully observable)</strong> 환경을 형식화하는 표준 틀이다. “현재 상태가 미래를 결정하는 데 필요한 모든 정보를 담고 있다”는 Markov 성질 위에, <strong>보상(reward)</strong> 과 <strong>행동(action)</strong> 을 차례로 얹어 나가는 구조를 갖는다.</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cunderbrace%7B%5Clangle%20S,%20P%5Crangle%7D_%7B%5Ctext%7BMarkov%20Process%7D%7D%0A%5C;%5Cxrightarrow%7B+%5C,R,%5C;%5Cgamma%7D%5C;%0A%5Cunderbrace%7B%5Clangle%20S,%20P,%20R,%20%5Cgamma%5Crangle%7D_%7B%5Ctext%7BMRP%7D%7D%0A%5C;%5Cxrightarrow%7B+%5C,A%7D%5C;%0A%5Cunderbrace%7B%5Clangle%20S,%20A,%20P,%20R,%20%5Cgamma%5Crangle%7D_%7B%5Ctext%7BMDP%7D%7D%0A"></p>
-<div class="callout callout-style-default callout-important callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">중요</span>한 문장으로 압축한 핵심
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><strong>MDP에 정책 <img src="https://latex.codecogs.com/png.latex?%5Cpi">를 고정하면 즉시 MRP가 되고, MRP는 다시 Markov Process가 된다.</strong> 따라서 정책 평가(evaluation)는 언제나 “유도된 MRP의 가치 계산”으로 환원된다.</p>
-</div>
-</div>
-<hr>
-</section>
-<section id="markov-process" class="level1" data-number="2">
-<h1 data-number="2"><span class="header-section-number">2</span> Markov Process</h1>
-<section id="markov-성질" class="level2" data-number="2.1">
-<h2 data-number="2.1" class="anchored" data-anchor-id="markov-성질"><span class="header-section-number">2.1</span> Markov 성질</h2>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathbb%7BP%7D%5BS_%7Bt+1%7D%5Cmid%20S_t%5D%20=%20%5Cmathbb%7BP%7D%5BS_%7Bt+1%7D%5Cmid%20S_1,%5Cdots,S_t%5D%0A"></p>
-<p>상태 <img src="https://latex.codecogs.com/png.latex?S_t">는 미래에 대한 <strong>충분통계량(sufficient statistic)</strong> 이다. 일단 상태를 알면 과거 history는 버려도 된다.</p>
-</section>
-<section id="상태-전이-행렬" class="level2" data-number="2.2">
-<h2 data-number="2.2" class="anchored" data-anchor-id="상태-전이-행렬"><span class="header-section-number">2.2</span> 상태 전이 행렬</h2>
-<p><img src="https://latex.codecogs.com/png.latex?%0AP_%7Bss'%7D%20=%20%5Cmathbb%7BP%7D%5BS_%7Bt+1%7D=s'%5Cmid%20S_t=s%5D,%20%5Cqquad%20%5Csum_%7Bs'%7D%20P_%7Bss'%7D%20=%201%20%5C;%5C;(%5Ctext%7B%EA%B0%81%20%ED%96%89%EC%9D%98%20%ED%95%A9%7D=1)%0A"></p>
-<p><strong>Markov Process (Chain)</strong> 는 튜플 <img src="https://latex.codecogs.com/png.latex?%5Clangle%20S,%20P%5Crangle"> — 상태 집합 <img src="https://latex.codecogs.com/png.latex?S">와 전이 행렬 <img src="https://latex.codecogs.com/png.latex?P">만으로 정의된다. 보상도 행동도 없다.</p>
-</section>
-<section id="student-markov-chain-예제" class="level2" data-number="2.3">
-<h2 data-number="2.3" class="anchored" data-anchor-id="student-markov-chain-예제"><span class="header-section-number">2.3</span> Student Markov Chain 예제</h2>
-<div class="cell" data-layout-align="default">
-<div class="cell-output-display">
-<div id="fig-mc" class="quarto-float quarto-figure quarto-figure-center anchored">
-<figure class="quarto-float quarto-float-fig figure">
-<div aria-describedby="fig-mc-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<div>
-<pre class="mermaid mermaid-js" data-label="fig-mc">flowchart LR
-  C1((Class 1)) --&gt;|0.5| C2((Class 2))
-  C1 --&gt;|0.5| FB((Facebook))
-  FB --&gt;|0.9| FB
-  FB --&gt;|0.1| C1
-  C2 --&gt;|0.8| C3((Class 3))
-  C2 --&gt;|0.2| SL[Sleep]
-  C3 --&gt;|0.6| PA((Pass))
-  C3 --&gt;|0.4| PU((Pub))
-  PA --&gt;|1.0| SL
-  PU --&gt;|0.2| C1
-  PU --&gt;|0.4| C2
-  PU --&gt;|0.4| C3
-</pre>
-</div>
-</div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mc-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-그림&nbsp;1: Student Markov Chain
-</figcaption>
-</figure>
-</div>
-</div>
-</div>
-<p>표본 경로(sample episode) 예: <code>C1 → C2 → C3 → Pass → Sleep</code>, <code>C1 → FB → FB → C1 → C2 → Sleep</code> 등.</p>
-<hr>
-</section>
-</section>
-<section id="markov-reward-process-mrp" class="level1" data-number="3">
-<h1 data-number="3"><span class="header-section-number">3</span> Markov Reward Process (MRP)</h1>
-<p>MRP <img src="https://latex.codecogs.com/png.latex?=%5Clangle%20S,%20P,%20R,%20%5Cgamma%5Crangle"> — Markov chain에 <strong>가치(value)</strong> 를 붙인 것.</p>
-<ul>
-<li>보상 함수: <img src="https://latex.codecogs.com/png.latex?%5C;R_s%20=%20%5Cmathbb%7BE%7D%5BR_%7Bt+1%7D%5Cmid%20S_t%20=%20s%5D"></li>
-<li>할인율: <img src="https://latex.codecogs.com/png.latex?%5C;%5Cgamma%20%5Cin%20%5B0,1%5D"></li>
-</ul>
-<section id="return-누적-할인-보상" class="level2" data-number="3.1">
-<h2 data-number="3.1" class="anchored" data-anchor-id="return-누적-할인-보상"><span class="header-section-number">3.1</span> Return (누적 할인 보상)</h2>
-<p><img src="https://latex.codecogs.com/png.latex?%0AG_t%20=%20R_%7Bt+1%7D%20+%20%5Cgamma%20R_%7Bt+2%7D%20+%20%5Cgamma%5E2%20R_%7Bt+3%7D%20+%20%5Ccdots%20=%20%5Csum_%7Bk=0%7D%5E%7B%5Cinfty%7D%5Cgamma%5Ek%20R_%7Bt+k+1%7D%0A"></p>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">노트</span>표기 주의
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>상태 <img src="https://latex.codecogs.com/png.latex?s">에 들어가서 받는 보상의 인덱스는 <img src="https://latex.codecogs.com/png.latex?R_%7Bt+1%7D">이다. <img src="https://latex.codecogs.com/png.latex?G_t">는 확률변수이고, 그 기댓값이 가치함수 <img src="https://latex.codecogs.com/png.latex?v(s)">이다.</p>
-</div>
-</div>
-</section>
-<section id="왜-할인하는가-gamma의-정당화" class="level2" data-number="3.2">
-<h2 data-number="3.2" class="anchored" data-anchor-id="왜-할인하는가-gamma의-정당화"><span class="header-section-number">3.2</span> 왜 할인하는가 — <img src="https://latex.codecogs.com/png.latex?%5Cgamma">의 정당화</h2>
-<ul>
-<li>수학적 편의 (수렴 보장)</li>
-<li>순환(cyclic) Markov process에서 <strong>무한 return 방지</strong></li>
-<li>미래 불확실성을 모형이 완전히 담지 못함</li>
-<li>금전적 보상이면 즉시 보상이 이자 측면에서 유리</li>
-<li>동물/인간이 즉시 보상을 선호</li>
-<li>모든 경로가 종료(terminate)하면 <img src="https://latex.codecogs.com/png.latex?%5Cgamma=1"> (undiscounted)도 가능</li>
-</ul>
-</section>
-<section id="가치함수와-bellman-equation" class="level2" data-number="3.3">
-<h2 data-number="3.3" class="anchored" data-anchor-id="가치함수와-bellman-equation"><span class="header-section-number">3.3</span> 가치함수와 Bellman Equation</h2>
-<p><img src="https://latex.codecogs.com/png.latex?%0Av(s)%20=%20%5Cmathbb%7BE%7D%5BG_t%20%5Cmid%20S_t%20=%20s%5D%0A"></p>
-<p>Return을 즉시 보상 + 할인된 다음 상태 가치로 분해한다.</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Baligned%7D%0Av(s)%20&amp;=%20%5Cmathbb%7BE%7D%5BR_%7Bt+1%7D%20+%20%5Cgamma%20G_%7Bt+1%7D%5Cmid%20S_t%20=%20s%5D%20%5C%5C%0A&amp;=%20%5Cmathbb%7BE%7D%5BR_%7Bt+1%7D%20+%20%5Cgamma%5C,%20v(S_%7Bt+1%7D)%5Cmid%20S_t%20=%20s%5D%20%5C%5C%0A&amp;=%20R_s%20+%20%5Cgamma%20%5Csum_%7Bs'%7D%20P_%7Bss'%7D%5C,%20v(s')%0A%5Cend%7Baligned%7D%0A"></p>
-<p>분해의 핵심은 <img src="https://latex.codecogs.com/png.latex?%5Cmathbb%7BE%7D%5BG_%7Bt+1%7D%5Cmid%20S_%7Bt+1%7D=s'%5D=v(s')">이고 tower property로 한 칸만 펼치는 것이다.</p>
-</section>
-<section id="행렬형과-직접-해" class="level2" data-number="3.4">
-<h2 data-number="3.4" class="anchored" data-anchor-id="행렬형과-직접-해"><span class="header-section-number">3.4</span> 행렬형과 직접 해</h2>
-<p><img src="https://latex.codecogs.com/png.latex?%0Av%20=%20R%20+%20%5Cgamma%20P%20v%0A%5C;%5C;%5CLongrightarrow%5C;%5C;%0A(I-%5Cgamma%20P)%5C,v%20=%20R%0A%5C;%5C;%5CLongrightarrow%5C;%5C;%0Av%20=%20(I-%5Cgamma%20P)%5E%7B-1%7DR%0A"></p>
-<ul>
-<li>선형 방정식이므로 <strong>직접 풀 수 있음</strong>, 계산복잡도 <img src="https://latex.codecogs.com/png.latex?O(n%5E3)"> (<img src="https://latex.codecogs.com/png.latex?n=%7CS%7C">).</li>
-<li><img src="https://latex.codecogs.com/png.latex?%5Cgamma%3C1">이면 <img src="https://latex.codecogs.com/png.latex?%5Crho(%5Cgamma%20P)%3C1">이므로 <img src="https://latex.codecogs.com/png.latex?(I-%5Cgamma%20P)">는 가역. 큰 <img src="https://latex.codecogs.com/png.latex?n">에서는 DP / Monte-Carlo / TD 같은 반복법을 사용한다.</li>
-</ul>
-</section>
-<section id="gamma에-따른-가치-전파-시각화" class="level2" data-number="3.5">
-<h2 data-number="3.5" class="anchored" data-anchor-id="gamma에-따른-가치-전파-시각화"><span class="header-section-number">3.5</span> <img src="https://latex.codecogs.com/png.latex?%5Cgamma">에 따른 가치 전파 시각화</h2>
-<p>흡수상태 Sleep을 종단(terminal, <img src="https://latex.codecogs.com/png.latex?v=0">)으로 두고 전이상태 집합 <img src="https://latex.codecogs.com/png.latex?%5C%7BC1,%20C2,%20C3,%20%5Ctext%7BPass%7D,%20%5Ctext%7BPub%7D,%20FB%5C%7D">에 대해 <img src="https://latex.codecogs.com/png.latex?v_T%20=%20(I-%5Cgamma%20Q)%5E%7B-1%7D%20R_T"> 를 직접 푼다. 여기서 <img src="https://latex.codecogs.com/png.latex?Q">는 전이상태끼리의 부분확률행렬이며, 이 경우 <img src="https://latex.codecogs.com/png.latex?%5Cgamma=1">에서도 <img src="https://latex.codecogs.com/png.latex?%5Crho(Q)%3C1">이라 역행렬이 존재한다.</p>
-<div id="cell-fig-value-gamma" class="cell" data-execution_count="1">
-<details class="code-fold">
-<summary>코드</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><span class="im" style="color: #00769E;
-background-color: null;
-font-style: inherit;">import</span> numpy <span class="im" style="color: #00769E;
-background-color: null;
-font-style: inherit;">as</span> np</span>
-<span id="cb1-2"><span class="im" style="color: #00769E;
-background-color: null;
-font-style: inherit;">import</span> matplotlib.pyplot <span class="im" style="color: #00769E;
-background-color: null;
-font-style: inherit;">as</span> plt</span>
-<span id="cb1-3"></span>
-<span id="cb1-4">states <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> [<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C1"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C2"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C3"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"Pass"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"Pub"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"FB"</span>]</span>
-<span id="cb1-5">idx <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> {s: i <span class="cf" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">for</span> i, s <span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">in</span> <span class="bu" style="color: null;
-background-color: null;
-font-style: inherit;">enumerate</span>(states)}</span>
-<span id="cb1-6"></span>
-<span id="cb1-7">Q <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> np.zeros((<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">6</span>, <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">6</span>))</span>
-<span id="cb1-8">Q[idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C1"</span>], idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"FB"</span>]] <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.5</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span>  Q[idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C1"</span>], idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C2"</span>]] <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.5</span></span>
-<span id="cb1-9">Q[idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C2"</span>], idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C3"</span>]] <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.8</span>                     <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;"># C2 -&gt; Sleep 0.2 (terminal)</span></span>
-<span id="cb1-10">Q[idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C3"</span>], idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"Pub"</span>]] <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.4</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span> Q[idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C3"</span>], idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"Pass"</span>]] <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.6</span></span>
-<span id="cb1-11"><span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;"># Pass -&gt; Sleep 1.0 (terminal): 행 전체 0</span></span>
-<span id="cb1-12">Q[idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"Pub"</span>], idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C1"</span>]] <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.2</span></span>
-<span id="cb1-13">Q[idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"Pub"</span>], idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C2"</span>]] <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.4</span></span>
-<span id="cb1-14">Q[idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"Pub"</span>], idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C3"</span>]] <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.4</span></span>
-<span id="cb1-15">Q[idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"FB"</span>], idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"FB"</span>]] <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.9</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span>  Q[idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"FB"</span>], idx[<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C1"</span>]] <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.1</span></span>
-<span id="cb1-16"></span>
-<span id="cb1-17">R <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> np.array([<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">-</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">2</span>, <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">-</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">2</span>, <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">-</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">2</span>, <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">10</span>, <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span>, <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">-</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span>], dtype<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span><span class="bu" style="color: null;
-background-color: null;
-font-style: inherit;">float</span>)</span>
-<span id="cb1-18"></span>
-<span id="cb1-19">gammas <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> np.linspace(<span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.0</span>, <span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1.0</span>, <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">51</span>)</span>
-<span id="cb1-20">V <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> np.array([np.linalg.solve(np.eye(<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">6</span>) <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">-</span> g <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span> Q, R) <span class="cf" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">for</span> g <span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">in</span> gammas])</span>
-<span id="cb1-21"></span>
-<span id="cb1-22">fig, ax <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> plt.subplots(figsize<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span>(<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">8</span>, <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">5</span>))</span>
-<span id="cb1-23"><span class="cf" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">for</span> j, s <span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">in</span> <span class="bu" style="color: null;
-background-color: null;
-font-style: inherit;">enumerate</span>(states):</span>
-<span id="cb1-24">    ax.plot(gammas, V[:, j], marker<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">""</span>, linewidth<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">2</span>, label<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span>s)</span>
-<span id="cb1-25">ax.axhline(<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>, color<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"gray"</span>, linewidth<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.8</span>, linestyle<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"--"</span>)</span>
-<span id="cb1-26">ax.set_xlabel(<span class="vs" style="color: #20794D;
-background-color: null;
-font-style: inherit;">r"discount factor </span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">$</span><span class="er" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">\</span><span class="vs" style="color: #20794D;
-background-color: null;
-font-style: inherit;">gamma</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">$</span><span class="vs" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"</span>)</span>
-<span id="cb1-27">ax.set_ylabel(<span class="vs" style="color: #20794D;
-background-color: null;
-font-style: inherit;">r"state value </span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">$</span><span class="vs" style="color: #20794D;
-background-color: null;
-font-style: inherit;">v</span><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">(</span><span class="vs" style="color: #20794D;
-background-color: null;
-font-style: inherit;">s</span><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">)</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">$</span><span class="vs" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"</span>)</span>
-<span id="cb1-28">ax.set_title(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"Student MRP: value function vs. discount factor"</span>)</span>
-<span id="cb1-29">ax.legend(ncol<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">3</span>, fontsize<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">9</span>)</span>
-<span id="cb1-30">ax.grid(alpha<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.3</span>)</span>
-<span id="cb1-31">plt.tight_layout()</span>
-<span id="cb1-32">plt.show()</span></code></pre></div></div>
-</details>
-<div class="cell-output cell-output-display">
-<div id="fig-value-gamma" class="quarto-float quarto-figure quarto-figure-center anchored">
-<figure class="quarto-float quarto-float-fig figure">
-<div aria-describedby="fig-value-gamma-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="https://dreamian.github.io/study/data-network/markov-decision-processes_files/figure-html/fig-value-gamma-output-1.png" width="757" height="468" class="figure-img">
-</div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-value-gamma-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-그림&nbsp;2: 할인율 gamma에 따른 각 상태의 가치 v(s) 변화
-</figcaption>
-</figure>
-</div>
-</div>
-</div>
-<div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">힌트</span>읽는 법
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><img src="https://latex.codecogs.com/png.latex?%5Cgamma=0">에서는 <img src="https://latex.codecogs.com/png.latex?v(s)=R_s"> (즉시 보상 그 자체)다. <img src="https://latex.codecogs.com/png.latex?%5Cgamma">를 키울수록 미래, 특히 <img src="https://latex.codecogs.com/png.latex?R=+10">인 Pass의 영향이 앞선 상태로 전파되어 <img src="https://latex.codecogs.com/png.latex?C3,%20C2">의 가치가 올라간다. 반대로 자기 자신으로 0.9 확률로 머무는 FB는 <img src="https://latex.codecogs.com/png.latex?%5Cgamma">가 커질수록 <img src="https://latex.codecogs.com/png.latex?R=-1">이 길게 누적되어 급격히 음수로 발산하는 경향을 보인다 (<img src="https://latex.codecogs.com/png.latex?%5Cgamma=1">에서 <img src="https://latex.codecogs.com/png.latex?v(FB)%5Capprox%20-22.5">).</p>
-</div>
-</div>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?%5Cgamma"></th>
-<th style="text-align: right;">C1</th>
-<th style="text-align: right;">C2</th>
-<th style="text-align: right;">C3</th>
-<th style="text-align: right;">Pass</th>
-<th style="text-align: right;">Pub</th>
-<th style="text-align: right;">FB</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: right;">0.0</td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?-2.00"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?-2.00"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?-2.00"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?+10.00"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?+1.00"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?-1.00"></td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">0.5</td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?-2.91"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?-1.55"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?+1.12"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?+10.00"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?+0.62"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?-2.08"></td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">0.9</td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?-5.01"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?+0.94"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?+4.09"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?+10.00"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?+1.91"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?-7.64"></td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">1.0</td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?-12.54"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?+1.46"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?+4.32"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?+10.00"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?+0.80"></td>
-<td style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?-22.54"></td>
-</tr>
-</tbody>
-</table>
-<hr>
-</section>
-</section>
-<section id="markov-decision-process-mdp" class="level1" data-number="4">
-<h1 data-number="4"><span class="header-section-number">4</span> Markov Decision Process (MDP)</h1>
-<p>MDP <img src="https://latex.codecogs.com/png.latex?=%5Clangle%20S,%20A,%20P,%20R,%20%5Cgamma%5Crangle"> — MRP에 <strong>행동(decision)</strong> 을 추가한 것.</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0AP_%7Bss'%7D%5E%7Ba%7D%20=%20%5Cmathbb%7BP%7D%5BS_%7Bt+1%7D=s'%5Cmid%20S_t=s,%5C,%20A_t=a%5D,%20%5Cqquad%0AR_s%5E%7Ba%7D%20=%20%5Cmathbb%7BE%7D%5BR_%7Bt+1%7D%5Cmid%20S_t=s,%5C,%20A_t=a%5D%0A"></p>
-<section id="정책-policy" class="level2" data-number="4.1">
-<h2 data-number="4.1" class="anchored" data-anchor-id="정책-policy"><span class="header-section-number">4.1</span> 정책 (policy)</h2>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cpi(a%5Cmid%20s)%20=%20%5Cmathbb%7BP%7D%5BA_t%20=%20a%20%5Cmid%20S_t%20=%20s%5D%0A"></p>
-<p>정책은 <strong>현재 상태에만 의존</strong>하며(stationary), 시간 불변이다. 정책이 history가 아니라 상태에만 의존해도 충분한 이유가 곧 Markov 성질이다.</p>
-</section>
-<section id="student-mdp-예제" class="level2" data-number="4.2">
-<h2 data-number="4.2" class="anchored" data-anchor-id="student-mdp-예제"><span class="header-section-number">4.2</span> Student MDP 예제</h2>
-<div class="cell" data-layout-align="default">
-<div class="cell-output-display">
-<div id="fig-mdp" class="quarto-float quarto-figure quarto-figure-center anchored">
-<figure class="quarto-float quarto-float-fig figure">
-<div aria-describedby="fig-mdp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<div>
-<pre class="mermaid mermaid-js" data-label="fig-mdp">flowchart LR
-  S1((Class 1))
-  S2((Class 2))
-  S3((Class 3))
-  FB((Facebook))
-  SL[Sleep]
-  PUB{{"Pub (R=+1)"}}
-
-  S1 --&gt;|"Facebook, R=-1"| FB
-  FB --&gt;|"Facebook, R=-1"| FB
-  FB --&gt;|"Quit, R=0"| S1
-  S1 --&gt;|"Study, R=-2"| S2
-  S2 --&gt;|"Sleep, R=0"| SL
-  S2 --&gt;|"Study, R=-2"| S3
-  S3 --&gt;|"Study, R=+10"| SL
-  S3 --&gt;|"Pub"| PUB
-  PUB --&gt;|0.2| S1
-  PUB --&gt;|0.4| S2
-  PUB --&gt;|0.4| S3
-</pre>
-</div>
-</div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mdp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-그림&nbsp;3: Student MDP (빨간 글씨 = action / reward)
-</figcaption>
-</figure>
-</div>
-</div>
-</div>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-노트
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>MRP에서 “환경이 던지던” 분기 확률 일부가, MDP에서는 “내가 선택하는” 행동으로 바뀐다. Pub 행동만 결과가 확률적(0.2/0.4/0.4)이고, 나머지 행동은 결정적 전이를 갖는다.</p>
-</div>
-</div>
-</section>
-<section id="정책-고정-mrp로-환원" class="level2" data-number="4.3">
-<h2 data-number="4.3" class="anchored" data-anchor-id="정책-고정-mrp로-환원"><span class="header-section-number">4.3</span> 정책 고정 → MRP로 환원</h2>
-<p>정책 <img src="https://latex.codecogs.com/png.latex?%5Cpi">를 고정하면 상태열 <img src="https://latex.codecogs.com/png.latex?S_1,%20S_2,%5Cdots">은 Markov process <img src="https://latex.codecogs.com/png.latex?%5Clangle%20S,%20P%5E%5Cpi%5Crangle">, 상태-보상열은 MRP <img src="https://latex.codecogs.com/png.latex?%5Clangle%20S,%20P%5E%5Cpi,%20R%5E%5Cpi,%20%5Cgamma%5Crangle">가 된다.</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0AP%5E%5Cpi_%7Bss'%7D%20=%20%5Csum_%7Ba%7D%20%5Cpi(a%5Cmid%20s)%5C,P_%7Bss'%7D%5E%7Ba%7D,%20%5Cqquad%0AR%5E%5Cpi_%7Bs%7D%20=%20%5Csum_%7Ba%7D%20%5Cpi(a%5Cmid%20s)%5C,R_s%5E%7Ba%7D%0A"></p>
-</section>
-<section id="두-가지-가치함수" class="level2" data-number="4.4">
-<h2 data-number="4.4" class="anchored" data-anchor-id="두-가지-가치함수"><span class="header-section-number">4.4</span> 두 가지 가치함수</h2>
-<p><img src="https://latex.codecogs.com/png.latex?%0Av_%5Cpi(s)%20=%20%5Cmathbb%7BE%7D_%5Cpi%5BG_t%5Cmid%20S_t=s%5D,%20%5Cqquad%0Aq_%5Cpi(s,a)%20=%20%5Cmathbb%7BE%7D_%5Cpi%5BG_t%5Cmid%20S_t=s,%5C,%20A_t=a%5D%0A"></p>
-<p><img src="https://latex.codecogs.com/png.latex?v_%5Cpi">는 상태가치, <img src="https://latex.codecogs.com/png.latex?q_%5Cpi">는 (상태, 행동) 가치다. 둘의 구분은 표기 정확성과 직결된다.</p>
-</section>
-<section id="bellman-expectation-equation" class="level2" data-number="4.5">
-<h2 data-number="4.5" class="anchored" data-anchor-id="bellman-expectation-equation"><span class="header-section-number">4.5</span> Bellman Expectation Equation</h2>
-<p><img src="https://latex.codecogs.com/png.latex?v">와 <img src="https://latex.codecogs.com/png.latex?q">를 서로 한 단계씩 펼치는 네 관계가 핵심이다.</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Baligned%7D%0Av_%5Cpi(s)%20&amp;=%20%5Csum_a%20%5Cpi(a%5Cmid%20s)%5C,%20q_%5Cpi(s,a)%20%5C%5C%5B2pt%5D%0Aq_%5Cpi(s,a)%20&amp;=%20R_s%5Ea%20+%20%5Cgamma%20%5Csum_%7Bs'%7D%20P_%7Bss'%7D%5Ea%5C,%20v_%5Cpi(s')%20%5C%5C%5B2pt%5D%0Av_%5Cpi(s)%20&amp;=%20%5Csum_a%20%5Cpi(a%5Cmid%20s)%5CBig(R_s%5Ea%20+%20%5Cgamma%20%5Csum_%7Bs'%7D%20P_%7Bss'%7D%5Ea%5C,%20v_%5Cpi(s')%5CBig)%20%5C%5C%5B2pt%5D%0Aq_%5Cpi(s,a)%20&amp;=%20R_s%5Ea%20+%20%5Cgamma%20%5Csum_%7Bs'%7D%20P_%7Bss'%7D%5Ea%20%5Csum_%7Ba'%7D%20%5Cpi(a'%5Cmid%20s')%5C,%20q_%5Cpi(s',a')%0A%5Cend%7Baligned%7D%0A"></p>
-<p>행렬형:</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0Av_%5Cpi%20=%20R%5E%5Cpi%20+%20%5Cgamma%20P%5E%5Cpi%20v_%5Cpi%0A%5C;%5C;%5CLongrightarrow%5C;%5C;%0Av_%5Cpi%20=%20(I%20-%20%5Cgamma%20P%5E%5Cpi)%5E%7B-1%7D%20R%5E%5Cpi%0A"></p>
-<p>MRP와 완전히 같은 구조다.</p>
-<hr>
-</section>
-</section>
-<section id="최적성-optimality" class="level1" data-number="5">
-<h1 data-number="5"><span class="header-section-number">5</span> 최적성 (Optimality)</h1>
-<section id="최적-가치함수" class="level2" data-number="5.1">
-<h2 data-number="5.1" class="anchored" data-anchor-id="최적-가치함수"><span class="header-section-number">5.1</span> 최적 가치함수</h2>
-<p><img src="https://latex.codecogs.com/png.latex?%0Av_*(s)%20=%20%5Cmax_%5Cpi%20v_%5Cpi(s),%20%5Cqquad%20q_*(s,a)%20=%20%5Cmax_%5Cpi%20q_%5Cpi(s,a)%0A"></p>
-<p>MDP가 “풀렸다”는 것은 곧 <img src="https://latex.codecogs.com/png.latex?v_*"> (또는 <img src="https://latex.codecogs.com/png.latex?q_*">)를 안다는 뜻이다.</p>
-</section>
-<section id="최적-정책-정리" class="level2" data-number="5.2">
-<h2 data-number="5.2" class="anchored" data-anchor-id="최적-정책-정리"><span class="header-section-number">5.2</span> 최적 정책 정리</h2>
-<p>모든 MDP에 대해 다음이 성립한다.</p>
-<ol type="1">
-<li>다른 모든 정책보다 좋거나 같은 최적 정책 <img src="https://latex.codecogs.com/png.latex?%5Cpi_*">가 <strong>반드시 존재</strong>한다.</li>
-<li>모든 최적 정책은 최적 상태가치 <img src="https://latex.codecogs.com/png.latex?v_%7B%5Cpi_*%7D(s)=v_*(s)">를 달성한다.</li>
-<li>모든 최적 정책은 최적 행동가치 <img src="https://latex.codecogs.com/png.latex?q_%7B%5Cpi_*%7D(s,a)=q_*(s,a)">를 달성한다.</li>
-</ol>
-</section>
-<section id="최적-정책-찾기" class="level2" data-number="5.3">
-<h2 data-number="5.3" class="anchored" data-anchor-id="최적-정책-찾기"><span class="header-section-number">5.3</span> 최적 정책 찾기</h2>
-<p><img src="https://latex.codecogs.com/png.latex?q_*">를 알면 즉시 greedy하게 결정적(deterministic) 정책을 얻는다.</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cpi_*(a%5Cmid%20s)%20=%0A%5Cbegin%7Bcases%7D%0A1%20&amp;%20%5Ctext%7Bif%20%7D%20a%20=%20%5Carg%5Cmax_%7Ba%5Cin%20A%7D%20q_*(s,a)%5C%5C%0A0%20&amp;%20%5Ctext%7Botherwise%7D%0A%5Cend%7Bcases%7D%0A"></p>
-<div class="callout callout-style-default callout-important callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-중요
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><strong>결정적 최적 정책은 항상 존재</strong>한다. 즉 <img src="https://latex.codecogs.com/png.latex?q_*">만 구하면 MDP는 끝난다.</p>
-</div>
-</div>
-</section>
-<section id="bellman-optimality-equation" class="level2" data-number="5.4">
-<h2 data-number="5.4" class="anchored" data-anchor-id="bellman-optimality-equation"><span class="header-section-number">5.4</span> Bellman Optimality Equation</h2>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Baligned%7D%0Av_*(s)%20&amp;=%20%5Cmax_a%20q_*(s,a)%20%5C%5C%5B2pt%5D%0Aq_*(s,a)%20&amp;=%20R_s%5Ea%20+%20%5Cgamma%20%5Csum_%7Bs'%7D%20P_%7Bss'%7D%5Ea%5C,%20v_*(s')%20%5C%5C%5B2pt%5D%0Av_*(s)%20&amp;=%20%5Cmax_a%20%5CBig(R_s%5Ea%20+%20%5Cgamma%20%5Csum_%7Bs'%7D%20P_%7Bss'%7D%5Ea%5C,%20v_*(s')%5CBig)%20%5C%5C%5B2pt%5D%0Aq_*(s,a)%20&amp;=%20R_s%5Ea%20+%20%5Cgamma%20%5Csum_%7Bs'%7D%20P_%7Bss'%7D%5Ea%20%5Cmax_%7Ba'%7D%20q_*(s',a')%0A%5Cend%7Baligned%7D%0A"></p>
-</section>
-<section id="expectation-vs.-optimality" class="level2" data-number="5.5">
-<h2 data-number="5.5" class="anchored" data-anchor-id="expectation-vs.-optimality"><span class="header-section-number">5.5</span> Expectation vs.&nbsp;Optimality</h2>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 21%">
-<col style="width: 21%">
-<col style="width: 35%">
-<col style="width: 21%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>구분</th>
-<th>연산자</th>
-<th style="text-align: center;">선형성</th>
-<th>해법</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Bellman <strong>Expectation</strong></td>
-<td><img src="https://latex.codecogs.com/png.latex?%5Csum_a%20%5Cpi(a%5Cmid%20s)%5C,(%5Ccdot)"> (정책 평균)</td>
-<td style="text-align: center;"><strong>선형</strong></td>
-<td>직접 해 <img src="https://latex.codecogs.com/png.latex?(I-%5Cgamma%20P%5E%5Cpi)%5E%7B-1%7DR%5E%5Cpi"></td>
-</tr>
-<tr class="even">
-<td>Bellman <strong>Optimality</strong></td>
-<td><img src="https://latex.codecogs.com/png.latex?%5Cmax_a(%5Ccdot)"></td>
-<td style="text-align: center;"><strong>비선형</strong></td>
-<td>직접 해 없음 → 반복법</td>
-</tr>
-</tbody>
-</table>
-<p><img src="https://latex.codecogs.com/png.latex?%5Cmax"> 때문에 최적성 방정식은 닫힌 형 해가 없고, <strong>Value Iteration, Policy Iteration, Q-learning, Sarsa</strong> 같은 반복 알고리즘으로 푼다.</p>
-<hr>
-</section>
-</section>
-<section id="extensions-to-mdps" class="level1" data-number="6">
-<h1 data-number="6"><span class="header-section-number">6</span> Extensions to MDPs</h1>
-<section id="무한-연속-mdp" class="level2" data-number="6.1">
-<h2 data-number="6.1" class="anchored" data-anchor-id="무한-연속-mdp"><span class="header-section-number">6.1</span> 무한 · 연속 MDP</h2>
-<ul>
-<li>가산 무한(countably infinite) 상태/행동: 대체로 그대로 확장 가능</li>
-<li>연속 상태/행동: 선형-2차(LQR) 모델에서는 닫힌 형 해 존재</li>
-<li>연속 시간: 편미분방정식 필요 → <strong>HJB(Hamilton-Jacobi-Bellman) 방정식</strong>, Bellman 방정식에서 time-step <img src="https://latex.codecogs.com/png.latex?%5Cto%200"> 극한</li>
-</ul>
-</section>
-<section id="pomdp-부분-관측" class="level2" data-number="6.2">
-<h2 data-number="6.2" class="anchored" data-anchor-id="pomdp-부분-관측"><span class="header-section-number">6.2</span> POMDP (부분 관측)</h2>
-<p><img src="https://latex.codecogs.com/png.latex?%5Clangle%20S,%20A,%20O,%20P,%20R,%20Z,%20%5Cgamma%5Crangle">. 상태가 숨겨진 MDP = 행동이 있는 HMM.</p>
-<ul>
-<li><strong>Belief state</strong> <img src="https://latex.codecogs.com/png.latex?b(h)">: history <img src="https://latex.codecogs.com/png.latex?h">가 주어졌을 때 상태에 대한 확률분포</li>
-<li>POMDP는 (무한) <strong>history tree</strong> 또는 (무한) <strong>belief state tree</strong> 로 환원 가능</li>
-</ul>
-</section>
-<section id="undiscounted-평균-보상-mdp" class="level2" data-number="6.3">
-<h2 data-number="6.3" class="anchored" data-anchor-id="undiscounted-평균-보상-mdp"><span class="header-section-number">6.3</span> Undiscounted / 평균 보상 MDP</h2>
-<ul>
-<li><strong>Ergodic</strong> Markov process = recurrent(각 상태 무한 방문) + aperiodic(주기 없음)</li>
-<li>어떤 정책 <img src="https://latex.codecogs.com/png.latex?%5Cpi">가 유도하는 chain이 항상 ergodic이면 MDP가 ergodic</li>
-<li>ergodic MDP는 시작 상태와 무관한 <strong>단위 시간당 평균 보상</strong> <img src="https://latex.codecogs.com/png.latex?%5Crho%5E%5Cpi">를 가짐</li>
-<li>대응되는 <strong>average-reward Bellman equation</strong> (차분 가치함수 differential value function 사용)이 존재</li>
-</ul>
-<hr>
-</section>
-</section>
-<section id="기말-대비-체크리스트" class="level1" data-number="7">
-<h1 data-number="7"><span class="header-section-number">7</span> 기말 대비 체크리스트</h1>
-<div class="callout callout-style-default callout-warning callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">경고</span>반드시 손으로 쓸 수 있어야 하는 것
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ol type="1">
-<li><strong><img src="https://latex.codecogs.com/png.latex?v=(I-%5Cgamma%20P)%5E%7B-1%7DR"> 유도</strong> — Bellman 분해부터 행렬형까지. (MRP/leaky bucket의 정상상태 · 평균지연 계산과 같은 근육)</li>
-<li><strong>Expectation vs.&nbsp;Optimality 방정식 4종</strong> — <img src="https://latex.codecogs.com/png.latex?v%5Cleftrightarrow%20q"> 상호 전개. <img src="https://latex.codecogs.com/png.latex?%5Cmax"> vs.&nbsp;<img src="https://latex.codecogs.com/png.latex?%5Csum_a%5Cpi">가 선형/비선형을 가르는 지점을 설명할 수 있을 것.</li>
-<li><strong><img src="https://latex.codecogs.com/png.latex?%5Cgamma"> 정당화 6가지</strong> 단답.</li>
-<li><strong>결정적 최적 정책 존재성</strong> + <img src="https://latex.codecogs.com/png.latex?q_*">로부터 greedy 추출 논리.</li>
-<li><strong>정책 고정 → MRP 환원</strong> (<img src="https://latex.codecogs.com/png.latex?P%5E%5Cpi,%20R%5E%5Cpi"> 정의) — 개념 서술형.</li>
-</ol>
-</div>
-</div>
-<p>기말의 leaky bucket · contention 문제처럼 “Markov chain을 직접 세우고 정상상태확률을 푸는” 능력이 핵심이고, 그 토대가 이 챕터의 가치 계산 구조다.</p>
-
-
-<!-- -->
-
-</section>
-
- ]]></description>
-  <guid>https://dreamian.github.io/study/data-network/markov-decision-processes.html</guid>
-  <pubDate>Sat, 06 Jun 2026 15:00:00 GMT</pubDate>
 </item>
 </channel>
 </rss>
