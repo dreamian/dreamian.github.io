@@ -1,0 +1,709 @@
+---
+title: "결측치·이상치 처리 실습 문제"
+subtitle: "pandas의 apply·pipe·assign과 결측치/이상치 처리, Random Forest 기반 대체"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "목차"
+    number-sections: false
+    code-copy: true
+    code-tools: true
+    theme: cosmo
+    embed-resources: true
+execute:
+  warning: false
+jupyter: python3
+lang: ko
+---
+
+pandas의 핵심 메서드(`apply`, `pipe`, `assign`, `clip`)와 결측치·이상치 처리 기법을 직접 손으로 익히기 위한 문제 모음입니다.
+
+| Part | 주제 |
+|------|------|
+| 1 | pandas 도구 다지기 — `axis`, `pipe`, `assign` |
+| 2 | 결측치 처리 — 범주형/수치형 대체, 보간, 모델 기반 대체 |
+| 3 | 이상치 처리 — IQR 판별, 제거, clipping |
+| 4 | 심화 — Random Forest의 앙상블 효과 확인 |
+
+각 문제를 먼저 스스로 풀어 본 뒤, 문제 아래의 **"정답 및 해설" 접힌 상자**를 열어 비교해 보세요. 외부 데이터 파일 없이 실행되도록 데이터는 코드로 생성합니다.
+
+## Part 0. 준비 — 데이터 생성
+
+아래 셀을 실행하면 세 가지 데이터가 만들어집니다. 문제를 풀기 전에 `info()`, `head()` 등으로 구조를 먼저 살펴보세요.
+
+1. **`df_pass`** — 승객 정보 (범주형/수치형 혼합, `Age`·`Embarked`·`Deck`에 결측 존재)
+2. **`s_rssi`** — 불규칙한 시점에 측정된 RSSI 신호 세기 (일부 결측). **인덱스가 등간격이 아닌** 시계열입니다.
+3. **`df_field`** — 세 개의 연속형 변수 `fruitset`, `fruitmass`, `seeds` (일부 이상치 주입됨)
+
+```{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+rng = np.random.default_rng(42)
+
+# ------------------------------------------------------------
+# 1) df_pass : 승객 데이터 (결측치 처리 실습용)
+# ------------------------------------------------------------
+n = 400
+pclass = rng.choice([1, 2, 3], size=n, p=[0.25, 0.25, 0.5])
+sex = rng.choice(['male', 'female'], size=n, p=[0.6, 0.4])
+
+embarked = rng.choice(['S', 'C', 'Q'], size=n, p=[0.7, 0.2, 0.1]).astype(object)
+embarked[rng.choice(n, size=4, replace=False)] = np.nan          # 결측 4건
+
+# Age는 Pclass에 따라 분포가 다르도록 생성 (1등석일수록 나이가 많은 경향)
+age = np.where(pclass == 1, rng.normal(42, 12, n),
+      np.where(pclass == 2, rng.normal(32, 11, n),
+                            rng.normal(26, 10, n))).clip(0.5, 80).round(1)
+age = age.astype(float)
+age[rng.choice(n, size=int(n * 0.2), replace=False)] = np.nan    # 결측 20%
+
+sibsp = rng.poisson(0.5, n)
+parch = rng.poisson(0.4, n)
+fare = np.where(pclass == 1, rng.gamma(6, 12, n),
+       np.where(pclass == 2, rng.gamma(4, 5, n),
+                             rng.gamma(3, 3, n))).round(2)
+
+# Deck은 Pclass별로 등장하는 범주가 다르고 결측이 많음 (60%)
+deck = np.where(pclass == 1, rng.choice(list('ABC'), n),
+       np.where(pclass == 2, rng.choice(list('DE'), n),
+                             rng.choice(list('FG'), n))).astype(object)
+deck[rng.choice(n, size=int(n * 0.6), replace=False)] = np.nan
+
+df_pass = pd.DataFrame({
+    'Pclass': pclass, 'Sex': sex, 'Age': age, 'SibSp': sibsp,
+    'Parch': parch, 'Fare': fare, 'Embarked': embarked, 'Deck': deck
+})
+df_pass.index.name = 'PassengerId'
+
+# ------------------------------------------------------------
+# 2) s_rssi : 불규칙 샘플링된 RSSI 측정치 (보간 실습용)
+#    - 인덱스: 측정 시각(초), 간격이 일정하지 않음
+#    - 값: RSSI(dBm), 8개 결측
+# ------------------------------------------------------------
+t = np.sort(rng.choice(np.arange(0, 60, 0.5), size=40, replace=False))
+rssi = -60 + 8 * np.sin(t / 8) + rng.normal(0, 1.2, size=len(t))
+s_rssi = pd.Series(rssi.round(2), index=t, name='RSSI')
+s_rssi.iloc[rng.choice(len(t), size=8, replace=False)] = np.nan
+
+# ------------------------------------------------------------
+# 3) df_field : 연속형 변수 3개 (이상치 실습용)
+# ------------------------------------------------------------
+m = 300
+fruitset = rng.normal(0.5, 0.07, m)
+fruitmass = 0.3 + 0.35 * fruitset + rng.normal(0, 0.02, m)
+seeds = 10 + 45 * fruitset + rng.normal(0, 2, m)
+
+out_idx = rng.choice(m, size=9, replace=False)                    # 이상치 주입
+fruitset[out_idx[:3]] += rng.choice([-1, 1], 3) * rng.uniform(0.25, 0.4, 3)
+fruitmass[out_idx[3:6]] += rng.uniform(0.15, 0.3, 3)
+seeds[out_idx[6:]] -= rng.uniform(15, 25, 3)
+
+df_field = pd.DataFrame({'fruitset': fruitset.round(4),
+                         'fruitmass': fruitmass.round(4),
+                         'seeds': seeds.round(2)})
+df_field.index.name = 'Row'
+
+df_pass.info()
+```
+
+```{python}
+# 데이터를 눈으로 확인해 봅니다.
+display(df_pass.head())
+display(s_rssi.head(8))
+display(df_field.describe())
+```
+
+## Part 1. pandas 도구 다지기
+
+### 문제 1-1. `axis` 예측하기
+
+아래의 `df_toy`에 대해, **코드를 실행하기 전에** 네 줄의 출력 결과(값과 인덱스)를 종이에 먼저 적어 보세요. 그 다음 실행해서 확인합니다.
+
+```python
+df_toy = pd.DataFrame({'A': [1, 2, 3], 'B': [10, 20, 30], 'C': [100, 200, 300]},
+                      index=['r1', 'r2', 'r3'])
+
+(1) df_toy.sum(axis=0)
+(2) df_toy.sum(axis=1)
+(3) df_toy.apply(lambda x: x.max() - x.min(), axis=0)
+(4) df_toy.apply(lambda x: x.max() - x.min(), axis=1)
+```
+
+추가 질문: (3)에서 람다 함수는 **총 몇 번 호출**될까요? (4)에서는 몇 번일까요?
+
+```{python}
+df_toy = pd.DataFrame({'A': [1, 2, 3], 'B': [10, 20, 30], 'C': [100, 200, 300]},
+                      index=['r1', 'r2', 'r3'])
+
+# 예측을 먼저 적은 뒤, 여기에 네 줄을 실행해서 확인하세요.
+```
+
+::: {.callout-tip collapse="true" title="정답 및 해설 1-1"}
+
+핵심: **`axis=k`는 "k번 축을 따라(그 축이 붕괴되도록)" 연산**한다는 뜻입니다.
+
+- `(1) sum(axis=0)` — 행 축이 붕괴 → 세로로 더함 → **열별 합**: `A=6, B=60, C=600` (인덱스는 열 이름)
+- `(2) sum(axis=1)` — 열 축이 붕괴 → 가로로 더함 → **행별 합**: `r1=111, r2=222, r3=333` (인덱스는 행 이름)
+- `(3) apply(..., axis=0)` — 람다의 `x`에 **열**이 하나씩 → 열별 `max-min`: `A=2, B=20, C=200`. 열이 3개이므로 람다는 **3번** 호출됩니다.
+- `(4) apply(..., axis=1)` — 람다의 `x`에 **행**이 하나씩 → 행별 `max-min`: `r1=99, r2=198, r3=297`. 행이 3개이므로 역시 **3번** 호출됩니다 (행 수가 크면 호출 수도 그만큼 커집니다).
+
+"axis=1이니까 열에 적용"이라고 외우면 (3), (4)가 뒤집힙니다. **사라지는 축**으로 기억하세요.
+
+```{python}
+display(df_toy.sum(axis=0))
+display(df_toy.sum(axis=1))
+display(df_toy.apply(lambda x: x.max() - x.min(), axis=0))
+display(df_toy.apply(lambda x: x.max() - x.min(), axis=1))
+```
+
+:::
+
+### 문제 1-2. `pipe`로 중간 변수 없이 계산하기
+
+"운임(`Fare`)이 중앙값보다 큰 승객들의 평균 나이"에서 "전체 승객의 평균 나이"를 뺀 값을 구하세요.
+
+**조건**: 필터링된 DataFrame을 담는 중간 변수를 만들지 말고, `pipe`를 사용해 **하나의 체인**으로 작성하세요.
+
+> 힌트: `df.loc[조건].pipe(lambda x: ...)` 패턴 — 필터링 결과가 `x`로 들어오므로 한 번만 필터링하면 됩니다.
+
+```{python}
+# 여기에 작성하세요.
+```
+
+::: {.callout-tip collapse="true" title="정답 및 해설 1-2"}
+
+`pipe(f)`는 `f(객체 전체)`와 같습니다. 필터링된 DataFrame이 `x`로 통째로 들어오므로, 중간 변수 없이 그 안에서 `Age` 평균을 꺼낼 수 있습니다. 람다는 정확히 **1번** 호출됩니다 (`apply`와의 결정적 차이).
+
+```{python}
+df_pass.loc[df_pass['Fare'] > df_pass['Fare'].median()].pipe(
+    lambda x: x['Age'].mean() - df_pass['Age'].mean()
+)
+```
+
+양수가 나옵니다. 운임과 나이가 (Pclass를 매개로) 양의 상관을 갖도록 데이터를 생성했기 때문입니다. 참고로 `mean()`은 결측을 자동으로 제외하고 계산합니다(`skipna=True`가 기본값).
+
+:::
+
+### 문제 1-3. `assign`으로 파생 변수 만들기
+
+`df_pass`에 아래 세 개의 파생 변수를 **하나의 `assign` 호출**로 추가한 `df_a`를 만드세요. 원본 `df_pass`는 변경되지 않아야 합니다.
+
+| 새 변수 | 정의 |
+|---------|------|
+| `FamilySize` | `SibSp + Parch + 1` |
+| `IsAlone` | `FamilySize == 1`이면 1, 아니면 0 (정수형) |
+| `FarePerPerson` | `Fare / FamilySize` |
+
+> 힌트: `IsAlone`과 `FarePerPerson`은 같은 호출 안에서 방금 만든 `FamilySize`를 참조해야 합니다. `assign`은 키워드 순서대로 평가된다는 점을 이용하세요.
+
+작성 후 `'FamilySize' in df_pass.columns`가 `False`인지도 확인하세요.
+
+```{python}
+# 여기에 작성하세요.
+```
+
+::: {.callout-tip collapse="true" title="정답 및 해설 1-3"}
+
+`assign`은 **같은 호출 안에서도 키워드 순서대로 평가**되므로, 뒤의 람다가 앞에서 만든 열을 참조할 수 있습니다. 그리고 원본을 바꾸지 않고 새 DataFrame을 반환합니다.
+
+```{python}
+df_a = df_pass.assign(
+    FamilySize    = lambda x: x['SibSp'] + x['Parch'] + 1,
+    IsAlone       = lambda x: (x['FamilySize'] == 1).astype(int),   # 방금 만든 열 참조
+    FarePerPerson = lambda x: x['Fare'] / x['FamilySize']
+)
+
+display(df_a[['SibSp', 'Parch', 'FamilySize', 'IsAlone', 'FarePerPerson']].head())
+print('원본에 FamilySize가 있는가?', 'FamilySize' in df_pass.columns)
+```
+
+:::
+
+## Part 2. 결측치 처리
+
+### 문제 2-1. 결측 현황 요약표 만들기
+
+`df_pass`의 변수별 결측 개수(`n_missing`)와 결측 비율(`ratio`)을 담은 DataFrame을 만들고, 결측 개수 **내림차순**으로 정렬하세요.
+
+**조건**: `isna()`, `sum()`, `to_frame()`, `assign()`, `sort_values()`를 체이닝으로 연결해 한 문장으로 작성하세요.
+
+기대 형태:
+
+```
+          n_missing  ratio
+Deck            ...    ...
+Age             ...    ...
+Embarked        ...    ...
+...
+```
+
+> 생각해 볼 점: `df_pass.isna().sum()`에서 `sum()`은 `axis=0`과 `axis=1` 중 어느 쪽으로 동작하고 있나요? 그 결과 무엇이 세어지는 건가요?
+
+```{python}
+# 여기에 작성하세요.
+```
+
+::: {.callout-tip collapse="true" title="정답 및 해설 2-1"}
+
+`df_pass.isna()`는 같은 shape의 불리언 DataFrame이고, `sum()`의 기본값은 `axis=0`이므로 **세로 방향으로**(행 축이 붕괴되며) True(=1)를 세어 **열별 결측 개수**가 나옵니다. `to_frame('n_missing')`으로 Series를 DataFrame으로 바꾸면서 열 이름을 붙이고, `assign`으로 비율 열을 추가합니다.
+
+```{python}
+df_pass.isna().sum().to_frame('n_missing').assign(
+    ratio = lambda x: x['n_missing'] / len(df_pass)
+).sort_values('n_missing', ascending=False)
+```
+
+:::
+
+### 문제 2-2. 결측을 새로운 범주로 대체
+
+`df_pass`를 복사한 `df_p1`을 만들고, `Embarked`의 결측치를 `'Unk'` 범주로 대체하세요. 처리 후 `value_counts()`로 `'Unk'`가 4건인지 확인하세요.
+
+```{python}
+# 여기에 작성하세요.
+```
+
+::: {.callout-tip collapse="true" title="정답 및 해설 2-2"}
+
+결측 자체가 정보일 수 있으므로(예: 기록이 없다는 사실 자체가 특정 집단과 연관), 삭제하지 않고 `'Unk'`라는 범주로 보존하는 접근입니다.
+
+```{python}
+df_p1 = df_pass.copy()
+df_p1['Embarked'] = df_p1['Embarked'].fillna('Unk')
+df_p1['Embarked'].value_counts()
+```
+
+:::
+
+### 문제 2-3. 그룹별 최빈값으로 대체
+
+`df_p1`의 `Deck`은 결측이 매우 많고, `Pclass`별로 등장하는 범주가 다릅니다. 전체 최빈값 하나로 채우면 그룹 구조가 무너지므로, **각 `Pclass` 그룹 내부의 최빈값**으로 결측을 채우세요.
+
+**조건**:
+
+- `groupby('Pclass')` + `transform`을 사용하세요.
+- 최빈값이 여러 개일 경우 **사전순으로 앞선 것**을 사용하세요 (`mode()`가 Series를 반환하는 이유를 생각해 보세요).
+
+처리 후 두 가지를 확인하세요:
+
+1. `Deck`의 결측이 0인가?
+2. 각 `Pclass`별 최빈값이 무엇이었는가? (`groupby().agg()`로 확인)
+
+```{python}
+# 여기에 작성하세요.
+```
+
+::: {.callout-tip collapse="true" title="정답 및 해설 2-3"}
+
+두 가지 포인트:
+
+1. **`mode()`는 Series를 반환**합니다 — 최빈값이 동수로 여러 개일 수 있기 때문입니다. 그래서 `sort_values().iloc[0]`으로 "사전순 첫 번째"를 결정적으로 뽑습니다. 이 처리가 없으면 동수 상황에서 결과가 모호해집니다.
+2. **`transform` vs `agg`**: `agg`는 그룹당 값 1개로 **축약**하지만(그룹 수만큼의 결과), `transform`은 그 값을 그룹의 모든 행에 **브로드캐스트**해서 원본과 같은 길이의 결과를 돌려줍니다. 원본 열에 그대로 대입하려면 길이가 같아야 하므로 `transform`이 필요합니다.
+
+```{python}
+df_p1['Deck'] = df_p1.groupby('Pclass')['Deck'].transform(
+    lambda x: x.fillna(x.mode().sort_values().iloc[0])
+)
+
+print('남은 결측:', df_p1['Deck'].isna().sum())
+print()
+print('Pclass별 최빈값 (agg로 확인):')
+display(df_p1.groupby('Pclass')['Deck'].agg(lambda x: x.mode().sort_values().iloc[0]))
+display(pd.crosstab(df_p1['Pclass'], df_p1['Deck']))
+```
+
+전체 최빈값 하나로 채웠다면 예컨대 3등석 승객에게 1등석에만 존재하는 Deck이 배정되는 왜곡이 생겼을 것입니다. 그룹별 대체는 조건부 분포 $P(\text{Deck} \mid \text{Pclass})$ 구조를 보존하는 방식입니다.
+
+:::
+
+### 문제 2-4. 보간 — `linear` vs `index`
+
+`s_rssi`는 **측정 간격이 불규칙한** 신호 세기 시계열입니다.
+
+**(a)** `method='linear'`와 `method='index'`로 각각 보간한 결과를 구하고, 두 결과의 차이의 절대값이 **가장 큰 시점**과 그 차이를 출력하세요.
+
+**(b)** `plt.subplots(1, 2, figsize=(12, 4))`로 1×2 subplot을 만들어 두 방식을 나란히 시각화하세요. 각 subplot에:
+
+- 관측점(결측 아닌 값)들을 잇는 회색 선
+- 관측점을 빨간 점으로
+- 보간으로 **채워진 점만** 파란 점으로
+
+을 그리고, 제목에 방식 이름을 표시하세요.
+
+**(c)** 두 방식의 결과가 달라지는 이유를 한두 문장으로 적어 보세요. 이 데이터에는 어느 방식이 물리적으로 타당한가요?
+
+> 힌트: `for method, ax in zip(['linear', 'index'], axes):` 구조를 쓰면 됩니다. 채워진 점만 골라내려면 `보간결과.loc[s_rssi.isna()]`. `subplots(1, 2)`의 반환값이 무엇인지, `figsize` 단위가 무엇인지도 함께 떠올려 보세요.
+
+```{python}
+# (a) 여기에 작성하세요.
+```
+
+```{python}
+# (b) 여기에 작성하세요.
+```
+
+::: {.callout-tip collapse="true" title="정답 및 해설 2-4"}
+
+```{python}
+# (a) 두 방식으로 보간하고 차이가 가장 큰 지점을 찾습니다.
+v_linear = s_rssi.interpolate(method='linear')
+v_index  = s_rssi.interpolate(method='index')
+
+diff = (v_linear - v_index).abs()
+print(f'최대 차이: {diff.max():.3f} dB  (t = {diff.idxmax()} s)')
+
+# 결측이었던 지점만 나란히 비교
+pd.DataFrame({'linear': v_linear, 'index': v_index, '|diff|': diff}).loc[s_rssi.isna()]
+```
+
+```{python}
+# (b) 1x2 subplot으로 비교 시각화
+# subplots(1, 2)의 반환값: (Figure, Axes 배열) 튜플. axes는 shape (2,)인 ndarray.
+# figsize=(12, 4)의 단위: 인치. 기본 dpi=100이므로 1200x400 픽셀.
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+for method, ax in zip(['linear', 'index'], axes):
+    filled = s_rssi.interpolate(method=method)
+
+    # 관측점을 잇는 선 (index 방식이 따라가는 기준선)
+    ax.plot(s_rssi.loc[s_rssi.notna()], color='gray', alpha=0.6)
+
+    # 관측점: pipe로 중간 변수 없이 index/values를 동시에 참조
+    s_rssi.loc[s_rssi.notna()].pipe(
+        lambda x: ax.scatter(x.index, x.values, color='red', s=20, label='observed')
+    )
+    # 보간으로 채워진 점만
+    filled.loc[s_rssi.isna()].pipe(
+        lambda x: ax.scatter(x.index, x.values, color='blue', s=45, label='interpolated')
+    )
+    ax.set_title(f'method={method}')
+    ax.set_xlabel('time (s)')
+    ax.set_ylabel('RSSI (dBm)')
+    ax.legend()
+
+plt.tight_layout()
+plt.show()
+```
+
+**(c) 해설**
+
+- `method='linear'`는 인덱스 값을 무시하고 **관측치들이 등간격이라고 가정**한 채 "몇 번째 위치인가"만으로 보간합니다. 반면 `method='index'`는 인덱스(측정 시각)를 실제 x좌표로 삼아 기하학적으로 올바른 선형 보간 $y = y_0 + (x - x_0)\frac{y_1 - y_0}{x_1 - x_0}$ 을 수행합니다.
+- 이 데이터는 측정 간격이 불규칙하므로 두 방식의 결과가 달라지고, 시간 축이 물리적 의미를 갖는 이상 **`index` 방식이 타당**합니다. 결측 구간 앞뒤의 시간 간격이 비대칭일수록(예: 직전 관측 0.5초 전, 직후 관측 5초 뒤) `linear`의 왜곡이 커집니다.
+- 인덱스가 `DatetimeIndex`라면 `method='time'`이 같은 역할을 합니다.
+
+:::
+
+### 문제 2-5. 모델 기반 결측 대체 (Random Forest)
+
+`df_pass`의 `Age` 결측(20%)을 Random Forest 회귀 모델의 예측값으로 대체하세요.
+
+**절차**:
+
+1. `df_pass`를 복사한 `df_p2`를 만들고, `Embarked` 결측은 최빈값으로 먼저 처리합니다.
+2. `ColumnTransformer`를 구성합니다 — `Pclass`, `Sex`, `Embarked`는 `OneHotEncoder`, 나머지 입력(`SibSp`, `Parch`, `Fare`)은 `'passthrough'`.
+3. `make_pipeline`으로 전처리와 `RandomForestRegressor(n_estimators=100, random_state=123)`를 묶습니다.
+4. `Age`가 **관측된 행만으로** 학습하고, **결측인 행에만** 예측값을 채웁니다.
+
+**추가 분석**: 대체 후 `Age`의 표준편차를 다음 세 경우로 비교하세요 — (i) 관측치만, (ii) 전체 평균으로 대체한 경우, (iii) RF로 대체한 경우. 어느 방식이 분산을 가장 심하게 축소시키나요? 왜 그럴까요?
+
+> 힌트: 학습 단계는 `df_p2.loc[조건].pipe(lambda x: model.fit(x[X_cols], x['Age']))` 패턴을 쓰면 필터링을 한 번만 해도 됩니다.
+
+```{python}
+from sklearn.pipeline import make_pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.ensemble import RandomForestRegressor
+
+# 여기에 작성하세요.
+```
+
+::: {.callout-tip collapse="true" title="정답 및 해설 2-5"}
+
+```{python}
+# 1. 복사 후 Embarked를 최빈값으로 처리
+df_p2 = df_pass.copy()
+df_p2['Embarked'] = df_p2['Embarked'].fillna(df_p2['Embarked'].mode().iloc[0])
+
+# 2~3. 전처리 + 모델 파이프라인
+ct = ColumnTransformer([
+    ('ohe', OneHotEncoder(), ['Pclass', 'Sex', 'Embarked']),   # 범주형 → 가변수
+    ('pt', 'passthrough', ['SibSp', 'Parch', 'Fare'])          # 수치형 → 그대로
+])
+reg_rf = make_pipeline(ct, RandomForestRegressor(n_estimators=100, random_state=123))
+
+X_cols = ['Pclass', 'Sex', 'Embarked', 'SibSp', 'Parch', 'Fare']
+
+# 4. Age 관측 행으로 학습 → 결측 행에 예측값 대입
+df_p2.loc[df_p2['Age'].notna()].pipe(
+    lambda x: reg_rf.fit(x[X_cols], x['Age'])
+)
+df_p2.loc[df_p2['Age'].isna(), 'Age'] = \
+    reg_rf.predict(df_p2.loc[df_p2['Age'].isna(), X_cols])
+
+print('대체 후 Age 결측:', df_p2['Age'].isna().sum())
+```
+
+```{python}
+# 추가 분석: 세 경우의 표준편차 비교
+std_obs  = df_pass['Age'].std()                                  # (i) 관측치만
+std_mean = df_pass['Age'].fillna(df_pass['Age'].mean()).std()    # (ii) 평균 대체
+std_rf   = df_p2['Age'].std()                                    # (iii) RF 대체
+
+pd.Series({'관측치만': std_obs, '평균 대체': std_mean, 'RF 대체': std_rf},
+          name='Age std').round(3).to_frame()
+```
+
+**해설**
+
+- **평균 대체**가 분산을 가장 크게 축소합니다. 결측 20%를 전부 분포의 무게중심 한 점에 몰아넣기 때문입니다. 관측 비율을 $p$라 하면 대체 후 분산은 대략 $p \cdot \sigma^2$ 수준으로 줄어듭니다.
+- **RF 대체**는 조건부 기대값 $E[\text{Age} \mid \text{Pclass}, \text{Sex}, \dots]$ 를 근사하므로 채워진 값들이 여러 위치에 퍼져 분산 축소가 덜합니다. 다만 조건부 평균 근처로 수축하는 성질은 남아 있어 관측치만의 표준편차보다는 여전히 작습니다.
+- 어떤 단일값 대체(single imputation)도 "대체값이 불확실하다"는 정보는 반영하지 못합니다. 이후 추론(신뢰구간, 가설검정)이 중요하다면 다중 대체(multiple imputation)처럼 불확실성을 명시적으로 다루는 방법을 고려해야 합니다.
+
+:::
+
+## Part 3. 이상치 처리
+
+### 문제 3-1. IQR 경계 테이블 만들기
+
+`df_field`의 세 변수에 대해, 아래 형태의 경계 테이블 `df_iqr`을 **하나의 체인**(`apply` → `.T` → `assign`)으로 만드세요.
+
+```
+                 Q1        Q3       IQR        LB        UB
+fruitset        ...       ...       ...       ...       ...
+fruitmass       ...       ...       ...       ...       ...
+seeds           ...       ...       ...       ...       ...
+```
+
+- $\mathrm{IQR} = Q_3 - Q_1$
+- $\mathrm{LB} = Q_1 - 1.5 \times \mathrm{IQR}$,  $\mathrm{UB} = Q_3 + 1.5 \times \mathrm{IQR}$
+
+> 생각해 볼 점: `apply` 직후 결과에서 변수명은 행과 열 중 어디에 있나요? `.T`가 필요한 이유는 이후 어떤 조회 패턴을 위해서인가요?
+
+```{python}
+# 여기에 작성하세요.
+```
+
+::: {.callout-tip collapse="true" title="정답 및 해설 3-1"}
+
+```{python}
+cols = ['fruitset', 'fruitmass', 'seeds']
+
+df_iqr = df_field[cols].apply(
+    lambda x: x.quantile([0.25, 0.75]).rename({0.25: 'Q1', 0.75: 'Q3'})
+).T.assign(
+    IQR = lambda x: x['Q3'] - x['Q1'],
+    LB  = lambda x: x['Q1'] - 1.5 * x['IQR'],   # 같은 assign 안에서 IQR 참조 가능
+    UB  = lambda x: x['Q3'] + 1.5 * x['IQR']
+)
+df_iqr
+```
+
+**해설**
+
+- `apply(axis=0)` 직후에는 변수명이 **열**, 통계량(Q1/Q3)이 **행**에 있습니다. `.T`로 뒤집어 변수명을 행 인덱스로 놓는 이유는, 다음 문제에서 `df_iqr.loc[변수명, 'LB']` 형태의 **룩업**을 하기 위한 사전 설계입니다.
+- `assign`은 키워드 순서대로 평가되므로 `LB`, `UB`가 같은 호출 안에서 방금 만든 `IQR`을 참조할 수 있습니다.
+- 참고: 정규분포 가정 하에서 $Q_3 + 1.5 \cdot \mathrm{IQR}$은 약 $\mu + 2.7\sigma$에 해당하며, 전체의 약 0.7%만 경계 밖에 놓이는 보수적 기준입니다. 사분위수는 극단값에 오염되지 않는 로버스트 통계량이라는 점이 평균·표준편차 기반 기준 대비 장점입니다.
+
+:::
+
+### 문제 3-2. 이상치 제거
+
+**(a)** 각 셀이 이상치인지 여부(True/False)를 담은 `df_is_out`을 만드세요. `apply`와 `x.name`을 활용해 변수별로 서로 다른 경계를 `df_iqr`에서 조회해야 합니다.
+
+**(b)** 변수별 이상치 개수와, **하나라도 이상치인 행**의 개수를 출력하세요. 후자에는 `any`를 쓰되, `axis` 값을 무엇으로 해야 하는지 근거와 함께 정하세요.
+
+**(c)** 이상치가 하나라도 있는 행을 제거한 `df_field2`를 만들고 shape를 확인하세요.
+
+```{python}
+# 여기에 작성하세요.
+```
+
+::: {.callout-tip collapse="true" title="정답 및 해설 3-2"}
+
+```{python}
+# (a) 셀 단위 이상치 판별
+# apply(axis=0)로 열이 하나씩 들어오고, x.name에 열 이름이 담겨 있으므로
+# 변수별로 서로 다른 경계를 df_iqr에서 조회할 수 있습니다.
+df_is_out = df_field[cols].apply(
+    lambda x: (x < df_iqr.loc[x.name, 'LB']) | (x > df_iqr.loc[x.name, 'UB'])
+)
+
+# (b) 변수별 개수(세로로 셈 → axis=0), 행 단위 판정(가로로 봄 → axis=1)
+print('변수별 이상치 수:')
+display(df_is_out.sum(axis=0))
+
+n_rows = df_is_out.any(axis=1).sum()
+print(f'하나라도 이상치인 행: {n_rows}건')
+display(df_field.loc[df_is_out.any(axis=1)])
+```
+
+```{python}
+# (c) 이상치 행 제거
+df_field2 = df_field.drop(index=df_field.loc[df_is_out.any(axis=1)].index)
+print('제거 전:', df_field.shape, '→ 제거 후:', df_field2.shape)
+```
+
+**`any(axis=1)`인 이유**: "한 **행** 안에서 세 변수 중 하나라도 True인가"를 물으려면, **열 축을 따라(가로로)** 훑으며 열 축이 붕괴되어야 합니다. 결과는 행 개수만큼의 불리언 Series가 되고, 이것이 행 필터로 쓰입니다. `any(axis=0)`이었다면 "각 변수에 이상치가 하나라도 있는가"라는 변수별 답(길이 3)이 나왔을 것입니다.
+
+또한 `drop(axis=...)` 계열의 구조 조작에서는 axis가 "대상 축"(`axis=0`이면 행 삭제)이라는 직관적 의미로 쓰인다는 점도 함께 기억해 두세요 — 집계 연산의 "붕괴되는 축"과 뉘앙스가 다릅니다.
+
+:::
+
+### 문제 3-3. 범위 한정 (clipping)
+
+`df_field`를 복사한 `df_field3`을 만들고, 세 변수를 각 변수의 `[LB, UB]` 구간으로 clip 하세요.
+
+**조건**: `apply` 한 번으로 세 변수를 동시에 처리하세요. 람다 안에서 `x.name`으로 `df_iqr`의 해당 행을 조회합니다.
+
+**검증**: clip 후 데이터에 문제 3-2의 이상치 판별을 다시 적용했을 때 이상치가 **0건**이어야 합니다.
+
+```{python}
+# 여기에 작성하세요.
+```
+
+::: {.callout-tip collapse="true" title="정답 및 해설 3-3"}
+
+```{python}
+df_field3 = df_field.copy()
+
+df_field3[cols] = df_field3[cols].apply(
+    lambda x: x.clip(df_iqr.loc[x.name, 'LB'], df_iqr.loc[x.name, 'UB'])
+)
+
+# 검증: clip 후에는 이상치가 0건이어야 합니다.
+n_out_after = df_field3[cols].apply(
+    lambda x: (x < df_iqr.loc[x.name, 'LB']) | (x > df_iqr.loc[x.name, 'UB'])
+).sum().sum()
+print('clip 후 이상치 수:', n_out_after)
+
+df_field3[cols].agg(['min', 'max'])
+```
+
+`clip(L, U)`는 $\min(\max(x, L), U)$ — 구간 밖의 값을 경계로 밀어 넣는 포화(saturation) 연산입니다. 판별(3-2)과 동일하게 `x.name`으로 변수별 경계를 룩업하므로, 변수가 늘어나도 코드는 그대로입니다. 경계 계산(`df_iqr`)과 적용(clip)이 분리되어 있어서, 예컨대 학습 데이터에서 구한 경계를 나중에 테스트 데이터에 그대로 적용하는 재사용도 자연스럽습니다.
+
+:::
+
+### 문제 3-4. 제거 vs clip — 통계량 비교
+
+원본 `df_field`, 제거본 `df_field2`, clip본 `df_field3` 세 데이터의 변수별 **평균과 표준편차**를 한 표로 모아 비교하세요 (`pd.concat`에 dict를 넘기면 계층 인덱스로 묶을 수 있습니다).
+
+그리고 다음 질문에 답해 보세요:
+
+1. 표준편차는 어느 처리에서 더 많이 줄어들었나요?
+2. 표본 크기 관점에서 두 방식의 차이는 무엇인가요?
+3. 만약 이 이상치들이 측정 오류가 아니라 실제 현상(예: heavy-tailed 분포의 꼬리)이라면, 두 방식 모두 어떤 문제를 일으킬까요?
+
+```{python}
+# 여기에 작성하세요.
+```
+
+::: {.callout-tip collapse="true" title="정답 및 해설 3-4"}
+
+```{python}
+pd.concat({
+    'original': df_field[cols].agg(['mean', 'std']),
+    'removed':  df_field2[cols].agg(['mean', 'std']),
+    'clipped':  df_field3[cols].agg(['mean', 'std'])
+}).round(4)
+```
+
+**해설**
+
+1. **표준편차 감소는 제거(removed) 쪽이 더 큽니다.** 제거는 극단값을 완전히 없애지만, clip은 그 관측치를 경계값 위치에 남겨두기 때문입니다. 두 경우 모두 원본보다 작아지는데, 이상치가 분산에 기여하던 몫이 사라지거나 줄어든 결과입니다.
+2. **표본 크기**: 제거는 행 자체를 버리므로 $n$이 줄고, 그 행의 **다른 변수 값들까지 함께 손실**됩니다 (한 변수만 이상해도 행 전체가 사라짐). clip은 $n$을 보존하면서 극단값의 지렛대 효과만 제한합니다 — 통계에서 윈저라이징(winsorizing)이라 부르는 방식입니다.
+3. **진짜 신호였다면**: 두 방식 모두 분포의 꼬리를 인위적으로 잘라내므로, heavy tail 자체가 관심 대상인 문제(예: 드물지만 깊은 신호 감쇠 이벤트, 극단적 지연)에서는 핵심 정보를 파괴합니다. clip은 추가로 경계값 한 점에 질량이 뭉치는 왜곡도 만듭니다. 이상치 처리는 항상 "오류인가, 현상인가"라는 도메인 판단이 선행되어야 합니다.
+
+:::
+
+## Part 4. 심화 — 앙상블은 정말 분산을 줄이는가
+
+Random Forest의 핵심 원리는 "상관이 낮은 고분산 추정기들을 평균 내면 분산이 줄어든다"는 것입니다:
+
+$$\mathrm{Var}\left(\frac{1}{B}\sum_b \hat f_b\right) = \rho\sigma^2 + \frac{1-\rho}{B}\sigma^2$$
+
+### 문제 4-1. 나무 수 $B$와 예측의 안정성
+
+이를 실험으로 확인합니다. `Age`가 관측된 행들을 학습/평가 세트로 나눈 뒤:
+
+1. `n_estimators` $B \in \{1, 5, 25, 100\}$ 각각에 대해,
+2. `random_state`를 0~4로 바꿔가며 5개의 모델을 학습시키고 평가 세트를 예측합니다.
+3. 각 평가 샘플에 대해 **5개 시드 간 예측값의 표준편차**를 구하고, 그 평균을 $B$별로 비교하세요.
+
+$B$가 커질수록 시드 간 예측 편차(= 모델의 무작위성에 의한 분산)가 줄어드는지, 줄어드는 속도가 $1/B$ 꼴에 가까운지 관찰해 보세요.
+
+> 힌트: 예측값들을 `np.array`로 쌓으면(shape: 5 × 평가샘플수) `np.std(arr, axis=0)`이 샘플별 시드 간 표준편차입니다. 이때 왜 `axis=0`인지도 설명할 수 있어야 합니다.
+
+```{python}
+from sklearn.model_selection import train_test_split
+
+# 여기에 작성하세요.
+```
+
+::: {.callout-tip collapse="true" title="정답 및 해설 4-1"}
+
+```{python}
+# Age가 관측된 행만 사용 (Embarked는 이미 처리된 df_p2 이용)
+df_obs = df_p2.loc[df_pass['Age'].notna()]
+tr, te = train_test_split(df_obs, test_size=0.3, random_state=0)
+
+result = {}
+for B in [1, 5, 25, 100]:
+    preds = []
+    for seed in range(5):
+        model = make_pipeline(
+            ColumnTransformer([
+                ('ohe', OneHotEncoder(), ['Pclass', 'Sex', 'Embarked']),
+                ('pt', 'passthrough', ['SibSp', 'Parch', 'Fare'])
+            ]),
+            RandomForestRegressor(n_estimators=B, random_state=seed)
+        )
+        model.fit(tr[X_cols], tr['Age'])
+        preds.append(model.predict(te[X_cols]))
+
+    preds = np.array(preds)              # shape: (5개 시드, 평가샘플 수)
+    # axis=0: "시드 축"이 붕괴 → 평가샘플별 시드 간 표준편차
+    result[B] = np.std(preds, axis=0).mean()
+
+pd.Series(result, name='시드 간 예측 표준편차(평균)').round(3).to_frame()
+```
+
+```{python}
+# 감소 추세를 시각화하고 1/sqrt(B) 스케일과 비교합니다.
+# (독립 평균의 표준편차는 1/sqrt(B)에 비례: Var가 1/B로 줄면 std는 1/sqrt(B))
+fig, ax = plt.subplots(figsize=(6, 4))
+Bs = np.array(list(result.keys()))
+stds = np.array(list(result.values()))
+
+ax.plot(Bs, stds, 'o-', label='observed')
+ax.plot(Bs, stds[0] / np.sqrt(Bs), 's--', alpha=0.6, label=r'$\propto 1/\sqrt{B}$')
+ax.set_xscale('log'); ax.set_yscale('log')
+ax.set_xlabel('n_estimators (B)')
+ax.set_ylabel('std across seeds')
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+**해설**
+
+- $B$가 커질수록 시드 간 예측 편차가 뚜렷하게 감소합니다 — 나무 하나($B=1$)는 학습 데이터의 무작위성에 매우 민감하지만, 평균을 내면 그 요동이 상쇄됩니다.
+- 분산 공식 $\rho\sigma^2 + \frac{1-\rho}{B}\sigma^2$에서 두 번째 항이 $1/B$로 줄어드는 부분입니다 (표준편차 기준으로는 $1/\sqrt{B}$). log-log 그림에서 관측 곡선이 $1/\sqrt{B}$ 기울기와 유사하게 내려가는 것을 확인할 수 있습니다. 다만 나무들 사이의 상관 $\rho$ 때문에 첫 번째 항 $\rho\sigma^2$는 남고, 여기서 측정한 "시드 간 편차"가 0으로 수렴하더라도 **앙상블 전체의 예측 분산에는 $\rho\sigma^2$ 바닥이 존재**합니다. 그래서 부트스트랩과 분할 시 무작위 특성 선택으로 $\rho$를 낮추는 것이 Random Forest 설계의 핵심입니다.
+- `np.std(preds, axis=0)`에서 `axis=0`인 이유: `preds`의 shape는 (시드 5, 샘플 수)이고, 우리가 원하는 것은 **샘플별로** 시드 축이 붕괴된 표준편차이기 때문입니다. `axis=1`로 했다면 "시드별로 샘플 간 표준편차"라는 전혀 다른 양이 나옵니다 — Part 1에서 다진 axis 감각이 그대로 쓰이는 지점입니다.
+
+:::
+
+## 마무리 체크리스트
+
+- [ ] `axis=k`는 "k번 축이 붕괴"로 기억한다. 단, `drop`/`concat` 등 구조 조작에서는 "대상 축"이다.
+- [ ] `pipe` = 객체 전체를 함수에 1회 전달 / `apply` = 조각(원소·행·열)마다 반복 호출 / `assign` = 파생 열 추가 후 DataFrame 반환.
+- [ ] `apply(axis=0)`에서 람다로 들어온 Series의 `.name`에는 열 이름이 있다 → 룩업 테이블(`df_iqr.loc[x.name, ...]`) 패턴.
+- [ ] `mode()`는 동수 가능성 때문에 Series를 반환한다. 결정적 선택 규칙(`sort_values().iloc[0]`)을 명시할 것.
+- [ ] `transform`은 원본 길이를 보존하므로 대입에 쓰고, `agg`는 그룹당 1개로 축약한다.
+- [ ] 인덱스가 물리적 축(시간·거리)이면 보간은 `method='index'`(또는 `'time'`). 기본값 `'linear'`는 등간격 가정.
+- [ ] 단일값 대체는 분산을 축소한다 (평균 대체 ≫ 모델 기반 대체). 불확실성 반영이 필요하면 다중 대체.
+- [ ] 이상치 제거는 $n$과 다른 변수 정보를 잃고, clip(윈저라이징)은 $n$을 보존하되 경계에 질량이 뭉친다. 어느 쪽이든 "오류 vs 현상" 판단이 먼저다.
+- [ ] 앙상블 평균의 분산은 $\rho\sigma^2 + \frac{1-\rho}{B}\sigma^2$ — 나무 수를 늘리는 것만으로는 $\rho\sigma^2$ 바닥을 못 넘는다.
