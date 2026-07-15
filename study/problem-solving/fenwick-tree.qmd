@@ -1,0 +1,228 @@
+---
+title: "Fenwick Tree (Binary Indexed Tree)"
+categories: [Algorithm, Data Structure, Fenwick Tree]
+description: "점 갱신과 접두사 합 질의를 모두 O(log N)에 처리하는 Fenwick Tree의 구조를 lowbit 연산의 원리부터 유도하고, 교통 정보 시뮬레이터 문제에 적용한다."
+date: "2026-07-15"
+---
+
+## 1. 문제 상황: 두 연산의 트레이드오프
+
+배열 $a[1..n]$에 대해 두 연산을 지원해야 하는 상황을 생각하자.
+
+- $\text{sum}(i)$ : 접두사 합 $a[1] + a[2] + \cdots + a[i]$
+- $\text{add}(i, d)$ : $a[i] \mathrel{+}= d$
+
+순수 배열은 갱신 $O(1)$, 질의 $O(n)$이고, 접두사 합 배열은 질의 $O(1)$, 갱신 $O(n)$이다. 한쪽을 희생해야만 다른 쪽을 얻는 구조다. Fenwick Tree(Binary Indexed Tree, 이하 BIT)는 이 둘을 **양쪽 모두 $O(\log n)$** 으로 타협시킨다.
+
+구간 합은 접두사 합의 차로 환원된다.
+
+$$\text{range\_sum}(l, r) = \text{sum}(r) - \text{sum}(l-1)$$
+
+::: {.callout-note}
+이 환원이 성립하는 이유는 덧셈에 **역원**(뺄셈)이 존재하기 때문이다. 같은 이유로 BIT는 XOR에도 그대로 적용되지만, 역원이 없는 min/max에는 이 트릭이 통하지 않는다. 구간 min/max가 필요하면 세그먼트 트리로 가야 한다.
+:::
+
+## 2. 핵심 아이디어: 인덱스마다 책임 구간을 다르게
+
+BIT의 발상은 $\text{bit}[i]$가 원소 하나가 아니라 **구간 하나의 합**을 저장하되, 그 구간의 길이를 $i$의 이진 표현으로 결정하는 것이다.
+
+$$\text{lowbit}(i) = i \mathbin{\&} (-i)$$
+
+lowbit은 $i$의 이진 표현에서 가장 낮은 1비트의 값이다. 이를 이용해 각 인덱스의 책임 구간을 다음처럼 정의한다.
+
+$$\text{bit}[i] = \sum_{j = i - \text{lowbit}(i) + 1}^{i} a[j]$$
+
+즉 $\text{bit}[i]$는 "$i$에서 끝나는, 길이 $\text{lowbit}(i)$짜리 구간"의 합이다. $n = 8$일 때 각 인덱스의 책임 구간은 다음과 같다.
+
+| 인덱스 | 이진 | lowbit | 책임 구간 |
+|:---:|:---:|:---:|:---:|
+| 1 | 001 | 1 | $a[1]$ |
+| 2 | 010 | 2 | $a[1..2]$ |
+| 3 | 011 | 1 | $a[3]$ |
+| 4 | 100 | 4 | $a[1..4]$ |
+| 5 | 101 | 1 | $a[5]$ |
+| 6 | 110 | 2 | $a[5..6]$ |
+| 7 | 111 | 1 | $a[7]$ |
+| 8 | 1000 | 8 | $a[1..8]$ |
+
+홀수 인덱스(lowbit = 1)는 자기 자신만, 2의 거듭제곱 인덱스는 처음부터 자기까지 전체를 덮는다.
+
+## 3. lowbit이 동작하는 이유: 캐리 전파
+
+$i \mathbin{\&} (-i)$가 최하위 1비트만 남기는 이유를 구조적으로 유도한다. 0이 아닌 임의의 정수 $i$는 반드시 다음 세 구역으로 분해된다.
+
+$$i = \underbrace{X}_{\text{상위 비트}} \; \underbrace{1}_{\text{최하위 1}} \; \underbrace{00\cdots0}_{k\text{개의 } 0}$$
+
+최하위 1비트라는 정의 자체가 이 분해를 강제한다. 그 아래에 1이 있었다면 그것이 최하위였을 것이기 때문이다. 이제 2의 보수 $-i = \mathord{\sim} i + 1$을 구역별로 적용한다.
+
+**1단계, 비트 반전 $\mathord{\sim} i$:**
+
+$$\mathord{\sim} i = \overline{X} \;\; 0 \;\; 11\cdots1$$
+
+**2단계, $+1$:** 최하위에 1을 더하면 캐리가 아래쪽의 연속된 1들을 타고 연쇄적으로 올라간다. 이 연쇄가 멈추는 지점은 정확히 원래 최하위 1이 있던 자리다. 그 자리는 반전 후 0이 되어 있으므로 캐리를 받아 1이 되고, 전파가 거기서 끊긴다. 상위 구역 $\overline{X}$에는 캐리가 도달하지 못한다.
+
+$$-i = \overline{X} \;\; 1 \;\; 00\cdots0$$
+
+이제 $i$와 $-i$를 세로로 AND하면:
+
+- **상위 구역**: $X \wedge \overline{X} = 0$. 어떤 비트열이든 자기 반전과 AND하면 소멸이 보장된다.
+- **가운데 한 자리**: 둘 다 1. 유일한 생존자.
+- **하위 구역**: 둘 다 0.
+
+::: {.callout-tip}
+## 한 문장 직관
+"$+1$의 캐리는 연속된 1들을 태우며 올라가다가 첫 0에서 멈춘다." 부정 연산이 우연히 최하위 1의 위치를 보존하는 것이 아니라, **캐리 전파의 정지 지점이 최하위 1비트의 위치와 정의상 일치**하는 것이다.
+:::
+
+같은 원리로 $i - 1$은 최하위 1비트를 0으로 만들고 그 아래를 전부 1로 바꾼다. 따라서 $i \mathbin{\&} (i-1)$은 "최하위 1비트를 끄는" 연산이 되고, 이는 $i - \text{lowbit}(i)$와 같다. 2의 거듭제곱 판정 $(i \mathbin{\&} (i-1)) == 0$이 여기서 나온다.
+
+## 4. 질의: sum(i)가 O(log n)인 이유
+
+접두사 합 $\text{sum}(7)$을 추적해 보자. $7 = 111_{(2)}$을 이진 분해하면 $4 + 2 + 1$, 즉 구간 $[1..4], [5..6], [7..7]$로 쪼개진다.
+
+```
+sum(7): i=7 → bit[7] 더함 (a[7])     , 다음 i = 7 - lowbit(7) = 6
+        i=6 → bit[6] 더함 (a[5..6])  , 다음 i = 6 - lowbit(6) = 4
+        i=4 → bit[4] 더함 (a[1..4])  , 다음 i = 4 - lowbit(4) = 0 → 종료
+```
+
+$i \mathrel{-}= \text{lowbit}(i)$는 매번 최하위 1비트를 하나씩 끄는 연산이다. $i$의 이진 표현에 1비트가 최대 $\lceil \log_2 n \rceil$개 있으므로 반복은 $O(\log n)$이다.
+
+방문하는 구간들이 겹치지 않고 $[1..i]$를 빈틈없이 덮는 이유: $\text{bit}[i]$가 덮는 구간의 왼쪽 끝은 $i - \text{lowbit}(i) + 1$이고, 다음 방문 인덱스는 그 **왼쪽 끝 바로 직전**인 $i - \text{lowbit}(i)$다. 항상 "방금 덮은 구간의 왼쪽 경계 직전"으로 점프하므로 겹칠 수도, 빠뜨릴 수도 없다.
+
+## 5. 갱신: add(i, d)가 건드려야 할 노드
+
+$a[3] \mathrel{+}= d$를 반영하려면 3을 책임 구간에 포함하는 모든 $\text{bit}[j]$를 갱신해야 한다. 위 표에서 3을 덮는 인덱스는 $3, 4, 8$ 셋뿐이다.
+
+```
+add(3): i=3 → bit[3] += d, 다음 i = 3 + lowbit(3) = 4
+        i=4 → bit[4] += d, 다음 i = 4 + lowbit(4) = 8
+        i=8 → bit[8] += d, 다음 i = 8 + lowbit(8) = 16 > n → 종료
+```
+
+핵심 성질은 **$i$를 덮는 다음 상위 인덱스가 항상 $i + \text{lowbit}(i)$** 라는 것이다. $\text{bit}[i]$의 구간을 오른쪽으로 확장하여 처음으로 $i$를 다시 포함하게 되는 구간이 $i + \text{lowbit}(i)$에서 끝나기 때문이다.
+
+질의는 $-\text{lowbit}$로 내려가고 갱신은 $+\text{lowbit}$로 올라가는 대칭 구조이며, 두 방향 모두 방문 노드 수는 $\log_2 n$ 이하다.
+
+## 6. 최상위 비트: 대칭이 깨지는 지점
+
+lowbit과 달리 **최상위 비트를 뽑는 두-연산짜리 산술 트릭은 존재하지 않는다.** lowbit의 엔진은 캐리 전파인데, 덧셈의 캐리는 항상 낮은 자리에서 높은 자리로만 흐른다. 최상위 비트를 뽑으려면 정보가 높은 자리에서 낮은 자리로 흘러야 하고, 기본 연산 중 이를 수행하는 것은 오른쪽 시프트뿐이다.
+
+**방법 1 — 비트 스미어링(smearing):** 시프트-OR로 최상위 1비트를 아래로 번지게 한 뒤, 연속 1 마스크에서 최상위만 남긴다.
+
+```cpp
+unsigned int highbit(unsigned int x)
+{
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    return x - (x >> 1);
+}
+```
+
+각 단계가 "번진 폭"을 두 배로 늘리므로 32비트는 5단계면 충분하다.
+
+::: {.callout-warning}
+마지막 줄을 $(x+1) \gg 1$로 쓰면 $x = \texttt{0xFFFFFFFF}$일 때 $x+1$이 오버플로한다. 뺄셈 형태 $x - (x \gg 1)$이 안전하다.
+:::
+
+**방법 2 — 하드웨어 명령:** `__builtin_clz(x)`는 leading zero 개수를 세는 컴파일러 내장 함수(인트린식)라 별도 헤더가 필요 없다. 단 $x = 0$이면 정의되지 않은 동작이며, 채점 환경의 컴파일러가 불명확하면 단순 루프가 가장 안전하다.
+
+highbit이 실전에서 쓰이는 대표적인 곳은 BIT 위에서의 k번째 원소 탐색이다. 트리 최상단($n$ 이하의 가장 큰 2의 거듭제곱)에서 시작해 절반씩 내려오는 이진 탐색으로, 접두사 합이 처음으로 $k$ 이상이 되는 인덱스를 $O(\log n)$에 찾는다.
+
+## 7. 적용: 교통 정보 시뮬레이터
+
+1차원 도로의 $N$개 지점 사이에 $N-1$개 구간이 있고, 각 구간은 통과 시간과 도로 종류를 갖는다. 다음 연산을 지원해야 한다.
+
+- `update` (최대 10,000회): 구간 하나의 통과 시간 변경
+- `updateByType` (최대 200회): 같은 종류의 모든 구간(종류당 최대 200개)에 비율 $\frac{r}{256}$을 곱하고 소수점 버림, 합 반환
+- `calculate` (최대 100,000회): 두 지점 사이 통과 시간 합
+
+호출 횟수의 비대칭을 읽는 것이 출발점이다. `calculate`가 압도적으로 많으므로 질의는 반드시 $O(\log N)$ 이하여야 하고, 구간 합 + 점 갱신이므로 BIT가 정확히 들어맞는다.
+
+::: {.callout-important}
+`updateByType`은 각 구간마다 곱한 뒤 **개별적으로 소수점을 버린다.** 버림(floor)은 선형 연산이 아니므로 "구간 전체에 비율을 곱한다"는 lazy propagation으로 표현할 수 없다. 종류당 구간 수가 200개 이하로 제한된 것은 타입별 목록을 순회하며 점 갱신하라는 설계 유도다. $200 \times 200 = 40{,}000$번의 점 갱신이면 충분하다.
+:::
+
+설계는 세 요소로 구성된다.
+
+1. `time_[]` 배열을 진실의 원본으로 유지하고, 모든 변경 시 델타를 BIT에 반영
+2. 타입별 단일 연결 리스트(`head_[]`, `next_[]`)로 `updateByType` 순회 — 구간의 타입은 변하지 않으므로 삽입만 있으면 되고 `prev`는 불필요
+3. 구간 $i$를 BIT 인덱스 $i+1$에 두면 $\text{calculate}(a, b) = \text{sum}(b) - \text{sum}(a)$ ($a < b$)로 떨어짐
+
+::: {.callout-warning}
+## 오버플로 주의
+개별 구간 시간에 대한 상한은 초기값(≤ 1,000)에만 있고, 비율 200~300/256이 반복 적용되면 시간이 커질 수 있다. 문제가 보장하는 것은 "합이 $2 \times 10^9$ 이하"라는 **최종 결과**에 대한 조건이지 중간 곱셈에 대한 것이 아니다. `time_[i] * mRatio256`은 `long long` 캐스팅 후 곱해야 한다.
+:::
+
+복잡도는 `init` $O(N \log N)$, `update` $O(\log N)$, `updateByType` $O(200 \log N)$, `calculate` $O(\log N)$으로 전체 제약을 여유 있게 통과한다.
+
+## Codes
+
+```cpp
+#define MAX_N       (100'000)
+#define MAX_TYPE    (1'000)
+
+static int n_;
+static int time_[MAX_N];
+static long long bit_[MAX_N + 1];
+static int head_[MAX_TYPE];
+static int next_[MAX_N];
+
+static void bit_add(int i, long long d)
+{
+    for (; i <= n_; i += i & (-i)) bit_[i] += d;
+}
+
+static long long bit_sum(int i)
+{
+    long long s = 0;
+    for (; i > 0; i -= i & (-i)) s += bit_[i];
+    return s;
+}
+
+void init(int N, int M, int mType[], int mTime[])
+{
+    n_ = N - 1;
+
+    for (int i = 0; i <= n_; ++i) bit_[i] = 0;
+    for (int i = 0; i < M; ++i) head_[i] = -1;
+
+    for (int i = 0; i < n_; ++i) {
+        time_[i] = mTime[i];
+        bit_add(i + 1, mTime[i]);
+        next_[i] = head_[mType[i]];
+        head_[mType[i]] = i;
+    }
+}
+
+void destroy()
+{
+}
+
+void update(int mID, int mNewTime)
+{
+    bit_add(mID + 1, (long long)mNewTime - time_[mID]);
+    time_[mID] = mNewTime;
+}
+
+int updateByType(int mTypeID, int mRatio256)
+{
+    long long total = 0;
+    for (int i = head_[mTypeID]; i != -1; i = next_[i]) {
+        long long nt = ((long long)time_[i] * mRatio256) >> 8;
+        bit_add(i + 1, nt - time_[i]);
+        time_[i] = (int)nt;
+        total += nt;
+    }
+    return (int)total;
+}
+
+int calculate(int mA, int mB)
+{
+    if (mA > mB) { int t = mA; mA = mB; mB = t; }
+    return (int)(bit_sum(mB) - bit_sum(mA));
+}
+```
