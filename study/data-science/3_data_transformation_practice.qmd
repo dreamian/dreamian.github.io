@@ -1,0 +1,543 @@
+---
+title: "Data Transformation Practice"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    embed-resources: true
+jupyter: python3
+execute:
+  warning: false
+---
+
+Titanic 데이터셋을 이용해 수치형/범주형 데이터 변환과 `agg`의 동작 원리를 연습합니다.
+
+**구성**
+1. 수치형 데이터 변환 — 정규화, 표준화, 거듭제곱/Box-Cox 변환
+2. 범주형 데이터 변환 — 가변수화(One-Hot), 레이블 인코딩
+3. `agg` 심화 — 문자열이 함수로 해석되는 방식
+
+각 문제의 코드 셀에 있는 `# TODO` 부분을 직접 채워보고, 맨 아래의 **해답** 섹션과 비교해보세요.
+
+
+## 0. 준비
+
+필요한 라이브러리를 불러오고 데이터를 로드합니다.
+
+| Data | Description | Dictionary |
+|:----|:----------|:---|
+|PassengerId|Passenger Id, Index||
+|Survived|Survival|0 = No, 1 = Yes|
+|Pclass|Ticket class|1 = 1st, 2 = 2nd, 3 = 3rd|
+|Sex|Sex||
+|Age|Age in years||
+|SibSp|# of siblings / spouses aboard||
+|Parch|# of parents / children aboard||
+|Fare|Passenger fare||
+|Embarked|Port of Embarkation|C, Q, S|
+
+
+```{python}
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+for i in [pd, np, sns]:
+    print(i.__name__, i.__version__)
+```
+
+```{python}
+# 데이터 로드 - 환경에 맞게 경로를 조정하세요.
+df_titanic = pd.read_csv('data/titanic.csv', index_col='PassengerId')
+df_titanic.head()
+```
+
+## 1. 수치형 데이터 변환
+
+### 문제 1. Min-Max 정규화
+
+`sklearn.preprocessing.MinMaxScaler`를 이용해 `Age`, `Fare`를 최소값 0, 최대값 1이 되도록 변환하세요.
+
+- 변환값은 `Age_n`, `Fare_n` 컬럼으로 저장합니다.
+- 변환 결과가 실제로 [0, 1] 범위인지 `agg(['min', 'max'])`로 검증합니다.
+
+> $X_{new} = \dfrac{X - \min(X)}{\max(X) - \min(X)}$
+
+**주의**: `scaler.transform()`의 결과는 numpy array이므로, DataFrame에 복수 컬럼으로 추가할 때는
+`pd.DataFrame(..., index=df_titanic.index)`로 감싸 인덱스를 맞춰야 합니다.
+
+
+```{python}
+#| eval: false
+from sklearn.preprocessing import MinMaxScaler
+
+mm_cols = ['Age', 'Fare']
+mm_cols_n = [c + '_n' for c in mm_cols]
+
+# TODO: MinMaxScaler를 생성하고 fit 후 transform 결과를 mm_cols_n 컬럼으로 추가하세요.
+
+
+# TODO: agg를 이용해 min, max를 확인하세요.
+
+```
+
+### 문제 2. feature_range 지정
+
+이번에는 최소값 −1, 최대값 1이 되도록 변환하고, `fit`과 `transform`을 한 번에 수행하는
+`fit_transform`을 사용하세요. 결과는 동일하게 `Age_n`, `Fare_n`에 덮어씁니다.
+`agg(['min', 'max'])`로 범위를 검증하세요.
+
+
+```{python}
+#| eval: false
+# TODO: MinMaxScaler((-1, 1))을 이용해 변환하고 검증하세요.
+
+```
+
+### 문제 3. 공식 직접 구현으로 검증
+
+`MinMaxScaler`를 쓰지 않고 정규화 공식을 pandas 연산만으로 직접 구현해
+`Fare_n_manual` 컬럼을 만들어보세요 (범위 [0, 1] 기준).
+
+그리고 문제 1 방식의 `MinMaxScaler` 결과와 일치하는지 `np.allclose`로 확인하세요.
+
+> 수학적으로 같은 식이라도 부동소수점 연산 순서에 따라 미세한 차이가 날 수 있어
+> `==`가 아닌 `np.allclose`로 비교하는 것이 안전합니다.
+
+
+```{python}
+#| eval: false
+# TODO: 공식을 직접 구현해 Fare_n_manual을 만드세요.
+
+
+# TODO: MinMaxScaler 결과(범위 [0,1])와 np.allclose로 비교하세요.
+
+```
+
+### 문제 4. 표준화 (StandardScaler)
+
+`StandardScaler`로 `Age`, `Fare`를 표준화해 `Age_s`, `Fare_s`로 저장하세요.
+
+> $X_{std} = \dfrac{X - \mu}{\sigma}$
+
+검증: 평균이 0, 표준편차가 1인지 확인하되, `StandardScaler`는 **편향(biased) 표준편차**
+(`ddof=0`)를 사용한다는 점에 주의하세요. `df.std()`의 기본값은 `ddof=1`이므로
+그대로 쓰면 1이 아닌 값이 나옵니다.
+
+`mean`과 `std(ddof=0)`를 하나의 결과 테이블로 정리해 출력하세요.
+
+
+```{python}
+#| eval: false
+from sklearn.preprocessing import StandardScaler
+
+std_cols = ['Age', 'Fare']
+std_cols_s = [c + '_s' for c in std_cols]
+
+# TODO: 표준화 후 mean과 std(ddof=0)를 확인하세요.
+
+```
+
+### 문제 5. 편향 vs 불편향 표준편차
+
+`scipy.stats.zscore`에 `ddof=1`을 지정해 `Fare`를 **불편향(unbiased) 표준편차** 기준으로
+표준화하고 `Fare_s2`에 저장하세요.
+
+그리고 다음을 확인하세요.
+
+1. `Fare_s`(StandardScaler, ddof=0)와 `Fare_s2`(zscore, ddof=1)의 값 차이
+2. 두 결과의 비율 `Fare_s / Fare_s2`가 상수인지 — 그 상수가 $\sqrt{n/(n-1)}$과 일치하는지
+
+**생각해보기**: 표본 크기 $n$이 커질수록 두 방식의 차이는 어떻게 될까요?
+
+
+```{python}
+#| eval: false
+from scipy.stats import zscore
+
+# TODO: ddof=1로 표준화해 Fare_s2를 만드세요.
+
+
+# TODO: Fare_s / Fare_s2의 비율을 확인하고 sqrt(n/(n-1))과 비교하세요.
+
+```
+
+### 문제 6. 거듭제곱 변환 (Power Transformation)
+
+λ = [-2, -1, -0.5, 0, 0.5, 1, 1.5, 2]에 대해 거듭제곱 변환된 `Fare`의 분포를
+2×4 히스토그램으로 출력하세요.
+
+| $\lambda$ | 변환 |
+|-----|------|
+| $\lambda \ne 0$ | $X^{\lambda}$ |
+| $\lambda = 0$ | $\log(X)$ |
+
+**주의**: `Fare`에는 0이 존재하므로 λ=0(log 변환)일 때는 $\log(X+1)$을 사용하세요.
+또한 λ<0(역수 계열)일 때 0은 무한대가 되므로, 그래프 해석 시 이 점을 염두에 두세요.
+
+
+```{python}
+#| eval: false
+# TODO: 2x4 subplot에 lambda별 히스토그램을 그리세요.
+lams = [-2, -1, -0.5, 0, 0.5, 1, 1.5, 2]
+
+```
+
+### 문제 7. Box-Cox 변환
+
+`PowerTransformer(method='box-cox')`로 결측을 제외한 `Age`를 변환하고,
+
+1. 자동으로 추정된 λ (`pt.lambdas_`)를 확인하세요.
+2. 변환 전/후의 왜도(skewness)를 `skew()`로 비교하세요.
+3. 변환 전/후 히스토그램을 나란히 그려 분포가 대칭에 가까워졌는지 확인하세요.
+
+> Box-Cox는 $\lambda \ne 0$일 때 $\frac{X^{\lambda}-1}{\lambda}$, $\lambda=0$일 때 $\log X$를 사용하며,
+> 데이터를 정규분포에 가깝게 만드는 λ를 우도 기반으로 추정합니다.
+> 입력값이 양수여야 한다는 제약이 있습니다.
+
+
+```{python}
+#| eval: false
+from sklearn.preprocessing import PowerTransformer
+
+s_age = df_titanic.loc[df_titanic['Age'].notna(), 'Age']
+
+# TODO: box-cox 변환 후 lambdas_, skew, 히스토그램을 확인하세요.
+
+```
+
+## 2. 범주형 데이터 변환
+
+### 문제 8. 가변수화 — pd.get_dummies
+
+1. `Embarked`의 결측치를 최빈값으로 대체하세요.
+2. `pd.get_dummies`로 `Pclass`와 `Embarked`를 가변수화한 `df_titanic_gd`를 만드세요.
+3. 생성된 가변수 컬럼명들을 확인하세요.
+
+
+```{python}
+#| eval: false
+# TODO: 결측 대체 후 get_dummies로 가변수화하세요.
+
+```
+
+### 문제 9. 가변수화 — OneHotEncoder
+
+`sklearn.preprocessing.OneHotEncoder`로 문제 8과 동일한 결과의 `df_titanic_ohe`를 만드세요.
+
+- `sparse_output=False`로 설정해 dense array를 얻으세요.
+- `get_feature_names_out()`으로 컬럼명을 만들어 DataFrame으로 결합하세요.
+- 원본에서 `Pclass`, `Embarked`를 제거한 뒤 `pd.concat`으로 붙이세요.
+- 마지막으로 `df_titanic_gd`와 값이 동일한지 비교하세요.
+  (get_dummies는 bool, OneHotEncoder는 float을 반환하므로 dtype을 맞춘 뒤 비교하세요.)
+
+**생각해보기**: 실무 파이프라인에서 `get_dummies` 대신 `OneHotEncoder`를 선호하는 이유는
+무엇일까요? (힌트: 학습 데이터에 없던 범주가 테스트 데이터에 등장하는 경우)
+
+
+```{python}
+#| eval: false
+from sklearn.preprocessing import OneHotEncoder
+
+ohe_cols = ['Pclass', 'Embarked']
+
+# TODO: OneHotEncoder로 가변수화하고 get_dummies 결과와 비교하세요.
+
+```
+
+### 문제 10. 레이블 인코딩
+
+`LabelEncoder`로 `Embarked`를 인코딩해 `Embarked_l` 컬럼을 만드세요.
+
+1. `le.classes_`로 범주 → 정수 매핑을 확인하세요.
+2. `inverse_transform`으로 정수를 다시 원래 범주로 되돌릴 수 있음을 확인하세요.
+
+**생각해보기**: `LabelEncoder`는 다른 transformer들과 달리 2차원이 아닌 1차원 입력을 받습니다.
+이 설계에서 `LabelEncoder`의 본래 용도(입력 변수용인지, 대상값용인지)를 추론해보세요.
+또한 순서가 없는 명목형 변수를 레이블 인코딩해 선형 모델에 넣으면 어떤 문제가 생길까요?
+
+
+```{python}
+#| eval: false
+from sklearn.preprocessing import LabelEncoder
+
+# TODO: LabelEncoder로 인코딩하고 classes_, inverse_transform을 확인하세요.
+
+```
+
+## 3. `agg` 심화 — 문자열은 어떻게 함수가 되는가
+
+`df.agg(['min', 'max'])`의 `'min'`, `'max'`는 Python 예약어가 아니라,
+pandas가 **문자열 → 메서드 매핑 규칙**에 따라 해석하는 이름입니다.
+
+- 자주 쓰이는 통계량(`min`, `max`, `sum`, `mean`, `std`, ...)은 최적화된 내부 구현으로 매핑됩니다.
+- 그 외에는 `getattr(객체, 문자열)`처럼 해당 이름의 메서드를 찾아 호출합니다.
+
+이 원리를 직접 확인해봅니다.
+
+### 문제 11. 문자열 vs 함수 객체 vs 사용자 정의 함수
+
+`Age_n`, `Fare_n`에 대해 다음 세 가지를 **하나의 `agg` 호출**에 섞어 적용하세요.
+
+1. 문자열: `'min'`, `'max'`
+2. NumPy 함수 객체: `np.median`
+3. 사용자 정의 함수: 최대값과 최소값의 차이를 반환하는 `value_range` 함수
+
+결과 테이블의 행 인덱스에 각 집계의 이름이 어떻게 표시되는지도 관찰하세요.
+
+
+```{python}
+#| eval: false
+def value_range(x):
+    # TODO: 최대값 - 최소값을 반환하도록 구현하세요.
+    pass
+
+# TODO: 문자열, np.median, value_range를 섞어 agg를 호출하세요.
+
+```
+
+### 문제 12. 문자열 해석 원리 확인
+
+1. `df_titanic[['Age_n', 'Fare_n']].agg('median')`과
+   `getattr(df_titanic[['Age_n', 'Fare_n']], 'median')()`의 결과가 같은지 확인하세요.
+2. 존재하지 않는 이름 `'not_a_real_method'`를 `agg`에 넘겨보고,
+   `try/except`로 어떤 예외가 발생하는지 출력하세요.
+
+이를 통해 문자열이 "예약어"가 아니라 **객체가 실제로 가진 메서드 이름**이면
+무엇이든 동작한다는 것을 확인할 수 있습니다.
+
+
+```{python}
+#| eval: false
+# TODO: agg('median')과 getattr 방식의 결과를 비교하세요.
+
+
+# TODO: 존재하지 않는 이름을 넘겨 예외를 확인하세요.
+
+```
+
+### 문제 13. 컬럼별로 다른 집계 적용 (dict 형태)
+
+dict를 이용해 컬럼마다 다른 집계를 적용하세요.
+
+- `Age`: `'min'`, `'max'`, `'mean'`
+- `Fare`: `'median'`, `'std'`
+- `Survived`: `'mean'` (생존율로 해석 가능)
+
+결과에서 특정 컬럼에 적용되지 않은 집계 자리가 어떻게 표시되는지(NaN) 관찰하세요.
+
+
+```{python}
+#| eval: false
+# TODO: dict 형태의 agg를 호출하세요.
+
+```
+
+---
+
+# 해답
+
+
+### 해답 1
+
+```{python}
+from sklearn.preprocessing import MinMaxScaler
+
+mm_cols = ['Age', 'Fare']
+mm_cols_n = [c + '_n' for c in mm_cols]
+
+mm_scaler = MinMaxScaler()
+mm_scaler.fit(df_titanic[mm_cols])
+
+# transform 결과는 numpy array이므로 DataFrame으로 감싸 인덱스를 맞춥니다.
+df_titanic[mm_cols_n] = pd.DataFrame(
+    mm_scaler.transform(df_titanic[mm_cols]), index=df_titanic.index
+)
+df_titanic[mm_cols_n].agg(['min', 'max'])
+```
+
+### 해답 2
+
+```{python}
+mm_scaler = MinMaxScaler((-1, 1))
+df_titanic[mm_cols_n] = pd.DataFrame(
+    mm_scaler.fit_transform(df_titanic[mm_cols]), index=df_titanic.index
+)
+df_titanic[mm_cols_n].agg(['min', 'max'])
+```
+
+### 해답 3
+
+```{python}
+s = df_titanic['Fare']
+df_titanic['Fare_n_manual'] = (s - s.min()) / (s.max() - s.min())
+
+# 비교 기준을 [0, 1] 범위로 다시 맞춥니다.
+mm_scaler01 = MinMaxScaler()
+fare_n_sklearn = mm_scaler01.fit_transform(df_titanic[['Fare']])[:, 0]
+
+print(np.allclose(df_titanic['Fare_n_manual'].values, fare_n_sklearn))
+```
+
+### 해답 4
+
+```{python}
+from sklearn.preprocessing import StandardScaler
+
+std_cols = ['Age', 'Fare']
+std_cols_s = [c + '_s' for c in std_cols]
+
+std_scaler = StandardScaler()
+df_titanic[std_cols_s] = pd.DataFrame(
+    std_scaler.fit_transform(df_titanic[std_cols]), index=df_titanic.index
+)
+
+pd.concat([
+    df_titanic[std_cols_s].mean().rename('mean'),
+    df_titanic[std_cols_s].std(ddof=0).rename('std(ddof=0)')
+], axis=1)
+```
+
+### 해답 5
+
+```{python}
+from scipy.stats import zscore
+
+df_titanic['Fare_s2'] = zscore(df_titanic['Fare'], ddof=1)
+print(df_titanic['Fare_s2'].agg(['mean', 'std']))
+
+# 두 표준화 결과의 비율은 상수입니다.
+ratio = (df_titanic['Fare_s'] / df_titanic['Fare_s2']).dropna()
+n = df_titanic['Fare'].notna().sum()
+print('ratio (unique):', ratio.round(10).unique())
+print('sqrt(n/(n-1)) :', np.sqrt(n / (n - 1)))
+# n이 커질수록 sqrt(n/(n-1)) -> 1 이므로 두 방식의 차이는 사라집니다.
+```
+
+### 해답 6
+
+```{python}
+fig, axes = plt.subplots(2, 4, figsize=(12, 6))
+lams = [-2, -1, -0.5, 0, 0.5, 1, 1.5, 2]
+for lam, ax in zip(lams, axes.ravel()):
+    if lam != 0:
+        sns.histplot(df_titanic['Fare'] ** lam, ax=ax)
+    else:
+        # Fare에 0이 있으므로 log(X + 1)을 사용합니다.
+        sns.histplot(np.log(df_titanic['Fare'] + 1), ax=ax)
+    ax.set_title('lambda={}'.format(lam))
+plt.tight_layout()
+plt.show()
+```
+
+### 해답 7
+
+```{python}
+from sklearn.preprocessing import PowerTransformer
+
+s_age = df_titanic.loc[df_titanic['Age'].notna(), 'Age']
+
+pt = PowerTransformer(method='box-cox')
+age_bc = pt.fit_transform(s_age.to_frame())[:, 0]
+
+print('estimated lambda:', pt.lambdas_[0])
+print('skew before:', s_age.skew())
+print('skew after :', pd.Series(age_bc).skew())
+
+fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+sns.histplot(s_age, ax=axes[0]); axes[0].set_title('original Age')
+sns.histplot(age_bc, ax=axes[1]); axes[1].set_title('box-cox Age')
+plt.tight_layout()
+plt.show()
+```
+
+### 해답 8
+
+```{python}
+df_titanic['Embarked'] = df_titanic['Embarked'].fillna(
+    df_titanic['Embarked'].mode().iloc[0]
+)
+
+df_titanic_gd = pd.get_dummies(df_titanic, columns=['Pclass', 'Embarked'])
+print([c for c in df_titanic_gd.columns if c.startswith(('Pclass_', 'Embarked_'))])
+df_titanic_gd.head()
+```
+
+### 해답 9
+
+```{python}
+from sklearn.preprocessing import OneHotEncoder
+
+ohe = OneHotEncoder(sparse_output=False)
+ohe_cols = ['Pclass', 'Embarked']
+ohe.fit(df_titanic[ohe_cols])
+
+df_titanic_ohe = pd.concat([
+    df_titanic.drop(columns=ohe_cols),
+    pd.DataFrame(ohe.transform(df_titanic[ohe_cols]),
+                 index=df_titanic.index,
+                 columns=ohe.get_feature_names_out(ohe_cols))
+], axis=1)
+
+# get_dummies는 bool, OneHotEncoder는 float을 반환하므로 dtype을 맞춰 비교합니다.
+dummy_cols = ohe.get_feature_names_out(ohe_cols)
+print(
+    (df_titanic_gd[dummy_cols].astype(float) != df_titanic_ohe[dummy_cols]).sum()
+)
+# OneHotEncoder는 fit 시점의 범주를 기억하므로,
+# 학습/테스트 데이터 간 범주 구성이 달라도 일관된 컬럼을 만들 수 있습니다.
+# handle_unknown='ignore' 옵션으로 미지의 범주도 처리할 수 있습니다.
+```
+
+### 해답 10
+
+```{python}
+from sklearn.preprocessing import LabelEncoder
+
+le = LabelEncoder()
+df_titanic['Embarked_l'] = le.fit_transform(df_titanic['Embarked'])
+
+print('classes_:', le.classes_)  # index가 곧 인코딩된 정수입니다.
+print(le.inverse_transform([0, 1, 2]))
+df_titanic[['Embarked', 'Embarked_l']].head()
+
+# LabelEncoder는 1차원 입력만 받도록 설계되어 있어, 본래 대상값(y) 인코딩용입니다.
+# 명목형 변수를 정수로 치환해 선형 모델에 넣으면
+# 존재하지 않는 순서/간격 정보가 주입되는 문제가 생깁니다.
+```
+
+### 해답 11
+
+```{python}
+def value_range(x):
+    return x.max() - x.min()
+
+df_titanic[['Age_n', 'Fare_n']].agg(['min', 'max', np.median, value_range])
+# 문자열은 그대로, 함수 객체는 __name__ 속성이 행 인덱스 이름으로 사용됩니다.
+```
+
+### 해답 12
+
+```{python}
+r1 = df_titanic[['Age_n', 'Fare_n']].agg('median')
+r2 = getattr(df_titanic[['Age_n', 'Fare_n']], 'median')()
+print(r1.equals(r2))  # True - 문자열은 결국 같은 이름의 메서드 호출로 해석됩니다.
+
+try:
+    df_titanic[['Age_n', 'Fare_n']].agg('not_a_real_method')
+except Exception as e:
+    print(type(e).__name__, ':', e)
+```
+
+### 해답 13
+
+```{python}
+df_titanic.agg({
+    'Age': ['min', 'max', 'mean'],
+    'Fare': ['median', 'std'],
+    'Survived': ['mean'],
+})
+# 컬럼에 적용되지 않은 집계 자리는 NaN으로 채워집니다.
+```
