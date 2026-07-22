@@ -1,0 +1,230 @@
+---
+title: "Probability Distributions: Moments and Sampling Notes"
+date: 2026-07-22
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: false
+jupyter: python3
+---
+
+## 준비
+
+```{python}
+import numpy as np
+from scipy.stats import bernoulli, binom, poisson, norm, expon
+import matplotlib.pyplot as plt
+import seaborn as sns
+```
+
+# 이산형 확률 분포의 기댓값과 분산
+
+## 베르누이 분포
+
+$$p(x) = p^x(1-p)^{1-x}, \quad x \in \{0, 1\}$$
+
+**기댓값 $E(X)$**
+
+$$E(X) = \sum_{x=0}^{1} x \cdot p(x) = 0\cdot(1-p) + 1\cdot p = p$$
+
+**분산 $V(X)$**
+
+먼저 $E(X^2)$을 구합니다. $x \in \{0,1\}$에서는 $x^2 = x$이므로:
+
+$$E(X^2) = 0^2\cdot(1-p) + 1^2\cdot p = p$$
+
+$$V(X) = E(X^2) - [E(X)]^2 = p - p^2 = p(1-p)$$
+
+```{python}
+p = 0.3
+Xb = bernoulli.rvs(p, size=100_000, random_state=1)
+print("표본 평균:", np.mean(Xb).round(4), "| 이론값:", p)
+print("표본 분산:", np.var(Xb).round(4), "| 이론값:", round(p * (1 - p), 4))
+```
+
+## 이항 분포
+
+$$p(x) = \binom{n}{x} p^x (1-p)^{n-x}, \quad x = 0, 1, \dots, n$$
+
+이항 확률변수는 독립인 베르누이 시행의 합으로 볼 수 있습니다.
+$X = \sum_{i=1}^{n} X_i$, 각 $X_i \sim \text{Bernoulli}(p)$이며 서로 독립.
+
+**기댓값 $E(X)$** — 기댓값의 선형성 (독립성 불필요)
+
+$$E(X) = \sum_{i=1}^{n} E(X_i) = \sum_{i=1}^{n} p = np$$
+
+**분산 $V(X)$** — 독립이므로 분산은 그대로 더해짐
+
+$$V(X) = \sum_{i=1}^{n} V(X_i) = \sum_{i=1}^{n} p(1-p) = np(1-p)$$
+
+정의에서 직접 $\sum_x x\binom{n}{x}p^x(1-p)^{n-x}$을 계산해도 같은 결과가 나오지만,
+항등식 $x\binom{n}{x} = n\binom{n-1}{x-1}$을 동원해야 하므로 베르누이 합으로 보는 편이 훨씬 간결합니다.
+
+```{python}
+n = 100
+X = binom.rvs(n, p, size=500, random_state=123)
+print("표본 평균:", np.mean(X), "| 이론값:", n * p)
+print("표본 분산:", np.var(X, ddof=1).round(3), "| 이론값:", n * p * (1 - p))
+```
+
+## 포아송 분포
+
+$$p(x) = \frac{e^{-\lambda}\lambda^x}{x!}, \quad x = 0, 1, 2, \dots$$
+
+**기댓값 $E(X)$**
+
+$$E(X) = \sum_{x=0}^{\infty} x \cdot \frac{e^{-\lambda}\lambda^x}{x!}
+       = \sum_{x=1}^{\infty} \frac{e^{-\lambda}\lambda^x}{(x-1)!}$$
+
+$x=0$ 항은 0이라 사라집니다. $k = x-1$로 치환하면:
+
+$$= \lambda \sum_{k=0}^{\infty} \frac{e^{-\lambda}\lambda^{k}}{k!} = \lambda \cdot 1 = \lambda$$
+
+마지막 합은 포아송 pmf 전체 합이라 1이 됩니다.
+
+**분산 $V(X)$**
+
+$E[X(X-1)]$을 먼저 구하면 계산이 깔끔합니다. $x(x-1)/x! = 1/(x-2)!$이 되기 때문입니다.
+
+$$E[X(X-1)] = \sum_{x=2}^{\infty} \frac{e^{-\lambda}\lambda^x}{(x-2)!}
+            = \lambda^2 \sum_{k=0}^{\infty} \frac{e^{-\lambda}\lambda^{k}}{k!} = \lambda^2$$
+
+따라서:
+
+$$E(X^2) = E[X(X-1)] + E(X) = \lambda^2 + \lambda$$
+
+$$V(X) = E(X^2) - [E(X)]^2 = (\lambda^2 + \lambda) - \lambda^2 = \lambda$$
+
+```{python}
+lam = 4
+Xp = poisson.rvs(lam, size=100_000, random_state=2)
+print("표본 평균:", np.mean(Xp).round(4), "| 이론값:", lam)
+print("표본 분산:", np.var(Xp).round(4), "| 이론값:", lam)
+```
+
+## 세 분포 요약
+
+| 분포 | $p(x)$ | $E(X)$ | $V(X)$ |
+|------|--------|:------:|:------:|
+| 베르누이 | $p^x(1-p)^{1-x}$ | $p$ | $p(1-p)$ |
+| 이항 | $\binom{n}{x}p^x(1-p)^{n-x}$ | $np$ | $np(1-p)$ |
+| 포아송 | $\dfrac{e^{-\lambda}\lambda^x}{x!}$ | $\lambda$ | $\lambda$ |
+
+유도의 핵심은 각각 다릅니다. 베르누이는 정의에서 직접, 이항은 베르누이 합의 선형성으로,
+포아송은 $x/x! = 1/(x-1)!$ 형태의 인덱스 시프트 트릭으로 유도합니다.
+
+# 표본평균의 분산
+
+표본 $X_1, \dots, X_n$이 i.i.d.이고 $V(X_i) = \sigma^2$일 때,
+표본평균 $\bar{X} = \frac{1}{n}\sum_{i=1}^{n} X_i$의 분산을 유도합니다.
+
+필요한 성질은 두 가지입니다.
+
+- 상수배: $V(aX) = a^2 V(X)$ (분산은 편차의 제곱이라 상수가 제곱으로 나옴)
+- 독립 합: $V\!\left(\sum_i X_i\right) = \sum_i V(X_i)$ (서로 독립일 때)
+
+$$V(\bar{X}) = V\!\left(\frac{1}{n}\sum_{i=1}^{n} X_i\right)
+            = \frac{1}{n^2} V\!\left(\sum_{i=1}^{n} X_i\right)
+            = \frac{1}{n^2} \sum_{i=1}^{n} \sigma^2
+            = \frac{1}{n^2} \cdot n\sigma^2
+            = \frac{\sigma^2}{n}$$
+
+핵심은 $n$이 두 단계에서 다르게 작용한다는 점입니다.
+$\frac{1}{n}$로 나누는 것은 분산에 $\frac{1}{n^2}$로 들어가고(제곱),
+$n$개를 더하는 것은 분산을 $n$배로 키웁니다(독립). 둘이 만나 $\frac{1}{n^2}\cdot n = \frac{1}{n}$이 됩니다.
+
+표준편차로 보면 $\text{SD}(\bar{X}) = \sigma/\sqrt{n}$이라, 추정 정밀도는 $\sqrt{n}$에만 비례합니다.
+정밀도를 2배 높이려면 표본을 4배 모아야 한다는 뜻입니다.
+
+::: {.callout-note}
+## 독립성이 깨질 때
+
+독립이 아니면 공분산 항이 살아남습니다.
+
+$$V\!\left(\sum_i X_i\right) = \sum_i V(X_i) + \sum_{i \neq j} \text{Cov}(X_i, X_j)$$
+
+독립이면 모든 공분산이 0이라 $\sigma^2/n$이 성립하지만, 상관이 있으면 그렇지 않습니다.
+상관된 관측값에서는 표본평균의 실질 분산이 $\sigma^2/n$보다 커지고, 이를
+"유효 표본 수(effective sample size)"가 $n$보다 작아진다고 표현합니다.
+:::
+
+```{python}
+sigma2, mu, n_samp = 4.0, 2.0, 25
+means = [
+    np.mean(np.random.default_rng(k).normal(mu, np.sqrt(sigma2), n_samp))
+    for k in range(5000)
+]
+print("표본평균의 분산:", round(np.var(means), 4), "| 이론값 sigma^2/n:", sigma2 / n_samp)
+```
+
+# scipy / matplotlib API 노트
+
+## `scipy.stats.expon`의 `scale` 파라미터
+
+scipy는 지수분포를 rate($\lambda$)가 아니라 **scale**로 받습니다.
+
+$$f(x) = \frac{1}{\text{scale}} e^{-x/\text{scale}}, \quad x \geq 0
+\qquad\Longrightarrow\qquad \text{scale} = \frac{1}{\lambda}$$
+
+즉 scipy의 `scale`은 통계학에서 흔히 쓰는 rate $\lambda$의 역수입니다.
+`expon.cdf(0.4, scale=1/5)`는 $\lambda = 5$를 뜻하며,
+$F(0.4) = 1 - e^{-5 \times 0.4} = 1 - e^{-2}$가 됩니다.
+
+```{python}
+print("expon.cdf(0.4, scale=1/5):", expon.cdf(0.4, scale=1/5))
+print("수식 1 - exp(-2)      :", 1 - np.exp(-2))
+```
+
+scale이 클수록 평균 대기시간이 길어지고 분포가 넓게 퍼집니다($E(X) = \text{scale} = 1/\lambda$).
+`loc`, `scale`은 대부분의 연속형 분포에 공통으로 존재하는 인자라, 감마·와이블 등에서도 같은 방식으로 씁니다.
+
+::: {.callout-warning}
+`expon.cdf(x, lambda_)`처럼 $\lambda$를 그대로 넣으면 틀린 값이 나옵니다.
+반드시 `scale = 1/λ`로 변환해서 넣어야 합니다.
+:::
+
+## `plt.gca().twinx()`
+
+같은 x축을 공유하면서 **y축만 새로 만드는** matplotlib 기능입니다.
+
+- `plt.gca()`: get current axes — 현재 그려지고 있는 축 객체를 가져옴
+- `.twinx()`: x축은 공유하되 y축만 독립적인 새 축을 생성 (오른쪽에 새 눈금)
+
+히스토그램의 y축은 빈도(수십 단위), pmf의 y축은 확률(0~1)이라 스케일이 완전히 다릅니다.
+같은 y축에 그리면 pmf 값이 바닥에 깔려 안 보이므로, 오른쪽에 별도 y축을 두어 겹쳐 그립니다.
+
+```{python}
+plt.figure(figsize=(6, 4))
+sns.histplot(X)
+sns.scatterplot(
+    x=np.arange(0, 101),
+    y=binom.pmf(np.arange(0, 101), n, p),
+    ax=plt.gca().twinx(), color="orange", label="Probability",
+)
+plt.show()
+```
+
+## `fill_between`의 `alpha`
+
+`alpha`는 통계 변수가 아니라 색의 **투명도(opacity)**를 지정하는 인자로, 0~1 사이 값을 받습니다.
+
+- `alpha=0`: 완전 투명, `alpha=1`: 완전 불투명(기본값)
+- `alpha=0.6`: 60% 불투명 = 40% 투명 (뒤가 비쳐 보임)
+
+이름은 RGBA 색 표현의 A(alpha) 채널에서 왔습니다. 채워진 영역 뒤의 곡선·격자선이 비쳐 보이게 하고,
+여러 영역이 겹칠 때 겹친 부분이 진하게 표시되어 구분됩니다. `plot`, `scatter`, `hist` 등
+거의 모든 matplotlib 함수가 공통으로 받는 인자입니다.
+
+```{python}
+x = np.linspace(-4, 4, 400)
+tail = np.linspace(1.645, 4, 200)
+
+plt.figure(figsize=(6, 4))
+plt.plot(x, norm.pdf(x))
+plt.fill_between(tail, 0, norm.pdf(tail), color="orange", alpha=0.6)
+plt.title("Right tail (alpha = 0.6)")
+plt.show()
+```
