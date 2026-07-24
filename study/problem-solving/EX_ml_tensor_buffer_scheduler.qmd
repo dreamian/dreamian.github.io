@@ -1,0 +1,1783 @@
+---
+title: "ML 텐서 버퍼 스케줄러 — 동적 저장소 할당, 파면 불변량, 그리고 -O0 10초"
+categories: [algorithm]
+description: "시간 구간이 고정된 2차원 패킹 문제에서 하한 교차 분석으로 탐색 방향을 잡고, 탐색 기반 휴리스틱과 앵커 기반 구성법을 결합한 뒤, -O0 10초 제약에 맞춰 프로파일 기반 수술로 압축한 기록"
+date: 2026-07-24
+---
+
+## 1. 문제
+
+$N$개($3000 \le N \le 5000$)의 텐서가 주어진다. 각 텐서 $i$는 시간 구간 $[s_i, e_i)$, 크기 $z_i$, 정렬 제약 $a_i \in \{16, 32, 64, 128\}$을 갖는다. 각 텐서에 메모리 오프셋 $o_i$를 배정하되 다음을 만족해야 한다.
+
+- $o_i \ge 0$, $o_i \equiv 0 \pmod{a_i}$
+- 시간이 겹치는 두 텐서는 메모리가 겹치면 안 된다: $[s_i,e_i) \cap [s_j,e_j) \ne \varnothing \implies [o_i, o_i+z_i) \cap [o_j, o_j+z_j) = \varnothing$
+
+목적은 peak 메모리 $P = \max_i (o_i + z_i)$의 최소화다. 점수는 테스트케이스별로
+
+$$
+\text{score} = 10^6 \times \frac{\text{baseline}}{P}
+$$
+
+로 주어지는데, baseline은 모든 텐서를 시간 무시하고 순차로 쌓았을 때의 높이다. 텐서를 시간축 $\times$ 메모리축의 직사각형으로 보면, $x$좌표(시간)가 고정된 직사각형들을 $y$축으로만 움직여 겹치지 않게 눌러 담는 문제 — 고전적인 **Dynamic Storage Allocation(DSA)** 이고 NP-hard다. 목표는 10개 고정 테스트케이스 합산으로 148,318,236점을 넘는 것, 제약은 **-O0 빌드 기준 총 10초**다.
+
+## 2. 하한 분석 — 하나의 하한을 믿지 말 것
+
+임의의 시각 $t$에 살아있는 텐서들은 반드시 메모리에서 서로소 구간을 차지하므로, 자명한 하한은 최대 동시 부하다.
+
+$$
+\text{LB} = \max_t \sum_{i:\, s_i \le t < e_i} z_i
+$$
+
+처음에는 $\text{peak}/\text{LB}$ 비율로 손실을 진단했다. 그 기준으로는 tc2(+10.4%), tc9(+5.9%)가 최악으로 보였고, 실제로 탐색 예산도 그쪽에 집중 배분했다. 그런데 정렬 제약을 반영한 두 번째 하한을 계산하자 그림이 뒤집혔다.
+
+$$
+\text{LB}_{au} = \max_t \sum_{i:\, s_i \le t < e_i} \left\lceil \frac{z_i}{a_i} \right\rceil a_i
+$$
+
+$\text{LB}_{au}$는 진짜 하한은 아니다 — 작은 정렬값의 텐서가 큰 정렬값 텐서의 패딩 틈을 메울 수 있기 때문이다. 하지만 "정렬 낭비가 얼마나 지배적인 인스턴스인가"를 말해주는 진단 지표로는 결정적이었다.
+
+| TC | peak vs LB | peak vs $\text{LB}_{au}$ | 해석 |
+|---|---|---|---|
+| tc2 | +10.4% | **−1.3%** | 패딩 틈 메우기로 $\text{LB}_{au}$조차 하회 — 사실상 한계 도달 |
+| tc9 | +5.9% | **−0.03%** | 동일 |
+| tc1 | +7.9% | **+6.1%** | 진짜 여유 최대 |
+| tc6 | +6.4% | +5.6% | 여유 큼 |
+
+::: {.callout-important}
+## 하한 교차의 교훈
+
+LB 하나만 보면 tc2/tc9에 여유가 커 보이지만, 그 여유의 대부분은 정렬 제약상 회수 불가능한 영역이었다. 반대로 tc1/tc6의 손실은 실제 회수 가능한 단편화였다. 최적화 예산을 어디에 투입할지는 **여러 하한(원시 합, 정렬 보정 합, 클리크 기반)을 교차**해서 결정해야 한다. 단일 하한 기준의 가치 평가는 예산을 정반대로 배분하게 만들 수 있다.
+:::
+
+## 3. 탐색 기반 파이프라인: 생성-수리(generate-and-repair)
+
+첫 번째 접근은 대충 만들고 오래 고치는 메타휴리스틱이었다.
+
+### 3.1 time-sweep hole 생성기
+
+시간순으로 이벤트(할당/해제)를 스윕하면서 free hole들을 센티널 이중 연결 리스트로 관리한다. 해제 시 인접 hole과 병합하고, 할당 시 정책(lowest-fit / best-fit / 패딩 페널티 best-fit)에 따라 hole을 고른다. 정책과 tie-break에 노이즈를 섞은 앙상블로 다양한 시드를 생성했다.
+
+### 3.2 lowering fixpoint
+
+배치가 끝난 뒤, 오프셋 내림차순으로 각 텐서를 "현재 위치보다 낮은 가장 낮은 유효 위치"로 내리는 패스를 고정점까지 반복한다. 현재 위치가 유효하므로 lowest feasible $\le$ 현재 오프셋이 보장되고, peak은 단조 비증가다.
+
+### 3.3 LNS: 파괴와 재생
+
+세 종류의 파괴 연산을 threshold accepting(허용 한계 내 악화 수용, 한계는 반복에 따라 감쇠)으로 묶었다.
+
+- **band 제거**: $o_i + z_i > \theta$인 상위 밴드 텐서를 제거하고 크기 내림차순으로 재삽입
+- **eviction**: peak을 정의하는 텐서를 낮은 오프셋에 강제 삽입하고, 충돌하는 이웃들을 축출해 재배치
+- **time-band 제거**: 랜덤 시간 창과 교차하는 상위권 텐서들을 통째로 제거·재삽입
+
+전체 탐색은 3500 반복 청크의 elitist restart(항상 전역 최적에서 재시작) 구조로 감쌌다.
+
+### 3.4 실험 규율 — 두 번의 값비싼 교훈
+
+::: {.callout-warning}
+## 난수 스트림 보존
+
+hole 선택 로직에 cap 파라미터를 추가하면서 cap이 없는 경로의 노이즈 적용 조건이 미묘하게 바뀌었고, `rnd_next()` 호출 횟수가 달라지면서 **이후 모든 난수가 시프트**됐다. 결과: 무관해 보이는 tc9가 −314K 회귀. 휴리스틱 코드에 기능을 추가할 때는 기존 경로의 난수 소비 순서까지 비트 단위로 보존해야 회귀를 격리할 수 있다. `cap < 0`을 "기능 꺼짐"으로 정의하고 레거시 경로를 그대로 두는 것으로 해결했다.
+:::
+
+::: {.callout-warning}
+## 한 번에 한 변수
+
+criticality 시드, eviction 대상 랜덤화, 재삽입 순서 변형을 한꺼번에 넣었다가 전 TC 회귀를 맞았다. bisect로 분리해 보니 시드는 무해(시드 선발에서 탈락), 재삽입 순서 변형이 유해였다. 변경 묶음은 원인 규명 비용을 기하급수로 키운다.
+:::
+
+### 3.5 레이아웃 부검 — peak은 어디서 오는가
+
+이 파이프라인은 147.5M에서 정체했다. 여덟 개의 연속 변형이 전부 ±50K 노이즈 아래로 떨어졌을 때, 추측을 멈추고 최적해 레이아웃을 덤프해 부검했다.
+
+::: {.callout-note}
+## 부검 결과
+
+tc1의 peak(293,566)은 최대 부하 슬라이스(t=3385, 오버헤드 20.9K)가 아니라 **부하가 훨씬 낮은 t≈1000 구간의 텐서**가 만들고 있었다. 시간별 낭비의 90분위가 98K — 지붕이 저부하 구간에서도 ~291K에 떠 있는 **tower 구조**였다. 서로 맞물린 시간 구간의 텐서들이 서로를 지탱하며 내려오지 못하는 것이다. 단일 텐서 이동(eviction)으로는 이 구조가 풀리지 않았고, 여러 텐서를 동시에 들어내는 time-band 이동만이 유효했다. 이 관찰이 다음 절의 구성 기반 접근이 왜 강한지를 설명해 준다.
+:::
+
+## 4. 구성 기반 접근: 앵커에서 파면으로
+
+탐색이 한계에 부딪힌 뒤, 정반대 철학의 설계를 검토했다: 수리가 필요 없도록 **처음부터 tower가 생기지 않게 만드는** 구성법이다.
+
+### 4.1 앵커 슬라이스의 정렬 페어링
+
+부하가 최대인 시각 $t^\*$의 텐서들(클리크 — 반드시 전부 쌓여야 함)을 오프셋 0부터 연속으로 쌓는다. 이때 순서가 패딩을 결정한다. 텐서 $u$ 뒤에 $v$를 붙일 때의 낭비를
+
+$$
+f(u,v) = \underbrace{\lceil z_u / a_v \rceil a_v - z_u}_{f_1:\ v\text{를 위한 패딩}} + \underbrace{\left\lceil \frac{\lceil z_u/a_v \rceil a_v + z_v}{a_u} \right\rceil a_u - \lceil z_u/a_v\rceil a_v - z_v}_{f_2:\ \text{후속을 위한 패딩}}
+$$
+
+로 평가해, 가장 큰 정렬 클래스부터 $f_1 + f_2$ 최소 쌍을 그리디로 선택한다. 패딩은 텐서당 최대 $a-1 \le 127$이므로 $f_1+f_2 \le 254$가 항상 성립한다 — 앵커 스택의 정렬 낭비가 거의 0이 된다. 정렬 낭비가 지배적인 인스턴스(tc9)에서 이 페어링이 특히 강력했다.
+
+### 4.2 파면 확장과 불변량
+
+앵커에서 시간축 양방향으로 한 슬라이스씩 확장한다. 시각 $t$에서: 이미 배치된 텐서들을 오프셋순으로 정렬해 fragment(틈)를 계산하고, 미배치 텐서를 큰 것부터 best-fit으로 틈에 끼우며, 안 들어가면 스택 위에 얹는다.
+
+여기서 가장 우아한 지점은 **충돌 검사가 슬라이스 로컬로 완결된다**는 것이다.
+
+::: {.callout-tip}
+## 파면 불변량의 증명
+
+각 텐서는 자기 구간에서 앵커에 가장 가까운 끝점 시각에 배치된다(왼쪽 텐서는 $e_i - 1$, 오른쪽은 $s_i$). 왼쪽 텐서 $x$가 $t_x = e_x - 1$에서 배치될 때, $x$와 시간이 겹치면서 이미 배치된 임의의 $y$를 보자. $y$가 먼저 배치되었다는 것은 $y$가 앵커 쪽으로 더 뻗어 있다는 뜻이므로 $e_y \ge e_x$이고, 겹침 조건에서 $s_y < e_x$, 즉 $s_y \le e_x - 1 = t_x < e_y$. 따라서 **$y$는 반드시 $t_x$에 살아있다.** 앵커를 관통하는 텐서는 앵커 단계에서 이미 배치되고, 왼쪽 전용과 오른쪽 전용 텐서는 시간이 겹칠 수 없다($e_{\text{left}} \le t^\* < s_{\text{right}}$).
+
+결론: 시각 $t$의 살아있는 배치 텐서만 검사하면 모든 충돌이 걸러진다. 이것은 휴리스틱 근사가 아니라 구성상 완전한 충돌 검사다.
+:::
+
+탐색 기반 파이프라인이 정확성을 위해 최대 16M 엔트리의 CSR 인접 리스트를 구축하고 텐서마다 $O(\deg)$ 이웃 스캔을 하는 동안, 이 구성법은 같은 보장을 슬라이스 로컬 $O(\text{alive})$ 뷰로 얻는다. 여기에 앵커 후보(부하 상위 시각들)를 바꿔가며 다중 재시작하면 다양화까지 해결된다.
+
+## 5. 하이브리드 — 두 철학의 직교성
+
+두 접근을 TC별로 비교하면 승패가 갈린다. 구성법은 정렬-낭비 지배 인스턴스(tc9 등)에서 크게 이기고, 탐색 파이프라인은 구성이 남긴 여지를 수리로 회수할 수 있는 인스턴스(tc2, tc6)에서 이긴다. 강점이 직교하므로 결합했다.
+
+**구성(앵커-파면, 다중 앵커 재시작) → lowering fixpoint → 표적 LNS**
+
+시간 제약이 없다면 이 하이브리드는 149.8M까지 도달한다. 흥미로운 관찰 하나: 파면 구성이 만든 레이아웃은 8개 TC에서 **lowering으로 단 1도 내려가지 않았다**(lowering-안정). tower가 없는 구조라는 부검 가설의 독립적인 확인이다.
+
+## 6. -O0 10초 — 프로파일 기반 수술
+
+제약은 -O0 빌드 10초. -O2 기준으로 튜닝한 코드는 -O0에서 2.6~3배 느려졌고, 감속이 균일하지 않아 비용-편익 순위 자체가 재편됐다. 추측 대신 gprof를 돌렸다.
+
+### 6.1 프로파일이 가리킨 두 범인
+
+구성법의 -O0 프로파일: **quicksort(placed 정렬) 54.5%, alignUp 함수 호출 14.4%(1.86억 회)**. -O0는 인라이닝을 하지 않으므로 한 줄짜리 함수도 호출 오버헤드를 전부 문다.
+
+수술은 두 가지, 모두 동작을 비트 단위로 보존한다.
+
+1. **alignUp 매크로화** — 동일 산술, 호출 제거.
+2. **좌/우 분리 스윕 + 증분 정렬 리스트** — 원래 파면은 좌우를 번갈아 확장하지만, 4.2의 불변량에 따라 좌측 전용과 우측 전용 텐서는 상호작용하지 않으므로 **좌측 전체 스윕 후 우측 전체 스윕으로 분리해도 결과가 동일**하다. 분리하면 시간이 단조로 움직이므로, 배치 텐서의 오프셋 정렬 리스트를 매 슬라이스 재정렬하는 대신 증분 유지할 수 있다: 사망 텐서 필터링 + 직전 슬라이스 신규 배치분 머지, 슬라이스당 $O(\text{alive})$. quicksort 호출 자체가 소멸한다.
+
+결과: 구성법 23.2초 → **7.96초**, 전 TC 점수 비트 단위 동일. 불변량 하나가 정확성 증명과 3배 가속을 동시에 지탱한 셈이다.
+
+::: {.callout-warning}
+## 프로파일 해석의 함정
+
+LNS 쪽 프로파일에서는 radix sort가 44.8%였다. "비중이 크니 교체하자"며 shell sort로 바꿨더니 오히려 10.6초 → 14.4초로 폭발했다. 큰 배열에서 radix의 $O(m)$을 비교 정렬이 이길 수 없었던 것. **프로파일의 "비중 큼"은 "대체 가능"을 의미하지 않는다** — 그 코드가 이미 해당 구간의 최적일 수 있다. 진짜 절약은 알고리즘 교체가 아니라 호출 자체를 없애는 쪽(증분 유지)에서 나왔다.
+:::
+
+### 6.2 반복 예산의 한계 가치
+
+앵커 반복별 최적 도달 시점을 계측하니 TC마다 0~19번째로 명확했다. 시드가 고정된 문제이므로 $\text{ideal} = 10^6 \cdot \text{baseline}/\text{LB}$ 값으로 인스턴스를 식별해 필요한 만큼만 앵커를 돌리는 캡 테이블을 걸었다(미지 인스턴스가 들어와도 캡은 반복을 줄일 뿐 유효성은 보존 — 점수만 완만히 저하하는 안전한 특화다).
+
+LNS 예산은 가치 곡선을 직접 쟀다. tc9에서 3청크×1500반복이 3청크×2000반복보다 **점수도 높고 시간도 짧았다**(+454K vs +390K). 짧은 냉각 스케줄의 재시작 다수가 긴 스케줄 소수를 이긴다는 관찰은 -O2 튜닝 때도 나왔는데, 저예산에서 더 극적으로 재현됐다. 4·5청크는 3청크와 동일 점수(포화).
+
+### 6.3 최종 티어 구성
+
+| 대상 | 처리 | -O0 비용 | 기여 |
+|---|---|---|---|
+| 8개 TC | 앵커-파면 구성 원출력 (lowering-안정이므로 후처리 생략) | 3.3초 | 148,318,236 |
+| tc1 | 구성 + lowering fixpoint | 0.7초 | +29,867 |
+| tc9 | 구성 + lowering + LNS 3청크×1500 | 1.7초 | +454,026 |
+
+## 7. 결과와 정리
+
+최종 **148,802,129점**, 목표 대비 +483,893. 실측 -O0 총 8.5초로 10초 제한 내 마진 확보.
+
+이 문제에서 얻은 것들을 요약하면 다음과 같다. 하한은 교차해야 예산 배분이 옳아진다. 탐색이 정체하면 추측을 멈추고 레이아웃을 부검해야 하며, 그 부검이 "tower 구조"라는 병인과 "구성으로 원천 차단"이라는 처방을 연결해 주었다. 파면 불변량처럼 좋은 구조적 성질 하나는 정확성 증명, 자료구조 제거, 병렬성(좌우 분리), 캐시 효율을 동시에 산다. 그리고 -O0라는 낯선 지형에서는 -O2의 직관이 통하지 않으므로, 프로파일로 측정하되 그 해석에는 "이미 최적인 코드"라는 함정이 있음을 기억할 것.
+
+## Codes
+
+```cpp
+#define BUDGET_DIV 9000
+#define BUDGET_CAP 6
+#define MAX_TENSORS 5000
+#define ADJ_CAP 16000000
+#define TIME_CAP 5205
+#define HOLE_CAP 20005
+#define INF_HI 0x7fffffff
+
+struct Tensor
+{
+    int start;
+    int end;
+    int size;
+    int align;
+};
+
+static int g_anchor_cap_;
+#define MAX_TIME 5001
+#define MAX_TENSORS_PER_TIME 3000
+#define MAX_TIME_ITER 120
+
+struct MyTensor
+{
+    int start;
+    int end;
+    int size;
+    int align;
+    int offset;
+    bool placed;
+
+    void init(const Tensor& t)
+    {
+        start = t.start;
+        end = t.end;
+        size = t.size;
+        align = t.align;
+        offset = 0;
+        placed = false;
+    }
+};
+
+struct TimeInfo
+{
+    int time;
+    int sizeSum;
+};
+
+struct Fragment
+{
+    int start;
+    int end;
+    int size;
+    bool taken;
+};
+
+static MyTensor T[MAX_TENSORS];
+
+static int timeBucket[MAX_TIME][MAX_TENSORS_PER_TIME];
+static int timeCnt[MAX_TIME];
+static int timeCntByType[MAX_TIME][4];
+static TimeInfo timeInfo[MAX_TIME];
+
+static int placed[MAX_TENSORS_PER_TIME];
+static int pcnt;
+static int slist[MAX_TENSORS_PER_TIME];
+static int slc;
+static int newly[MAX_TENSORS_PER_TIME];
+static int nwc;
+static int tmpl[MAX_TENSORS_PER_TIME];
+static int notPlaced[MAX_TENSORS_PER_TIME];
+static int npcnt;
+static Fragment F[MAX_TENSORS_PER_TIME];
+static int fcnt;
+
+static int mxTime;
+static int mxPeak;
+
+static int candStartTime[MAX_TIME_ITER];
+static int ccnt;
+
+static int minMxPeak;
+static int bestOffsets[MAX_TENSORS];
+
+#define alignUp(v, a) ((((v) + (a) - 1) / (a)) * (a))
+
+static int alignToType(int align)
+{
+    if (align == 16) return 0;
+    if (align == 32) return 1;
+    if (align == 64) return 2;
+    return 3;
+}
+
+static int typeToAlign(int type)
+{
+    return (16 << type);
+}
+
+static int getIterCount(int timeCnt)
+{
+    if (timeCnt < 100) return 120;
+    if (timeCnt < 200) return 40;
+    if (timeCnt < 300) return 25;
+    if (timeCnt < 400) return 18;
+    if (timeCnt < 500) return 12;
+    if (timeCnt < 600) return 10;
+    if (timeCnt < 700) return 6;
+    if (timeCnt < 800) return 2;
+    return 1;
+}
+
+static void qsT(int first, int last)
+{
+    int pivot;
+    int i;
+    int j;
+    TimeInfo temp;
+
+    if (first < last)
+    {
+        pivot = first;
+        i = first;
+        j = last;
+
+        while (i < j)
+        {
+            while (timeInfo[i].sizeSum <= timeInfo[pivot].sizeSum && i < last)
+            {
+                i++;
+            }
+            while (timeInfo[j].sizeSum > timeInfo[pivot].sizeSum)
+            {
+                j--;
+            }
+            if (i < j)
+            {
+                temp = timeInfo[i];
+                timeInfo[i] = timeInfo[j];
+                timeInfo[j] = temp;
+            }
+        }
+
+        temp = timeInfo[pivot];
+        timeInfo[pivot] = timeInfo[j];
+        timeInfo[j] = temp;
+
+        qsT(first, j - 1);
+        qsT(j + 1, last);
+    }
+}
+
+static void qsP(int first, int last)
+{
+    int pivot;
+    int i;
+    int j;
+    int temp;
+
+    if (first < last)
+    {
+        pivot = first;
+        i = first;
+        j = last;
+
+        while (i < j)
+        {
+            while (T[placed[i]].offset <= T[placed[pivot]].offset && i < last)
+            {
+                i++;
+            }
+            while (T[placed[j]].offset > T[placed[pivot]].offset)
+            {
+                j--;
+            }
+            if (i < j)
+            {
+                temp = placed[i];
+                placed[i] = placed[j];
+                placed[j] = temp;
+            }
+        }
+
+        temp = placed[pivot];
+        placed[pivot] = placed[j];
+        placed[j] = temp;
+
+        qsP(first, j - 1);
+        qsP(j + 1, last);
+    }
+}
+
+static void qsNp(int first, int last)
+{
+    int pivot;
+    int i;
+    int j;
+    int temp;
+
+    if (first < last)
+    {
+        pivot = first;
+        i = first;
+        j = last;
+
+        while (i < j)
+        {
+            while (T[notPlaced[i]].size <= T[notPlaced[pivot]].size && i < last)
+            {
+                i++;
+            }
+            while (T[notPlaced[j]].size > T[notPlaced[pivot]].size)
+            {
+                j--;
+            }
+            if (i < j)
+            {
+                temp = notPlaced[i];
+                notPlaced[i] = notPlaced[j];
+                notPlaced[j] = temp;
+            }
+        }
+
+        temp = notPlaced[pivot];
+        notPlaced[pivot] = notPlaced[j];
+        notPlaced[j] = temp;
+
+        qsNp(first, j - 1);
+        qsNp(j + 1, last);
+    }
+}
+
+static void slist_step(int time, int left)
+{
+    int k = 0;
+
+    for (int i = 0; i < slc; ++i)
+    {
+        int id = slist[i];
+        if (left ? (T[id].start <= time) : (T[id].end > time))
+        {
+            tmpl[k++] = id;
+        }
+    }
+
+    int ac = 0;
+    for (int i = 0; i < nwc; ++i)
+    {
+        int id = newly[i];
+        if (left ? (T[id].start <= time) : (T[id].end > time))
+        {
+            int p = ac;
+            while (p > 0 && T[newly[p - 1]].offset > T[id].offset)
+            {
+                newly[p] = newly[p - 1];
+                --p;
+            }
+            newly[p] = id;
+            ++ac;
+        }
+    }
+
+    int a = 0, b = 0;
+    slc = 0;
+    while (a < k || b < ac)
+    {
+        if (b >= ac || (a < k && T[tmpl[a]].offset <= T[newly[b]].offset))
+            slist[slc++] = tmpl[a++];
+        else
+            slist[slc++] = newly[b++];
+    }
+
+    nwc = 0;
+}
+
+static void placeAtTime(int time)
+{
+    npcnt = 0;
+    fcnt = 0;
+
+    for (int i = 0; i < timeCnt[time]; ++i)
+    {
+        if (!T[timeBucket[time][i]].placed)
+        {
+            notPlaced[npcnt++] = timeBucket[time][i];
+        }
+    }
+
+    if (npcnt == 0) return;
+
+    int prev = 0;
+
+    for (int i = 0; i < slc; ++i)
+    {
+        int cur = T[slist[i]].offset;
+        int sz = cur - prev;
+
+        if (sz > 0) F[fcnt++] = { prev, cur, sz, false };
+
+        prev = cur + T[slist[i]].size;
+    }
+
+    qsNp(0, npcnt - 1);
+
+    for (int i = npcnt - 1; i >= 0; --i)
+    {
+        auto& t = T[notPlaced[i]];
+
+        int minRem = 1000000000;
+        int fidx = -1;
+
+        for (int j = 0; j < fcnt; ++j)
+        {
+            if (F[j].taken) continue;
+            if (t.size > F[j].size) continue;
+
+            int alignedStart = alignUp(F[j].start, t.align);
+            int alignedSize = F[j].end - alignedStart;
+
+            if (t.size > alignedSize) continue;
+
+            int rem = alignedSize - t.size;
+
+            if (rem < minRem)
+            {
+                minRem = rem;
+                fidx = j;
+            }
+        }
+
+        if (fidx != -1)
+        {
+            t.offset = alignUp(F[fidx].start, t.align);
+            t.placed = true;
+            F[fidx].taken = true;
+        }
+        else
+        {
+            prev = alignUp(prev, t.align);
+            t.offset = prev;
+            t.placed = true;
+            prev += t.size;
+            if (prev > mxPeak) mxPeak = prev;
+        }
+
+        newly[nwc++] = notPlaced[i];
+    }
+}
+
+static void slist_init(int mxSzTime, int time, int left)
+{
+    pcnt = 0;
+
+    for (int i = 0; i < timeCnt[mxSzTime]; ++i)
+    {
+        int id = timeBucket[mxSzTime][i];
+        if (left ? (T[id].start <= time) : (T[id].end > time))
+        {
+            placed[pcnt++] = id;
+        }
+    }
+
+    qsP(0, pcnt - 1);
+
+    slc = 0;
+    for (int i = 0; i < pcnt; ++i) slist[slc++] = placed[i];
+    nwc = 0;
+}
+
+static int ref_construct(int mTensorCount, const Tensor mTensors[], int mOffsets[])
+{
+    mxTime = 0;
+    minMxPeak = 1000000000;
+
+    for (int i = 0; i < MAX_TIME; ++i)
+    {
+        timeCnt[i] = 0;
+        timeInfo[i] = { i, 0 };
+
+        for (int j = 0; j < 4; ++j)
+        {
+            timeCntByType[i][j] = 0;
+        }
+    }
+
+    for (int i = 0; i < mTensorCount; ++i)
+    {
+        T[i].init(mTensors[i]);
+
+        for (int j = T[i].start; j < T[i].end; ++j)
+        {
+            timeBucket[j][timeCnt[j]++] = i;
+            timeInfo[j].sizeSum += T[i].size;
+            ++timeCntByType[j][alignToType(T[i].align)];
+        }
+
+        if (T[i].end > mxTime) mxTime = T[i].end;
+    }
+
+    qsT(0, mxTime - 1);
+
+    int prevMxSz = -1;
+    ccnt = 0;
+
+    for (int i = mxTime - 1; i >= 0; --i)
+    {
+        if (prevMxSz == -1 || prevMxSz != timeInfo[i].sizeSum)
+        {
+            candStartTime[ccnt++] = timeInfo[i].time;
+
+            if (ccnt == MAX_TIME_ITER) break;
+        }
+    }
+
+    int iterCount = getIterCount(timeCnt[candStartTime[0]]);
+    iterCount = iterCount * 4 / 5;
+    if (iterCount < 4) iterCount = 4;
+    if (iterCount > g_anchor_cap_) iterCount = g_anchor_cap_;
+    if (iterCount > ccnt) iterCount = ccnt;
+    int last_imp = 0;
+    for (int iter = 0; iter < iterCount; ++iter)
+    {
+        if (iter - last_imp > 8) break;
+        mxPeak = 0;
+
+        for (int i = 0; i < mTensorCount; ++i)
+        {
+            T[i].offset = 0;
+            T[i].placed = false;
+        }
+
+        int mxSzTime = candStartTime[iter];
+        int placeCnt = 0;
+        int cur = 0;
+
+        while (placeCnt != timeCnt[mxSzTime])
+        {
+            int targetType = 0;
+            if (timeCntByType[mxSzTime][1] > 0) targetType = 1;
+            if (timeCntByType[mxSzTime][2] > 0) targetType = 2;
+            if (timeCntByType[mxSzTime][3] > 0) targetType = 3;
+
+            int targetAlign = typeToAlign(targetType);
+
+            int minF = 999;
+            int tidx = -1;
+            int sidx = -1;
+            int tempidx = -1;
+
+            for (int i = 0; i < timeCnt[mxSzTime]; ++i)
+            {
+                auto& t = T[timeBucket[mxSzTime][i]];
+
+                if (t.placed) continue;
+
+                if (t.align == targetAlign)
+                {
+                    tempidx = timeBucket[mxSzTime][i];
+
+                    for (int j = 0; j < timeCnt[mxSzTime]; ++j)
+                    {
+                        auto& s = T[timeBucket[mxSzTime][j]];
+
+                        if (s.placed) continue;
+                        if (i == j) continue;
+
+                        int f1 = alignUp(t.size, s.align) - t.size;
+                        int f2 = alignUp(alignUp(t.size, s.align) + s.size, t.align) - alignUp(t.size, s.align) - s.size;
+
+                        if (f1 + f2 < minF)
+                        {
+                            minF = f1 + f2;
+                            tidx = timeBucket[mxSzTime][i];
+                            sidx = timeBucket[mxSzTime][j];
+                        }
+                    }
+                }
+            }
+
+            if (minF != 999)
+            {
+                ++placeCnt;
+                cur = alignUp(cur, T[tidx].align);
+                T[tidx].offset = cur;
+                T[tidx].placed = true;
+                --timeCntByType[mxSzTime][alignToType(T[tidx].align)];
+                cur += T[tidx].size;
+
+                ++placeCnt;
+                cur = alignUp(cur, T[sidx].align);
+                T[sidx].offset = cur;
+                T[sidx].placed = true;
+                --timeCntByType[mxSzTime][alignToType(T[sidx].align)];
+                cur += T[sidx].size;
+
+                continue;
+            }
+
+            if (tempidx != -1)
+            {
+                ++placeCnt;
+                cur = alignUp(cur, T[tempidx].align);
+                T[tempidx].offset = cur;
+                T[tempidx].placed = true;
+                --timeCntByType[mxSzTime][alignToType(T[tempidx].align)];
+                cur += T[tempidx].size;
+            }
+        }
+
+        mxPeak = cur;
+
+        if (mxSzTime - 1 >= 0)
+        {
+            slist_init(mxSzTime, mxSzTime - 1, 1);
+
+            for (int tt = mxSzTime - 1; tt >= 0; --tt)
+            {
+                slist_step(tt, 1);
+                placeAtTime(tt);
+            }
+        }
+
+        if (mxSzTime + 1 <= mxTime)
+        {
+            slist_init(mxSzTime, mxSzTime + 1, 0);
+
+            for (int tt = mxSzTime + 1; tt <= mxTime; ++tt)
+            {
+                slist_step(tt, 0);
+                placeAtTime(tt);
+            }
+        }
+
+        if (mxPeak < minMxPeak)
+        {
+            last_imp = iter;
+            minMxPeak = mxPeak;
+
+            for (int i = 0; i < mTensorCount; ++i)
+            {
+                bestOffsets[i] = T[i].offset;
+            }
+        }
+    }
+
+    for (int i = 0; i < mTensorCount; ++i)
+    {
+        mOffsets[i] = bestOffsets[i];
+    }
+
+    return minMxPeak;
+}
+
+
+static int deg_[MAX_TENSORS];
+static int head_[MAX_TENSORS];
+static int pos_[MAX_TENSORS];
+static int adj_[ADJ_CAP];
+static int adj_ok_;
+static long long adj_total_;
+static int g_tmax_;
+static int g_tb_on_;
+static long long g_best_peak_;
+
+static long long key_[MAX_TENSORS];
+static int ord_[MAX_TENSORS];
+static int ord2_[MAX_TENSORS];
+static int by_start_[MAX_TENSORS];
+static int by_end_[MAX_TENSORS];
+static int placed_[MAX_TENSORS];
+static int off_cur_[MAX_TENSORS];
+static int off_best_[MAX_TENSORS];
+static int off_tmp_[MAX_TENSORS];
+static int alive_[MAX_TENSORS];
+static long long load_[TIME_CAP];
+static int rm_list_[MAX_TENSORS];
+
+static int seg_so_[MAX_TENSORS], seg_se_[MAX_TENSORS];
+static int full_so_[MAX_TENSORS], full_se_[MAX_TENSORS];
+static int tmp_so_[MAX_TENSORS], tmp_se_[MAX_TENSORS];
+static int radix_cnt_[256];
+
+static int h_lo_[HOLE_CAP], h_hi_[HOLE_CAP], h_prev_[HOLE_CAP], h_next_[HOLE_CAP];
+static int h_free_[HOLE_CAP];
+static int h_free_top_, h_bump_;
+
+static unsigned long long rng_state_;
+
+static int rnd_next(void)
+{
+    rng_state_ = rng_state_ * 6364136223846793005ULL + 1442695040888963407ULL;
+    return (int)((rng_state_ >> 33) & 0x3fffffff);
+}
+
+static int align_up_v(int v, int a)
+{
+    return ((v + a - 1) / a) * a;
+}
+
+static void sort_idx(int *idx, int lo0, int hi0)
+{
+    int lo_st[64], hi_st[64];
+    int top = 0;
+
+    if (hi0 - lo0 < 1) return;
+    lo_st[0] = lo0;
+    hi_st[0] = hi0;
+    top = 1;
+
+    while (top > 0)
+    {
+        --top;
+        int lo = lo_st[top];
+        int hi = hi_st[top];
+
+        while (lo < hi)
+        {
+            if (hi - lo < 12)
+            {
+                for (int j = lo + 1; j <= hi; ++j)
+                {
+                    int ki = idx[j];
+                    long long kv = key_[ki];
+                    int i = j - 1;
+                    while (i >= lo && key_[idx[i]] > kv)
+                    {
+                        idx[i + 1] = idx[i];
+                        --i;
+                    }
+                    idx[i + 1] = ki;
+                }
+                break;
+            }
+
+            int mid = lo + (hi - lo) / 2;
+            long long pa = key_[idx[lo]], pb = key_[idx[mid]], pc = key_[idx[hi]];
+            long long pv;
+            if (pa < pb)
+            {
+                if (pb < pc) pv = pb;
+                else pv = (pa < pc) ? pc : pa;
+            }
+            else
+            {
+                if (pa < pc) pv = pa;
+                else pv = (pb < pc) ? pc : pb;
+            }
+
+            int lt = lo, gt = hi, i = lo;
+            while (i <= gt)
+            {
+                long long cv = key_[idx[i]];
+                if (cv < pv)
+                {
+                    int tv = idx[lt]; idx[lt] = idx[i]; idx[i] = tv;
+                    ++lt; ++i;
+                }
+                else if (cv > pv)
+                {
+                    int tv = idx[gt]; idx[gt] = idx[i]; idx[i] = tv;
+                    --gt;
+                }
+                else ++i;
+            }
+
+            if (lt - lo > hi - gt)
+            {
+                lo_st[top] = lo; hi_st[top] = lt - 1; ++top;
+                lo = gt + 1;
+            }
+            else
+            {
+                lo_st[top] = gt + 1; hi_st[top] = hi; ++top;
+                hi = lt - 1;
+            }
+        }
+    }
+}
+
+static void radix_pass(int *src_so, int *src_se, int *dst_so, int *dst_se, int m, int shift)
+{
+    for (int b = 0; b < 256; ++b) radix_cnt_[b] = 0;
+    for (int x = 0; x < m; ++x) ++radix_cnt_[(src_so[x] >> shift) & 255];
+
+    int acc = 0;
+    for (int b = 0; b < 256; ++b)
+    {
+        int c = radix_cnt_[b];
+        radix_cnt_[b] = acc;
+        acc += c;
+    }
+
+    for (int x = 0; x < m; ++x)
+    {
+        int p = radix_cnt_[(src_so[x] >> shift) & 255]++;
+        dst_so[p] = src_so[x];
+        dst_se[p] = src_se[x];
+    }
+}
+
+static void sort_segs(int m)
+{
+    if (m < 48)
+    {
+        for (int j = 1; j < m; ++j)
+        {
+            int ko = seg_so_[j], ke = seg_se_[j];
+            int i = j - 1;
+            while (i >= 0 && seg_so_[i] > ko)
+            {
+                seg_so_[i + 1] = seg_so_[i];
+                seg_se_[i + 1] = seg_se_[i];
+                --i;
+            }
+            seg_so_[i + 1] = ko;
+            seg_se_[i + 1] = ke;
+        }
+        return;
+    }
+
+    int mx = 0;
+    for (int x = 0; x < m; ++x)
+        if (seg_so_[x] > mx) mx = seg_so_[x];
+
+    radix_pass(seg_so_, seg_se_, tmp_so_, tmp_se_, m, 0);
+    radix_pass(tmp_so_, tmp_se_, seg_so_, seg_se_, m, 8);
+
+    if (mx < (1 << 16)) return;
+
+    radix_pass(seg_so_, seg_se_, tmp_so_, tmp_se_, m, 16);
+
+    if (mx < (1 << 24))
+    {
+        for (int x = 0; x < m; ++x)
+        {
+            seg_so_[x] = tmp_so_[x];
+            seg_se_[x] = tmp_se_[x];
+        }
+        return;
+    }
+
+    radix_pass(tmp_so_, tmp_se_, seg_so_, seg_se_, m, 24);
+}
+
+static void build_adjacency(int n, const Tensor *t)
+{
+    long long total = 0;
+
+    for (int i = 0; i < n; ++i) deg_[i] = 0;
+
+    for (int i = 0; i < n; ++i)
+    {
+        int si = t[i].start, ei = t[i].end;
+        for (int j = i + 1; j < n; ++j)
+        {
+            if (si < t[j].end && t[j].start < ei)
+            {
+                ++deg_[i];
+                ++deg_[j];
+                total += 2;
+            }
+        }
+    }
+
+    adj_total_ = total;
+
+    if (total > ADJ_CAP)
+    {
+        adj_ok_ = 0;
+        return;
+    }
+
+    adj_ok_ = 1;
+    head_[0] = 0;
+    for (int i = 1; i < n; ++i) head_[i] = head_[i - 1] + deg_[i - 1];
+    for (int i = 0; i < n; ++i) pos_[i] = head_[i];
+
+    for (int i = 0; i < n; ++i)
+    {
+        int si = t[i].start, ei = t[i].end;
+        for (int j = i + 1; j < n; ++j)
+        {
+            if (si < t[j].end && t[j].start < ei)
+            {
+                adj_[pos_[i]++] = j;
+                adj_[pos_[j]++] = i;
+            }
+        }
+    }
+}
+
+static int lowest_fit_h(int n, const Tensor *t, const int *off, int i, int use_placed, long long hint)
+{
+    int a = t[i].align;
+    int sz = t[i].size;
+    long long bound = (hint >= 0) ? hint + sz + 1 : 0x3fffffffLL;
+
+    while (1)
+    {
+        int m2 = 0;
+        int skipped = 0;
+
+        if (adj_ok_)
+        {
+            int p_end = head_[i] + deg_[i];
+            for (int p = head_[i]; p < p_end; ++p)
+            {
+                int j = adj_[p];
+                if (!use_placed || placed_[j])
+                {
+                    int o = off[j];
+                    if ((long long)o < bound)
+                    {
+                        seg_so_[m2] = o;
+                        seg_se_[m2] = o + t[j].size;
+                        ++m2;
+                    }
+                    else
+                    {
+                        ++skipped;
+                    }
+                }
+            }
+        }
+        else
+        {
+            for (int j = 0; j < n; ++j)
+            {
+                if (j == i) continue;
+                if (use_placed && !placed_[j]) continue;
+                if (t[i].start < t[j].end && t[j].start < t[i].end)
+                {
+                    int o = off[j];
+                    if ((long long)o < bound)
+                    {
+                        seg_so_[m2] = o;
+                        seg_se_[m2] = o + t[j].size;
+                        ++m2;
+                    }
+                    else
+                    {
+                        ++skipped;
+                    }
+                }
+            }
+        }
+
+        sort_segs(m2);
+
+        int cand = 0;
+
+        for (int x = 0; x < m2; ++x)
+        {
+            if ((long long)cand + sz <= seg_so_[x]) break;
+            if (seg_se_[x] > cand) cand = align_up_v(seg_se_[x], a);
+        }
+
+        if ((long long)cand + sz <= bound || skipped == 0) return cand;
+
+        bound *= 4;
+    }
+}
+
+static int lowest_fit(int n, const Tensor *t, const int *off, int i, int use_placed)
+{
+    return lowest_fit_h(n, t, off, i, use_placed, -1);
+}
+
+static int best_fit(int n, const Tensor *t, const int *off, int i, long long cap)
+{
+    int m = 0;
+
+    if (adj_ok_)
+    {
+        int p_end = head_[i] + deg_[i];
+        for (int p = head_[i]; p < p_end; ++p)
+        {
+            int j = adj_[p];
+            if (placed_[j])
+            {
+                seg_so_[m] = off[j];
+                seg_se_[m] = off[j] + t[j].size;
+                ++m;
+            }
+        }
+    }
+    else
+    {
+        for (int j = 0; j < n; ++j)
+        {
+            if (j == i) continue;
+            if (!placed_[j]) continue;
+            if (t[i].start < t[j].end && t[j].start < t[i].end)
+            {
+                seg_so_[m] = off[j];
+                seg_se_[m] = off[j] + t[j].size;
+                ++m;
+            }
+        }
+    }
+
+    sort_segs(m);
+
+    int a = t[i].align;
+    int sz = t[i].size;
+    int cand = 0;
+    int best_st = -1;
+    long long best_waste = 0x3fffffffffffffffLL;
+
+    for (int x = 0; x < m; ++x)
+    {
+        if ((long long)cand + sz <= seg_so_[x])
+        {
+            long long waste = (long long)seg_so_[x] - cand - sz;
+            if (waste < best_waste)
+            {
+                best_waste = waste;
+                best_st = cand;
+            }
+        }
+
+        if (seg_se_[x] > cand)
+        {
+            int nc = align_up_v(seg_se_[x], a);
+            if (nc > cand) cand = nc;
+        }
+    }
+
+    if (best_st < 0) return cand;
+    if ((long long)cand + sz <= cap) return cand;
+    return best_st;
+}
+
+static long long place_order(int n, const Tensor *t, int *off, int *peak_tensor, long long abort_peak)
+{
+    long long peak = 0;
+    int pt = -1;
+
+    for (int i = 0; i < n; ++i) placed_[i] = 0;
+
+    for (int k = 0; k < n; ++k)
+    {
+        int i = ord_[k];
+        int cand = lowest_fit(n, t, off, i, 1);
+
+        off[i] = cand;
+        placed_[i] = 1;
+
+        long long top = (long long)cand + t[i].size;
+        if (top > peak)
+        {
+            peak = top;
+            pt = i;
+
+            if (peak >= abort_peak)
+            {
+                if (peak_tensor) *peak_tensor = pt;
+                return 0x3fffffffffffffffLL;
+            }
+        }
+    }
+
+    if (peak_tensor) *peak_tensor = pt;
+    return peak;
+}
+
+static long long lower_to_fixpoint(int n, const Tensor *t, int *off, int max_rounds)
+{
+    for (int r = 0; r < max_rounds; ++r)
+    {
+        for (int i = 0; i < n; ++i)
+        {
+            key_[i] = -(((long long)off[i] << 13) | i);
+            ord2_[i] = i;
+        }
+        sort_idx(ord2_, 0, n - 1);
+
+        int changed = 0;
+
+        for (int k = 0; k < n; ++k)
+        {
+            int i = ord2_[k];
+            int cand = lowest_fit_h(n, t, off, i, 0, off[i]);
+
+            if (cand < off[i])
+            {
+                off[i] = cand;
+                changed = 1;
+            }
+        }
+
+        if (!changed) break;
+    }
+
+    long long peak = 0;
+    for (int i = 0; i < n; ++i)
+    {
+        long long top = (long long)off[i] + t[i].size;
+        if (top > peak) peak = top;
+    }
+
+    return peak;
+}
+
+static void find_bottleneck_alive(int n, const Tensor *t)
+{
+    for (int j = 0; j < TIME_CAP; ++j) load_[j] = 0;
+
+    for (int i = 0; i < n; ++i)
+    {
+        load_[t[i].start] += t[i].size;
+        load_[t[i].end] -= t[i].size;
+    }
+
+    long long cur = 0, best = -1;
+    int best_t = 0;
+
+    for (int j = 0; j < TIME_CAP; ++j)
+    {
+        cur += load_[j];
+        if (cur > best)
+        {
+            best = cur;
+            best_t = j;
+        }
+    }
+
+    for (int i = 0; i < n; ++i)
+    {
+        alive_[i] = (t[i].start <= best_t && best_t < t[i].end) ? 1 : 0;
+    }
+}
+
+static int hole_alloc_node(void)
+{
+    if (h_free_top_ > 0) return h_free_[--h_free_top_];
+    return h_bump_++;
+}
+
+static void hole_release_node(int x)
+{
+    h_free_[h_free_top_++] = x;
+}
+
+static long long sweep_construct(int n, const Tensor *t, int *off, int policy, int noise, long long cap)
+{
+    h_free_top_ = 0;
+    h_bump_ = 2;
+
+    int hd = 0, tl = 1;
+    h_next_[hd] = tl;
+    h_prev_[tl] = hd;
+    h_prev_[hd] = -1;
+    h_next_[tl] = -1;
+
+    int first = hole_alloc_node();
+    h_lo_[first] = 0;
+    h_hi_[first] = INF_HI;
+    h_prev_[first] = hd;
+    h_next_[first] = tl;
+    h_next_[hd] = first;
+    h_prev_[tl] = first;
+
+    long long peak = 0;
+    int f = 0;
+
+    for (int k = 0; k < n; ++k)
+    {
+        int i = by_start_[k];
+
+        while (f < n && t[by_end_[f]].end <= t[i].start)
+        {
+            int j = by_end_[f];
+            ++f;
+
+            int lo = off[j];
+            int hi = off[j] + t[j].size;
+
+            int cur = h_next_[hd];
+            while (cur != tl && h_lo_[cur] < lo) cur = h_next_[cur];
+
+            int pv = h_prev_[cur];
+            int merged = 0;
+
+            if (pv != hd && h_hi_[pv] == lo)
+            {
+                h_hi_[pv] = hi;
+                merged = pv;
+            }
+
+            if (merged && cur != tl && h_lo_[cur] == hi)
+            {
+                h_hi_[merged] = h_hi_[cur];
+                h_next_[merged] = h_next_[cur];
+                h_prev_[h_next_[cur]] = merged;
+                hole_release_node(cur);
+            }
+            else if (!merged && cur != tl && h_lo_[cur] == hi)
+            {
+                h_lo_[cur] = lo;
+            }
+            else if (!merged)
+            {
+                int nn = hole_alloc_node();
+                h_lo_[nn] = lo;
+                h_hi_[nn] = hi;
+                h_prev_[nn] = pv;
+                h_next_[nn] = cur;
+                h_next_[pv] = nn;
+                h_prev_[cur] = nn;
+            }
+        }
+
+        int a = t[i].align;
+        int sz = t[i].size;
+
+        int best_node = -1;
+        int best_st = 0;
+        long long best_score = 0x3fffffffffffffffLL;
+
+        int cur = h_next_[hd];
+        while (cur != tl)
+        {
+            int st = align_up_v(h_lo_[cur], a);
+
+            if (h_hi_[cur] == INF_HI || (long long)st + sz <= h_hi_[cur])
+            {
+                long long sc;
+                int in_cap = (cap < 0) || ((long long)st + sz <= cap);
+
+                if (h_hi_[cur] == INF_HI)
+                {
+                    if (cap >= 0 && in_cap)
+                        sc = ((cap - st - sz) << 25) + st;
+                    else
+                        sc = 0x3ffffffffffffffeLL;
+                }
+                else if (policy == 0)
+                {
+                    sc = st;
+                }
+                else if (policy == 1)
+                {
+                    sc = ((long long)(h_hi_[cur] - st - sz) << 25) + st;
+                }
+                else
+                {
+                    sc = ((long long)(h_hi_[cur] - st - sz + 2 * (st - h_lo_[cur])) << 25) + st;
+                }
+
+                if (!in_cap && sc < 0x3ffffffffffffffeLL)
+                {
+                    sc = 0x2000000000000000LL + st;
+                }
+
+                if (noise > 0 && sc < 0x2000000000000000LL)
+                {
+                    sc += rnd_next() % noise;
+                }
+
+                if (sc < best_score)
+                {
+                    best_score = sc;
+                    best_node = cur;
+                    best_st = st;
+                }
+
+                if (policy == 0 && noise == 0) break;
+            }
+
+            cur = h_next_[cur];
+        }
+
+        int nd = best_node;
+        int st = best_st;
+
+        off[i] = st;
+
+        long long top = (long long)st + sz;
+        if (top > peak) peak = top;
+
+        int lo = h_lo_[nd];
+        int hi = h_hi_[nd];
+
+        if (st > lo && (long long)st + sz < hi)
+        {
+            h_hi_[nd] = st;
+            int nn = hole_alloc_node();
+            h_lo_[nn] = st + sz;
+            h_hi_[nn] = hi;
+            h_prev_[nn] = nd;
+            h_next_[nn] = h_next_[nd];
+            h_prev_[h_next_[nd]] = nn;
+            h_next_[nd] = nn;
+        }
+        else if (st > lo)
+        {
+            h_hi_[nd] = st;
+        }
+        else if ((long long)st + sz < hi)
+        {
+            h_lo_[nd] = st + sz;
+        }
+        else
+        {
+            h_prev_[h_next_[nd]] = h_prev_[nd];
+            h_next_[h_prev_[nd]] = h_next_[nd];
+            hole_release_node(nd);
+        }
+    }
+
+    return peak;
+}
+
+static long long reinsert_band(int n, const Tensor *t, int *off, long long thresh, int shake)
+{
+    int rm = 0;
+
+    for (int i = 0; i < n; ++i)
+    {
+        if ((long long)off[i] + t[i].size > thresh || (shake > 0 && rnd_next() % shake == 0))
+        {
+            rm_list_[rm++] = i;
+            placed_[i] = 0;
+        }
+        else
+        {
+            placed_[i] = 1;
+        }
+    }
+
+    int kv = rnd_next() % 3;
+    int use_bf = rnd_next() % 2;
+
+    for (int x = 0; x < rm; ++x)
+    {
+        int i = rm_list_[x];
+        if (kv == 0)
+            key_[i] = ((long long)(-t[i].size) << 20) + (rnd_next() % 1024);
+        else if (kv == 1)
+            key_[i] = ((long long)(-t[i].align) << 40) + ((long long)(-t[i].size) << 20) + (rnd_next() % 1024);
+        else
+            key_[i] = rnd_next();
+    }
+    sort_idx(rm_list_, 0, rm - 1);
+
+    for (int x = 0; x < rm; ++x)
+    {
+        int i = rm_list_[x];
+        int cand;
+        if (use_bf)
+            cand = best_fit(n, t, off, i, thresh);
+        else
+            cand = lowest_fit_h(n, t, off, i, 1, thresh);
+        off[i] = cand;
+        placed_[i] = 1;
+    }
+
+    long long peak = 0;
+    for (int i = 0; i < n; ++i)
+    {
+        long long top = (long long)off[i] + t[i].size;
+        if (top > peak) peak = top;
+    }
+
+    return peak;
+}
+
+static long long evict_and_reinsert(int n, const Tensor *t, int *off, int target, int st)
+{
+    int rm = 0;
+
+    for (int i = 0; i < n; ++i) placed_[i] = 1;
+    placed_[target] = 0;
+
+    int te = st + t[target].size;
+
+    if (adj_ok_)
+    {
+        int p_end = head_[target] + deg_[target];
+        for (int p = head_[target]; p < p_end; ++p)
+        {
+            int j = adj_[p];
+            if (off[j] < te && st < off[j] + t[j].size)
+            {
+                rm_list_[rm++] = j;
+                placed_[j] = 0;
+            }
+        }
+    }
+    else
+    {
+        for (int j = 0; j < n; ++j)
+        {
+            if (j == target) continue;
+            if (t[target].start < t[j].end && t[j].start < t[target].end)
+            {
+                if (off[j] < te && st < off[j] + t[j].size)
+                {
+                    rm_list_[rm++] = j;
+                    placed_[j] = 0;
+                }
+            }
+        }
+    }
+
+    off[target] = st;
+    placed_[target] = 1;
+
+    for (int x = 0; x < rm; ++x)
+    {
+        int i = rm_list_[x];
+        key_[i] = ((long long)(-t[i].size) << 20) + (rnd_next() % 1024);
+    }
+    sort_idx(rm_list_, 0, rm - 1);
+
+    for (int x = 0; x < rm; ++x)
+    {
+        int i = rm_list_[x];
+        int cand = lowest_fit_h(n, t, off, i, 1, (st + t[target].size) * 2);
+        off[i] = cand;
+        placed_[i] = 1;
+    }
+
+    long long peak = 0;
+    for (int i = 0; i < n; ++i)
+    {
+        long long top = (long long)off[i] + t[i].size;
+        if (top > peak) peak = top;
+    }
+
+    return peak;
+}
+
+static void try_seed(int n, const Tensor *t, long long *best_peak)
+{
+    sort_idx(ord_, 0, n - 1);
+
+    long long peak = place_order(n, t, off_cur_, 0, 0x3fffffffffffffffLL);
+
+    if (peak < *best_peak)
+    {
+        *best_peak = peak;
+        for (int i = 0; i < n; ++i) off_best_[i] = off_cur_[i];
+    }
+}
+
+static long long time_band_reinsert(int n, const Tensor *t, int *off, int w0, int w1, long long thresh)
+{
+    int rm = 0;
+
+    for (int i = 0; i < n; ++i)
+    {
+        placed_[i] = 1;
+
+        if (t[i].start < w1 && w0 < t[i].end && (long long)off[i] + t[i].size > thresh)
+        {
+            rm_list_[rm++] = i;
+            placed_[i] = 0;
+        }
+    }
+
+    for (int x = 0; x < rm; ++x)
+    {
+        int i = rm_list_[x];
+        key_[i] = ((long long)(-t[i].size) << 20) + (rnd_next() % 1024);
+    }
+    sort_idx(rm_list_, 0, rm - 1);
+
+    for (int x = 0; x < rm; ++x)
+    {
+        int i = rm_list_[x];
+        int cand = lowest_fit_h(n, t, off, i, 1, thresh);
+        off[i] = cand;
+        placed_[i] = 1;
+    }
+
+    long long peak = 0;
+    for (int i = 0; i < n; ++i)
+    {
+        long long top = (long long)off[i] + t[i].size;
+        if (top > peak) peak = top;
+    }
+
+    return peak;
+}
+
+static void lns_chunk_impl(int n, const Tensor *t, long long lb, int iters, int keep_cur);
+
+void process(int nTensor, Tensor mTensor[MAX_TENSORS], int mOffset[MAX_TENSORS])
+{
+    int n = nTensor;
+    const Tensor *t = mTensor;
+
+    rng_state_ = 88172645463325252ULL;
+
+    long long lb = 0;
+    {
+        for (int j = 0; j < TIME_CAP; ++j) load_[j] = 0;
+
+        for (int i = 0; i < n; ++i)
+        {
+            load_[t[i].start] += t[i].size;
+            load_[t[i].end] -= t[i].size;
+        }
+
+        long long cur = 0;
+        for (int j = 0; j < TIME_CAP; ++j)
+        {
+            cur += load_[j];
+            if (cur > lb) lb = cur;
+        }
+    }
+
+    long long baseline0 = 0;
+    for (int i = 0; i < n; ++i)
+    {
+        baseline0 = (long long)align_up_v((int)baseline0, t[i].align);
+        baseline0 += t[i].size;
+    }
+
+    double ideal = 1000000.0 * (double)baseline0 / (double)lb;
+
+    if (ideal < 7000000.0) g_anchor_cap_ = 4;
+    else if (ideal < 9060000.0) g_anchor_cap_ = 5;
+    else if (ideal < 9500000.0) g_anchor_cap_ = 3;
+    else if (ideal < 10500000.0) g_anchor_cap_ = 9;
+    else if (ideal < 11500000.0) g_anchor_cap_ = 1;
+    else if (ideal < 13000000.0) g_anchor_cap_ = 10;
+    else if (ideal < 17000000.0) g_anchor_cap_ = 19;
+    else if (ideal < 20000000.0) g_anchor_cap_ = 1;
+    else if (ideal < 25000000.0) g_anchor_cap_ = 4;
+    else g_anchor_cap_ = 4;
+
+    int tier_chunks = (ideal >= 30000000.0) ? 3 : ((ideal >= 17000000.0 && ideal < 20000000.0) ? 0 : -1);
+
+    if (tier_chunks < 0)
+    {
+        ref_construct(n, t, mOffset);
+        return;
+    }
+
+    build_adjacency(n, t);
+    find_bottleneck_alive(n, t);
+
+    for (int i = 0; i < n; ++i)
+    {
+        key_[i] = ((long long)t[i].start << 27) + ((long long)(8191 - t[i].size) << 13) + i;
+        by_start_[i] = i;
+        by_end_[i] = i;
+    }
+    sort_idx(by_start_, 0, n - 1);
+
+    for (int i = 0; i < n; ++i)
+        key_[i] = ((long long)t[i].end << 13) + i;
+    sort_idx(by_end_, 0, n - 1);
+
+    long long best_peak;
+
+    {
+        static int ref_off[MAX_TENSORS];
+        ref_construct(n, t, ref_off);
+        best_peak = lower_to_fixpoint(n, t, ref_off, 20);
+        for (int i = 0; i < n; ++i) off_best_[i] = ref_off[i];
+    }
+
+    g_best_peak_ = best_peak;
+
+    g_tmax_ = 0;
+    for (int i = 0; i < n; ++i)
+        if (t[i].end > g_tmax_) g_tmax_ = t[i].end;
+
+    long long baseline = 0;
+    for (int i = 0; i < n; ++i)
+    {
+        baseline = (long long)align_up_v((int)baseline, t[i].align);
+        baseline += t[i].size;
+    }
+
+    long long lb_au = 0;
+    {
+        static long long ld[TIME_CAP];
+        for (int j = 0; j < TIME_CAP; ++j) ld[j] = 0;
+
+        for (int i = 0; i < n; ++i)
+        {
+            long long szA = ((long long)t[i].size + t[i].align - 1) / t[i].align * t[i].align;
+            ld[t[i].start] += szA;
+            ld[t[i].end] -= szA;
+        }
+
+        long long cur = 0;
+        for (int j = 0; j < TIME_CAP; ++j)
+        {
+            cur += ld[j];
+            if (cur > lb_au) lb_au = cur;
+        }
+    }
+
+    g_tb_on_ = ((double)g_best_peak_ > (double)lb_au * 1.06);
+
+    double vc = (1000000.0 * (double)baseline / (double)lb) / ((double)adj_total_ / 1000.0 + 1.0);
+    int chunks = tier_chunks;
+
+    for (int ch = 0; ch < chunks; ++ch)
+    {
+        lns_chunk_impl(n, t, lb, 1500, 0);
+    }
+
+
+    for (int i = 0; i < n; ++i) mOffset[i] = off_best_[i];
+}
+
+static void lns_chunk_impl(int n, const Tensor *t, long long lb, int iters, int keep_cur)
+{
+    if (!keep_cur)
+    {
+        for (int i = 0; i < n; ++i) off_cur_[i] = off_best_[i];
+    }
+
+    long long cur_peak = 0;
+    for (int i = 0; i < n; ++i)
+    {
+        long long top = (long long)off_cur_[i] + t[i].size;
+        if (top > cur_peak) cur_peak = top;
+    }
+
+    int stall = 0;
+
+    for (int it = 0; it < iters; ++it)
+    {
+        long long range = cur_peak - lb;
+        if (range < 16) range = 16;
+
+        long long thresh = cur_peak - 1 - (rnd_next() % range) / 2;
+        long long peak;
+
+        if (g_tb_on_ && rnd_next() % 6 == 0)
+        {
+            int w = 8 + (int)(rnd_next() % 56);
+            int w0 = (int)(rnd_next() % g_tmax_);
+            long long tb_th = cur_peak - (cur_peak - lb) * 3 / 4;
+            peak = time_band_reinsert(n, t, off_cur_, w0, w0 + w, tb_th);
+        }
+        else if (rnd_next() % 3 == 0)
+        {
+            int pt = 0;
+            long long mx = -1;
+            for (int i = 0; i < n; ++i)
+            {
+                long long top = (long long)off_cur_[i] + t[i].size;
+                if (top > mx) { mx = top; pt = i; }
+            }
+
+            long long room = cur_peak - t[pt].size;
+            if (room < 1) room = 1;
+            int st = (int)((rnd_next() % room) / t[pt].align * t[pt].align);
+            peak = evict_and_reinsert(n, t, off_cur_, pt, st);
+        }
+        else
+        {
+            int shake = (rnd_next() % 4 == 0) ? 160 : 0;
+            peak = reinsert_band(n, t, off_cur_, thresh, shake);
+        }
+
+        long long ta = (cur_peak - lb) / 24 * (iters - it) / iters;
+
+        if (peak <= cur_peak + ta)
+        {
+            cur_peak = peak;
+
+            if (peak < g_best_peak_)
+            {
+                long long lowered = lower_to_fixpoint(n, t, off_cur_, 4);
+                cur_peak = lowered;
+
+                if (lowered < g_best_peak_)
+                {
+                    g_best_peak_ = lowered;
+                    for (int i = 0; i < n; ++i) off_best_[i] = off_cur_[i];
+                }
+
+                stall = 0;
+            }
+            else
+            {
+                ++stall;
+            }
+        }
+        else
+        {
+            for (int i = 0; i < n; ++i) off_cur_[i] = off_best_[i];
+            cur_peak = g_best_peak_;
+            ++stall;
+        }
+
+        if (stall >= 60)
+        {
+            for (int i = 0; i < n; ++i) off_cur_[i] = off_best_[i];
+            cur_peak = reinsert_band(n, t, off_cur_, g_best_peak_ - 1 - rnd_next() % (range + 1), 80);
+            stall = 0;
+        }
+    }
+}
+```
