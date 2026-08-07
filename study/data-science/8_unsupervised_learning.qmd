@@ -1,0 +1,1609 @@
+---
+title: "비지도 학습 개념 정리: 군집화 · 차원 축소 · 이상치 탐색"
+date: "2026-08-05"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-title: "목차"
+    number-sections: true
+    embed-resources: true
+    code-fold: false
+    code-tools: true
+    theme: cosmo
+    highlight-style: github
+    fig-width: 7
+    fig-height: 4
+execute:
+  eval: false
+  echo: true
+  warning: false
+  message: false
+---
+
+```{python}
+#| label: setup
+#| eval: true
+#| code-fold: true
+#| code-summary: "임포트"
+
+import numpy as np
+import pandas as pd
+from numpy.linalg import eig, eigh, svd
+from scipy.spatial.distance import pdist, cdist, squareform
+
+rng = np.random.default_rng(0)
+np.set_printoptions(precision=4, suppress=True)
+```
+
+::: {.callout-note}
+## 이 문서의 코드에 대해
+
+기본적으로 코드 블록은 실행되지 않도록(`eval: false`) 설정되어 있습니다.
+**"수식 확인"** 이라고 표시된 블록만 자체 완결형 합성 데이터를 사용하며 실제로 실행됩니다.
+외부 파일 의존성이 없으므로 그대로 재현할 수 있습니다.
+:::
+
+---
+
+# 군집화 (Clustering)
+
+군집화는 레이블 없이 데이터를 유사한 그룹으로 나누는 작업입니다.
+"유사하다"를 무엇으로 정의하느냐에 따라 크게 네 계열로 나뉩니다.
+
+| 계열 | 유사도의 정의 | 대표 모델 |
+|---|---|---|
+| 중심 기반 | 대표점까지의 거리 | K-Means, K-Medoids |
+| 계층 기반 | 군집 쌍 사이의 연결 기준 | 병합 군집화 |
+| 밀도 기반 | 이웃 밀도의 연결성 | DBSCAN |
+| 모델 기반 | 확률 분포의 소속 확률 | 가우시안 혼합 모델 |
+
+## 중심 기반 군집화
+
+### K-Means
+
+**목적 함수.** 군집 분할 $S = \{S_1, \dots, S_k\}$ 에 대해
+
+$$
+\arg\min_{S} \sum_{i=1}^{k} \sum_{x \in S_i} \lVert x - \mu_i \rVert^2,
+\qquad
+\mu_i = \frac{1}{|S_i|} \sum_{x \in S_i} x
+$$
+
+이 값이 **SSE**(Sum of Squared Error) 이며 scikit-learn 에서는 `inertia_` 로 노출됩니다.
+
+**학습 알고리즘 (Lloyd).**
+
+1. **초기화** — 중심점 $k$ 개를 정합니다.
+   - *Forgy*: 서로 다른 데이터 포인트 $k$ 개를 중심점으로 선택
+   - *랜덤 분할*: 각 포인트를 임의 군집에 배정한 뒤 평균을 계산
+2. **할당 단계** — 각 포인트를 가장 가까운 중심점의 군집에 배정
+3. **갱신 단계** — 각 군집에 속한 포인트들의 평균으로 중심점을 갱신
+4. 중심점이 더 이상 변하지 않거나 `max_iter` 도달 시 종료
+5. 초기화를 `n_init` 번 반복하여 SSE 가 가장 낮은 결과를 채택
+
+::: {.callout-tip collapse="true"}
+## 왜 수렴하는가 — 좌표하강법으로서의 K-Means
+
+목적 함수를 두 변수 $(S, \mu)$ 의 함수 $J(S, \mu)$ 로 보면, Lloyd 알고리즘은
+**한 변수를 고정하고 다른 변수를 최적화하는 좌표하강법**입니다.
+
+- **할당 단계**: $\mu$ 고정 → 각 포인트를 가장 가까운 중심에 배정하는 것이 $J$ 의 최소값
+- **갱신 단계**: $S$ 고정 → $\frac{\partial}{\partial \mu_i}\sum_{x \in S_i}\lVert x - \mu_i\rVert^2 = -2\sum_{x \in S_i}(x - \mu_i) = 0$ 에서 $\mu_i = \bar{x}_{S_i}$
+
+두 단계 모두 $J$ 를 **단조 비증가**시키고, 가능한 분할의 수가 유한($k^n$ 이하)하므로
+알고리즘은 유한 스텝 안에 반드시 멈춥니다.
+
+다만 **전역 최적은 보장되지 않습니다.** 초기값에 따라 다른 국소 최적에 빠지며,
+이것이 `n_init` 이 필요한 이유입니다.
+:::
+
+::: {.callout-important}
+## 유클리드 거리가 전제인 이유
+
+갱신 단계에서 "산술평균"을 쓸 수 있는 것은 **제곱 유클리드 거리의 최소점이 평균**이기 때문입니다.
+맨해튼 거리를 쓴다면 최소점은 평균이 아니라 **중앙값**이 되고(→ K-Medians),
+임의의 거리에 대해서는 "평균"이 정의되지 않을 수도 있습니다.
+
+따라서 K-Means 에 다른 거리를 그냥 끼워 넣으면 목적 함수의 단조 감소가 깨지고 수렴 보장도 사라집니다.
+:::
+
+**암묵적 가정과 한계**
+
+- 군집이 **등방적(isotropic)** 이고 대략 **구형**이라고 가정합니다.
+- 군집의 크기(포인트 수)와 분산이 비슷하다고 암묵적으로 가정합니다.
+- 제곱 손실이므로 **이상치에 민감**합니다.
+- 군집 수 $k$ 를 미리 정해야 합니다.
+
+```{python}
+#| label: kmeans-api
+from sklearn.cluster import KMeans
+
+km = KMeans(n_clusters=3, n_init=100, max_iter=100, random_state=0)
+km.fit(X_std)
+
+km.labels_            # 각 포인트의 소속 군집
+km.cluster_centers_   # 중심점
+km.inertia_           # SSE (목적 함수 값)
+```
+
+| 하이퍼파라미터 | 설명 |
+|---|---|
+| `n_clusters` | 군집 수 $k$ |
+| `n_init` | 초기화 반복 횟수 (SSE 최소인 결과 채택) |
+| `max_iter` | 한 번의 초기화당 최대 중심점 이동 횟수 |
+
+```{python}
+#| label: kmeans-verify
+#| eval: true
+#| code-fold: show
+#| code-summary: "수식 확인 — SSE 는 단조 비증가한다"
+
+Xk = np.vstack([rng.normal(m, 0.5, (60, 2)) for m in [(0, 0), (4, 4), (0, 5)]])
+cent = Xk[rng.choice(len(Xk), 3, replace=False)]
+
+hist = []
+for _ in range(30):
+    d = cdist(Xk, cent)
+    lab = d.argmin(axis=1)
+    hist.append((d.min(axis=1) ** 2).sum())
+    cent = np.vstack([Xk[lab == j].mean(axis=0) for j in range(3)])
+
+print("SSE 궤적 (앞 6개):", np.round(hist[:6], 2))
+print("단조 비증가 여부:", bool(np.all(np.diff(hist) <= 1e-9)))
+```
+
+### K-Medoids
+
+K-Means 의 대표점이 **평균으로 계산된 가상의 점(centroid)** 인 반면,
+K-Medoids 의 대표점은 **군집 안에 실제로 존재하는 데이터 포인트(medoid)** 입니다.
+
+**목적 함수.** 제곱합이 아니라 **거리의 합**을 최소화합니다.
+
+$$
+\arg\min_{S} \sum_{i=1}^{k} \sum_{x \in S_i} d(x, m_i),
+\qquad
+m_i = \arg\min_{y \in S_i} \sum_{x \in S_i} d(x, y)
+$$
+
+**학습 알고리즘**
+
+1. 임의의 데이터 포인트 $k$ 개를 medoid 로 초기화
+2. **할당 단계** — 각 포인트를 가장 가까운 medoid 의 군집에 배정
+3. **갱신 단계** — 각 군집에서 *군집 내 다른 포인트들과의 거리 합이 최소*인 포인트로 medoid 교체
+4. medoid 가 변하지 않을 때까지 반복
+5. 여러 초기화 중 최선의 결과를 채택
+
+::: {.callout-tip collapse="true"}
+## K-Means 대비 강건한 이유 — 평균과 중앙값의 관계
+
+이것은 **제곱 손실 vs 절대 손실**의 차이와 정확히 같은 구조입니다.
+
+- $\min_\mu \sum (x_i - \mu)^2 \Rightarrow \mu = \text{평균}$ — 이상치 하나가 평균을 끌고 갑니다.
+- $\min_m \sum |x_i - m| \Rightarrow m = \text{중앙값}$ — 이상치가 순위만 바꿀 뿐 위치를 크게 못 바꿉니다.
+
+K-Medoids 는 후자에 해당하므로 이상치에 덜 민감합니다.
+:::
+
+**K-Means 와의 비교**
+
+| 항목 | K-Means | K-Medoids |
+|---|---|---|
+| 대표점 | 가상의 평균점 | 실제 데이터 포인트 |
+| 손실 | 거리의 제곱합 | 거리의 합 |
+| 거리 척도 | 유클리드 사실상 고정 | 맨해튼·코사인 등 자유 |
+| 이상치 | 민감 | 강건 |
+| 계산 비용 | $O(nkp)$ / 반복 | 거리행렬 $O(n^2)$ 필요 |
+| 해석 | 대표점이 실존하지 않음 | 대표점이 실존 → 해석 용이 |
+
+::: {.callout-warning}
+scikit-learn 본체에는 K-Medoids 구현이 없습니다.
+(별도 패키지 `scikit-learn-extra` 의 `KMedoids` 를 사용해야 합니다.)
+:::
+
+## 계층적 군집화 (Hierarchical Clustering)
+
+각 데이터 포인트가 하나의 군집인 상태에서 시작하여,
+가장 유사한 군집 쌍을 반복적으로 병합해 나가는 **병합(agglomerative)** 방식입니다.
+모든 데이터가 하나의 군집이 될 때까지 진행하면 나무 구조(dendrogram)가 만들어집니다.
+
+### 연결 기준 (Linkage)
+
+군집 $A$, $B$ 를 병합할지 판단하는 기준입니다. $d(a,b)$ 는 포인트 사이의 거리입니다.
+
+| 방법 | 정의 | 기하학적 편향 |
+|---|---|---|
+| 단일 연결 (single) | $\min_{a \in A, b \in B} d(a,b)$ | 사슬 효과(chaining), 길쭉한 군집 |
+| 완전 연결 (complete) | $\max_{a \in A, b \in B} d(a,b)$ | 조밀한 구형, 이상치에 민감 |
+| 평균 연결 (average) | $\dfrac{1}{|A||B|}\sum_{a \in A}\sum_{b \in B} d(a,b)$ | 위 둘의 절충 |
+| 워드 연결 (ward) | 병합 시 분산 증가량 최소화 | 크기가 비슷한 구형 군집 |
+
+**워드 연결의 기준.** 병합으로 인해 늘어나는 군집 내 제곱합(MISSQ)입니다.
+
+$$
+\Delta(A, B)
+= \sum_{x \in A \cup B} \lVert x - \mu_{A \cup B} \rVert^2
+- \sum_{x \in A} \lVert x - \mu_A \rVert^2
+- \sum_{x \in B} \lVert x - \mu_B \rVert^2
+$$
+
+::: {.callout-note}
+워드 연결은 **K-Means 와 같은 목적 함수 계열**(군집 내 제곱합)을 씁니다.
+차이는 최적화 방식뿐입니다 — K-Means 는 반복적 재배정, 워드는 탐욕적 병합.
+그래서 두 방법의 결과가 종종 비슷하게 나옵니다.
+:::
+
+### Lance–Williams 점화식
+
+$\Delta(A,B)$ 를 매번 정의대로 계산하면 비용이 매우 큽니다.
+**Lance–Williams 점화식**은 이미 계산된 거리만으로 새 거리를 갱신합니다.
+
+$$
+d(k, i \cup j) = \alpha_i\, d(k,i) + \alpha_j\, d(k,j) + \beta\, d(i,j) + \gamma\, |d(k,i) - d(k,j)|
+$$
+
+워드 연결의 경우, **제곱 유클리드 거리** 기준으로
+$T = n_i + n_j + n_k$ 라 할 때
+
+$$
+\alpha_i = \frac{n_i + n_k}{T}, \quad
+\alpha_j = \frac{n_j + n_k}{T}, \quad
+\beta = -\frac{n_k}{T}, \quad
+\gamma = 0
+$$
+
+`scipy.cluster.hierarchy.linkage` 도 이 점화식에 기반해 구현되어 있으며,
+반환되는 기준값은 제곱 거리의 **제곱근**입니다.
+
+```{python}
+#| label: ward-verify
+#| eval: true
+#| code-fold: show
+#| code-summary: "수식 확인 — Lance–Williams 로 scipy 의 ward 를 재현한다"
+
+import itertools, heapq
+from scipy.cluster.hierarchy import linkage
+
+Xw = rng.normal(size=(30, 3))
+D = squareform(pdist(Xw))
+d2 = {(i, j): D[i, j] ** 2 for i, j in itertools.combinations(range(len(Xw)), 2)}
+get = lambda a, b: d2[(a, b)] if a < b else d2[(b, a)]
+
+clu = {i: [i] for i in range(len(Xw))}
+h = [(D[i, j], (i, j)) for i, j in itertools.combinations(range(len(Xw)), 2)]
+heapq.heapify(h)
+
+idx, Z_manual = len(Xw), []
+while h:
+    crit, (i, j) = heapq.heappop(h)
+    if i not in clu or j not in clu:          # 이미 병합된 군집은 건너뜀
+        continue
+    n_i, n_j = len(clu[i]), len(clu[j])
+    new = clu[i] + clu[j]
+    del clu[i], clu[j]
+    for k, v in clu.items():                  # Lance–Williams 갱신
+        n_k = len(v); T = n_i + n_j + n_k
+        d = ((n_i + n_k) / T * get(i, k)
+             + (n_j + n_k) / T * get(j, k)
+             - n_k / T * get(i, j))
+        d2[(k, idx)] = d
+        heapq.heappush(h, (d ** 0.5, (k, idx)))
+    clu[idx] = new
+    Z_manual.append((i, j, crit, len(new)))
+    idx += 1
+
+Z_scipy = linkage(Xw, method="ward")
+print("직접 구현 == scipy:",
+      bool(np.max(np.abs(np.array(Z_manual) - Z_scipy)) < 1e-10))
+```
+
+### 병합 정보 행렬 `Z`
+
+`linkage` 가 반환하는 `Z` 는 $(n-1) \times 4$ 행렬이며, $i$ 번째 행은
+
+| 열 | 의미 |
+|---|---|
+| `Z[i, 0]`, `Z[i, 1]` | 병합된 두 군집의 인덱스 |
+| `Z[i, 2]` | 두 군집 사이의 거리(연결 기준값) |
+| `Z[i, 3]` | 병합 후 군집에 포함된 원 데이터 포인트 수 |
+
+::: {.callout-note}
+군집 인덱스는 $0 \dots n-1$ 이 원 데이터 포인트이고,
+병합으로 새로 생긴 군집은 $n$ 부터 1씩 증가하며 부여됩니다.
+:::
+
+```{python}
+#| label: hier-api
+from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+from sklearn.cluster import AgglomerativeClustering
+
+Z = linkage(X_std, method="ward")           # 데이터프레임 직접 입력
+Z = linkage(squareform(D), method="average")  # 축약형 거리행렬 입력
+
+dendrogram(Z)                                # 나무 구조 시각화
+fcluster(Z, t=3, criterion="maxclust")       # 군집 수 3개로 절단
+fcluster(Z, t=5.0, criterion="distance")     # 거리 5.0 에서 절단
+
+agg = AgglomerativeClustering(n_clusters=3, metric="euclidean", linkage="ward")
+agg.fit_predict(X_std)
+```
+
+| 함수 / 파라미터 | 설명 |
+|---|---|
+| `linkage(y, method, metric)` | `y` 는 데이터프레임 또는 축약형 거리행렬 |
+| `fcluster(Z, t, criterion)` | `maxclust` → `t` 는 군집 수 / `distance` → `t` 는 거리 상한 |
+| `AgglomerativeClustering` | `n_clusters`, `metric`, `linkage`, `distance_threshold` |
+
+::: {.callout-important}
+## 자주 걸리는 지점
+
+- `AgglomerativeClustering` 의 거리 인자 이름은 구버전 `affinity`, 최신 버전 `metric` 입니다.
+- `linkage="ward"` 는 **유클리드 거리에서만** 정의됩니다. 다른 metric 과 조합하면 오류입니다.
+- `n_clusters` 와 `distance_threshold` 는 **동시에 지정할 수 없습니다**.
+  `distance_threshold` 를 쓰려면 `n_clusters=None` 이어야 합니다.
+:::
+
+## 밀도 기반 군집화 — DBSCAN
+
+**DBSCAN** (Density-Based Spatial Clustering of Applications with Noise)
+은 데이터 포인트 주변의 밀도를 기준으로 군집을 형성합니다.
+
+### 핵심 요소
+
+- $\epsilon$ **반경**: 이웃으로 간주할 주변 영역의 반경
+- **최소 이웃 수** (`min_samples`): 핵심 포인트가 되기 위한 $\epsilon$ 반경 내 최소 포인트 수
+
+### 포인트의 세 가지 분류
+
+| 분류 | 조건 |
+|---|---|
+| 핵심 포인트 (core) | $\epsilon$ 반경 안에 최소 이웃 수 이상의 포인트가 존재 |
+| 경계 포인트 (border) | 자신은 핵심이 아니지만, 어떤 핵심 포인트의 $\epsilon$ 반경 안에 있음 |
+| 잡음 포인트 (noise) | 핵심도 아니고 어떤 핵심 포인트의 반경에도 속하지 않음 |
+
+### 군집 형성 기준
+
+- **도달 가능성 (reachability)**: 핵심 포인트에서 $\epsilon$ 반경 내 다른 포인트로는 도달 가능합니다.
+  **비핵심 포인트에서는 다른 포인트로 도달할 수 없습니다.** — 이 비대칭성이 경계 포인트가
+  군집을 이어 붙이지 못하게 막는 장치입니다.
+- **밀도 연결 (density-connected)**: $p$ 와 $q$ 모두에 도달 가능한 포인트 $o$ 가 존재하면
+  $p$ 와 $q$ 는 밀도 연결 상태입니다.
+- **상호 밀도 연결된 모든 포인트가 하나의 군집을 이룹니다.**
+
+### 학습 알고리즘
+
+1. 모든 포인트의 label 을 *미정의(undefined)* 로 초기화, 군집 번호 $C = 0$,
+   각 포인트의 $\epsilon$ 반경 이웃 목록을 계산
+2. label 이 미정의인 포인트 $P$ 를 선택 (없으면 종료)
+3. $P$ 의 이웃 수가 최소 이웃 수 미만이면 label 을 *잡음* 으로 표시하고 2로 이동
+4. $C \leftarrow C + 1$, $\text{label}(P) = C$
+5. $P$ 에서 도달 가능한 포인트들을 리스트 $S$ 로 정의
+6. $S$ 에서 포인트 $Q$ 를 하나 꺼냄 (비었으면 2로 이동)
+7. $Q$ 가 *잡음* 이면 label 을 $C$ 로 변경 (경계 포인트가 됨), *미정의* 가 아니면 6으로 이동
+8. $\text{label}(Q) = C$ 로 설정하고, $Q$ 가 핵심 포인트이면 $Q$ 의 이웃을 $S$ 에 추가한 뒤 6으로 이동
+
+::: {.callout-important}
+## `min_samples` 는 자기 자신을 포함합니다
+
+이론적 서술에서는 "자기 자신을 제외한 이웃 수"로 다루는 경우가 많지만,
+**scikit-learn 의 `DBSCAN` 은 자기 자신을 포함하여 계산**합니다.
+
+따라서 이론상 최소 이웃 수 $m$ 에 대응하려면 `min_samples = m + 1` 로 지정해야 합니다.
+:::
+
+```{python}
+#| label: dbscan-verify
+#| eval: true
+#| code-fold: show
+#| code-summary: "수식 확인 — min_samples 는 자기 자신을 포함한다"
+
+from sklearn.cluster import DBSCAN
+
+# eps=0.5 안에 서로 붙어 있는 포인트 3개 + 멀리 떨어진 포인트 1개
+Xd = np.array([[0.0, 0.0], [0.1, 0.0], [0.2, 0.0], [10.0, 10.0]])
+
+for m in [3, 4]:
+    core = DBSCAN(eps=0.5, min_samples=m).fit(Xd).core_sample_indices_
+    print(f"min_samples={m} → 핵심 포인트 인덱스: {core}")
+# min_samples=3 이면 3개 모두 핵심 → 자기 자신이 카운트에 포함된다는 뜻
+```
+
+```{python}
+#| label: dbscan-api
+from sklearn.cluster import DBSCAN
+
+db = DBSCAN(eps=0.2, min_samples=6)
+labels = db.fit_predict(X)
+
+labels                       # -1 은 잡음 포인트
+db.core_sample_indices_      # 핵심 포인트의 인덱스
+```
+
+| 하이퍼파라미터 | 설명 |
+|---|---|
+| `eps` | $\epsilon$ 반경 |
+| `min_samples` | 핵심 포인트 판정을 위한 반경 내 최소 표본 수 (**자기 자신 포함**) |
+
+**특징**
+
+- 군집 수를 미리 정할 필요가 없습니다.
+- **비볼록(non-convex) 형태**의 군집을 찾을 수 있습니다 (동심원, 초승달 등).
+- 잡음을 명시적으로 분리합니다 → 이상치 탐색에 그대로 활용 가능합니다.
+- 반면 **밀도가 서로 다른 군집이 섞여 있으면** 단일 $\epsilon$ 으로는 잘 잡히지 않습니다.
+- 고차원에서는 거리 집중(distance concentration) 현상으로 $\epsilon$ 설정이 어려워집니다.
+
+## 혼합 모델 기반 군집화 — 가우시안 혼합 모델
+
+데이터가 여러 확률 분포의 혼합으로 생성되었다고 가정합니다.
+
+$$
+p(x) = \sum_{j=1}^{C} \tau_j \, \mathcal{N}(x \mid \mu_j, \Sigma_j),
+\qquad \sum_{j=1}^{C} \tau_j = 1
+$$
+
+각 포인트는 소속 확률이 가장 높은 성분의 군집으로 배정됩니다.
+K-Means 의 **하드 할당**과 달리 GMM 은 **소프트 할당**(소속 확률)을 제공합니다.
+
+### EM 알고리즘
+
+모수는 $\theta = (\mu, \Sigma, \tau)$ 입니다.
+
+**E-step** — 각 포인트가 각 성분에 속할 사후확률(responsibility)을 계산합니다.
+
+$$
+T_{j,i}
+= \frac{P(X_i = x_i \mid Z_i = j;\ \theta')\, P(Z = j)}
+       {\sum_{k=1}^{C} P(X_i = x_i \mid Z_i = k;\ \theta')\, P(Z = k)}
+$$
+
+**M-step** — responsibility 를 가중치로 모수를 갱신합니다.
+
+$$
+\tau_j = \frac{1}{n}\sum_{i=1}^{n} T_{j,i},
+\qquad
+\mu_j = \frac{\sum_{i=1}^{n} T_{j,i}\, x_i}{\sum_{i=1}^{n} T_{j,i}},
+\qquad
+\Sigma_j = \frac{\sum_{i=1}^{n} T_{j,i}\,(x_i - \mu_j)^{\top}(x_i - \mu_j)}{\sum_{i=1}^{n} T_{j,i}}
+$$
+
+::: {.callout-tip collapse="true"}
+## K-Means 는 GMM 의 특수한 경우다
+
+GMM 에서 다음 제약을 걸면 K-Means 로 수렴합니다.
+
+1. 모든 성분의 공분산을 $\Sigma_j = \sigma^2 I$ (등방·동일)로 고정
+2. $\sigma^2 \to 0$
+
+이때 responsibility $T_{j,i}$ 는 가장 가까운 중심에 대해 1, 나머지는 0 이 되어
+**소프트 할당이 하드 할당으로 붕괴**합니다.
+M-step 의 $\mu_j$ 갱신식은 그대로 산술평균이 되므로, EM 이 곧 Lloyd 알고리즘이 됩니다.
+
+이 관점에서 보면 K-Means 의 "구형 군집 가정"은 사실 **등방 공분산 가정**이었음이 드러납니다.
+GMM 이 타원형 군집을 잡을 수 있는 이유도 $\Sigma_j$ 를 자유롭게 추정하기 때문입니다.
+:::
+
+```{python}
+#| label: gmm-verify
+#| eval: true
+#| code-fold: show
+#| code-summary: "수식 확인 — 등방 공분산 GMM 은 K-Means 와 같은 분할을 준다"
+
+from sklearn.cluster import KMeans
+from sklearn.mixture import GaussianMixture
+
+Xg = np.vstack([rng.normal(m, 0.4, (80, 2)) for m in [(0, 0), (4, 4), (0, 5)]])
+
+km = KMeans(3, n_init=20, random_state=0).fit(Xg)
+gm = GaussianMixture(3, covariance_type="spherical", reg_covar=1e-9,
+                     means_init=km.cluster_centers_, random_state=0).fit(Xg)
+
+gm_lab = gm.predict(Xg)
+agree = np.mean([np.max(np.bincount(gm_lab[km.labels_ == c])) / np.sum(km.labels_ == c)
+                 for c in range(3)])
+print("K-Means 와 등방 GMM 의 분할 일치율:", round(agree, 3))
+```
+
+```{python}
+#| label: gmm-api
+from sklearn.mixture import GaussianMixture
+
+gm = GaussianMixture(n_components=3, n_init=10, max_iter=100, random_state=0)
+gm.fit(X)
+
+gm.predict(X)        # 하드 할당
+gm.predict_proba(X)  # 소프트 할당 (소속 확률)
+gm.means_, gm.covariances_, gm.weights_
+```
+
+| 하이퍼파라미터 | 설명 |
+|---|---|
+| `n_components` | 군집(혼합 성분) 수 |
+| `n_init` | 초기화 및 학습 시행 수 |
+| `max_iter` | EM 반복 횟수 |
+| `covariance_type` | `full`, `tied`, `diag`, `spherical` |
+
+::: {.callout-warning}
+표본 수가 적거나 성분 수가 많으면 공분산 추정이 불안정해지고,
+극단적으로는 한 성분이 한 점에 붕괴하여 우도가 발산하는 **특이해(singularity)** 문제가 생깁니다.
+`reg_covar` 로 대각 성분에 작은 값을 더해 이를 방지합니다.
+:::
+
+## 군집화 모델 장단점 비교
+
+| 모델 | 장점 | 단점 |
+|---|---|---|
+| K-Means / K-Medoids | 이해와 결과 해석이 쉽고 계산이 빠름 | 군집 수를 지정해야 함 / 초기값에 따라 결과가 달라져 일관성이 부족 |
+| 계층적 군집화 | 군집 수를 나중에 유연하게 정할 수 있고 나무 구조로 계층을 볼 수 있음 | 연산량이 큼 ($O(n^2)$ 메모리, $O(n^2 \log n)$ 이상) |
+| DBSCAN | 군집 수 지정 불필요 / 다양한 형태의 군집 탐지 / 잡음 분리 | 밀도가 다양한 데이터에 적용이 어려움 / $\epsilon$ 민감 |
+| 혼합 모델 | 타원형 군집과 소프트 할당 지원 / 확률적 해석 가능 | 데이터 수가 적으면 불안정 / 분포 가정 필요 |
+
+---
+
+# 차원 축소 (Dimension Reduction)
+
+| 방법 | 기준 | 지도 여부 | 선형성 |
+|---|---|---|---|
+| PCA | 분산 최대화 | 비지도 | 선형 |
+| SVD | 행렬 근사 | 비지도 | 선형 |
+| MDS | 거리 보존 | 비지도 | 선형/비선형 |
+| t-SNE | 이웃 확률 분포 보존 | 비지도 | 비선형 |
+| LDA | 클래스 판별력 최대화 | 지도 | 선형 |
+| PLS | 대상 변수와의 공분산 최대화 | 지도 | 선형 |
+
+## 주성분 분석 (PCA)
+
+PCA 는 **공분산 행렬의 고윳값 분해**를 통해 데이터가 지닌 정보량(변동성)을 분석하는 방법입니다.
+
+### 공분산 행렬
+
+$p$ 차원 데이터 $X$ 에 대해
+
+$$
+\operatorname{cov}(X) =
+\begin{bmatrix}
+\sigma_{11} & \sigma_{12} & \cdots & \sigma_{1p} \\
+\sigma_{21} & \sigma_{22} & \cdots & \sigma_{2p} \\
+\vdots & \vdots & \ddots & \vdots \\
+\sigma_{p1} & \sigma_{p2} & \cdots & \sigma_{pp}
+\end{bmatrix},
+\qquad
+\sigma_{ij} = \frac{1}{n-1}\sum_{k=1}^{n}(x_{ki} - \bar{x}_i)(x_{kj} - \bar{x}_j)
+$$
+
+**주요 성질**
+
+- 대각 요소 $\sigma_{ii}$ 는 $i$ 번째 변수의 분산입니다.
+- **대칭 행렬**입니다 ($\sigma_{ij} = \sigma_{ji}$).
+- **양의 준정부호(positive semi-definite)** 입니다.
+  즉 모든 벡터 $x$ 에 대해 $x^\top A x \ge 0$ 이며, 따라서 **모든 고윳값이 0 이상**입니다.
+
+### 고윳값 분해
+
+정방행렬 $A$ 에 대해 $Ax = \lambda x$ ($x \ne \mathbf{0}$) 를 만족하는 $x$ 를 고유벡터,
+$\lambda$ 를 고윳값이라 합니다. 이항하면
+
+$$
+(A - \lambda I)x = \mathbf{0}
+$$
+
+이고, $x \ne \mathbf{0}$ 인 해가 존재하려면 $A - \lambda I$ 가 역행렬을 갖지 않아야 하므로
+
+$$
+\det(A - \lambda I) = 0
+$$
+
+이는 $\lambda$ 에 대한 $p$ 차 다항식이므로 고윳값은 최대 $p$ 개입니다.
+
+고유행렬 $Q = [\,q_1\ q_2\ \cdots\ q_p\,]$, 대각 행렬 $\Lambda = \operatorname{diag}(\lambda_1, \dots, \lambda_p)$ 로 두면
+$AQ = Q\Lambda$ 이고, 따라서
+
+$$
+A = Q \Lambda Q^{-1}
+$$
+
+::: {.callout-tip collapse="true"}
+## 대칭행렬이면 $Q$ 가 직교행렬이 되는 이유
+
+$A = A^\top$ 이므로
+
+$$
+A^\top = (Q \Lambda Q^{-1})^\top = (Q^{-1})^\top \Lambda Q^\top
+$$
+
+$A = A^\top$ 에서 $Q \Lambda Q^{-1} = (Q^{-1})^\top \Lambda Q^\top$ 이 성립하려면
+$Q^\top = Q^{-1}$ 여야 합니다.
+
+$Q^\top Q = I$ 인 행렬을 **정규직교행렬(orthonormal matrix)** 이라 하며, 이때
+
+$$
+A = Q \Lambda Q^\top
+$$
+
+가 됩니다. 직교행렬은 **회전(과 반사)** 이므로 벡터의 길이를 바꾸지 않습니다.
+이 사실이 뒤에서 "PCA 가 총 변동성을 보존한다"는 결론의 근거가 됩니다.
+:::
+
+### PCA 의 유도
+
+$X_c = X - \bar{X}$ 로 평균 중심화하면 공분산 행렬을 그람 행렬로 쓸 수 있습니다.
+
+$$
+A = \operatorname{cov}(X) = \frac{1}{n-1} X_c^\top X_c = Q \Lambda Q^\top
+$$
+
+양변에 $Q^\top, Q$ 를 곱하면
+
+$$
+\Lambda = \frac{1}{n-1}\, Q^\top X_c^\top X_c\, Q = \frac{1}{n-1}\,(X_c Q)^\top (X_c Q)
+$$
+
+$X_c$ 의 평균이 0 이므로 $X_c Q$ 의 평균도 0 입니다. 따라서 **성분 행렬**
+
+$$
+C = X_c Q
+$$
+
+는 다음 성질을 가집니다.
+
+- $\Lambda$ 가 $C$ 의 공분산 행렬입니다.
+- $\Lambda$ 가 대각행렬이므로 **성분들 사이의 공분산은 모두 0** — 서로 독립(무상관)입니다.
+- 대각 요소 $\lambda_i$ 는 $i$ 번째 성분의 **분산 = 설명된 변동성**입니다.
+- $Q$ 가 직교행렬이므로 **데이터가 지닌 총 변동성이 보존**됩니다.
+
+::: {.callout-important}
+## 평균 중심화가 필요한 이유
+
+공분산 행렬을 $X_c^\top X_c$ 형태의 그람 행렬로 쓸 수 있으려면 평균이 0 이어야 합니다.
+중심화하지 않으면 첫 번째 주성분이 "데이터의 분산 방향"이 아니라
+**"원점에서 데이터 중심으로 향하는 방향"** 을 잡아버립니다.
+
+표준화(z-score)를 하면 평균이 0 이 되므로 별도의 중심화는 필요 없습니다.
+:::
+
+### 정리: PCA 의 절차
+
+1. $A = \operatorname{cov}(X)$
+2. $A = Q\Lambda Q^\top$ 로 고윳값 분해 → 고윳값 $\lambda_1, \dots, \lambda_p$ 와 고유행렬 $Q$
+3. $X_c = X - \bar{X}$ 로 평균 중심화
+4. $C = X_c Q$ 로 성분 도출 (고윳값 내림차순 정렬 전제)
+
+**분산 설명력과 설명율**
+
+$$
+\text{설명력}_i = \lambda_i,
+\qquad
+\text{설명율}_i = \frac{\lambda_i}{\sum_{k=1}^{p}\lambda_k}
+$$
+
+$\sum_i \lambda_i$ 는 데이터가 지닌 **전체 변동성**입니다.
+$c_1$ 부터 $c_r$ 까지 $r$ 개를 취하는 것은,
+$r$ 개의 변수로 선형 변환했을 때 **설명 가능한 변동량이 최대**인 선택입니다.
+
+### 역변환과 정보 손실
+
+선택한 성분만으로 원래 차원으로 되돌립니다.
+
+$$
+X' = C' Q'^{\top}
+$$
+
+- $C'$: 선택한 성분들로 이루어진 행렬
+- $Q'$: 선택한 성분에 대응하는 고유벡터로 구성된 행렬
+
+**모든 성분을 선택했다면** 이론상 원래 데이터와 동일합니다
+(실제로는 부동소수점 연산 오차로 미세한 차이가 있습니다).
+일부만 취했다면 **버린 고윳값의 합만큼** 변동성이 손실됩니다.
+
+$$
+\frac{1}{n-1}\lVert X_c - X' \rVert_F^2 = \sum_{k=r+1}^{p} \lambda_k
+$$
+
+```{python}
+#| label: pca-verify
+#| eval: true
+#| code-fold: show
+#| code-summary: "수식 확인 — 총 변동성 보존과 절단 손실"
+
+Xp = rng.normal(size=(200, 4)) @ rng.normal(size=(4, 4))
+Xc = Xp - Xp.mean(axis=0)
+n = len(Xc)
+
+lam, Q = eigh(np.cov(Xc.T))
+idx = np.argsort(-lam)                 # eigh 는 오름차순 → 내림차순 재정렬
+lam, Q = lam[idx], Q[:, idx]
+
+print("총 변동성 보존:",
+      np.allclose(np.trace(np.cov(Xc.T)), lam.sum()))
+
+r = 2
+Xr = (Xc @ Q[:, :r]) @ Q[:, :r].T      # 2개 성분만으로 역변환
+resid = np.sum((Xc - Xr) ** 2) / (n - 1)
+print("절단 손실 == 버린 고윳값의 합:",
+      np.allclose(resid, lam[r:].sum()))
+print("  손실 =", round(resid, 6), "/ 버린 고윳값 합 =", round(lam[r:].sum(), 6))
+```
+
+```{python}
+#| label: pca-api
+from sklearn.decomposition import PCA
+
+pca = PCA(n_components=0.98)   # 전체 변동성의 98% 를 설명하는 최소 성분 수
+pca.fit(X_std)
+
+pca.explained_variance_        # 고윳값 λ
+pca.explained_variance_ratio_  # 분산 설명율
+pca.components_                # Q^T (고유행렬의 전치)
+
+C = pca.transform(X_std)       # 성분
+X_inv = pca.inverse_transform(C)  # 역변환
+```
+
+| `n_components` 값 | 동작 |
+|---|---|
+| 정수 | 고윳값이 큰 순으로 그 개수만큼 성분 선택 |
+| 0~1 사이 실수 | 전체 변동성에서 그 비율 이상을 설명하는 **최소** 성분 수 선택 |
+| `None` | 전체 성분 선택 |
+
+::: {.callout-important}
+`pca.components_` 는 $Q$ 가 아니라 **$Q^\top$** 입니다.
+따라서 수동 역변환은 `C @ pca.components_` 이지 `C @ pca.components_.T` 가 아닙니다.
+:::
+
+::: {.callout-warning}
+## 표준화 여부의 의미
+
+- **공분산 행렬 기반 PCA** (중심화만): 변수의 원래 스케일이 그대로 반영됩니다.
+  단위가 큰 변수가 주성분을 지배합니다.
+- **상관 행렬 기반 PCA** (표준화): 모든 변수를 동등하게 취급합니다.
+
+변수들의 단위가 다르면 **표준화가 사실상 필수**입니다.
+:::
+
+## 특이값 분해 (SVD)
+
+$m \times n$ 행렬 $M$ 을 세 행렬의 곱으로 분해합니다.
+
+$$
+M = U \Sigma V^\top
+$$
+
+- $U$: $m \times m$ 정규직교행렬 ($U^\top U = I$) — **좌특이행렬**
+- $\Sigma$: $m \times n$ 대각행렬, 대각 요소를 **특이값**이라 합니다
+- $V$: $n \times n$ 정규직교행렬 ($V^\top V = I$) — **우특이행렬**
+
+### 주요 성질
+
+$$
+M M^\top = U \Sigma V^\top V \Sigma^\top U^\top = U \Sigma \Sigma^\top U^\top
+\quad\Rightarrow\quad U \text{ 는 } MM^\top \text{ 의 고유벡터}
+$$
+
+$$
+M^\top M = V \Sigma^\top U^\top U \Sigma V^\top = V \Sigma^\top \Sigma V^\top
+\quad\Rightarrow\quad V \text{ 는 } M^\top M \text{ 의 고유벡터}
+$$
+
+### PCA 와의 관계
+
+$X = M - E(M)$ 로 평균 중심화하면
+
+$$
+\operatorname{cov}(X) = \frac{1}{n-1} X^\top X = \frac{1}{n-1} V \Sigma^\top \Sigma V^\top
+$$
+
+따라서 PCA 의 구성 요소와 다음과 같이 대응됩니다.
+
+$$
+Q = V,
+\qquad
+\Lambda = \frac{1}{n-1}\Sigma^\top \Sigma,
+\qquad
+C = XV = U\Sigma
+$$
+
+::: {.callout-tip collapse="true"}
+## 왜 실무 구현은 SVD 를 쓰는가
+
+수식상으로는 공분산 행렬을 만들어 고윳값 분해해도 되지만, 실제 구현은 대부분 SVD 를 씁니다.
+
+1. **수치적 안정성** — $X^\top X$ 를 명시적으로 계산하면 조건수가 **제곱**됩니다.
+   특이값이 $\sigma$ 인 방향은 고윳값에서 $\sigma^2$ 이 되므로 작은 특이값이 반올림 오차에 묻힙니다.
+   SVD 는 $X$ 에 직접 작용하므로 이 문제를 피합니다.
+2. **메모리** — $p \gg n$ 인 경우 $p \times p$ 공분산 행렬을 만들지 않아도 됩니다.
+3. `sklearn.decomposition.PCA` 도 내부적으로 SVD 기반입니다.
+
+부호 주의: 고유벡터의 부호는 유일하지 않으므로, 고윳값 분해와 SVD 의 결과는
+**성분의 부호가 반대로 나올 수 있습니다.** 분산 설명율 등 크기 기반 해석에는 영향이 없습니다.
+:::
+
+```{python}
+#| label: svd-verify
+#| eval: true
+#| code-fold: show
+#| code-summary: "수식 확인 — PCA 와 SVD 의 동치"
+
+U, S, VT = svd(Xc, full_matrices=False)
+
+print("λ == S²/(n-1):", np.allclose(lam, S ** 2 / (n - 1)))
+print("|X_c Q| == |UΣ| (부호 제외):", np.allclose(np.abs(Xc @ Q), np.abs(U * S)))
+print("\nλ      =", np.round(lam, 4))
+print("S²/(n-1) =", np.round(S ** 2 / (n - 1), 4))
+```
+
+### 축소된 특이값 분해 (Reduced SVD)
+
+| 종류 | 정의 | 특징 |
+|---|---|---|
+| **full SVD** | $M = U\Sigma V^{*}$ | 특이값과 무관하게 모든 특이벡터 포함 |
+| **thin SVD** | $M = U_k \Sigma_k V_k^{*}$, $k = \min(n,m)$ | $\Sigma$ 가 정방이 되는 만큼만 축소. $k \ll \max(n,m)$ 일 때 효율적 |
+| **compact SVD** | $M = U_r \Sigma_r V_r^{*}$ | 특이값이 0 이 아닌 것만 유지. $r \ll \min(n,m)$ 일 때 효율적 |
+| **truncated SVD** | $\bar{M} = U_t \Sigma_t V_t^{*}$ | 특이값이 임계값 이상인 것만 유지. **$M$ 과 같지 않은 근사 행렬** |
+
+::: {.callout-tip collapse="true"}
+## Truncated SVD 가 "최적" 근사인 이유 — Eckart–Young 정리
+
+랭크 $r$ 이하의 모든 행렬 $B$ 중에서, 큰 특이값 $r$ 개만 남긴 $\bar{M}_r$ 이
+Frobenius 노름과 스펙트럴 노름 **양쪽 모두**에서 $M$ 에 가장 가까운 근사입니다.
+
+$$
+\lVert M - \bar{M}_r \rVert_F = \min_{\operatorname{rank}(B) \le r} \lVert M - B \rVert_F
+= \sqrt{\sum_{i > r} \sigma_i^2}
+$$
+
+즉 "큰 특이값부터 취한다"는 탐욕적 선택이 실제로 전역 최적입니다.
+PCA 에서 "큰 고윳값부터 취한다"가 최적인 것과 같은 이야기입니다.
+:::
+
+```{python}
+#| label: svd-api
+from numpy.linalg import svd
+from sklearn.decomposition import TruncatedSVD
+
+U, Sigma, VT = svd(M, full_matrices=False)   # thin SVD
+
+tsvd = TruncatedSVD(n_components=100, random_state=0)
+X_reduced = tsvd.fit_transform(X_sparse)     # 희소 행렬에 효율적
+```
+
+::: {.callout-important}
+## `PCA` 와 `TruncatedSVD` 의 결정적 차이
+
+`TruncatedSVD` 는 **평균 중심화를 하지 않습니다.**
+
+- 이는 의도된 설계입니다. 텍스트 카운트 행렬 같은 **희소 행렬을 중심화하면
+  0 이 대부분이던 행렬이 밀집(dense) 행렬이 되어 메모리가 폭발**하기 때문입니다.
+- 그래서 희소 행렬 기반 차원 축소(LSA 등)에는 `TruncatedSVD` 를 씁니다.
+- 반대로 밀집 데이터에 `TruncatedSVD` 를 쓰면 PCA 와 다른 결과가 나옵니다.
+:::
+
+```{python}
+#| label: tsvd-verify
+#| eval: true
+#| code-fold: show
+#| code-summary: "수식 확인 — TruncatedSVD 는 중심화하지 않는다"
+
+from sklearn.decomposition import PCA, TruncatedSVD
+
+Xo = Xp + 100.0   # 평균이 0 에서 크게 벗어난 데이터
+
+p_out = PCA(n_components=2, random_state=0).fit_transform(Xo)
+t_out = TruncatedSVD(n_components=2, random_state=0).fit_transform(Xo)
+
+print("PCA 결과의 평균          :", np.round(p_out.mean(axis=0), 6))
+print("TruncatedSVD 결과의 평균 :", np.round(t_out.mean(axis=0), 4))
+```
+
+## 다차원 척도법 (MDS)
+
+$k$ 차원 데이터를 $m \le k$ 차원으로, **원래 데이터 사이의 거리 정보를 최대한 유지하면서** 변환합니다.
+
+### 고전적 MDS (Classical MDS)
+
+**메트릭 거리**(비음성, 대칭성, 삼각 부등식을 만족하는 거리, 예: 유클리드 거리)만 지원하며,
+**strain** 손실 함수를 최소화합니다.
+
+$$
+\text{Strain}_D(x_1, \dots, x_n)
+= \sqrt{ \frac{\sum_{i,j}\left(b_{ij} - x_i^\top x_j\right)^2}{\sum_{i,j} b_{ij}^2} }
+$$
+
+**학습 알고리즘**
+
+1. 제곱 거리 행렬 $D^{(2)} = [\,d_{ij}^2\,]$ 를 준비
+2. **이중 중심화(double centering)** 로 $B$ 를 계산
+
+   $$
+   C = I - \tfrac{1}{n}J \ \ (J \text{ 는 모든 요소가 1인 } n \times n \text{ 행렬}),
+   \qquad
+   B = -\tfrac{1}{2}\, C D^{(2)} C
+   $$
+
+3. $B$ 를 고윳값 분해하고 고윳값이 큰 $m$ 개를 선택하여
+   고유벡터 행렬 $Q_m$ 과 $\Lambda_m^{1/2}$ 을 구성
+4. $X_{\text{mds}} = Q_m \Lambda_m^{1/2}$
+
+::: {.callout-tip collapse="true"}
+## 유클리드 거리에서 고전적 MDS = PCA
+
+이중 중심화 행렬 $B$ 는 사실 **중심화된 데이터의 그람 행렬**입니다.
+
+$$
+B = -\tfrac{1}{2} C D^{(2)} C = X_c X_c^\top
+$$
+
+한편 PCA 는 $X_c^\top X_c$ 를 분해합니다.
+$X_c X_c^\top$ 와 $X_c^\top X_c$ 는 **0 이 아닌 고윳값이 완전히 동일**하고
+(SVD 로 보면 둘 다 $\Sigma^2$),
+$B$ 의 고유벡터는 $U$, PCA 의 고유벡터는 $V$ 입니다.
+
+$$
+X_{\text{mds}} = U_m \Sigma_m = X_c V_m = C_{\text{PCA}}
+$$
+
+따라서 **유클리드 거리를 쓰는 고전적 MDS 는 PCA 와 같은 결과**를 줍니다.
+거리 행렬만 주어지고 원 데이터가 없을 때 PCA 를 대신할 수 있다는 것이 실용적 의미입니다.
+:::
+
+```{python}
+#| label: mds-verify
+#| eval: true
+#| code-fold: show
+#| code-summary: "수식 확인 — 고전적 MDS == PCA (유클리드 거리)"
+
+D2 = squareform(pdist(Xc)) ** 2
+Cmat = np.eye(n) - np.ones((n, n)) / n
+B = -0.5 * Cmat @ D2 @ Cmat
+
+lamB, QB = eigh(B)
+idxB = np.argsort(-lamB)[:2]
+X_mds = QB[:, idxB] * np.sqrt(lamB[idxB])
+X_pca = Xc @ Q[:, :2]
+
+print("classical MDS == PCA (부호 제외):",
+      np.allclose(np.abs(X_mds), np.abs(X_pca)))
+```
+
+### Metric MDS 와 Non-metric MDS
+
+**Metric MDS** — 고전적 MDS 를 다양한 거리로 일반화하고, **stress** 손실을 최소화합니다.
+
+$$
+\text{stress}_D(x_1, \dots, x_n)
+= \sqrt{\sum_{i \ne j} \left(d_{ij} - \lVert x_i - x_j \rVert\right)^2}
+$$
+
+최적화는 stress majorization 알고리즘을 사용합니다.
+
+**Non-metric MDS** — 거리 자체가 아니라 **거리의 순위(rank)** 를 유지합니다.
+
+$$
+\text{stress}_D
+= \sqrt{\frac{\sum_{i<j}\left(f(d_{ij}) - \lVert x_i - x_j \rVert\right)^2}
+              {\sum_{i<j}\left(\lVert x_i - x_j \rVert\right)^2}}
+$$
+
+여기서 $f$ 는 **단조 증가 함수**입니다. 거리가 서열 척도일 때 적합합니다.
+
+```{python}
+#| label: mds-api
+from sklearn.manifold import MDS
+
+mds = MDS(n_components=2, metric=True)   # False → non-metric MDS
+X_mds = mds.fit_transform(X)
+mds.stress_
+```
+
+| 하이퍼파라미터 | 설명 |
+|---|---|
+| `n_components` | 출력 차원 수 |
+| `metric` | `True` → metric MDS / `False` → non-metric MDS |
+| `dissimilarity` | `euclidean` 또는 `precomputed` (거리행렬 직접 입력) |
+
+## t-SNE
+
+고차원 데이터를 **시각화**하기 위해 2~3 차원으로 축소하는 확률적 방법입니다.
+
+**원 공간** — 가우시안 기반 조건부 확률을 정의하고 대칭화합니다.
+
+$$
+p_{j|i} = \frac{\exp\left(-\lVert x_i - x_j \rVert^2 / 2\sigma_i^2\right)}
+               {\sum_{k \ne i}\exp\left(-\lVert x_i - x_k \rVert^2 / 2\sigma_i^2\right)},
+\qquad
+p_{ij} = \frac{p_{j|i} + p_{i|j}}{2n}
+$$
+
+**축소 공간** — 자유도 1 인 $t$ 분포를 사용합니다.
+
+$$
+q_{ij} = \frac{\left(1 + \lVert y_i - y_j \rVert^2\right)^{-1}}
+              {\sum_{k}\sum_{l \ne k}\left(1 + \lVert y_k - y_l \rVert^2\right)^{-1}}
+$$
+
+**손실 함수** — 두 분포의 KL divergence 를 경사하강법으로 최소화합니다.
+
+$$
+L = \mathrm{KL}(P \Vert Q) = \sum_{i \ne j} p_{ij} \log \frac{p_{ij}}{q_{ij}}
+$$
+
+$$
+\frac{\partial L}{\partial y_i}
+= 4 \sum_j (y_i - y_j)(p_{ij} - q_{ij})\left(1 + \lVert y_i - y_j \rVert^2\right)^{-1}
+$$
+
+::: {.callout-tip collapse="true"}
+## 왜 축소 공간만 $t$ 분포인가 — crowding problem
+
+고차원에서 "서로 적당히 떨어진" 점들의 개수는 차원이 커질수록 기하급수적으로 늘어납니다.
+이들을 2차원에 배치하려 하면 **공간이 부족**해서 중간 거리의 점들이 모두 중앙으로 뭉개집니다.
+이것이 crowding problem 입니다.
+
+자유도 1 인 $t$ 분포는 가우시안보다 **꼬리가 두껍습니다**.
+
+$$
+q \propto \left(1 + \lVert y_i - y_j\rVert^2\right)^{-1}
+\quad\text{vs}\quad
+p \propto \exp\left(-\lVert x_i - x_j \rVert^2 / 2\sigma^2\right)
+$$
+
+같은 확률값 $q$ 를 얻으려면 $t$ 분포 쪽에서 **훨씬 더 먼 거리**가 필요합니다.
+결과적으로 중간 거리의 점 쌍이 저차원에서 더 넉넉하게 벌어질 여유가 생기고,
+군집 구조가 뭉개지지 않게 됩니다.
+:::
+
+::: {.callout-warning}
+## t-SNE 결과 해석 시 주의
+
+- **군집 사이의 거리는 의미가 없습니다.** 두 군집이 멀리 떨어져 보여도 실제로 먼 것은 아닙니다.
+- **군집의 크기(면적)도 의미가 없습니다.** 밀도가 높은 군집이 확대되어 보입니다.
+- 초기값과 `perplexity` 에 따라 결과가 크게 달라지는 **비결정적** 방법입니다.
+- `transform` 메서드가 없습니다 → **새 데이터에 적용할 수 없고, 시각화 전용**입니다.
+:::
+
+```{python}
+#| label: tsne-api
+from sklearn.manifold import TSNE
+
+tsne = TSNE(n_components=2, perplexity=30, random_state=0)
+X_tsne = tsne.fit_transform(X)   # fit_transform 만 존재 (transform 없음)
+```
+
+| 하이퍼파라미터 | 설명 |
+|---|---|
+| `n_components` | 출력 차원 수 (보통 2 또는 3) |
+| `perplexity` | 5~50 사이, 유효 이웃 수에 해당. 데이터가 클수록 큰 값 |
+
+## 선형판별분석 (LDA)
+
+PCA 가 "데이터를 가장 잘 설명하는" 선형 변환을 찾는다면,
+LDA 는 **"클래스를 가장 잘 구분하는"** 선형 변환을 찾습니다. → **지도 학습 기반 차원 축소**
+
+### 아이디어
+
+- **클래스 간 변동성은 최대화**, **클래스 내 변동성은 최소화**
+
+**클래스 간 공분산**
+
+$$
+\Sigma_b = \frac{1}{C}\sum_{i=1}^{C}(\mu_i - \mu)(\mu_i - \mu)^\top
+$$
+
+$\mu_i$ 는 클래스 $i$ 의 평균점, $\mu$ 는 전체 평균점입니다.
+
+**클래스 내 공분산은 모든 클래스에서 동일하다고 가정합니다.**
+
+$$
+\Sigma = \Sigma_1 = \cdots = \Sigma_C
+$$
+
+### 학습 알고리즘
+
+$\Sigma_b$ 의 변동성을 최대로 설명하는 변환은 고윳값 분해로 얻습니다.
+
+$$
+\Sigma_b = Q_b \Lambda_b Q_b^\top
+$$
+
+이때 0 이 아닌 고윳값은 **최대 $C-1$ 개**입니다.
+
+클래스 내 공분산을 최소화하는 변환은 역행렬을 취하면 됩니다.
+
+$$
+\Sigma = Q \Lambda Q^\top
+\quad\Rightarrow\quad
+\Sigma^{-1} = Q \Lambda^{-1} Q^\top
+$$
+
+$\Lambda$ 가 역수가 되므로 최소화 방향이 됩니다.
+두 과정을 하나의 고윳값 분해로 통합합니다.
+
+$$
+S = \Sigma^{-1}\Sigma_b
+$$
+
+$S$ 를 고윳값 분해하면 클래스 간 변동성을 최대한 설명하는 선형 변환과
+각 성분의 설명력을 동시에 얻습니다.
+
+::: {.callout-important}
+## $S$ 는 대칭행렬이 아닙니다
+
+$\Sigma^{-1}$ 과 $\Sigma_b$ 는 각각 대칭이지만, **두 대칭행렬의 곱은 일반적으로 대칭이 아닙니다.**
+
+따라서 `numpy.linalg.eigh` 가 아니라 **`numpy.linalg.eig` 를 사용해야 합니다.**
+`eigh` 는 대칭(에르미트) 행렬 전용이며, 비대칭 행렬에 쓰면 잘못된 결과를 냅니다.
+
+`eig` 는 복소수 고윳값을 반환할 수 있으므로 `.real` 로 실수부를 취해야 합니다.
+:::
+
+::: {.callout-tip collapse="true"}
+## 성분 수의 상한이 $\min(C-1, p)$ 인 이유
+
+$\Sigma_b$ 는 $C$ 개의 평균 편차 벡터 $(\mu_i - \mu)$ 의 외적 합입니다.
+그런데 이 $C$ 개 벡터에는 제약이 하나 있습니다.
+
+$$
+\sum_{i=1}^{C} n_i (\mu_i - \mu) = \mathbf{0}
+$$
+
+전체 평균의 정의상 편차의 가중합이 0 이므로, $C$ 개 벡터 중 하나는 나머지의 선형 결합입니다.
+따라서 $\operatorname{rank}(\Sigma_b) \le C - 1$ 이고,
+$S = \Sigma^{-1}\Sigma_b$ 의 랭크도 이를 넘지 못합니다.
+
+물론 변수 개수 $p$ 도 넘을 수 없으므로 최종 상한은 $\min(C-1,\ p)$ 입니다.
+:::
+
+```{python}
+#| label: lda-verify
+#| eval: true
+#| code-fold: show
+#| code-summary: "수식 확인 — LDA 성분 수의 상한"
+
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+
+Xl = rng.normal(size=(300, 10))
+yl = rng.integers(0, 4, 300)          # 클래스 4개, 변수 10개
+
+out = LinearDiscriminantAnalysis().fit_transform(Xl, yl)
+print("LDA 출력 차원:", out.shape[1], "= min(C-1, p) =", min(4 - 1, 10))
+```
+
+```{python}
+#| label: lda-api
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+
+lda = LinearDiscriminantAnalysis(n_components=2)
+X_lda = lda.fit_transform(X, y)        # y 필요 (지도 학습)
+
+lda.explained_variance_ratio_
+```
+
+| 하이퍼파라미터 | 설명 |
+|---|---|
+| `n_components` | 출력 성분 수, 최대 $\min(C-1,\ p)$ |
+| `solver` | `svd`(기본), `lsqr`, `eigen` |
+
+**PCA vs LDA**
+
+| 항목 | PCA | LDA |
+|---|---|---|
+| 목표 | 총 변동성 최대 설명 | 클래스 판별력 최대화 |
+| 레이블 | 불필요 (비지도) | 필요 (지도) |
+| 성분 수 상한 | $p$ | $\min(C-1,\ p)$ |
+| 용도 | 압축, 잡음 제거, 시각화 | 분류 전처리, 판별 시각화 |
+
+## 부분 최소 제곱 회귀 (PLS)
+
+입력 $X$ 와 **수치형 대상 변수 $y$ 의 공분산이 최대**가 되는 선형 변환을 찾습니다.
+
+### 최적 방향의 유도
+
+선형 변환을 $t = Xw$ 로 두고, $X$ 와 $y$ 가 평균 중심화되었다고 가정하면
+
+$$
+\operatorname{cov}(t, y) = \frac{1}{n-1} w^\top X^\top y
+= \frac{1}{n-1}\lVert w \rVert \cdot \lVert X^\top y \rVert \cos\theta
+$$
+
+$-1 \le \cos\theta \le 1$ 이므로 $\cos\theta = 1$ 일 때, 즉 $w$ 와 $X^\top y$ 가 **같은 방향**일 때 최대입니다.
+$\lVert w \rVert = 1$ 로 정규화하면
+
+$$
+w = \frac{X^\top y}{\lVert X^\top y \rVert}
+$$
+
+### NIPALS 알고리즘
+
+1. $X$, $y$ 를 평균 중심화
+2. $w = \dfrac{X^\top y}{\lVert X^\top y \rVert}$
+3. $t = Xw$ 와 $y$ 로 정규방정식을 풀어 회귀 계수를 구함
+   $$\beta = (t^\top t)^{-1}(t^\top y)$$
+4. **Deflation** — $y$ 에서 이미 설명된 부분을 제거
+   $$y \leftarrow y - \beta t$$
+5. $w$, $\beta$, $t$ 를 저장
+6. 종료 조건을 만족할 때까지 2 로 이동
+
+::: {.callout-tip collapse="true"}
+## PCR 과의 차이 — y 를 보느냐 마느냐
+
+**PCR** (Principal Component Regression, PCA + 회귀)은
+$X$ 의 분산이 큰 방향부터 성분을 뽑습니다. 이 과정에서 **$y$ 를 전혀 보지 않습니다.**
+
+문제는 "$X$ 에서 분산이 큰 방향"과 "$y$ 를 잘 예측하는 방향"이 일치한다는 보장이 없다는 점입니다.
+$y$ 와 강하게 연관된 신호가 $X$ 에서는 작은 분산 방향에 있다면,
+PCR 은 그 성분을 버려버립니다.
+
+PLS 는 $\operatorname{cov}(t, y)$ 를 직접 최대화하므로 이 문제가 없습니다.
+분산과 상관을 동시에 고려한다고 볼 수 있습니다 —
+$\operatorname{cov}(t,y) = \operatorname{corr}(t,y)\sqrt{\operatorname{var}(t)}\sqrt{\operatorname{var}(y)}$
+
+**Deflation 이 필요한 이유**: $y$ 에서 이미 설명된 부분을 빼지 않으면
+다음 반복에서 계속 같은 방향이 나옵니다. 잔차에서 다시 최대 공분산 방향을 찾아야
+서로 다른 정보를 담은 성분들이 순차적으로 추출됩니다.
+:::
+
+```{python}
+#| label: pls-api
+from sklearn.cross_decomposition import PLSRegression
+
+pls = PLSRegression(n_components=5)
+pls.fit(X_train, y_train)
+
+X_t = pls.transform(X_train)   # 성분으로 변환
+pls.predict(X_test)            # 회귀 예측까지 한 번에
+```
+
+::: {.callout-note}
+`PLSRegression` 은 차원 축소와 회귀를 동시에 수행합니다.
+성분만 필요하면 `transform`, 예측이 필요하면 `predict` 를 씁니다.
+:::
+
+---
+
+# 이상치 탐색 (Outlier Detection)
+
+## 이상치 탐색 vs 신규성 탐색
+
+| 구분 | 정의 | 학습 데이터 |
+|---|---|---|
+| **이상치 탐색** (outlier detection) | 주어진 데이터 **내에서** 주요 특성과 상이한 극단적 데이터를 탐지 | 이상치가 **섞여 있음** |
+| **신규성 탐색** (novelty detection) | **새로 주어진** 데이터가 기존 데이터의 특성과 상이한지 탐지 | 이상치가 **없다고 가정** |
+
+::: {.callout-important}
+scikit-learn 의 `LocalOutlierFactor` 는 `novelty` 파라미터로 두 모드를 전환합니다.
+
+| `novelty` | 사용 가능한 메서드 | 용도 |
+|---|---|---|
+| `False` (기본) | `fit_predict` **만** | 이상치 탐색 |
+| `True` | `fit` 후 `predict`, `decision_function` | 신규성 탐색 |
+
+`novelty=True` 로 두고 `fit_predict` 를 호출하면 오류가 납니다. 반대도 마찬가지입니다.
+:::
+
+## Local Outlier Factor (LOF)
+
+밀도 기반 이상치 탐색 방법입니다.
+**주변 이웃과의 밀도 비율**로 이상치 점수를 산정합니다.
+
+### 개념 정의
+
+1. **$k\text{-distance}(A)$** — $A$ 에서 $k$ 번째로 가까운 포인트까지의 거리
+
+2. **$N_k(A)$** — $k\text{-distance}(A)$ 안에 들어온 데이터 개수
+   (동점(tie)이 있으면 $k$ 보다 커질 수 있습니다)
+
+3. **도달 거리 (Reachability Distance)**
+
+   $$
+   \text{RD}(A, B) = \max\{\,k\text{-distance}(B),\ d(A, B)\,\}
+   $$
+
+4. **지역 도달 밀도 (Local Reachability Density)**
+
+   $$
+   \text{LRD}(A) = \frac{1}{\dfrac{\sum_{B \in N_k(A)} \text{RD}(A, B)}{|N_k(A)|}}
+   $$
+
+   $A$ 가 주변 데이터에서 멀리 떨어져 있을수록 LRD 는 작아집니다.
+
+5. **Local Outlier Factor**
+
+   $$
+   \text{LOF}_k(A) = \frac{1}{|N_k(A)|}\sum_{B \in N_k(A)} \frac{\text{LRD}(B)}{\text{LRD}(A)}
+   $$
+
+### 해석
+
+| LOF 값 | 의미 |
+|---|---|
+| $\approx 1$ | 이웃과 밀도가 유사 |
+| $< 1$ | 이웃보다 밀도가 높음 (inlier) |
+| $> 1$ | 이웃보다 밀도가 낮음 → **이상치** |
+
+::: {.callout-tip collapse="true"}
+## 왜 거리 대신 도달 거리(RD)를 쓰는가
+
+$\text{RD}(A,B)$ 는 $A$ 가 $B$ 에 아주 가까이 붙어 있어도
+**$k\text{-distance}(B)$ 이하로는 내려가지 않도록 하한을 겁니다.**
+
+만약 실제 거리를 그대로 쓰면, 우연히 두 점이 매우 가까운 경우
+분모가 0 에 가까워져 LRD 가 폭발하고 LOF 가 불안정해집니다.
+RD 는 이 **통계적 변동을 완화하는 평활화(smoothing) 장치**입니다.
+
+또 하나의 핵심은 **LOF 가 비율이라는 점**입니다.
+절대 밀도가 아니라 *이웃 대비 상대 밀도*를 보기 때문에,
+밀도가 서로 다른 군집이 한 데이터셋에 섞여 있어도 각 군집의 기준으로 이상치를 판정합니다.
+이것이 DBSCAN(단일 $\epsilon$ 사용)과의 결정적 차이입니다.
+:::
+
+```{python}
+#| label: lof-verify
+#| eval: true
+#| code-fold: show
+#| code-summary: "수식 확인 — 정의대로 계산한 LOF 가 sklearn 과 일치한다"
+
+from sklearn.neighbors import LocalOutlierFactor
+
+Xf = rng.normal(size=(30, 3))
+k = 5
+
+dist = squareform(pdist(Xf))
+order = np.argsort(dist, axis=1)
+knb = order[:, 1:k + 1]                       # 자기 자신 제외한 k 이웃
+nd = np.take_along_axis(dist, knb, axis=1)    # 이웃과의 거리
+kdist = nd[:, -1]                             # k-distance
+
+lrd = 1 / np.mean(np.maximum(nd, kdist[knb]), axis=1)   # RD 로 LRD 계산
+lof = np.mean(lrd[knb] / lrd[:, None], axis=1)          # 밀도 비율의 평균
+
+sk = -LocalOutlierFactor(n_neighbors=k).fit(Xf).negative_outlier_factor_
+print("직접 계산 == sklearn:", np.allclose(lof, sk))
+print("LOF 상위 3개:", np.round(np.sort(lof)[-3:], 4))
+```
+
+```{python}
+#| label: lof-api
+from sklearn.neighbors import LocalOutlierFactor
+
+# 이상치 탐색
+lof = LocalOutlierFactor(n_neighbors=20, contamination="auto")
+is_outlier = lof.fit_predict(X)        # -1: 이상치, 1: 정상
+score = -lof.negative_outlier_factor_  # LOF 점수 (클수록 이상치)
+
+# 신규성 탐색
+lof_nov = LocalOutlierFactor(n_neighbors=20, novelty=True)
+lof_nov.fit(X_train)
+lof_nov.predict(X_new)
+```
+
+| 하이퍼파라미터 | 설명 |
+|---|---|
+| `n_neighbors` | 최근접 이웃 수 $k$ |
+| `novelty` | `False` → 이상치 탐색 / `True` → 신규성 탐색 |
+| `contamination` | 이상치 비율. `auto` 또는 0~0.5 실수 |
+
+::: {.callout-warning}
+`negative_outlier_factor_` 는 이름 그대로 **LOF 의 음수** 입니다.
+LOF 점수를 얻으려면 부호를 뒤집어야 합니다 (`-lof.negative_outlier_factor_`).
+:::
+
+**특징**
+
+- 전체 데이터가 아니라 **해당 포인트의 주변 데이터만**을 이용합니다.
+- 데이터의 분포나 밀도를 가정하지 않으므로 다양한 유형에 적용 가능합니다.
+- 이상치 판정은 점수의 **임계값**에 의존하며, 임계값은 데이터·목적에 따라 조정이 필요합니다.
+- **이웃 수 $k$ 가 성능에 큰 영향**을 미칩니다.
+
+## Isolation Forest
+
+의사결정나무와 앙상블을 결합한 이상치 탐지 모델입니다.
+
+### 기본 아이디어
+
+- 임의의 변수를 고르고, 그 변수의 최소값과 최대값 사이 임의 지점에서 분할하여 나무를 성장시킵니다.
+  이 나무를 **iTree** 라 합니다.
+- **이상치는 비교적 짧은 경로로 고립(isolate)된다**는 점을 이용합니다.
+- 여러 iTree 의 결과를 종합해 이상치 점수를 산정합니다.
+
+### iTree 학습
+
+1. **Sub-sampling** — 전체 데이터셋의 일부를 샘플링
+2. **노드 분기**
+   - 임의의 변수 $A$ 를 선택
+   - $A$ 의 최대값과 최소값 사이의 임의 지점을 **균등하게** 선택하여 분기
+3. 종료 조건까지 반복
+   - 사전에 설정한 최대 깊이 도달
+   - 데이터 포인트가 하나만 남거나 모든 값이 동일
+
+### 이상치 점수 (Anomaly Score)
+
+$$
+s(x, n) = 2^{-\dfrac{E[h(x)]}{c(n)}}
+$$
+
+- $h(x)$: 포인트 $x$ 의 iTree 경로 길이. **짧을수록 이상치일 가능성이 높습니다.**
+- $E[h(x)]$: 모든 iTree 에서의 평균 경로 길이
+- $c(n)$: 정규화 상수 — 표본 $n$ 개일 때 이진 탐색 트리의 평균 경로 길이
+
+$$
+c(n) = 2H(n-1) - \frac{2(n-1)}{n},
+\qquad H(i) \approx \ln i + \gamma \ \ (\gamma \approx 0.5772,\ \text{오일러 상수})
+$$
+
+$E[h(x)]$ 가 작을수록 $s(x)$ 는 커지고, 이상치일 가능성이 높습니다.
+
+::: {.callout-tip collapse="true"}
+## 왜 짧은 경로가 이상치인가
+
+랜덤 분할은 데이터가 **조밀한 영역**을 자를 확률이 높습니다.
+정상 포인트는 조밀한 영역에 있으므로 주변 포인트들과 함께 계속 남아 있고,
+혼자 남기까지 많은 분할이 필요합니다.
+
+반면 이상치는 값이 극단적이라 첫 몇 번의 분할만으로 혼자 떨어져 나갑니다.
+
+$c(n)$ 으로 나누는 이유는 **경로 길이가 표본 수 $n$ 에 의존**하기 때문입니다.
+$n$ 이 크면 평균 경로도 길어지므로, 표본 크기가 다른 설정끼리 비교하려면
+"평균적인 포인트의 경로 길이"로 정규화해야 합니다.
+그 결과 $s$ 는 항상 $(0, 1)$ 범위이고, $E[h(x)] = c(n)$ 일 때 $s = 0.5$ 가 됩니다.
+:::
+
+```{python}
+#| label: isf-verify
+#| eval: true
+#| code-fold: show
+#| code-summary: "수식 확인 — c(n) 정의가 sklearn 내부 구현과 일치한다"
+
+from sklearn.ensemble._iforest import _average_path_length
+
+def c(n):
+    return 2 * (np.log(n - 1) + np.euler_gamma) - 2 * (n - 1) / n
+
+ns = np.array([10, 100, 256])
+print("직접 계산 :", np.round([c(m) for m in ns], 4))
+print("sklearn   :", np.round(_average_path_length(ns), 4))
+print("일치 여부 :", np.allclose([c(m) for m in ns], _average_path_length(ns)))
+```
+
+```{python}
+#| label: isf-api
+from sklearn.ensemble import IsolationForest
+
+isf = IsolationForest(n_estimators=200, max_samples=0.9,
+                      contamination="auto", random_state=0)
+is_outlier = isf.fit_predict(X)   # -1: 이상치, 1: 정상
+
+isf.score_samples(X)      # 이상치 점수의 음수
+isf.decision_function(X)  # score_samples - offset_ (음수면 이상치)
+```
+
+| 하이퍼파라미터 | 설명 |
+|---|---|
+| `n_estimators` | iTree 의 수 |
+| `max_samples` | iTree 학습에 쓸 데이터 수. 정수면 개수, 0~1 실수면 비율 |
+| `bootstrap` | `True` → 복원 추출 / `False` → 비복원 추출 |
+| `contamination` | 이상치 비율. 임계값(`offset_`) 결정에 사용 |
+
+**특징**
+
+- **데이터 분포에 대한 가정이 필요 없습니다.**
+- 고차원에서도 거리 기반 모델보다 성능 저하가 덜합니다
+  (거리 계산 자체를 하지 않으므로 거리 집중 문제에서 자유롭습니다).
+- 데이터 수와 iTree 개수에 따라 결과가 다소 **불안정**합니다.
+
+## 일반 모델의 이상치 탐지 응용
+
+### PCA 재구성 오차
+
+PCA 로 차원 축소한 뒤 다시 역변환하여 **원래 값과의 차이**를 비교합니다.
+
+> PCA 는 적은 변수로 최대한의 변동성을 설명하는 성분을 만듭니다.
+> 이 과정에서 **전반적인 데이터 특성을 따르지 않는 포인트는 차원 축소 시 상대적으로 손실이 큽니다.**
+> 이 손실량으로 이상치를 판별합니다.
+
+$$
+\text{재구성 오차}(x_i) = \lVert x_i - x_i' \rVert_2,
+\qquad x_i' = \text{inverse\_transform}(\text{transform}(x_i))
+$$
+
+임계값은 보통 오차의 상위 분위수(예: 99%)로 정합니다.
+
+```{python}
+#| label: pca-outlier
+from sklearn.decomposition import PCA
+
+pca = PCA(n_components=2, random_state=0)
+X_pca = pca.fit_transform(X)
+X_inv = pca.inverse_transform(X_pca)
+
+recon_err = np.sqrt(np.sum(np.square(X_inv - X), axis=1))
+thres = np.quantile(recon_err, 0.99)
+is_outlier = recon_err >= thres
+```
+
+::: {.callout-note}
+표준화 여부가 결과를 크게 좌우합니다.
+스케일이 큰 변수의 재구성 오차가 자동으로 커지므로,
+변수 단위가 다르면 표준화 후 적용해야 합니다.
+:::
+
+### DBSCAN 잡음 포인트
+
+DBSCAN 은 어떤 군집에도 속하지 않는 **잡음 포인트**를 명시적으로 라벨 $-1$ 로 반환합니다.
+이를 그대로 이상치로 간주할 수 있습니다.
+
+```{python}
+#| label: dbscan-outlier
+from sklearn.cluster import DBSCAN
+
+labels = DBSCAN(eps=0.5, min_samples=5).fit_predict(X)
+is_outlier = labels == -1
+```
+
+### 이상치 탐지 방법 비교
+
+| 방법 | 기준 | 강점 | 약점 |
+|---|---|---|---|
+| LOF | 이웃 대비 상대 밀도 | 밀도가 다른 군집이 섞여도 동작 | $k$ 에 민감, $O(n^2)$ 거리 계산 |
+| Isolation Forest | 고립까지의 경로 길이 | 고차원에 강함, 빠름 | 결과가 다소 불안정 |
+| PCA 재구성 오차 | 선형 구조에서의 이탈 | 계산이 단순, 해석 용이 | 비선형 구조는 못 잡음 |
+| DBSCAN 잡음 | 밀도 연결성 | 군집화와 동시 수행 | 단일 $\epsilon$ 의 한계 |
+
+---
+
+# 부록: 자주 혼동되는 지점
+
+## 함수·API 선택
+
+| 상황 | 올바른 선택 | 흔한 실수 |
+|---|---|---|
+| 대칭행렬 고윳값 분해 | `np.linalg.eigh` | — |
+| 비대칭행렬 ($S = \Sigma^{-1}\Sigma_b$) | `np.linalg.eig` + `.real` | `eigh` 사용 |
+| 밀집 데이터 차원 축소 | `PCA` | `TruncatedSVD` (중심화 안 함) |
+| 희소 행렬 차원 축소 | `TruncatedSVD` | `PCA` (메모리 폭발) |
+| 이상치 탐색 (LOF) | `novelty=False` + `fit_predict` | `novelty=True` 에서 `fit_predict` |
+| 신규성 탐색 (LOF) | `novelty=True` + `fit` → `predict` | `fit_predict` 호출 |
+
+## 정렬·부호 관련
+
+| 항목 | 주의점 |
+|---|---|
+| `np.linalg.eigh` 반환 순서 | **오름차순** → `np.argsort(-lam)` 로 재정렬 필요 |
+| `pca.components_` | $Q$ 가 아니라 **$Q^\top$** |
+| `negative_outlier_factor_` | LOF 의 **음수** → 부호 반전 필요 |
+| `IsolationForest.score_samples` | 이상치 점수의 **음수** |
+| 고유벡터의 부호 | 유일하지 않음 → 고윳값 분해와 SVD 결과의 부호가 다를 수 있음 |
+
+## 파라미터 의미
+
+| 파라미터 | 주의점 |
+|---|---|
+| `DBSCAN(min_samples=m)` | **자기 자신을 포함**하여 카운트 |
+| `PCA(n_components=0.98)` | 성분 수가 아니라 **설명율 98%** 를 의미 |
+| `LinearDiscriminantAnalysis(n_components)` | 최대 $\min(C-1,\ p)$ |
+| `AgglomerativeClustering(linkage="ward")` | 유클리드 거리에서만 유효 |
+| `AgglomerativeClustering` 거리 인자 | 구버전 `affinity` → 최신 `metric` |
+| `n_clusters` + `distance_threshold` | **동시 지정 불가** |
+| `fcluster(Z, t, criterion)` | `maxclust` → `t`=군집 수 / `distance` → `t`=거리 상한 |
+
+## 개념 대응 관계
+
+| 관계 | 조건 |
+|---|---|
+| K-Means = GMM | 공분산 $\sigma^2 I$ 고정, $\sigma^2 \to 0$ |
+| K-Means ≈ 워드 연결 | 같은 목적 함수(군집 내 제곱합), 최적화 방식만 다름 |
+| 고전적 MDS = PCA | 유클리드 거리를 쓸 때 |
+| PCA = SVD | $Q = V$, $\Lambda = \frac{1}{n-1}\Sigma^\top\Sigma$, $C = U\Sigma$ |
+| K-Means : K-Medoids | 평균 : 중앙값 (제곱 손실 : 절대 손실) |
+
+## 시간 복잡도 개요
+
+| 모델 | 대략적 복잡도 | 병목 |
+|---|---|---|
+| K-Means | $O(nkp)$ / 반복 | 반복 횟수 × `n_init` |
+| K-Medoids | $O(n^2)$ 이상 | 거리 행렬 |
+| 계층적 군집화 | $O(n^2)$ 메모리, $O(n^2\log n)$ | 거리 행렬 |
+| DBSCAN | $O(n\log n)$ ~ $O(n^2)$ | 인덱스 구조 유무 |
+| GMM | $O(nCp^2)$ / 반복 | 공분산 추정 |
+| PCA | $O(\min(n^2p,\ np^2))$ | SVD |
+| t-SNE | $O(n\log n)$ (Barnes-Hut) | 반복 최적화 |
+| LOF | $O(n^2)$ | 거리 행렬 |
+| Isolation Forest | $O(n_{\text{tree}} \cdot \psi \log \psi)$ | 서브샘플 크기 $\psi$ |

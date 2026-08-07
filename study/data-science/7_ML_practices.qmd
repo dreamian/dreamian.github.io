@@ -1,0 +1,1710 @@
+---
+title: "머신러닝 모델 실습 연습 문제"
+subtitle: "선형 모델 · 의사 결정 나무 · 나이브 베이즈 · KNN · SVM · 앙상블"
+date: "2026-08-04"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    embed-resources: true
+    code-fold: false
+    code-tools: true
+    number-sections: true
+    df-print: paged
+execute:
+  eval: false
+  warning: false
+  message: false
+jupyter: python3
+---
+
+
+# 머신러닝 모델 실습 연습 문제
+
+선형 모델, 의사 결정 나무, 나이브 베이즈, K최근접 이웃, SVM, 앙상블 모델을 다루는 연습 문제입니다.
+
+각 문제의 코드 셀을 직접 채워 넣은 뒤, 해설과 대조해 보세요.
+
+## 0. 준비
+
+### 데이터셋
+
+| 변수 | 파일 | 설명 |
+|:-----|:-----|:-----|
+| `df_abalone` | `abalone.csv` | 전복 생육 정보. `Rings` 회귀 / `Sex` 분류 |
+| `df_titanic` | `titanic.csv` | 탑승객 생존 여부. `Survived` 이진 분류 |
+| `df_spam` | `SMSSpamCollection.tsv` | SMS 텍스트와 스팸 여부. `target` 이진 분류 |
+| `df_gene` | `gene.csv` | 유전자 발현량과 백혈병 유형. `cancer` 이진 분류 |
+| `df_berry` | `wild_blueberry.csv` | 야생 블루베리 수확량 회귀 |
+| `df_toy` | (직접 정의) | SVM 마진 확인용 2차원 장난감 데이터 |
+
+```{python}
+import numpy as np
+import pandas as pd
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+pd.set_option('display.max_columns', 50)
+```
+
+```{python}
+from google.colab import drive
+drive.mount('/content/drive', force_remount=True)
+
+DS_UPPER_PATH = "/content/drive/MyDrive/ColabNotebooks/DS_Lv3_elearning-main/"
+```
+
+```{python}
+df_abalone = pd.read_csv(DS_UPPER_PATH + 'data/abalone.csv')
+df_titanic = pd.read_csv(DS_UPPER_PATH + 'data/titanic.csv', index_col='PassengerId')
+df_spam = pd.read_csv(DS_UPPER_PATH + 'data/SMSSpamCollection.tsv', sep='\t')
+df_gene = pd.read_csv(DS_UPPER_PATH + 'data/gene.csv', index_col='patient')
+df_berry = pd.read_csv(DS_UPPER_PATH + 'data/wild_blueberry.csv', index_col='Row#')
+
+df_toy = pd.DataFrame({
+    'x1': [1.5, 2.5, 2, 3, 1, 4, 2, 3, 3.4, 2.5],
+    'x2': [2, 4.2, 2, 4, 1, 2, 0, 0.8, 0.5, 1],
+    'Class': [1, 1, 1, 1, 1, -1, -1, -1, -1, -1]
+})
+
+for name, df in [('abalone', df_abalone), ('titanic', df_titanic),
+                 ('spam', df_spam), ('gene', df_gene), ('berry', df_berry)]:
+    print(f'{name:10s} {df.shape}')
+```
+
+```{python}
+# titanic 전처리: 결측치 대체 후 범주형 변수를 가변수화합니다.
+df_titanic = pd.get_dummies(
+    df_titanic.assign(
+        Embarked=lambda x: x['Embarked'].fillna(x['Embarked'].mode().iloc[0]),
+        Age=lambda x: x['Age'].fillna(x['Age'].mean()),
+    ), columns=['Pclass', 'Embarked']
+).assign(
+    Sex=lambda x: x['Sex'] == 'female'
+)
+
+X_num = ['Age', 'SibSp', 'Parch', 'Fare']
+X_dum = [i for i in df_titanic.columns
+         if i.startswith('Pclass') or i.startswith('Sex') or i.startswith('Embarked')]
+X_all = X_num + X_dum
+X_all
+```
+
+## 1. 선형 모델
+
+### [문제 1-1] OLS 회귀 결과표 읽기
+
+::: {.callout-note appearance="simple"}
+`df_abalone`에서 `Whole_weight` 하나로 `Rings`를 설명하는 단순 회귀를 `statsmodels`의 `OLS`로 적합하고 `summary()`를 출력하세요.
+
+출력된 표에서 다음을 각각 확인하고 그 의미를 답하세요.
+
+1. `R-squared`와 `Adj. R-squared`의 값 차이가 거의 없는 이유
+2. `coef`가 뜻하는 것 — `Whole_weight`가 1 증가할 때 `Rings`의 변화량
+3. `Df Residuals`가 어떻게 계산되었는지
+4. `Prob (F-statistic)`이 검정하고 있는 귀무가설
+:::
+
+```{python}
+#| eval: false
+from statsmodels.api import OLS, add_constant
+
+# TODO: OLS로 Rings ~ Whole_weight 단순 회귀를 적합하고 summary()를 출력하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 1-1"}
+
+1. **`R^2`와 `Adj. R^2`의 차이가 미미한 이유**
+
+   $$R^2_{adj} = 1 - \frac{(1-R^2)(n-1)}{n-p-1}$$
+
+   설명 변수가 $p=1$개뿐이고 $n \approx 4177$로 매우 크므로 페널티 항 $\frac{n-1}{n-p-1} \approx 1$이 되어 두 값이 거의 같아집니다. 변수를 많이 넣을수록 두 값의 간극이 벌어지며, 이 간극 자체가 "불필요한 변수가 섞여 있다"는 신호가 됩니다.
+
+2. **`coef`의 해석**
+
+   `Whole_weight`가 1(단위: gram 기준 스케일) 증가할 때 `Rings`의 조건부 기댓값이 `coef`만큼 증가합니다. 단순 회귀이므로 다른 변수를 통제한 효과가 아니라 주변부(marginal) 효과입니다.
+
+3. **`Df Residuals`**
+
+   $n - (p + 1) = 4177 - 2 = 4175$. 절편 1개와 기울기 1개, 총 2개의 모수를 추정하는 데 자유도를 소모했습니다.
+
+4. **`Prob (F-statistic)`의 귀무가설**
+
+   $H_0: \beta_1 = 0$ (절편을 제외한 모든 회귀 계수가 0이다). 단순 회귀에서는 기울기의 t검정과 동일한 결론을 주며, 실제로 $F = t^2$ 관계가 성립합니다.
+
+```{python}
+#| eval: false
+from statsmodels.api import OLS, add_constant
+
+lm = OLS(df_abalone['Rings'], add_constant(df_abalone[['Whole_weight']])).fit()
+print(lm.summary())
+
+# F = t^2 관계를 확인합니다.
+t_stat = lm.tvalues['Whole_weight']
+print(f'\nt^2 = {t_stat ** 2:.4f}, F = {lm.fvalue:.4f}')
+```
+
+:::
+
+### [문제 1-2] 표준화가 SGDRegressor에 미치는 영향
+
+::: {.callout-note appearance="simple"}
+`df_abalone`에서 `Rings`를 예측하는 파이프라인을 두 가지로 만들어 학습 MSE를 비교하세요.
+
+- (a) 연속형 변수를 `passthrough`로 그대로 통과
+- (b) 연속형 변수를 `StandardScaler`로 표준화
+
+두 경우 모두 `Sex`는 `OneHotEncoder(drop='first')`로 가변수화하고, 회귀기는 `SGDRegressor(max_iter=100, random_state=123)`을 사용합니다.
+
+왜 (b)가 (a)보다 훨씬 나은 결과를 내는지 설명하세요. 같은 실험을 `LinearRegression`으로 바꾸면 결과가 어떻게 달라질지도 함께 답하세요.
+:::
+
+```{python}
+#| eval: false
+from sklearn.linear_model import SGDRegressor
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.metrics import mean_squared_error
+
+X_cols = [i for i in df_abalone.columns if i != 'Rings']
+cont_val = [i for i in df_abalone.columns if i not in ['Sex', 'Rings']]
+
+# TODO: passthrough 버전과 StandardScaler 버전의 MSE를 각각 구하고 비교하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 1-2"}
+
+**핵심: 경사하강법은 스케일에 민감하고, 정규방정식은 그렇지 않습니다.**
+
+`SGDRegressor`는 손실 곡면 위를 그래디언트 방향으로 내려갑니다. 변수 간 스케일이 크게 다르면 손실 곡면이 심하게 길쭉한 타원이 되어, 스케일이 큰 축 방향으로는 과도하게 튀고 작은 축 방향으로는 거의 움직이지 않습니다.
+
+`abalone`은 `Height`가 0.1 내외인 반면 `Whole_weight`는 2를 넘어 스케일 차이가 큽니다. 모든 변수에 동일한 학습률 $\eta$가 적용되므로:
+
+$$\beta_j \leftarrow \beta_j - \eta \frac{\partial L}{\partial \beta_j}$$
+
+에서 $\frac{\partial L}{\partial \beta_j} \propto x_j$이므로, 스케일이 큰 변수의 그래디언트가 지배적이 되어 발산하거나 수렴이 극히 느려집니다.
+
+**`LinearRegression`으로 바꾸면?**
+
+정규방정식 $\hat{\beta} = (X^\top X)^{-1}X^\top y$을 닫힌 형태로 풀기 때문에 **스케일과 무관하게 동일한 최적해**를 얻습니다. 표준화 여부가 예측 성능에 영향을 주지 않습니다.
+
+단, 규제가 들어간 `Ridge`/`Lasso`에서는 페널티 $\lambda\sum\beta_j^2$가 계수의 크기를 직접 벌하므로, 스케일이 작은 변수의 계수가 자동으로 커지면서 부당하게 큰 페널티를 받습니다. 즉 **규제가 있으면 닫힌 해라도 반드시 표준화가 필요합니다.**
+
+```{python}
+#| eval: false
+from sklearn.linear_model import SGDRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.metrics import mean_squared_error
+
+X_cols = [i for i in df_abalone.columns if i != 'Rings']
+cont_val = [i for i in df_abalone.columns if i not in ['Sex', 'Rings']]
+
+results = {}
+for name, scaler in [('passthrough', 'passthrough'), ('standardized', StandardScaler())]:
+    ct = ColumnTransformer([
+        ('std', scaler, cont_val),
+        ('ohe', OneHotEncoder(drop='first'), ['Sex'])
+    ])
+    reg = make_pipeline(ct, SGDRegressor(max_iter=100, random_state=123))
+    reg.fit(df_abalone[X_cols], df_abalone['Rings'])
+    results[name] = mean_squared_error(df_abalone['Rings'], reg.predict(df_abalone[X_cols]))
+
+print('SGDRegressor')
+for k, v in results.items():
+    print(f'  {k:14s} MSE = {v:,.4f}')
+
+# LinearRegression은 스케일에 무관합니다.
+print('\nLinearRegression')
+for name, scaler in [('passthrough', 'passthrough'), ('standardized', StandardScaler())]:
+    ct = ColumnTransformer([
+        ('std', scaler, cont_val),
+        ('ohe', OneHotEncoder(drop='first'), ['Sex'])
+    ])
+    reg = make_pipeline(ct, LinearRegression())
+    reg.fit(df_abalone[X_cols], df_abalone['Rings'])
+    mse = mean_squared_error(df_abalone['Rings'], reg.predict(df_abalone[X_cols]))
+    print(f'  {name:14s} MSE = {mse:.4f}')
+```
+
+:::
+
+### [문제 1-3] Ridge와 Lasso의 계수 축소 패턴 비교
+
+::: {.callout-note appearance="simple"}
+`df_abalone`을 8:2로 분할한 뒤, 표준화 + 가변수화 파이프라인 위에서 `Ridge`와 `Lasso`를 각각 여러 `alpha`로 학습하세요.
+
+`alpha`별로 **계수의 절댓값이 정확히 0인 개수**를 세어 표로 만들고, 두 모델의 차이를 설명하세요.
+
+`alpha` 후보: `[1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1]`
+:::
+
+```{python}
+#| eval: false
+from sklearn.linear_model import Ridge, Lasso
+from sklearn.model_selection import train_test_split
+
+# TODO: alpha별로 Ridge와 Lasso의 0인 계수 개수를 세어 비교하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 1-3"}
+
+**결과 패턴**: `Ridge`는 어떤 `alpha`에서도 0인 계수가 0개인 반면, `Lasso`는 `alpha`가 커질수록 0인 계수가 늘어나다 결국 전부 0이 됩니다.
+
+**왜 이런 차이가 나는가 — 그래디언트 관점**
+
+페널티의 미분을 보면 명확합니다.
+
+$$\frac{d}{d\beta}\left(\beta^2\right) = 2\beta \quad\text{(L2)}, \qquad \frac{d}{d\beta}|\beta| = \operatorname{sign}(\beta) \quad\text{(L1, } \beta \neq 0)$$
+
+- **L2**: $\beta \to 0$이면 페널티 그래디언트도 $\to 0$. 0에 가까워질수록 밀어내는 힘이 사라져 **정확히 0에 도달할 유인이 없습니다.**
+- **L1**: $\beta$가 아무리 작아도 그래디언트 크기가 항상 $1$로 일정. 0 근처에서도 **동일한 세기로 계속 밀어붙이므로** 0에 도달해 머무릅니다.
+
+$\beta = 0$에서 L1은 미분 불가능하고, 열구배(subgradient)가 구간 $[-\lambda, \lambda]$가 됩니다. 데이터 손실의 그래디언트가 이 구간 안에 들어오면 $\beta = 0$이 정지점이 되므로, 0이 **양의 측도를 갖는 해**가 됩니다.
+
+**기하학적 해석**: L1 제약 영역 $\sum|\beta_j| \le t$는 축 위에 꼭짓점을 갖는 다이아몬드(고차원에서는 교차폴리토프)입니다. 손실 등고선이 이 영역과 처음 만나는 지점이 꼭짓점일 확률이 높고, 꼭짓점은 곧 일부 좌표가 0인 점입니다. L2의 구는 매끈해서 축 위의 한 점에서 접할 확률이 사실상 0입니다.
+
+```{python}
+#| eval: false
+from sklearn.linear_model import Ridge, Lasso
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.metrics import mean_squared_error
+
+X_cols = [i for i in df_abalone.columns if i != 'Rings']
+cont_val = [i for i in df_abalone.columns if i not in ['Sex', 'Rings']]
+
+ct = ColumnTransformer([
+    ('std', StandardScaler(), cont_val),
+    ('ohe', OneHotEncoder(drop='first'), ['Sex'])
+])
+
+df_train, df_test = train_test_split(df_abalone, train_size=0.8, random_state=123)
+alphas = [1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1]
+
+rows = []
+for alpha in alphas:
+    row = {'alpha': alpha}
+    for name, Model in [('Ridge', Ridge), ('Lasso', Lasso)]:
+        reg = make_pipeline(ct, Model(alpha=alpha, random_state=123))
+        reg.fit(df_train[X_cols], df_train['Rings'])
+        coef = reg[1].coef_
+        row[f'{name}_n_zero'] = int(np.sum(np.abs(coef) < 1e-12))
+        row[f'{name}_mse_test'] = mean_squared_error(
+            df_test['Rings'], reg.predict(df_test[X_cols]))
+    rows.append(row)
+
+df_result = pd.DataFrame(rows).set_index('alpha')
+print(f'전체 계수 개수: {len(cont_val) + 2}')
+df_result
+```
+
+:::
+
+### [문제 1-4] 분류 임계값 조정과 정밀도-재현율 트레이드오프
+
+::: {.callout-note appearance="simple"}
+`df_abalone`에서 `Sex`가 `'F'` 또는 `'M'`인 행만 골라 이진 분류 문제를 만들고, 표준화 + `LogisticRegression` 파이프라인으로 학습하세요.
+
+학습된 모델의 `predict_proba`를 사용해 임계값 $\tau$를 `0.05`부터 `0.95`까지 바꾸며 평가 데이터의 **정밀도(precision), 재현율(recall), F1**을 계산하고 하나의 그래프로 그리세요.
+
+그런 다음 답하세요.
+
+1. $\tau$를 낮출 때 재현율이 오르고 정밀도가 내려가는 이유
+2. F1이 최대가 되는 $\tau$는 `0.5`와 얼마나 다른가
+:::
+
+```{python}
+#| eval: false
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import precision_score, recall_score, f1_score
+
+# TODO: 임계값을 바꾸며 precision / recall / F1을 계산하고 시각화하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 1-4"}
+
+**1. 임계값을 낮추면 재현율 상승, 정밀도 하락**
+
+임계값 $\tau$를 낮추면 양성으로 판정되는 집합이 **단조적으로 커집니다**. $\tau_1 < \tau_2$일 때 $\{x: p(x) \ge \tau_2\} \subseteq \{x: p(x) \ge \tau_1\}$이므로:
+
+- $TP$는 감소하지 않고 $FN$은 증가하지 않음 $\Rightarrow$ $\text{Recall} = \frac{TP}{TP+FN}$은 **단조 증가**
+- $FP$도 함께 증가하며, 새로 편입되는 샘플들은 확률이 낮은(=양성일 가능성이 작은) 것들이므로 편입 집단의 양성 비율이 기존보다 낮음 $\Rightarrow$ $\text{Precision} = \frac{TP}{TP+FP}$은 **경향적으로 감소**
+
+정밀도가 엄밀히 단조는 아닙니다. 새로 편입된 구간의 실제 양성 비율이 현재 정밀도보다 우연히 높으면 국소적으로 오를 수 있어, 실제 곡선은 톱니 모양을 보입니다.
+
+**2. F1 최적 임계값**
+
+`abalone`의 F/M 분류는 두 클래스 비율이 거의 균형이고 분리도가 낮아(AUC가 0.6 근처), F1 최적 임계값이 0.5에서 크게 벗어나지 않습니다. 반면 클래스가 심하게 불균형하거나 오분류 비용이 비대칭인 문제(사기 탐지, 질병 진단)에서는 최적 임계값이 0.5에서 크게 이동합니다.
+
+**주의**: 임계값은 반드시 **검증 데이터**에서 탐색해야 합니다. 평가 데이터에서 최적 임계값을 고르면 그 성능은 낙관적으로 편향됩니다.
+
+```{python}
+#| eval: false
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score
+
+df_train, df_test = train_test_split(df_abalone, train_size=0.8, random_state=123)
+df_train2 = df_train.loc[df_train['Sex'].isin(['F', 'M'])]
+df_test2 = df_test.loc[df_test['Sex'].isin(['F', 'M'])]
+
+X_cols = [i for i in df_train2.columns if i != 'Sex']
+
+clf_lr = make_pipeline(StandardScaler(), LogisticRegression(random_state=123))
+clf_lr.fit(df_train2[X_cols], df_train2['Sex'])
+
+# 양성 클래스는 알파벳 순으로 'M'입니다.
+pos_label = clf_lr.classes_[1]
+proba = clf_lr.predict_proba(df_test2[X_cols])[:, 1]
+y_true = df_test2['Sex']
+
+thresholds = np.arange(0.05, 0.96, 0.01)
+prec, rec, f1 = [], [], []
+for tau in thresholds:
+    pred = np.where(proba >= tau, pos_label, clf_lr.classes_[0])
+    prec.append(precision_score(y_true, pred, pos_label=pos_label, zero_division=0))
+    rec.append(recall_score(y_true, pred, pos_label=pos_label, zero_division=0))
+    f1.append(f1_score(y_true, pred, pos_label=pos_label, zero_division=0))
+
+best_idx = int(np.argmax(f1))
+print(f'AUC          = {roc_auc_score(y_true == pos_label, proba):.4f}')
+print(f'F1 최적 임계값 = {thresholds[best_idx]:.2f} (F1 = {f1[best_idx]:.4f})')
+idx_half = int(np.argmin(np.abs(thresholds - 0.5)))
+print(f'tau = 0.50   F1 = {f1[idx_half]:.4f}')
+
+plt.figure(figsize=(7, 4))
+plt.plot(thresholds, prec, label='Precision')
+plt.plot(thresholds, rec, label='Recall')
+plt.plot(thresholds, f1, label='F1')
+plt.axvline(thresholds[best_idx], linestyle='dotted', color='gray')
+plt.gca().set_xlabel('threshold')
+plt.gca().set_ylabel('score')
+plt.legend()
+plt.show()
+```
+
+:::
+
+## 2. 의사 결정 나무
+
+### [문제 2-1] 엔트로피와 지니 불순도 직접 구현
+
+::: {.callout-note appearance="simple"}
+클래스 비율 배열을 입력으로 받아 엔트로피와 지니 불순도를 반환하는 함수를 각각 작성하세요.
+
+$$H(t) = -\sum_{i=1}^{c} p_i \log_2 p_i, \qquad G(t) = 1 - \sum_{i=1}^{c} p_i^2$$
+
+작성한 함수로 `df_titanic`의 `Survived` 불순도를 구하고, 이진 분류에서 $p$를 0부터 1까지 변화시키며 두 지표를 한 그래프에 그리세요.
+
+그런 다음 답하세요.
+
+1. 두 지표의 최댓값이 각각 얼마이고 어디서 달성되는가
+2. 지니 불순도를 "무작위로 뽑은 두 샘플이 서로 다른 클래스일 확률"로 해석할 수 있는 이유
+:::
+
+```{python}
+#| eval: false
+def entropy(p):
+    """클래스 비율 배열 p에 대한 엔트로피를 반환합니다."""
+    # TODO
+    pass
+
+
+def gini(p):
+    """클래스 비율 배열 p에 대한 지니 불순도를 반환합니다."""
+    # TODO
+    pass
+
+
+# TODO: df_titanic['Survived']의 불순도를 구하고, p에 따른 두 지표를 시각화하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 2-1"}
+
+**1. 최댓값**
+
+- 엔트로피: 이진 분류에서 $p = 0.5$일 때 $H = 1$. 일반적으로 $c$개 클래스가 균등하면 $\log_2 c$.
+- 지니: 이진 분류에서 $p = 0.5$일 때 $G = 0.5$. 일반적으로 $1 - 1/c$.
+
+두 곡선 모두 $p=0.5$에서 정점을 갖는 위로 볼록한 형태이지만, 엔트로피가 더 뾰족하고 극단에서 더 가파릅니다.
+
+**2. 지니의 확률적 해석**
+
+같은 노드에서 두 샘플을 **복원추출**로 뽑았을 때 서로 다른 클래스일 확률을 계산해 봅시다.
+
+$$P(\text{같은 클래스}) = \sum_{i=1}^{c} p_i \cdot p_i = \sum_i p_i^2$$
+
+따라서
+
+$$P(\text{다른 클래스}) = 1 - \sum_i p_i^2 = G(t)$$
+
+$\sum_i p_i(1-p_i)$ 형태로도 같은 값이 나옵니다. $\sum_i p_i = 1$이므로
+
+$$\sum_i p_i(1-p_i) = \sum_i p_i - \sum_i p_i^2 = 1 - \sum_i p_i^2$$
+
+**구현 주의점**: $p_i = 0$일 때 $\log_2 0 = -\infty$가 되므로, `np.where(p > 0, p, 1)`로 치환해 $0 \cdot \log_2 1 = 0$이 되도록 처리합니다.
+
+```{python}
+#| eval: false
+def entropy(p):
+    """클래스 비율 배열 p에 대한 엔트로피를 반환합니다."""
+    p = np.asarray(p, dtype=float)
+    return -np.sum(p * np.log2(np.where(p > 0, p, 1)))
+
+
+def gini(p):
+    """클래스 비율 배열 p에 대한 지니 불순도를 반환합니다."""
+    p = np.asarray(p, dtype=float)
+    return 1 - np.sum(p ** 2)
+
+
+p_surv = df_titanic['Survived'].value_counts(normalize=True)
+print(f'Survived 비율: {p_surv.round(4).to_dict()}')
+print(f'Entropy = {entropy(p_surv):.4f}')
+print(f'Gini    = {gini(p_surv):.4f}')
+
+x = np.linspace(0, 1, 201)
+ent = [entropy([i, 1 - i]) for i in x]
+gin = [gini([i, 1 - i]) for i in x]
+
+plt.figure(figsize=(6, 4))
+plt.plot(x, ent, label='Entropy (max 1.0)')
+plt.plot(x, gin, label='Gini impurity (max 0.5)')
+plt.axvline(0.5, linestyle='dotted', color='gray')
+plt.gca().set_xlabel('P(class = 1)')
+plt.gca().set_ylabel('impurity')
+plt.legend()
+plt.show()
+```
+
+:::
+
+### [문제 2-2] 불순도 감소량으로 최적 분기점 찾기
+
+::: {.callout-note appearance="simple"}
+`df_titanic`의 `Fare` 변수에 대해, 가능한 모든 분기점에서 **지니 불순도 감소량**을 계산하는 코드를 작성하세요.
+
+$$IG(t) = imp(t) - \left(\frac{N(t_L)}{N(t)}imp(t_L) + \frac{N(t_R)}{N(t)}imp(t_R)\right)$$
+
+감소량이 최대가 되는 분기점을 찾은 뒤, `DecisionTreeClassifier(max_depth=1)`을 `Fare` 하나만으로 학습해 루트 노드의 분기 조건과 대조하세요. 두 결과가 일치하는지 확인하세요.
+:::
+
+```{python}
+#| eval: false
+from sklearn.tree import DecisionTreeClassifier
+
+# TODO: Fare의 모든 분기점에서 지니 불순도 감소량을 계산하고 최댓값을 찾으세요.
+# TODO: DecisionTreeClassifier(max_depth=1) 결과와 대조하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 2-2"}
+
+**분기점 후보 만들기**
+
+연속형 변수의 분기점은 정렬된 고유값들의 **인접 중점**으로 잡습니다. 고유값이 $a_1 < a_2 < \cdots < a_k$일 때 후보는 $b_i = \frac{a_i + a_{i+1}}{2}$로 $k-1$개입니다.
+
+$a_i$ 자체를 후보로 쓰지 않고 중점을 쓰는 이유는, 분할이 같은 결과를 내는 임계값 구간 $(a_i, a_{i+1}]$ 중 **가장 중앙의 값**을 고르는 것이 일반화에 유리하기 때문입니다.
+
+**효율적 계산**
+
+모든 분기점마다 데이터를 두 번 훑으면 $O(nk)$가 됩니다. `pd.cut` + `crosstab` + `cumsum`을 쓰면 **누적 빈도**로 좌측 노드의 클래스 분포를 한 번에 얻고, 우측은 전체에서 좌측을 빼면 되므로 $O(n + k)$로 줄어듭니다.
+
+**sklearn과의 일치**
+
+`DecisionTreeClassifier`의 기본 `criterion='gini'`이므로 동일한 목적함수를 최적화합니다. 다만 sklearn의 `tree_.threshold`는 부동소수점 처리 방식이 미세하게 달라 마지막 자리에서 차이가 날 수 있으니, 정확히 같은 값인지보다 **같은 분할을 만드는지**를 확인하는 것이 안전합니다.
+
+**참고**: sklearn은 불순도 감소량을 `N(t)/N * IG(t)`로 가중해 `feature_importances_`에 누적합니다. 트리 전체의 변수 중요도는 이 값을 정규화한 것입니다.
+
+```{python}
+#| eval: false
+from sklearn.tree import DecisionTreeClassifier
+
+col = 'Fare'
+n = len(df_titanic)
+
+# 1. 분기점 후보: 정렬된 고유값의 인접 중점
+u = pd.Series(df_titanic[col].unique()).sort_values()
+b = np.array([-np.inf] + ((u + u.shift(1)) / 2).dropna().tolist() + [np.inf])
+
+# 2. 구간별 클래스 빈도의 누계 -> 좌측 노드 분포
+df_cnt = pd.crosstab(
+    index=pd.cut(df_titanic[col], bins=b, right=True),
+    columns=df_titanic['Survived']
+).cumsum()
+
+vcnt = df_cnt.iloc[-1].values          # 전체 클래스 빈도
+imp_t = gini(vcnt / n)                 # 분기 전 불순도
+df_cnt = df_cnt.iloc[:-1]              # 마지막(전체) 행 제외
+
+
+def weighted_imp(x):
+    s = x.sum()
+    return gini(x / s) * s / n if s > 0 else 0.0
+
+
+imp_left = df_cnt.apply(weighted_imp, axis=1)
+imp_right = (vcnt - df_cnt).apply(weighted_imp, axis=1)
+ig = (imp_t - imp_left - imp_right).rename('IG')
+
+best_interval = ig.idxmax()
+best_threshold = best_interval.right
+print(f'분기 전 Gini      = {imp_t:.6f}')
+print(f'최대 IG           = {ig.max():.6f}')
+print(f'직접 계산 분기점  = {col} <= {best_threshold:.4f}')
+
+# 3. sklearn 결과와 대조
+clf = DecisionTreeClassifier(max_depth=1, criterion='gini', random_state=123)
+clf.fit(df_titanic[[col]], df_titanic['Survived'])
+sk_threshold = clf.tree_.threshold[0]
+sk_ig = clf.tree_.impurity[0] - (
+    clf.tree_.weighted_n_node_samples[1] / n * clf.tree_.impurity[1]
+    + clf.tree_.weighted_n_node_samples[2] / n * clf.tree_.impurity[2]
+)
+print(f'sklearn 분기점    = {col} <= {sk_threshold:.4f}')
+print(f'sklearn IG        = {sk_ig:.6f}')
+print(f'\n같은 분할인가? {np.isclose(best_threshold, sk_threshold, atol=1e-6)}')
+
+ig.sort_values(ascending=False).head()
+```
+
+:::
+
+### [문제 2-3] max_leaf_nodes와 min_samples_leaf의 방향성
+
+::: {.callout-note appearance="simple"}
+`df_titanic`을 8:2로 나눈 뒤 `X_all`을 입력으로 `Survived`를 예측하는 결정 트리를 학습합니다.
+
+`max_leaf_nodes`와 `min_samples_leaf`를 각각 변화시키며, **학습된 트리의 실제 리프 개수**(`get_n_leaves()`)와 학습/평가 정확도를 함께 기록해 두 개의 그래프로 그리세요.
+
+- `max_leaf_nodes`: `np.arange(2, 10) ** 2`
+- `min_samples_leaf`: `np.arange(2, 64, 4)`
+
+그런 다음 답하세요. `min_samples_leaf`를 **키우면** 왜 트리가 **단순해지는가**? 이름만 보면 "리프에 샘플이 많아진다"이므로 복잡해질 것 같은데, 실제로는 반대인 이유를 설명하세요.
+:::
+
+```{python}
+#| eval: false
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+
+# TODO: 두 파라미터 각각에 대해 리프 개수와 정확도를 기록하고 시각화하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 2-3"}
+
+**핵심: `min_samples_leaf`는 "리프의 크기"가 아니라 "분할의 허용 조건"입니다.**
+
+`min_samples_leaf = k`는 *"어떤 분할을 하려면, 그 결과로 생기는 양쪽 자식이 모두 $k$개 이상이어야 한다"*는 제약입니다. 이 조건을 만족하지 못하는 분할은 아예 시도되지 않으므로, **분할이 조기에 중단**됩니다.
+
+리프 개수의 상한을 보면 명확합니다. 전체 샘플 수가 $N$일 때 모든 리프가 최소 $k$개를 가져야 하므로:
+
+$$\text{리프 개수} \le \frac{N}{k}$$
+
+$k$가 분모에 있으므로 $k \uparrow \Rightarrow$ 리프 개수 $\downarrow \Rightarrow$ 복잡도 $\downarrow$.
+
+**혼동의 원인**: "리프 하나에 담긴 샘플 수"와 "리프의 개수"를 같은 방향으로 생각하기 쉽지만, 전체 $N$이 고정된 상태에서 이 둘은 **반비례**합니다. 케이크를 자를 때 "한 조각이 최소 200g이어야 한다"는 규칙을 걸면 조각 수가 줄어드는 것과 같습니다.
+
+**접두사로 기억하기**
+
+| 파라미터 | 값을 키우면 | 복잡도 |
+|:---|:---|:---|
+| `max_depth` | 더 깊은 트리를 **허용** | 증가 |
+| `max_leaf_nodes` | 더 많은 리프를 **허용** | 증가 |
+| `min_samples_leaf` | 분할 조건을 **강화** | 감소 |
+| `min_samples_split` | 분할 조건을 **강화** | 감소 |
+| `min_impurity_decrease` | 분할 조건을 **강화** | 감소 |
+
+`max_` 접두사는 상한을 완화하므로 값 $\uparrow$ = 복잡도 $\uparrow$, `min_` 접두사는 최소 요구치를 높이므로 값 $\uparrow$ = 복잡도 $\downarrow$입니다.
+
+```{python}
+#| eval: false
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+
+df_tr, df_te = train_test_split(df_titanic, train_size=0.8, random_state=123)
+
+
+def sweep(param_name, values):
+    rows = []
+    for v in values:
+        clf = DecisionTreeClassifier(**{param_name: v}, random_state=123)
+        clf.fit(df_tr[X_all], df_tr['Survived'])
+        rows.append({
+            param_name: v,
+            'n_leaves': clf.get_n_leaves(),
+            'acc_train': accuracy_score(df_tr['Survived'], clf.predict(df_tr[X_all])),
+            'acc_test': accuracy_score(df_te['Survived'], clf.predict(df_te[X_all])),
+        })
+    return pd.DataFrame(rows).set_index(param_name)
+
+
+df_mln = sweep('max_leaf_nodes', np.arange(2, 10) ** 2)
+df_msl = sweep('min_samples_leaf', np.arange(2, 64, 4))
+
+fig, axes = plt.subplots(1, 2, figsize=(13, 4))
+for ax, df_r, name in [(axes[0], df_mln, 'max_leaf_nodes'),
+                       (axes[1], df_msl, 'min_samples_leaf')]:
+    ax.plot(df_r.index, df_r['acc_train'], label='Train accuracy')
+    ax.plot(df_r.index, df_r['acc_test'], label='Test accuracy')
+    ax.set_xlabel(name)
+    ax.set_ylabel('Accuracy')
+    tax = ax.twinx()
+    tax.plot(df_r.index, df_r['n_leaves'], color='green',
+             linestyle='dashed', label='n_leaves')
+    tax.set_ylabel('Number of leaves')
+    ax.legend(loc='lower left')
+    tax.legend(loc='upper right')
+    ax.set_title(name)
+plt.tight_layout()
+plt.show()
+
+print('max_leaf_nodes: 값이 커지면 리프 개수 증가')
+print(df_mln[['n_leaves']].T.to_string())
+print('\nmin_samples_leaf: 값이 커지면 리프 개수 감소')
+print(df_msl[['n_leaves']].T.to_string())
+```
+
+:::
+
+## 3. 나이브 베이즈와 K최근접 이웃
+
+### [문제 3-1] 라플라스 스무딩이 필요한 이유
+
+::: {.callout-note appearance="simple"}
+`df_spam`을 8:2로 나눈 뒤 `CountVectorizer(min_df=5)` + `MultinomialNB` 파이프라인을 만드세요.
+
+`alpha`를 `[1e-10, 0.01, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0]`으로 바꾸며 학습/평가 AUC를 기록하고 그래프로 그리세요.
+
+그런 다음 답하세요.
+
+1. `alpha`가 0에 가까울 때 무슨 일이 일어나는가
+2. `alpha`가 너무 클 때는 무슨 일이 일어나는가
+3. 나이브 베이즈에서 로그 확률의 합을 쓰는 이유
+:::
+
+```{python}
+#| eval: false
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+
+# TODO: alpha를 변화시키며 train/test AUC를 기록하고 시각화하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 3-1"}
+
+**1. `alpha` $\to 0$: 영확률 문제(zero-frequency problem)**
+
+스무딩 없이 조건부 확률을 추정하면
+
+$$P(w_i \mid c) = \frac{N_{w_i, c}}{N_c}$$
+
+학습 데이터에서 클래스 $c$와 함께 등장한 적이 없는 단어는 $P(w_i \mid c) = 0$이 됩니다. 나이브 베이즈는 이들을 곱하므로
+
+$$P(c \mid \mathbf{x}) \propto P(c)\prod_i P(w_i \mid c) = 0$$
+
+**단 하나의 미등장 단어가 다른 모든 증거를 무효화**합니다. 스팸을 강하게 시사하는 단어가 열 개 있어도, ham에서만 본 적 없는 단어 하나 때문에 확률이 0이 됩니다.
+
+라플라스(애드-원) 스무딩은 이를 막습니다.
+
+$$P(w_i \mid c) = \frac{N_{w_i, c} + \alpha}{N_c + \alpha |V|}$$
+
+**2. `alpha`가 너무 클 때: 과도한 평활**
+
+$\alpha \to \infty$이면 $P(w_i \mid c) \to \frac{1}{|V|}$로, 모든 단어의 조건부 확률이 클래스와 무관하게 균등해집니다. 데이터에서 얻은 신호가 사전분포에 완전히 묻혀 **사전확률만으로 예측**하는 상태가 되고, AUC는 0.5로 수렴합니다.
+
+$\alpha$는 디리클레 사전분포의 농도 모수로 해석할 수 있으며, 편향-분산 트레이드오프를 조절하는 규제 파라미터와 같은 역할을 합니다.
+
+**3. 로그 확률을 쓰는 이유 — 언더플로**
+
+메시지 하나에 단어가 20개 있고 각 확률이 $10^{-3}$ 수준이면
+
+$$\prod_{i=1}^{20} 10^{-3} = 10^{-60}$$
+
+float64의 최소 정규수는 약 $2.2 \times 10^{-308}$이므로 단어가 수백 개인 문서에서는 실제로 0으로 언더플로합니다. 로그를 취하면 곱이 합이 되어
+
+$$\log P(c\mid\mathbf{x}) \propto \log P(c) + \sum_i \log P(w_i \mid c)$$
+
+수치적으로 안정합니다. 클래스 비교에는 순서만 필요하므로 단조 변환인 로그를 취해도 결론이 바뀌지 않습니다.
+
+```{python}
+#| eval: false
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+
+df_tr, df_te = train_test_split(df_spam, train_size=0.8, random_state=123)
+
+alphas = [1e-10, 0.01, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+auc_train, auc_test = [], []
+for alpha in alphas:
+    clf_nb = make_pipeline(
+        CountVectorizer(lowercase=True, min_df=5),
+        MultinomialNB(alpha=alpha)
+    )
+    clf_nb.fit(df_tr['message'], df_tr['target'])
+    auc_train.append(roc_auc_score(
+        df_tr['target'], clf_nb.predict_proba(df_tr['message'])[:, 1]))
+    auc_test.append(roc_auc_score(
+        df_te['target'], clf_nb.predict_proba(df_te['message'])[:, 1]))
+
+df_alpha = pd.DataFrame({'alpha': alphas, 'auc_train': auc_train, 'auc_test': auc_test})
+print(df_alpha.to_string(index=False))
+
+plt.figure(figsize=(7, 4))
+plt.plot(alphas, auc_train, marker='o', label='AUC of train')
+plt.plot(alphas, auc_test, marker='o', label='AUC of test')
+plt.gca().set(xscale='log', xlabel='alpha', ylabel='AUC')
+plt.axvline(alphas[int(np.argmax(auc_test))], linestyle='dotted', color='gray')
+plt.legend()
+plt.show()
+```
+
+:::
+
+### [문제 3-2] 고차원에서 KNN이 불리한 이유
+
+::: {.callout-note appearance="simple"}
+`df_spam`을 `CountVectorizer(min_df=5)`로 변환한 뒤 `MultinomialNB(alpha=1)`과 `KNeighborsClassifier`의 평가 정확도를 비교하세요. KNN의 `n_neighbors`는 `[1, 3, 5, 10, 20, 50, 100]`으로 탐색합니다.
+
+추가로, 변환된 학습 데이터에서 무작위 표본 300개를 뽑아 **쌍별 유클리드 거리의 분포**를 히스토그램으로 그리고, `(최대거리 - 최소거리) / 최소거리` 값을 출력하세요.
+
+이 결과로 고차원에서 KNN이 불리한 이유를 설명하세요.
+:::
+
+```{python}
+#| eval: false
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import pairwise_distances
+
+# TODO: NB와 KNN의 정확도를 비교하고, 쌍별 거리 분포를 확인하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 3-2"}
+
+**차원의 저주 — 거리 대비(distance contrast)의 소멸**
+
+차원 $d$가 커질수록 임의의 두 점 사이의 거리가 **모두 비슷해집니다**. 어떤 조건 하에서:
+
+$$\lim_{d \to \infty} \frac{\max_i \|x_i - q\| - \min_i \|x_i - q\|}{\min_i \|x_i - q\|} \to 0$$
+
+즉 "가장 가까운 이웃"과 "가장 먼 점"의 거리 차이가 상대적으로 사라집니다. KNN은 "가까운 것이 비슷하다"는 전제에 전적으로 의존하는데, 이 전제가 무의미해지는 것입니다.
+
+**직관**: $d$차원에서 유클리드 거리는
+
+$$\|x - q\|^2 = \sum_{j=1}^{d} (x_j - q_j)^2$$
+
+$d$개 항의 합이므로 대수의 법칙에 의해 평균 주변으로 집중됩니다. 거리의 평균은 $O(\sqrt{d})$로 커지지만 표준편차는 $O(1)$에 머물러, 상대 변동 $\sigma/\mu \to 0$이 됩니다.
+
+**텍스트 데이터의 추가 문제 — 희소성**
+
+`min_df=5`를 적용해도 어휘 크기는 보통 1000~2000차원이고, 개별 메시지는 그중 10~30개 단어만 가집니다. 두 메시지가 공유하는 단어가 거의 없으면 유클리드 거리가 사실상 두 문서의 길이만 반영하게 되어, 내용과 무관한 이웃이 선택됩니다.
+
+**나이브 베이즈가 유리한 이유**
+
+각 단어를 **독립적으로** 다뤄 $P(w_i \mid c)$를 개별 추정하므로 차원이 늘어나도 추정 대상이 선형으로만 증가합니다. 조건부 독립 가정은 현실적으로 틀렸지만, 분류 결정에서는 확률의 절대값이 아니라 **클래스 간 대소 관계**만 맞으면 되므로 텍스트 분류에서 잘 작동합니다.
+
+**개선 방향**: KNN을 쓰려면 코사인 거리(문서 길이 정규화), TF-IDF 가중, 또는 SVD로 차원 축소를 먼저 적용해야 합니다.
+
+```{python}
+#| eval: false
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, pairwise_distances
+
+df_tr, df_te = train_test_split(df_spam, train_size=0.8, random_state=123)
+
+cvec = CountVectorizer(lowercase=True, min_df=5)
+X_tr = cvec.fit_transform(df_tr['message'])
+X_te = cvec.transform(df_te['message'])
+print(f'어휘 차원 d = {X_tr.shape[1]}')
+print(f'문서당 평균 비영 원소 = {X_tr.getnnz(axis=1).mean():.1f}')
+
+# 나이브 베이즈
+clf_nb = MultinomialNB(alpha=1)
+clf_nb.fit(X_tr, df_tr['target'])
+acc_nb = accuracy_score(df_te['target'], clf_nb.predict(X_te))
+print(f'\nMultinomialNB accuracy = {acc_nb:.4f}')
+
+# KNN
+n_neighbors_list = [1, 3, 5, 10, 20, 50, 100]
+acc_knn = []
+for k in n_neighbors_list:
+    clf_knn = KNeighborsClassifier(n_neighbors=k, metric='euclidean')
+    clf_knn.fit(X_tr, df_tr['target'])
+    acc_knn.append(accuracy_score(df_te['target'], clf_knn.predict(X_te)))
+    print(f'KNN(k={k:3d}) accuracy = {acc_knn[-1]:.4f}')
+
+# 거리 대비 확인
+rng = np.random.default_rng(123)
+idx = rng.choice(X_tr.shape[0], size=300, replace=False)
+D = pairwise_distances(X_tr[idx], metric='euclidean')
+d_off = D[~np.eye(len(idx), dtype=bool)]
+contrast = (d_off.max() - d_off.min()) / d_off.min()
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+axes[0].plot(n_neighbors_list, acc_knn, marker='o', label='KNN')
+axes[0].axhline(acc_nb, linestyle='dashed', color='orange', label='MultinomialNB')
+axes[0].set(xlabel='n_neighbors', ylabel='Test accuracy')
+axes[0].legend()
+axes[1].hist(d_off, bins=60)
+axes[1].set(xlabel='pairwise euclidean distance', ylabel='count',
+            title=f'(max-min)/min = {contrast:.2f}')
+plt.tight_layout()
+plt.show()
+```
+
+:::
+
+### [문제 3-3] 스팸 탐지에서 오분류 비용이 비대칭일 때
+
+::: {.callout-note appearance="simple"}
+문제 3-1에서 만든 `MultinomialNB(alpha=1)` 모델을 사용합니다.
+
+스팸을 놓치는 비용(FN)과 정상 메일을 스팸으로 분류하는 비용(FP)이 다르다고 가정하고, 다음 두 비용 구조 각각에서 **총 비용을 최소화하는 임계값**을 평가 데이터에서 탐색하세요.
+
+- 구조 A: FP 비용 = 1, FN 비용 = 1 (대칭)
+- 구조 B: FP 비용 = 10, FN 비용 = 1 (정상 메일 차단이 훨씬 나쁨)
+
+$$\text{Cost}(\tau) = c_{FP}\cdot FP(\tau) + c_{FN}\cdot FN(\tau)$$
+
+두 구조의 최적 임계값이 어느 방향으로 이동했는지, 그리고 그 이유를 설명하세요.
+:::
+
+```{python}
+#| eval: false
+from sklearn.metrics import confusion_matrix
+
+# TODO: 두 비용 구조에서 총 비용을 최소화하는 임계값을 각각 찾으세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 3-3"}
+
+**결과 방향**: 구조 B(FP 비용 10배)에서 최적 임계값이 **위로 이동**합니다.
+
+**이유**
+
+FP 비용이 크다는 것은 "스팸이라고 판정하는 데 더 신중해야 한다"는 뜻입니다. 임계값을 올리면 양성(스팸) 판정 집합이 줄어들어 FP가 감소하고, 그 대가로 FN이 늘어납니다. FN 비용이 상대적으로 싸므로 이 교환이 이득입니다.
+
+**이론적 최적 임계값**
+
+기대 비용을 최소화하는 결정 규칙은, $p = P(\text{spam} \mid \mathbf{x})$일 때
+
+$$\text{스팸으로 판정} \iff c_{FP}(1-p) < c_{FN} \cdot p \iff p > \frac{c_{FP}}{c_{FP} + c_{FN}}$$
+
+- 구조 A: $\tau^* = \frac{1}{1+1} = 0.5$
+- 구조 B: $\tau^* = \frac{10}{10+1} \approx 0.909$
+
+**주의**: 이 공식은 모델의 확률 추정이 **잘 보정(calibrated)** 되어 있을 때만 정확합니다. 나이브 베이즈는 조건부 독립 가정 때문에 확률을 극단으로(0 또는 1 근처) 밀어붙이는 경향이 강해 보정이 나쁩니다. 그래서 실측 최적 임계값이 이론값과 다를 수 있고, 실제로 데이터에서 직접 탐색하는 편이 안전합니다.
+
+보정을 개선하려면 `CalibratedClassifierCV`로 Platt scaling이나 isotonic regression을 씌울 수 있습니다.
+
+```{python}
+#| eval: false
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix
+
+df_tr, df_te = train_test_split(df_spam, train_size=0.8, random_state=123)
+
+clf_nb = make_pipeline(
+    CountVectorizer(lowercase=True, min_df=5),
+    MultinomialNB(alpha=1)
+)
+clf_nb.fit(df_tr['message'], df_tr['target'])
+
+pos_label = clf_nb.classes_[1]          # 'spam'
+neg_label = clf_nb.classes_[0]          # 'ham'
+proba = clf_nb.predict_proba(df_te['message'])[:, 1]
+y_true = df_te['target'].values
+
+thresholds = np.linspace(0.01, 0.99, 197)
+
+
+def total_cost(tau, c_fp, c_fn):
+    pred = np.where(proba >= tau, pos_label, neg_label)
+    tn, fp, fn, tp = confusion_matrix(
+        y_true, pred, labels=[neg_label, pos_label]).ravel()
+    return c_fp * fp + c_fn * fn
+
+
+plt.figure(figsize=(7, 4))
+for c_fp, c_fn, name in [(1, 1, 'A: FP=1, FN=1'), (10, 1, 'B: FP=10, FN=1')]:
+    costs = np.array([total_cost(t, c_fp, c_fn) for t in thresholds])
+    best = thresholds[int(np.argmin(costs))]
+    theory = c_fp / (c_fp + c_fn)
+    print(f'{name}  실측 최적 tau = {best:.3f}  |  이론값 = {theory:.3f}  '
+          f'|  최소 비용 = {costs.min():.0f}')
+    plt.plot(thresholds, costs, label=name)
+    plt.axvline(best, linestyle='dotted', alpha=0.6)
+
+plt.gca().set(xlabel='threshold', ylabel='total cost', yscale='log')
+plt.legend()
+plt.show()
+```
+
+:::
+
+## 4. 서포트 벡터 머신
+
+### [문제 4-1] 마진 폭을 직접 계산하기
+
+::: {.callout-note appearance="simple"}
+`df_toy`에 `SVC(C=1e5, kernel='linear')`를 학습시킨 뒤, 다음을 직접 계산하세요.
+
+1. 가중치 벡터 $\mathbf{w} = \sum_i \alpha_i y_i \mathbf{x}_i$ (`dual_coef_`와 `support_vectors_`로부터)
+2. 마진 폭 $\frac{2}{\|\mathbf{w}\|}$
+3. 각 서포트 벡터에서 $y_i(\mathbf{w}^\top\mathbf{x}_i + b)$의 값
+
+3번 결과가 왜 그 값이 나오는지 설명하세요. 그리고 결정 경계와 마진 경계, 서포트 벡터를 함께 시각화하세요.
+:::
+
+```{python}
+#| eval: false
+from sklearn.svm import SVC
+
+# TODO: w, 마진 폭, 서포트 벡터의 함수값을 계산하고 시각화하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 4-1"}
+
+**1. 가중치 벡터**
+
+SVM의 쌍대 해에서 $\mathbf{w}$는 서포트 벡터들의 선형결합입니다.
+
+$$\mathbf{w} = \sum_{i \in SV} \alpha_i y_i \mathbf{x}_i$$
+
+sklearn의 `dual_coef_`가 이미 $\alpha_i y_i$를 담고 있으므로 `dual_coef_ @ support_vectors_`로 바로 얻습니다. **서포트 벡터가 아닌 점들은 $\alpha_i = 0$이라 기여하지 않습니다** — 이것이 SVM의 희소성입니다.
+
+**2. 마진 폭**
+
+두 마진 경계는 $\mathbf{w}^\top\mathbf{x} + b = \pm 1$입니다. 두 평행 초평면 사이의 거리는
+
+$$\text{margin} = \frac{|1 - (-1)|}{\|\mathbf{w}\|} = \frac{2}{\|\mathbf{w}\|}$$
+
+따라서 마진 최대화 $\equiv$ $\|\mathbf{w}\|$ 최소화. SVM의 원 문제가 $\min \frac{1}{2}\|\mathbf{w}\|^2$인 이유입니다.
+
+**3. 서포트 벡터에서의 함수값 = 1**
+
+하드 마진 SVM의 제약은 모든 $i$에 대해
+
+$$y_i(\mathbf{w}^\top\mathbf{x}_i + b) \ge 1$$
+
+KKT 상보성 조건 $\alpha_i\left[y_i(\mathbf{w}^\top\mathbf{x}_i+b) - 1\right] = 0$에 의해:
+
+- $\alpha_i > 0$ (서포트 벡터) $\Rightarrow$ 제약이 **등호로 활성화** $\Rightarrow$ $y_i(\mathbf{w}^\top\mathbf{x}_i+b) = 1$
+- $y_i(\mathbf{w}^\top\mathbf{x}_i+b) > 1$ (마진 밖) $\Rightarrow$ $\alpha_i = 0$
+
+즉 서포트 벡터는 정확히 마진 경계 위에 놓입니다. $C$가 유한한 소프트 마진에서는 마진을 침범한 점($\xi_i > 0$)도 서포트 벡터가 될 수 있어 값이 1보다 작아질 수 있으므로, 여기서는 $C$를 매우 크게($10^5$) 잡아 하드 마진에 가깝게 만든 것입니다.
+
+```{python}
+#| eval: false
+from sklearn.svm import SVC
+
+C = 1e5
+clf_svc = SVC(C=C, kernel='linear')
+clf_svc.fit(df_toy[['x1', 'x2']], df_toy['Class'])
+
+# 1. 가중치 벡터
+w = np.dot(clf_svc.dual_coef_, clf_svc.support_vectors_).ravel()
+b = clf_svc.intercept_[0]
+print(f'w = {w}')
+print(f'b = {b:.6f}')
+print(f'sklearn coef_ = {clf_svc.coef_.ravel()}  (일치 확인)')
+print(f'일치? {np.allclose(w, clf_svc.coef_.ravel())}')
+
+# 2. 마진 폭
+margin = 2 / np.linalg.norm(w)
+print(f'\n||w||       = {np.linalg.norm(w):.6f}')
+print(f'마진 폭 2/||w|| = {margin:.6f}')
+
+# 3. 서포트 벡터에서의 함수값
+sv = clf_svc.support_vectors_
+sv_y = df_toy['Class'].values[clf_svc.support_]
+functional = sv_y * (sv @ w + b)
+print(f'\n서포트 벡터 인덱스 = {clf_svc.support_}')
+for i, (x, yv, f) in enumerate(zip(sv, sv_y, functional)):
+    print(f'  x={x}, y={yv:+d},  y(w.x+b) = {f:.6f}')
+
+# 시각화
+plt.figure(figsize=(5, 5))
+sns.scatterplot(data=df_toy.assign(Class=lambda x: x['Class'].astype(str)),
+                x='x1', y='x2', hue='Class')
+plt.scatter(sv[:, 0], sv[:, 1], s=220, facecolors='none',
+            edgecolors='k', linewidths=1.5, label='Support vector')
+
+x1_range = np.array([-1, 4.5])
+for offset, style, lbl in [(0, 'solid', 'decision boundary'),
+                           (1, 'dashed', 'margin (+1)'),
+                           (-1, 'dashed', 'margin (-1)')]:
+    plt.plot(x1_range, -(w[0] * x1_range + b - offset) / w[1],
+             linestyle=style, color='gray',
+             label=lbl if offset >= 0 else None)
+
+plt.gca().set(xlim=(-1, 4.5), ylim=(-1, 4.5),
+              title=f'margin width = {margin:.4f}')
+plt.legend(loc='upper left', fontsize=9)
+plt.show()
+```
+
+:::
+
+### [문제 4-2] C가 서포트 벡터 개수와 일반화에 미치는 영향
+
+::: {.callout-note appearance="simple"}
+`df_gene`을 `train` 컬럼으로 학습/평가로 나눈 뒤, `SelectKBest(k=50)` + `StandardScaler` + `SVC(kernel='linear')` 파이프라인을 만드세요.
+
+`C`를 `[1e-3, 1e-2, 1e-1, 1, 10, 100, 1000]`으로 바꾸며 다음을 기록하고 시각화하세요.
+
+- 서포트 벡터의 개수
+- 학습 정확도와 평가 정확도
+- $\|\mathbf{w}\|$
+
+`C`가 커질 때 서포트 벡터 개수와 $\|\mathbf{w}\|$가 어떻게 변하는지, 그리고 그것이 편향-분산 관점에서 무엇을 의미하는지 설명하세요.
+
+변수 선택은 아래 `get_corr`(등분산을 가정하지 않는 독립표본 t검정) 점수를 기준으로 합니다.
+:::
+
+```{python}
+#| eval: false
+from sklearn.svm import SVC
+from sklearn.feature_selection import SelectKBest
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import accuracy_score
+from scipy.stats import ttest_ind
+
+
+def get_corr(X, y):
+    stat, pval = ttest_ind(X[y == 'AML'], X[y == 'ALL'], equal_var=False)
+    return np.abs(stat), pval
+
+
+# TODO: C를 변화시키며 서포트 벡터 개수, 정확도, ||w||를 기록하고 시각화하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 4-2"}
+
+**소프트 마진 SVM의 목적함수**
+
+$$\min_{\mathbf{w}, b, \xi} \; \frac{1}{2}\|\mathbf{w}\|^2 + C\sum_{i=1}^{n}\xi_i \quad \text{s.t.}\quad y_i(\mathbf{w}^\top\mathbf{x}_i+b) \ge 1 - \xi_i,\; \xi_i \ge 0$$
+
+$C$는 **마진 폭**과 **마진 침범 허용량** 사이의 저울입니다. 규제 강도의 역수로 이해하면 편합니다 — $C \uparrow$ = 규제 $\downarrow$.
+
+**관찰되는 패턴**
+
+| $C$ | 마진 | 서포트 벡터 수 | $\|\mathbf{w}\|$ | 성격 |
+|:---|:---|:---|:---|:---|
+| 작음 | 넓음 | **많음** | 작음 | 높은 편향, 낮은 분산 |
+| 큼 | 좁음 | **적음** | 큼 | 낮은 편향, 높은 분산 |
+
+- **$C$가 작으면**: 침범 페널티가 싸므로 마진을 넓게 벌려 많은 점을 마진 안에 품습니다. 마진 안이나 위에 있는 점은 모두 서포트 벡터이므로 개수가 늘어납니다. $\|\mathbf{w}\|$는 작아집니다(마진 $= 2/\|\mathbf{w}\|$가 넓으므로).
+- **$C$가 크면**: 침범을 강하게 벌하므로 마진을 좁혀서라도 모든 점을 올바르게 분류하려 합니다. 경계에 딱 붙은 소수의 점만 서포트 벡터가 됩니다.
+
+**편향-분산 해석**
+
+서포트 벡터가 적다는 것은 결정 경계가 **소수의 점에만 의존**한다는 뜻입니다. 그 점 몇 개가 바뀌면 경계가 크게 흔들리므로 분산이 큽니다. 반대로 서포트 벡터가 많으면 경계가 여러 점의 합의로 결정되어 안정적입니다.
+
+**gene 데이터의 특수성**
+
+$n \approx 72$, $d \approx 7129$인 **고차원 소표본**입니다. 이런 상황에서는 학습 데이터를 완벽히 분리하는 초평면이 항상 존재하므로 $C$를 키워도 학습 정확도가 1.0에서 더 오를 곳이 없습니다. 평가 정확도는 $C$가 어느 지점을 넘으면 정체하거나 떨어지며, 이때 **$C$가 작은 쪽(강한 규제)이 오히려 유리한 경우**가 흔합니다.
+
+```{python}
+#| eval: false
+from sklearn.svm import SVC
+from sklearn.feature_selection import SelectKBest
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import accuracy_score
+from scipy.stats import ttest_ind
+
+
+def get_corr(X, y):
+    stat, pval = ttest_ind(X[y == 'AML'], X[y == 'ALL'], equal_var=False)
+    return np.abs(stat), pval
+
+
+X_gene = [i for i in df_gene.columns if i not in ['cancer', 'train']]
+df_g_tr = df_gene.loc[df_gene['train'] == True]
+df_g_te = df_gene.loc[df_gene['train'] == False]
+print(f'학습 {df_g_tr.shape}, 평가 {df_g_te.shape}, 변수 {len(X_gene)}')
+
+Cs = [1e-3, 1e-2, 1e-1, 1, 10, 100, 1000]
+rows = []
+for C in Cs:
+    clf = make_pipeline(
+        SelectKBest(get_corr, k=50),
+        StandardScaler(),
+        SVC(C=C, kernel='linear')
+    )
+    clf.fit(df_g_tr[X_gene], df_g_tr['cancer'])
+    svc = clf[-1]
+    rows.append({
+        'C': C,
+        'n_support': int(svc.n_support_.sum()),
+        'norm_w': float(np.linalg.norm(svc.coef_)),
+        'margin': float(2 / np.linalg.norm(svc.coef_)),
+        'acc_train': accuracy_score(df_g_tr['cancer'], clf.predict(df_g_tr[X_gene])),
+        'acc_test': accuracy_score(df_g_te['cancer'], clf.predict(df_g_te[X_gene])),
+    })
+
+df_C = pd.DataFrame(rows).set_index('C')
+print(df_C.round(4).to_string())
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+axes[0].plot(df_C.index, df_C['n_support'], marker='o')
+axes[0].set(xscale='log', xlabel='C', ylabel='number of support vectors',
+            title='Support vectors')
+axes[1].plot(df_C.index, df_C['norm_w'], marker='o', color='green')
+axes[1].set(xscale='log', yscale='log', xlabel='C', ylabel='||w||', title='||w||')
+axes[2].plot(df_C.index, df_C['acc_train'], marker='o', label='Train')
+axes[2].plot(df_C.index, df_C['acc_test'], marker='o', label='Test')
+axes[2].set(xscale='log', xlabel='C', ylabel='Accuracy', title='Accuracy')
+axes[2].legend()
+plt.tight_layout()
+plt.show()
+```
+
+:::
+
+## 5. 앙상블 모델
+
+### [문제 5-1] 부트스트랩에서 제외되는 표본 비율 확인
+
+::: {.callout-note appearance="simple"}
+크기 $n$인 데이터에서 복원추출로 $n$개를 뽑을 때, 특정 표본이 한 번도 뽑히지 않을 확률은
+
+$$\left(1 - \frac{1}{n}\right)^n \xrightarrow{n \to \infty} \frac{1}{e} \approx 0.368$$
+
+입니다.
+
+`df_abalone`을 사용해 다음을 수행하세요.
+
+1. $n \in \{10, 50, 100, 500, 1000, 4177\}$에 대해 이론값 $(1-1/n)^n$을 계산
+2. 각 $n$에 대해 `df_abalone`에서 $n$행을 뽑아 부트스트랩을 200회 반복하고, OOB 비율의 평균을 실측
+3. 이론값과 실측값을 한 그래프에 그리고 $1/e$ 수평선 추가
+
+$n$이 작을 때 실측값이 $1/e$보다 작은(=더 많이 뽑히는) 이유도 답하세요.
+:::
+
+```{python}
+#| eval: false
+# TODO: 이론값과 실측 OOB 비율을 비교하고 시각화하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 5-1"}
+
+**이론값의 유도**
+
+한 번의 추출에서 특정 표본이 뽑히지 않을 확률은 $1 - \frac{1}{n}$. 복원추출이므로 $n$번의 시행이 독립이고
+
+$$P(\text{한 번도 안 뽑힘}) = \left(1-\frac{1}{n}\right)^n$$
+
+$\lim_{n\to\infty}\left(1+\frac{x}{n}\right)^n = e^x$에 $x = -1$을 대입하면 $e^{-1} \approx 0.3679$.
+
+**$n$이 작을 때 $1/e$보다 작은 이유**
+
+$f(n) = \left(1-\frac{1}{n}\right)^n$의 로그를 취하면
+
+$$\ln f(n) = n\ln\left(1-\frac{1}{n}\right) = n\left(-\frac{1}{n} - \frac{1}{2n^2} - \frac{1}{3n^3} - \cdots\right) = -1 - \frac{1}{2n} - \frac{1}{3n^2} - \cdots$$
+
+우변이 $-1$보다 **작으므로** $f(n) < e^{-1}$이고, $n$이 커지면서 위에서부터가 아니라 **아래에서 단조 증가**하며 $1/e$로 수렴합니다.
+
+수치로 보면:
+
+| $n$ | $(1-1/n)^n$ |
+|:---|:---|
+| 10 | 0.3487 |
+| 100 | 0.3660 |
+| 1000 | 0.3677 |
+| $\infty$ | 0.3679 |
+
+**OOB의 실용적 의미**
+
+각 기반 학습기마다 약 36.8%의 데이터가 학습에 쓰이지 않으므로, 이 표본으로 **별도의 검증 데이터 없이** 일반화 성능을 추정할 수 있습니다. `RandomForestClassifier(oob_score=True)`가 이를 자동화합니다.
+
+트리 $T$개를 쓰면 특정 샘플이 모든 트리에서 뽑힐 확률은 $(1 - 1/e)^T \approx 0.632^T$이므로, $T$가 조금만 커져도 거의 모든 샘플이 최소 한 번은 OOB가 되어 전체 데이터에 대한 OOB 추정이 가능해집니다.
+
+```{python}
+#| eval: false
+n_list = [10, 50, 100, 500, 1000, 4177]
+n_repeat = 200
+rng = np.random.default_rng(123)
+
+rows = []
+for n in n_list:
+    df_sub = df_abalone.iloc[:n]
+    oob_ratios = []
+    for _ in range(n_repeat):
+        pos = rng.integers(0, len(df_sub), size=len(df_sub))   # 복원추출
+        oob_ratios.append(1 - len(np.unique(pos)) / len(df_sub))
+    rows.append({
+        'n': n,
+        'theory': (1 - 1 / len(df_sub)) ** len(df_sub),
+        'empirical': float(np.mean(oob_ratios)),
+        'std': float(np.std(oob_ratios)),
+    })
+
+df_oob = pd.DataFrame(rows).set_index('n')
+df_oob['diff'] = df_oob['empirical'] - df_oob['theory']
+print(df_oob.round(5).to_string())
+print(f'\n1/e = {1 / np.e:.6f}')
+
+plt.figure(figsize=(7, 4))
+plt.plot(df_oob.index, df_oob['theory'], marker='o', label='theory  $(1-1/n)^n$')
+plt.plot(df_oob.index, df_oob['empirical'], marker='s',
+         linestyle='dashed', label='empirical (200 reps)')
+plt.axhline(1 / np.e, color='gray', linestyle='dotted', label='$1/e$')
+plt.gca().set(xscale='log', xlabel='n', ylabel='OOB ratio')
+plt.legend()
+plt.show()
+
+# pandas의 sample로도 동일하게 확인됩니다.
+df_bs = df_abalone.sample(frac=1.0, replace=True, random_state=123)
+print(f"\npandas sample OOB 비율 = "
+      f"{1 - df_bs.index.nunique() / len(df_abalone):.4f}")
+```
+
+:::
+
+### [문제 5-2] 배깅의 분산 감소 효과
+
+::: {.callout-note appearance="simple"}
+`df_abalone`을 가변수화하고 8:2로 나눈 뒤, `DecisionTreeRegressor`(제약 없음)를 부트스트랩 표본으로 100개 학습하세요.
+
+`n_estimators`를 1부터 100까지 늘려가며 다음을 기록하고 두 개의 그래프로 그리세요.
+
+- 평가 데이터에 대한 예측값의 **분산**(`.var()`의 평균)
+- 평가 MSE
+
+그런 다음 답하세요. 배깅은 편향-분산 분해의 어느 항을 줄이는가? 개별 트리를 깊게(제약 없이) 키우는 것이 배깅에서 오히려 합리적인 이유는?
+:::
+
+```{python}
+#| eval: false
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+
+# TODO: n_estimators에 따른 예측 분산과 MSE를 기록하고 시각화하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 5-2"}
+
+**배깅이 줄이는 항은 분산입니다.**
+
+편향-분산 분해에서
+
+$$\mathbb{E}\left[(y_0 - \hat{f}(x_0))^2\right] = \underbrace{\left(\mathbb{E}[\hat{f}(x_0)] - f(x_0)\right)^2}_{\text{Bias}^2} + \underbrace{\mathbb{E}\left[\left(\hat{f}(x_0) - \mathbb{E}[\hat{f}(x_0)]\right)^2\right]}_{\text{Variance}} + \sigma^2$$
+
+$T$개의 모델을 평균하면 $\hat{f}_{bag}(x) = \frac{1}{T}\sum_t \hat{f}_t(x)$이고, 각 모델의 분산이 $\sigma_f^2$, 쌍별 상관이 $\rho$일 때
+
+$$\operatorname{Var}\left(\hat{f}_{bag}\right) = \rho\,\sigma_f^2 + \frac{1-\rho}{T}\sigma_f^2$$
+
+- $T \to \infty$이면 두 번째 항이 사라지고 $\rho\sigma_f^2$만 남습니다.
+- **편향은 거의 변하지 않습니다**: $\mathbb{E}[\hat{f}_{bag}] = \mathbb{E}[\hat{f}_t]$이므로 평균 예측이 그대로입니다.
+
+이 식이 랜덤 포레스트의 존재 이유이기도 합니다. 배깅만으로는 트리들이 서로 비슷해져 $\rho$가 크게 남는데, 분할마다 변수를 무작위로 제한(`max_features`)하면 $\rho$가 낮아져 하한 $\rho\sigma_f^2$ 자체가 내려갑니다.
+
+**개별 트리를 깊게 키우는 것이 합리적인 이유**
+
+배깅은 분산만 줄이고 편향은 못 줄입니다. 따라서 기반 학습기는 **편향이 낮은(=분산이 큰) 모델**이 적합합니다.
+
+- 제약 없는 깊은 트리: 편향 낮음, 분산 큼 $\to$ 배깅이 분산을 처리 $\to$ 좋은 조합
+- 얕은 트리(그루터기): 편향 높음, 분산 작음 $\to$ 배깅해도 편향이 그대로 남음 $\to$ 나쁜 조합
+
+얕은 트리는 오히려 **부스팅**의 기반 학습기로 적합합니다. 부스팅은 잔차를 순차적으로 학습해 **편향을 줄이는** 방식이라 정반대의 요구 조건을 갖습니다.
+
+```{python}
+#| eval: false
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+
+df_tr, df_te = train_test_split(
+    pd.get_dummies(df_abalone, columns=['Sex']), train_size=0.8, random_state=123)
+Xc = [i for i in df_tr.columns if i != 'Rings']
+
+n_estimators = 100
+rng = np.random.default_rng(123)
+test_preds = []
+for i in range(n_estimators):
+    df_bs = df_tr.sample(frac=1.0, replace=True, random_state=i)
+    reg = DecisionTreeRegressor(random_state=i)
+    reg.fit(df_bs[Xc], df_bs['Rings'])
+    test_preds.append(pd.Series(reg.predict(df_te[Xc]),
+                                index=df_te.index, name=i))
+
+df_test_prds = pd.concat(test_preds, axis=1)
+
+# 누적 평균 기준으로 분산과 MSE를 계산합니다.
+var_list, mse_list = [], []
+for t in range(1, n_estimators + 1):
+    avg = df_test_prds.iloc[:, :t].mean(axis=1)
+    var_list.append(df_test_prds.iloc[:, :t].var(axis=1).mean())
+    mse_list.append(mean_squared_error(df_te['Rings'], avg))
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+axes[0].plot(range(1, n_estimators + 1), var_list)
+axes[0].set(xlabel='Number of estimators', ylabel='Mean prediction variance',
+            title='개별 트리 예측의 산포')
+axes[1].plot(range(1, n_estimators + 1), mse_list)
+axes[1].axhline(mse_list[0], linestyle='dotted', color='gray',
+                label=f'single tree = {mse_list[0]:.3f}')
+axes[1].set(xlabel='Number of estimators', ylabel='Test MSE',
+            title='배깅 예측의 MSE')
+axes[1].legend()
+plt.tight_layout()
+plt.show()
+
+print(f'단일 트리 MSE   = {mse_list[0]:.4f}')
+print(f'100개 배깅 MSE  = {mse_list[-1]:.4f}')
+print(f'감소율          = {(1 - mse_list[-1] / mse_list[0]) * 100:.1f}%')
+```
+
+:::
+
+### [문제 5-3] Soft Voting과 Hard Voting의 차이가 드러나는 지점
+
+::: {.callout-note appearance="simple"}
+`df_abalone`에서 `Sex == 'I'`인지 여부를 이진 분류 대상 `Class`로 만들고 8:2로 나눕니다.
+
+`KNeighborsClassifier`, `LogisticRegression`, `DecisionTreeClassifier` 세 모델로 `VotingClassifier`를 만들되, `voting='hard'`와 `voting='soft'` 두 버전의 평가 정확도를 비교하세요.
+
+그리고 평가 데이터에서 **두 방식의 예측이 서로 다른 샘플**을 찾아, 그 샘플에 대한 개별 모델의 예측 클래스와 예측 확률을 표로 출력하세요.
+
+왜 그 샘플에서 결과가 갈렸는지 설명하세요.
+:::
+
+```{python}
+#| eval: false
+from sklearn.ensemble import VotingClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+
+# TODO: hard/soft voting의 정확도를 비교하고, 예측이 갈린 샘플을 분석하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 5-3"}
+
+**두 방식의 정의**
+
+- **Hard voting**: $\hat{y} = \operatorname{mode}\left(\hat{y}_1, \ldots, \hat{y}_M\right)$ — 각 모델이 한 표씩
+- **Soft voting**: $\hat{y} = \arg\max_k \frac{1}{M}\sum_{m=1}^{M} P_m(y=k \mid \mathbf{x})$ — 확률의 평균
+
+**결과가 갈리는 조건**
+
+다수결에서 진 쪽의 모델이 **훨씬 강한 확신**을 가질 때입니다. 예를 들어 세 모델이
+
+| 모델 | $P(y=1)$ | 하드 투표 |
+|:---|:---|:---|
+| A | 0.95 | 클래스 1 |
+| B | 0.45 | 클래스 0 |
+| C | 0.48 | 클래스 0 |
+
+- 하드: 클래스 0이 2표로 승리
+- 소프트: 평균 $P(y=1) = (0.95+0.45+0.48)/3 = 0.627 > 0.5$이므로 클래스 1
+
+하드 투표는 0.95와 0.51을 **똑같이 1표**로 취급합니다. 확률을 이진값으로 압축하면서 "확신의 강도"라는 정보를 버리는 것입니다. 소프트 투표는 이 정보를 보존합니다.
+
+**소프트 투표가 항상 나은가**
+
+아닙니다. 소프트 투표의 우월성은 **개별 모델의 확률이 잘 보정되어 있다**는 전제에 의존합니다.
+
+- 제약 없는 결정 트리는 리프가 순수해져 $P$를 0 또는 1로만 출력합니다 — 근거 없는 극단적 확신
+- 나이브 베이즈는 조건부 독립 가정 때문에 확률을 극단으로 밀어붙입니다
+
+이런 모델이 섞이면 소프트 투표가 그 모델에 과도한 발언권을 주게 되어 하드 투표보다 나빠질 수 있습니다. `CalibratedClassifierCV`로 보정하거나, `VotingClassifier(weights=...)`로 신뢰도가 낮은 모델의 가중치를 낮추는 것이 대응책입니다.
+
+**주의**: 소프트 투표를 쓰려면 모든 모델이 `predict_proba`를 지원해야 합니다. `SVC`는 `probability=True`가 필요하고, 이때 내부적으로 교차검증 기반 Platt scaling을 수행하므로 학습이 눈에 띄게 느려집니다.
+
+```{python}
+#| eval: false
+from sklearn.ensemble import VotingClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+df_ab = df_abalone.assign(Class=lambda x: (x['Sex'] == 'I').astype(int))
+df_tr, df_te = train_test_split(df_ab, train_size=0.8, random_state=123)
+Xc = [i for i in df_ab.columns if i not in ['Sex', 'Class']]
+
+estimators = [
+    ('knn', make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=50))),
+    ('lr', make_pipeline(StandardScaler(), LogisticRegression(C=100, max_iter=1000))),
+    ('dt', DecisionTreeClassifier(max_leaf_nodes=8, random_state=123)),
+]
+
+preds = {}
+for voting in ['hard', 'soft']:
+    clf_vt = VotingClassifier(estimators, voting=voting)
+    clf_vt.fit(df_tr[Xc], df_tr['Class'])
+    preds[voting] = clf_vt.predict(df_te[Xc])
+    print(f'{voting:5s} voting accuracy = '
+          f'{accuracy_score(df_te["Class"], preds[voting]):.4f}')
+
+# 두 방식의 예측이 갈린 샘플
+disagree = np.where(preds['hard'] != preds['soft'])[0]
+print(f'\n예측이 갈린 샘플 수 = {len(disagree)} / {len(df_te)}')
+
+if len(disagree) > 0:
+    rows = []
+    for pos in disagree[:5]:
+        row = {'idx': df_te.index[pos], 'true': df_te['Class'].iloc[pos]}
+        for name, est in estimators:
+            est.fit(df_tr[Xc], df_tr['Class'])
+            x = df_te[Xc].iloc[[pos]]
+            row[f'{name}_pred'] = int(est.predict(x)[0])
+            row[f'{name}_prob'] = float(est.predict_proba(x)[0, 1])
+        row['mean_prob'] = np.mean([row[f'{n}_prob'] for n, _ in estimators])
+        row['hard'] = int(preds['hard'][pos])
+        row['soft'] = int(preds['soft'][pos])
+        rows.append(row)
+    df_dis = pd.DataFrame(rows).set_index('idx')
+    print()
+    print(df_dis.round(4).to_string())
+else:
+    print('이 분할에서는 두 방식의 예측이 모두 동일합니다.')
+```
+
+:::
+
+### [문제 5-4] 배깅과 부스팅의 기반 학습기 복잡도 요구가 다른 이유
+
+::: {.callout-note appearance="simple"}
+`df_abalone`으로 `Rings`를 예측하는 회귀 문제에서, `RandomForestRegressor`와 `GradientBoostingRegressor`를 각각 기반 트리의 복잡도를 바꿔가며 학습하세요.
+
+- `max_leaf_nodes`: `[2, 4, 8, 16, 32, 64, None]`
+- `n_estimators`: 두 모델 모두 200으로 고정
+
+`max_leaf_nodes`에 따른 학습/평가 MSE를 두 모델에 대해 각각 그래프로 그리고, 최적 복잡도가 어느 쪽에서 더 작은지 확인하세요.
+
+이 차이를 편향-분산 분해로 설명하세요.
+:::
+
+```{python}
+#| eval: false
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+
+# TODO: 두 앙상블의 max_leaf_nodes별 MSE를 비교하고 시각화하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 5-4"}
+
+**두 앙상블은 편향-분산 분해의 서로 다른 항을 공략합니다.**
+
+| | 배깅 / 랜덤 포레스트 | 부스팅 |
+|:---|:---|:---|
+| 학습 방식 | 병렬 · 독립 | 순차 · 잔차 학습 |
+| 주로 줄이는 항 | **분산** | **편향** |
+| 필요한 기반 학습기 | 저편향 · 고분산 (**깊은 트리**) | 고편향 · 저분산 (**얕은 트리**) |
+| 기반 학습기 늘리면 | 과적합 거의 없음 | 과적합 가능 |
+
+**랜덤 포레스트**
+
+$$\operatorname{Var}\left(\hat{f}_{bag}\right) = \rho\sigma_f^2 + \frac{1-\rho}{T}\sigma_f^2$$
+
+평균은 분산만 줄이고 편향은 그대로이므로, 기반 트리의 편향이 처음부터 낮아야 합니다. 따라서 `max_leaf_nodes=None`(제약 없음)이 최적에 가깝습니다. 트리를 얕게 만들면 편향이 남아 아무리 평균해도 회복되지 않습니다.
+
+**그래디언트 부스팅**
+
+$$F_m(x) = F_{m-1}(x) + \nu \cdot h_m(x), \qquad h_m \approx -\frac{\partial L}{\partial F}\bigg|_{F=F_{m-1}}$$
+
+이전 모델이 못 맞춘 부분(잔차)을 다음 모델이 채우며 **편향을 단계적으로 줄입니다**. 각 단계의 기여가 작아야(=기반 트리가 단순해야) 세밀하게 수렴할 수 있고, 기반 트리가 깊으면 한 번에 잔차를 다 흡수해 버려 곧바로 과적합합니다.
+
+경험칙으로 GBM의 `max_depth`는 3~8, `max_leaf_nodes`는 4~32 정도가 흔히 쓰입니다. `learning_rate` $\nu$를 낮추면 각 단계의 보폭이 줄어 더 많은 `n_estimators`가 필요하지만 일반화가 좋아지는 트레이드오프가 있습니다.
+
+**요약**: 배깅은 "이미 똑똑하지만 변덕스러운" 학습기를 안정화하고, 부스팅은 "둔하지만 일관된" 학습기를 조금씩 똑똑하게 만듭니다. 요구 조건이 정반대입니다.
+
+```{python}
+#| eval: false
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+
+df_tr, df_te = train_test_split(
+    pd.get_dummies(df_abalone, columns=['Sex']), train_size=0.8, random_state=123)
+Xc = [i for i in df_tr.columns if i != 'Rings']
+
+leaf_list = [2, 4, 8, 16, 32, 64, None]
+results = {}
+for name, Model, kw in [
+    ('RandomForest', RandomForestRegressor, dict(n_estimators=200, random_state=123, n_jobs=-1)),
+    ('GradientBoosting', GradientBoostingRegressor, dict(n_estimators=200, random_state=123, learning_rate=0.1)),
+]:
+    rows = []
+    for leaf in leaf_list:
+        reg = Model(max_leaf_nodes=leaf, **kw)
+        reg.fit(df_tr[Xc], df_tr['Rings'])
+        rows.append({
+            'max_leaf_nodes': 'None' if leaf is None else leaf,
+            'mse_train': mean_squared_error(df_tr['Rings'], reg.predict(df_tr[Xc])),
+            'mse_test': mean_squared_error(df_te['Rings'], reg.predict(df_te[Xc])),
+        })
+    results[name] = pd.DataFrame(rows).set_index('max_leaf_nodes')
+    print(f'--- {name} ---')
+    print(results[name].round(4).to_string())
+    best = results[name]['mse_test'].idxmin()
+    print(f'최적 max_leaf_nodes = {best}\n')
+
+fig, axes = plt.subplots(1, 2, figsize=(13, 4))
+for ax, (name, df_r) in zip(axes, results.items()):
+    pos = np.arange(len(df_r))
+    ax.plot(pos, df_r['mse_train'], marker='o', label='MSE of train')
+    ax.plot(pos, df_r['mse_test'], marker='s', label='MSE of test')
+    ax.axvline(list(df_r.index).index(df_r['mse_test'].idxmin()),
+               linestyle='dotted', color='gray')
+    ax.set_xticks(pos)
+    ax.set_xticklabels(df_r.index)
+    ax.set(xlabel='max_leaf_nodes', ylabel='MSE', title=name)
+    ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+:::
+
+## 6. 종합 문제
+
+### [문제 6-1] 여러 모델의 교차검증 비교와 투표 앙상블
+
+::: {.callout-note appearance="simple"}
+`df_abalone`에서 `Sex == 'I'` 여부를 `Class`로 만들고 8:2로 나눕니다.
+
+`RepeatedStratifiedKFold(n_splits=5, n_repeats=3, random_state=123)`으로 다음 모델들의 ROC AUC를 교차검증하고, 학습 점수와 평가 점수를 `평균±표준편차` 형태의 표로 정리하세요.
+
+- K최근접 이웃 (표준화 필요)
+- 로지스틱 회귀 (표준화 필요)
+- 서포트 벡터 머신 (표준화 필요, `probability=True`)
+- 랜덤 포레스트
+- 그래디언트 부스팅
+- 위 모델들의 Soft Voting
+
+표를 보고 답하세요.
+
+1. 학습 점수와 평가 점수의 격차가 가장 큰 모델은 무엇이고 그것이 뜻하는 바는?
+2. Voting이 최고 성능 단일 모델보다 나은가? 그렇지 않다면 왜 그럴 수 있는가?
+:::
+
+```{python}
+#| eval: false
+from sklearn.model_selection import RepeatedStratifiedKFold, cross_validate
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier
+
+# TODO: 각 모델을 교차검증하고 결과를 표로 정리하세요.
+```
+
+::: {.callout-tip collapse="true" title="해설 6-1"}
+
+**1. 학습-평가 격차 = 분산의 대리 지표**
+
+$$\text{gap} = \text{AUC}_{train} - \text{AUC}_{valid}$$
+
+이 값이 크다는 것은 모델이 학습 폴드에 특화된 패턴을 학습했다는 뜻으로, 편향-분산 분해의 **분산 항이 크다**는 신호입니다.
+
+보통 제약 없는 랜덤 포레스트가 학습 AUC 1.0에 가깝게 나오면서 격차가 가장 큽니다. 다만 랜덤 포레스트에서 이 격차는 **덜 문제적**입니다 — 부트스트랩 때문에 개별 트리는 학습 데이터의 63.2%만 보므로, 앙상블 전체의 학습 점수가 높은 것이 곧바로 과적합을 의미하지는 않습니다. 판단은 **평가 점수의 절대값과 표준편차**로 해야 합니다.
+
+표준편차가 크다는 것도 중요한 신호입니다. 폴드가 바뀔 때 성능이 흔들린다는 뜻이며, 이는 분산의 더 직접적인 측정치입니다.
+
+**2. Voting이 항상 이기지는 않습니다**
+
+앙상블 이론의 전제는 **구성 모델이 서로 다른 오류를 낸다**는 것입니다. 오류 상관이 $\rho$일 때 앙상블 분산은
+
+$$\operatorname{Var}\left(\hat{f}_{ens}\right) = \rho\sigma_f^2 + \frac{1-\rho}{M}\sigma_f^2$$
+
+Voting이 실패하는 경우:
+
+- **성능 편차가 클 때**: 약한 모델이 강한 모델을 끌어내립니다. 단순 평균은 모든 모델에 동일한 발언권을 주기 때문입니다. `weights=` 인자로 조정하거나 약한 모델을 빼야 합니다.
+- **모델들이 비슷할 때**: $\rho \approx 1$이면 평균해도 분산이 줄지 않습니다. 이미 앙상블인 랜덤 포레스트와 그래디언트 부스팅은 둘 다 트리 기반이라 상관이 높습니다.
+- **확률 보정이 나쁠 때**: soft voting은 확률을 그대로 평균하므로, 근거 없이 극단적인 확률을 내는 모델이 결과를 지배합니다.
+
+`abalone`의 `I` 판별은 신호가 비교적 명확해 개별 모델 간 성능 차이가 작고, 이 경우 Voting이 최고 단일 모델과 비슷하거나 아주 근소하게 나은 정도에 그치는 것이 자연스럽습니다. **앙상블은 다양성이 있을 때만 이깁니다.**
+
+```{python}
+#| eval: false
+from sklearn.model_selection import (train_test_split, RepeatedStratifiedKFold,
+                                     cross_validate)
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.ensemble import (RandomForestClassifier, GradientBoostingClassifier,
+                              VotingClassifier)
+from sklearn.metrics import roc_auc_score
+
+df_ab = df_abalone.assign(Class=lambda x: np.where(x['Sex'] == 'I', 1, 0))
+df_tr, df_te = train_test_split(df_ab, train_size=0.8, random_state=123)
+Xc = [i for i in df_ab.columns if i not in ['Sex', 'Class']]
+
+cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3, random_state=123)
+
+
+def eval_model(name, clf):
+    r = cross_validate(clf, df_tr[Xc], df_tr['Class'], cv=cv,
+                       scoring='roc_auc', return_train_score=True, n_jobs=-1)
+    return pd.Series([
+        '{:.4f}±{:.4f}'.format(r['train_score'].mean(), r['train_score'].std()),
+        '{:.4f}±{:.4f}'.format(r['test_score'].mean(), r['test_score'].std()),
+        r['train_score'].mean() - r['test_score'].mean(),
+    ], index=['train', 'valid', 'gap'], name=name)
+
+
+clfs = [
+    ('K-Nearest neighbors',
+     make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=50))),
+    ('Logistic Regression',
+     make_pipeline(StandardScaler(), LogisticRegression(C=100, max_iter=1000))),
+    ('Support Vector Machine',
+     make_pipeline(StandardScaler(),
+                   SVC(C=10, kernel='poly', degree=2, coef0=1, probability=True))),
+    ('Random Forest',
+     RandomForestClassifier(n_estimators=200, max_leaf_nodes=64, random_state=123)),
+    ('Gradient boosting',
+     GradientBoostingClassifier(n_estimators=150, max_leaf_nodes=4,
+                                random_state=123, learning_rate=0.1)),
+]
+
+results = [eval_model(name, clf) for name, clf in clfs]
+results.append(eval_model('Voting (soft)', VotingClassifier(clfs, voting='soft')))
+
+df_cv = pd.concat(results, axis=1).T
+df_cv['gap'] = df_cv['gap'].astype(float).round(4)
+print(df_cv.to_string())
+
+# 평가 데이터에서 최종 확인
+print('\n--- 평가 데이터 AUC ---')
+for name, clf in clfs + [('Voting (soft)', VotingClassifier(clfs, voting='soft'))]:
+    clf.fit(df_tr[Xc], df_tr['Class'])
+    auc = roc_auc_score(df_te['Class'], clf.predict_proba(df_te[Xc])[:, 1])
+    print(f'{name:24s} {auc:.4f}')
+```
+
+:::
