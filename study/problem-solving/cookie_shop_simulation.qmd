@@ -1,0 +1,371 @@
+---
+title: "쿠키 상점 시뮬레이션 — TLE 개선 노트"
+subtitle: "전체 재정렬·전수 탐색을 상수 시간 자료구조로 바꾸기"
+date: 2026-08-21
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-line-numbers: true
+    highlight-style: github
+    theme: cosmo
+lang: ko
+---
+
+## 문제 정의
+
+쿠키 상점에는 여러 모양을 **한 번에** 찍어내는 틀(cutter)이 있다. 하나의 틀 안에 같은 모양은 없으므로, 틀 하나를 한 번 작업하면 서로 다른 모양의 쿠키가 정확히 하나씩 나온다.
+
+고객 주문은 `(모양, 수령일)` 쌍이고, 매일 다음 절차를 반복한다.
+
+| 단계 | 규칙 | 필요한 질의 |
+|------|------|-------------|
+| ① | 수령일이 **오늘**인 주문 중 가장 먼저 들어온 것을 선택. 없으면 그날 종료 | 오늘 만기 주문의 도착순 최솟값 |
+| ② | 그 모양을 만들 수 있는 틀 중 **남은 주문을 가장 많이** 처리하는 틀 선택 (동점이면 작은 ID). 같은 모양의 주문은 중복해서 세지 않음 | 틀별 처리 가능량 |
+| ③ | 그 틀로 한 번 작업 → `makeCookies(mID)` 호출 | — |
+| ④ | 만들어진 모양마다, 그 모양 주문 중 **수령일이 가장 이른 것**(동점이면 먼저 들어온 것)을 하나씩 전달·삭제. 남은 쿠키는 폐기 | 모양별 `(수령일, 도착순)` 최솟값 |
+| ⑤ | 오늘 만기 주문이 남아 있으면 ①로 | — |
+
+::: {.callout-note}
+## 제약
+틀 ≤ 100개(각 ≤ 10모양), 모양 번호 ≤ 1,000, 주문 ≤ 20,000, `daysLeft` ≤ 15,000.
+:::
+
+핵심은 **표에서 "필요한 질의" 열이 딱 세 종류뿐**이라는 점이다. 이 세 질의만 상수 시간에 답할 수 있으면 시뮬레이션 전체가 빨라진다.
+
+---
+
+## 원본 코드의 병목
+
+원본과 개선본을 동시에 실행해 `makeCookies` 호출 시퀀스를 비교하는 스트레스 테스터로 측정했다. **로직은 맞고, 순수하게 자료구조 문제**였다.
+
+최악 조건(주문 20,000 / 틀 100 / 모양 1,000 / 15,000일), 테스트 케이스 1개 기준:
+
+| 구현 | 소요 시간 |
+|------|-----------|
+| 원본 | **82.3 s** |
+| 원본에서 `_qsort` → `std::sort` 만 교체 | 2.1 s |
+| 개선본 | **0.010 s** |
+
+### 병목 1: 매일 전체 배열 재정렬 (80초)
+
+```cpp
+void newDay(void) {
+    ++cur_day;
+    _qsort(order, 0, n_orders - 1);   // 매일 20,000개 전체 정렬
+    ...
+}
+```
+
+두 가지가 겹쳐 최악을 만든다.
+
+- `_partition`이 **마지막 원소를 피벗**으로 쓴다. 그런데 배열은 전날 이미 정렬해 둔 상태다. *거의 정렬된 입력 + 마지막 원소 피벗* = 교과서적인 **$O(n^2)$ 퇴화**.
+- `Order`가 16바이트 구조체라 원소 교환 비용도 크다.
+
+측정상 82.3초 중 **80초가 이 정렬 하나**에서 나왔다. 그런데 애초에 정렬이 필요 없다. 필요한 건 ①의 "오늘 만기 중 최소"와 ④의 "모양별 최소"뿐인데, 전역 정렬은 이 둘을 얻기 위해 매일 전체 순서를 다시 만드는 낭비다.
+
+::: {.callout-important}
+## 일반화할 교훈
+"정렬해 두면 앞에서부터 꺼내면 되니까 편하다"는 발상은, 그 정렬을 **매 스텝 다시** 해야 하는 순간 비용 구조가 뒤집힌다. 필요한 것이 *전체 순서*인지 *최솟값*인지 구분하라. 최솟값만 필요하면 힙, 그중에서도 키가 특정 축(날짜)으로 이미 버킷화되면 배열 인덱싱으로 충분하다.
+:::
+
+### 병목 2: 틀 평가 시 전체 주문 스캔
+
+```cpp
+for (int fi = 1; fi <= n_cutters; ++fi)
+    cutter[fi].get_cost(i);        // 내부에서 O(n_orders × 10) 스캔
+```
+
+주문 하나를 처리할 때마다 $100 \times 20{,}000 \times 10 = 2 \times 10^7$ 연산이다. 그런데 규칙 ②의 **"같은 모양 주문은 중복해서 세지 않는다"** 가 결정적이다. 틀 하나는 각 모양을 최대 1개만 만드니, 모양 $s$가 처리하는 주문 수는 `cnt[s] > 0` 이면 1, 아니면 0이다. 따라서
+
+$$
+\text{cost}(c) \;=\; \sum_{s \in c} \mathbb{1}\{\,\text{cnt}[s] > 0\,\}
+$$
+
+이미 `checkRemain`용으로 유지하던 모양별 카운터 하나면 끝난다. 주문 배열을 볼 이유가 없고, 비용은 $100 \times 10 = 1{,}000$으로 떨어진다.
+
+### 병목 3: 매일 $O(n)$ 압축
+
+```cpp
+for (int i = 0; i < n_orders;) {
+    if (!order[i].del_flag) { ++i; continue; }
+    --bin[order[i].shape];
+    order[i] = order[n_orders - 1];   // swap-remove
+    --n_orders;
+}
+```
+
+이 swap-remove가 정렬 순서를 깨뜨리고, 그래서 다음 날 또 정렬해야 하는 **악순환의 고리**다. 삭제를 lazy flag + 힙 pop으로 처리하면 이 루프 자체가 사라진다.
+
+### 병목이 아닌, 그러나 위험한 두 가지
+
+```cpp
+int i = 0;
+for (; i < n_orders; ++i) { if (order[i].del_flag) continue; break; }
+if (order[i].target_day != cur_day) break;   // i == n_orders 면 범위 밖 접근
+
+if (target_frame == -1) { printf("error\n"); while (1); }  // 무한 루프
+```
+
+- 모든 주문이 삭제된 상태에서 `order[n_orders]`를 읽는다. 정적 배열이라 크래시는 안 나지만 미정의 동작이다.
+- 디버깅용 `while(1)`은 조건이 조금이라도 어긋나면 **WA가 아니라 TLE**로 나타난다. 원인 진단을 어렵게 만드므로 제출본에서는 반드시 제거.
+
+---
+
+## 자료구조 재설계
+
+### 질의 ①: 수령일별 연결 리스트
+
+주문은 도착 순서대로 들어오므로, 수령일 $d$ 버킷에 **append만** 하면 그 리스트는 자동으로 도착순 정렬 상태다. 별도 정렬이 필요 없다.
+
+- 인덱스 범위: `curDay`(≤15,000) + `daysLeft`(≤15,000) → 30,005칸이면 충분.
+- `dayHead[d]`, `dayTail[d]`, `nxt[order]` 세 배열. 삽입 $O(1)$.
+
+### 질의 ④: 모양별 최소 힙
+
+모양 $s$의 살아있는 주문 중 `(수령일, 도착순)` 최솟값이 필요하다. 삭제는 **항상 최솟값**이므로 힙이 정확히 맞는다.
+
+문제는 저장 공간이다. `int heap[1005][20005]`는 불가능하고, 모양별 동적 배열은 STL 없이 다루기 번거롭다. 해법은 **노드 = 주문 번호**로 두는 포인터(인덱스) 기반 힙이다. 주문이 전체 20,000개뿐이므로 자식 배열 3개면 1,000개 모양의 힙을 **전부** 담는다.
+
+```cpp
+static int lc[MAX_ORDER], rc[MAX_ORDER], dist[MAX_ORDER], root[MAX_SHAPE];
+```
+
+### 왜 leftist heap인가 (skew heap이 아니라)
+
+두 힙 모두 `meld` 하나로 push/pop이 유도되고 코드도 비슷하게 짧다. 차이는 **최악 보장**이다.
+
+- **skew heap**: 상수 시간 상수가 작고 `dist` 유지도 없지만, 단일 연산 최악이 $O(n)$이다. `meld`를 재귀로 짜면 깊이가 20,000까지 갈 수 있다.
+- **leftist heap**: 노드의 `dist`(가장 가까운 NULL까지의 거리)를 유지하고 `dist[lc] ≥ dist[rc]` 불변식을 강제한다. 그러면 오른쪽 경로 길이가 **항상** $\lfloor \log_2(n+1) \rfloor$ 이하로 보장된다.
+
+증명 스케치: 오른쪽 경로 길이가 $k$인 leftist 트리는 깊이 $k$까지 **완전 이진 트리**를 포함한다. 만약 깊이 $k$ 이내에 NULL 자식이 있었다면 그 지점의 `dist`가 작아져 오른쪽 경로가 $k$보다 짧아졌을 것이기 때문이다. 따라서 노드 수 $n \ge 2^k - 1$, 즉 $k \le \log_2(n+1)$.
+
+`meld`는 오른쪽 경로만 타고 내려가므로 재귀 깊이가 30 이하로 묶인다. **`dist` 유지 비용은 비교 1회 + 대입 1회로 사실상 공짜인데, 그걸 생략하는 순간(= skew) 최악 보장이 날아간다.** 스택을 신경 쓰지 않고 재귀로 짤 수 있다는 게 실전에서 큰 이점이다.
+
+```cpp
+static int meld(int a, int b) {
+    if (a == 0) return b;
+    if (b == 0) return a;
+    if (!prior(a, b)) { int t = a; a = b; b = t; }   // a 가 우선순위 높게
+    rc[a] = meld(rc[a], b);
+    if (dist[lc[a]] < dist[rc[a]]) { int t = lc[a]; lc[a] = rc[a]; rc[a] = t; }
+    dist[a] = dist[rc[a]] + 1;
+    return a;
+}
+```
+
+::: {.callout-tip}
+## 인덱스 0을 NULL 센티널로
+주문을 1번부터 매기고 0을 NULL로 쓰면 `dist[0] = 0` 덕분에 `dist[a] = dist[rc[a]] + 1`이 리프에서 자연스럽게 1이 된다. `-1` 널 체크 분기가 전부 사라진다. 날짜 연결 리스트도 같은 규약을 쓰면 코드가 일관된다.
+:::
+
+### lazy delete가 안전한 이유
+
+①에서 고른 주문 `cur`을 ④에서 따로 처리하지 않아도 되는가? 된다.
+
+1. 모든 주문은 자기 수령일 당일에 반드시 소진된다(⑤의 루프가 오늘 만기 주문이 없어질 때까지 돈다). 따라서 **과거 만기 주문이 살아남는 경우가 없다.**
+2. `cur`의 수령일은 오늘 = 살아있는 모든 주문 중 최솟값.
+3. 오늘 만기 주문 중에서도 `cur`은 리스트 앞쪽 = 도착이 가장 이르다.
+
+즉 `cur`은 자기 모양 힙의 최솟값과 **정확히 일치**하므로 ④의 `hpop`에서 반드시 뽑힌다. 별도 처리 없이 `oDead` 플래그만 보고 다음 루프에서 건너뛰면 된다.
+
+---
+
+## 최종 구현
+
+STL과 헤더 없이 동작한다.
+
+```cpp
+extern void makeCookies(int mID);
+
+#define MAX_CUTTER   (105)
+#define MAX_SHAPE    (1005)
+#define MAX_ORDER    (20005)      // 주문은 1번부터, 0 은 NULL
+#define MAX_DAY      (30005)      // curDay(<=15000) + daysLeft(<=15000)
+
+static int  curDay, tick, nCutter, nOrder;
+
+/* ---------- 틀 ---------- */
+static int  cutN[MAX_CUTTER];
+static int  cutS[MAX_CUTTER][10];
+
+/* ---------- 주문 ---------- */
+static int  oShape[MAX_ORDER], oDay[MAX_ORDER], oTick[MAX_ORDER];
+static bool oDead[MAX_ORDER];
+
+/* 모양별 남아있는 주문 수 (checkRemain, 틀 가치 계산에 그대로 사용) */
+static int  cnt[MAX_SHAPE];
+
+/* 수령일별 주문 리스트 (도착 순서 = tick 오름차순 유지), 0 = NULL */
+static int  dayHead[MAX_DAY], dayTail[MAX_DAY], nxt[MAX_ORDER];
+
+/* ---------- 모양별 leftist heap : key = (수령일, 도착순서) ---------- */
+static int  lc[MAX_ORDER], rc[MAX_ORDER], dist[MAX_ORDER], root[MAX_SHAPE];
+
+static inline bool prior(int a, int b)          // a 가 b 보다 먼저 처리되어야 하는가
+{
+    if (oDay[a] != oDay[b]) return oDay[a] < oDay[b];
+    return oTick[a] < oTick[b];
+}
+
+/* 오른쪽 경로 길이가 O(log n) 으로 보장되므로 재귀 깊이도 O(log n) */
+static int meld(int a, int b)
+{
+    if (a == 0) return b;
+    if (b == 0) return a;
+    if (!prior(a, b)) { int t = a; a = b; b = t; }
+
+    rc[a] = meld(rc[a], b);
+    if (dist[lc[a]] < dist[rc[a]]) { int t = lc[a]; lc[a] = rc[a]; rc[a] = t; }
+    dist[a] = dist[rc[a]] + 1;
+    return a;
+}
+
+static inline void hpush(int s, int v)
+{
+    lc[v] = rc[v] = 0;
+    dist[v] = 1;
+    root[s] = meld(root[s], v);
+}
+
+static inline int hpop(int s)                   // (수령일, 도착순서) 최소 주문
+{
+    int top = root[s];
+    root[s] = meld(lc[top], rc[top]);
+    return top;
+}
+
+/* ------------------------------------------------------------------ */
+void init(void)
+{
+    curDay = 0; tick = 0; nCutter = 0; nOrder = 0;
+
+    dist[0] = 0; lc[0] = 0; rc[0] = 0;                    // NULL 노드
+    for (int s = 0; s < MAX_SHAPE; ++s) { cnt[s] = 0; root[s] = 0; }
+    for (int d = 0; d < MAX_DAY; ++d)   { dayHead[d] = 0; dayTail[d] = 0; }
+}
+
+void addCookieCutter(int mID, int N, int mShapeList[])
+{
+    nCutter = mID;                                        // mID 는 1 부터 1 씩 증가
+    cutN[mID] = N;
+    for (int i = 0; i < N; ++i) cutS[mID][i] = mShapeList[i];
+}
+
+void orderCookie(int mShape, int daysLeft)
+{
+    int id = ++nOrder;
+    oShape[id] = mShape;
+    oDay[id]   = curDay + daysLeft;
+    oTick[id]  = ++tick;
+    oDead[id]  = false;
+    nxt[id]    = 0;
+
+    int d = oDay[id];
+    if (dayHead[d] == 0) dayHead[d] = id;
+    else                 nxt[dayTail[d]] = id;
+    dayTail[d] = id;
+
+    hpush(mShape, id);
+    ++cnt[mShape];
+}
+
+int checkRemain(int mShape)
+{
+    return cnt[mShape];
+}
+
+void newDay(void)
+{
+    ++curDay;
+
+    int cur = dayHead[curDay];                  // 오늘이 수령일인 주문들, 도착 순
+    while (cur != 0) {
+        if (oDead[cur]) { cur = nxt[cur]; continue; }      // ① 가장 먼저 들어온 주문
+
+        int shape = oShape[cur];
+
+        /* ② 그 모양을 만들 수 있는 틀 중 남은 주문을 가장 많이 처리하는 틀.
+              같은 모양은 중복해서 세지 않으므로 cnt[s] > 0 인 모양의 개수가 곧 처리량 */
+        int best = 0, bestCost = -1;
+        for (int c = 1; c <= nCutter; ++c) {
+            bool has = false;
+            int  cost = 0;
+            for (int k = 0; k < cutN[c]; ++k) {
+                int s = cutS[c][k];
+                if (s == shape) has = true;
+                if (cnt[s] > 0)  ++cost;
+            }
+            if (!has) continue;
+            if (cost > bestCost) { bestCost = cost; best = c; }   // 동점 -> 작은 ID
+        }
+        if (best == 0) { cur = nxt[cur]; continue; }              // 문제상 발생하지 않음
+
+        /* ③ 한 번 작업 */
+        makeCookies(best);
+
+        /* ④ 모양마다 (수령일, 도착순서) 가 최소인 주문 하나씩 처리 */
+        for (int k = 0; k < cutN[best]; ++k) {
+            int s = cutS[best][k];
+            if (cnt[s] > 0) {
+                int oi = hpop(s);
+                oDead[oi] = true;
+                --cnt[s];
+            }
+        }
+        /* ⑤ cur 은 이번 작업에서 반드시 삭제되므로 다음 루프에서 건너뛴다 */
+    }
+    dayHead[curDay] = dayTail[curDay] = 0;
+}
+```
+
+---
+
+## 복잡도와 메모리
+
+기호: $D$ = 전체 일수, $M$ = 전체 주문 수, $C$ = 틀 수(≤100), $S$ = 틀당 모양 수(≤10), $n$ = 동시에 살아있는 주문 수.
+
+| 연산 | 원본 | 개선본 |
+|------|------|--------|
+| `orderCookie` | $O(1)$ | $O(\log n)$ (힙 삽입) |
+| `checkRemain` | $O(1)$ | $O(1)$ |
+| `newDay` 정렬 | $O(n^2)$ (퇴화) | 없음 |
+| `newDay` 틀 선택 (주문 1건당) | $O(C \cdot n \cdot S)$ | $O(C \cdot S) = 1{,}000$ |
+| `newDay` 삭제 (주문 1건당) | $O(n)$ 압축 | $O(S \log n)$ |
+| **전체** | $O(D n^2 + M C n S)$ | $O(D + M(CS + S\log n))$ |
+
+전체 상한은 $20{,}000 \times 1{,}000 = 2 \times 10^7$ 수준으로, 실측 0.01초에 들어온다.
+
+추가 메모리:
+
+- `lc/rc/dist`: $3 \times 20{,}005 \times 4\text{B} \approx 240$ KB
+- `dayHead/dayTail`: $2 \times 30{,}005 \times 4\text{B} \approx 240$ KB
+
+---
+
+## 검증 방법
+
+정답 시뮬레이터를 손으로 비교하는 대신, **원본과 개선본을 같은 프로세스에서 동시에 굴렸다.**
+
+- 원본을 `namespace OLD`로 감싸 심볼 충돌을 피하고, `makeCookies`를 각각 다른 로그 벡터에 기록.
+- 무작위 명령 시퀀스를 생성해 매 `newDay`마다 **`makeCookies` 호출 시퀀스 전체**와 모든 모양의 `checkRemain` 값을 비교.
+- 파라미터(모양 수, 틀 수, 주문 밀도, `daysLeft` 범위)를 바꿔가며 소형 케이스 다수 + 최악 케이스 1개.
+
+::: {.callout-tip}
+## 이 방식이 좋은 이유
+"고친 코드가 빨라졌는가"와 "고친 코드가 여전히 맞는가"를 **한 번에** 검증한다. 특히 이 문제처럼 출력이 `makeCookies` 호출 시퀀스인 인터랙티브 형식에서는, 느린 원본이 곧 신뢰할 수 있는 레퍼런스가 된다. 소형 케이스에서 시퀀스가 한 번이라도 어긋나면 즉시 그 시점의 두 로그를 나란히 출력하게 해 두면 디버깅이 빠르다.
+:::
+
+---
+
+## 체크리스트로 남기기
+
+시뮬레이션 문제에서 TLE가 났을 때 순서대로 점검할 것.
+
+1. **매 스텝 반복되는 전역 작업이 있는가** — 정렬, 전체 스캔, 배열 압축. 스텝 수 × 전체 크기는 거의 항상 터진다.
+2. **직접 구현한 정렬의 피벗 전략** — 마지막/첫 원소 피벗은 이미 정렬된 입력에서 $O(n^2)$. 중앙값 셋 또는 랜덤 피벗을 쓰거나, 애초에 정렬을 없앨 것.
+3. **문제 조건 중 "중복해서 세지 않는다" 같은 문장** — 집합 카운팅으로 환원되어 스캔이 $O(1)$ 카운터 조회로 바뀌는 신호다.
+4. **필요한 게 전체 순서인가 최솟값인가** — 최솟값이면 힙. 키의 한 축이 유계 정수(날짜, ID)면 버킷 배열이 더 빠르다.
+5. **삭제는 즉시 압축 대신 lazy flag** — 순서를 보존해 재정렬을 유발하지 않는다.
+6. **디버그용 `while(1)`, 무한 대기** — 제출 전 제거. WA가 TLE로 위장되면 원인 추적이 몇 배 어려워진다.
