@@ -13920,13 +13920,209 @@
     "href": "study/problem-solving/EX_cleaner-beam-writeup.html",
     "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
     "section": "",
-    "text": "청소부가 \\(100\\times100\\) 격자 위의 집들을 청소한다. 각 집에는 재료 \\(m\\in\\{1,\\dots,6\\}\\)가 있고, 그 집을 청소하면 가격 \\(P_m\\)을 얻는다. 하루는 720분이며, nextDay()를 최대 30번 호출할 수 있어 총 31개의 근무일 구간을 쓴다. 핵심은 위치가 날을 넘겨 이어진다는 점이다. 오늘 끝난 자리에서 내일이 시작한다. 한 번의 move(y,x) 호출은 다음 순서로 처리된다. - 이동: 맨해튼 거리만큼 시간 소모. 그 결과 \\(&gt;720\\)이면 SCORE=0. - 청소: 목표 칸이 집이면 \\(c_m=30m+30\\)분 소모. 역시 \\(&gt;720\\)이면 SCORE=0. - 보상: \\(P_m\\) 획득. 종료 시각이 480분을 넘겼다면 초과근무 보너스를 추가로 얻는다. - 이미 청소한 칸이나 빈 칸으로 이동하면 청소 보상은 없다. 가격과 청소시간, 그리고 청소 1분당 가치는 다음과 같다. | \\(m\\) | \\(c_m\\) (청소분) | \\(P_m\\) | \\(P_m/c_m\\) | |—:|—:|—:|—:| | 1 | 60 | 80,000 | 1,333 | | 2 | 90 | 140,000 | 1,556 | | 3 | 120 | 180,000 | 1,500 | | 4 | 150 | 240,000 | 1,600 | | 5 | 180 | 250,000 | 1,389 | | 6 | 210 | 300,000 | 1,429 | ::: {.callout-note} ## 채점 구조의 함정 SCORE는 10개 테스트케이스에 걸쳐 누적되며, 한 번이라도 \\(&gt;720\\)을 만들면 누적 SCORE가 0이 될 수 있다. 따라서 안전성은 점수보다 우선이다. 이 문제에서 가장 중요한 구현 원칙 중 하나는 다음과 같다. &gt; 시간 초과 가능성이 있는 이동을 절대 호출하지 않는다. 그래서 계획 단계에서 항상 newTime &lt;= 720을 확인한 뒤 실제 move()를 실행한다. ::: ## 정식화 — 시간종속 이익을 갖는 주기적 Orienteering Problem 이 문제는 Orienteering Problem(OP) — “예산 안에서 방문할 노드의 부분집합과 순서를 정해 수집 점수를 최대화” — 의 변형이다. 하루 내부에서 집 \\(i\\)에서 \\(j\\)로 이동할 때 필요한 시간은 \\[\n\\tau(i,j)=d(i,j)+c_j\n\\] 이다. 여기서 \\(d(i,j)\\)는 맨해튼 거리, \\(c_j\\)는 도착한 집 \\(j\\)의 청소시간이다. 따라서 코드에서 moveCost[i][j] 또는 더 명확하게 transitionTime[i][j]라고 부르는 값은 단순 이동거리만이 아니다. \\[\n\\boxed{\n\\text{transitionTime}[i][j]\n=\n\\text{distance}(i,j)\n+\n\\text{cleaningTime}(j)\n}\n\\] 하루 최종 보상은 경로의 집 가격 합을 prize, 총 사용시간을 \\(t\\)라 하면 \\[\n\\boxed{\n\\text{finalReward}\n=\n\\text{prize}\n+\n200\\,(t-480)^+\n}\n\\] 로 볼 수 있다. ::: {.callout-important}"
+    "text": "청소부가 \\(100\\times100\\) 격자 위의 집들을 청소한다. 각 집에는 재료 \\(m\\in\\{1,\\dots,6\\}\\)가 있고, 그 집을 청소하면 가격 \\(P_m\\)을 얻는다. 하루는 720분이며, nextDay()를 최대 30번 호출할 수 있어 총 31개의 근무일 구간을 쓴다. 핵심은 위치가 날을 넘겨 이어진다는 점이다. 오늘 끝난 자리에서 내일이 시작한다.\n한 번의 move(y,x) 호출은 다음 순서로 처리된다.\n\n이동: 맨해튼 거리만큼 시간 소모. 그 결과 \\(&gt;720\\)이면 SCORE=0.\n청소: 목표 칸이 집이면 \\(c_m=30m+30\\)분 소모. 역시 \\(&gt;720\\)이면 SCORE=0.\n보상: \\(P_m\\) 획득. 종료 시각이 480분을 넘겼다면 초과근무 보너스를 추가로 얻는다.\n이미 청소한 칸이나 빈 칸으로 이동하면 청소 보상은 없다.\n\n가격과 청소시간, 그리고 청소 1분당 가치는 다음과 같다.\n\n\n\n\\(m\\)\n\\(c_m\\) (청소분)\n\\(P_m\\)\n\\(P_m/c_m\\)\n\n\n\n\n1\n60\n80,000\n1,333\n\n\n2\n90\n140,000\n1,556\n\n\n3\n120\n180,000\n1,500\n\n\n4\n150\n240,000\n1,600\n\n\n5\n180\n250,000\n1,389\n\n\n6\n210\n300,000\n1,429\n\n\n\n\n\n\n\n\n\n노트채점 구조의 함정\n\n\n\nSCORE는 10개 테스트케이스에 걸쳐 누적되며, 한 번이라도 \\(&gt;720\\)을 만들면 누적 SCORE가 0이 될 수 있다. 따라서 안전성은 점수보다 우선이다.\n이 문제에서 가장 중요한 구현 원칙 중 하나는 다음과 같다.\n\n시간 초과 가능성이 있는 이동을 절대 호출하지 않는다.\n\n그래서 계획 단계에서 항상 newTime &lt;= 720을 확인한 뒤 실제 move()를 실행한다."
   },
   {
     "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#문제-정의와-채점기-모델",
     "href": "study/problem-solving/EX_cleaner-beam-writeup.html#문제-정의와-채점기-모델",
     "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
     "section": "",
-    "text": "청소부가 \\(100\\times100\\) 격자 위의 집들을 청소한다. 각 집에는 재료 \\(m\\in\\{1,\\dots,6\\}\\)가 있고, 그 집을 청소하면 가격 \\(P_m\\)을 얻는다. 하루는 720분이며, nextDay()를 최대 30번 호출할 수 있어 총 31개의 근무일 구간을 쓴다. 핵심은 위치가 날을 넘겨 이어진다는 점이다. 오늘 끝난 자리에서 내일이 시작한다. 한 번의 move(y,x) 호출은 다음 순서로 처리된다. - 이동: 맨해튼 거리만큼 시간 소모. 그 결과 \\(&gt;720\\)이면 SCORE=0. - 청소: 목표 칸이 집이면 \\(c_m=30m+30\\)분 소모. 역시 \\(&gt;720\\)이면 SCORE=0. - 보상: \\(P_m\\) 획득. 종료 시각이 480분을 넘겼다면 초과근무 보너스를 추가로 얻는다. - 이미 청소한 칸이나 빈 칸으로 이동하면 청소 보상은 없다. 가격과 청소시간, 그리고 청소 1분당 가치는 다음과 같다. | \\(m\\) | \\(c_m\\) (청소분) | \\(P_m\\) | \\(P_m/c_m\\) | |—:|—:|—:|—:| | 1 | 60 | 80,000 | 1,333 | | 2 | 90 | 140,000 | 1,556 | | 3 | 120 | 180,000 | 1,500 | | 4 | 150 | 240,000 | 1,600 | | 5 | 180 | 250,000 | 1,389 | | 6 | 210 | 300,000 | 1,429 | ::: {.callout-note} ## 채점 구조의 함정 SCORE는 10개 테스트케이스에 걸쳐 누적되며, 한 번이라도 \\(&gt;720\\)을 만들면 누적 SCORE가 0이 될 수 있다. 따라서 안전성은 점수보다 우선이다. 이 문제에서 가장 중요한 구현 원칙 중 하나는 다음과 같다. &gt; 시간 초과 가능성이 있는 이동을 절대 호출하지 않는다. 그래서 계획 단계에서 항상 newTime &lt;= 720을 확인한 뒤 실제 move()를 실행한다. ::: ## 정식화 — 시간종속 이익을 갖는 주기적 Orienteering Problem 이 문제는 Orienteering Problem(OP) — “예산 안에서 방문할 노드의 부분집합과 순서를 정해 수집 점수를 최대화” — 의 변형이다. 하루 내부에서 집 \\(i\\)에서 \\(j\\)로 이동할 때 필요한 시간은 \\[\n\\tau(i,j)=d(i,j)+c_j\n\\] 이다. 여기서 \\(d(i,j)\\)는 맨해튼 거리, \\(c_j\\)는 도착한 집 \\(j\\)의 청소시간이다. 따라서 코드에서 moveCost[i][j] 또는 더 명확하게 transitionTime[i][j]라고 부르는 값은 단순 이동거리만이 아니다. \\[\n\\boxed{\n\\text{transitionTime}[i][j]\n=\n\\text{distance}(i,j)\n+\n\\text{cleaningTime}(j)\n}\n\\] 하루 최종 보상은 경로의 집 가격 합을 prize, 총 사용시간을 \\(t\\)라 하면 \\[\n\\boxed{\n\\text{finalReward}\n=\n\\text{prize}\n+\n200\\,(t-480)^+\n}\n\\] 로 볼 수 있다. ::: {.callout-important}"
+    "text": "청소부가 \\(100\\times100\\) 격자 위의 집들을 청소한다. 각 집에는 재료 \\(m\\in\\{1,\\dots,6\\}\\)가 있고, 그 집을 청소하면 가격 \\(P_m\\)을 얻는다. 하루는 720분이며, nextDay()를 최대 30번 호출할 수 있어 총 31개의 근무일 구간을 쓴다. 핵심은 위치가 날을 넘겨 이어진다는 점이다. 오늘 끝난 자리에서 내일이 시작한다.\n한 번의 move(y,x) 호출은 다음 순서로 처리된다.\n\n이동: 맨해튼 거리만큼 시간 소모. 그 결과 \\(&gt;720\\)이면 SCORE=0.\n청소: 목표 칸이 집이면 \\(c_m=30m+30\\)분 소모. 역시 \\(&gt;720\\)이면 SCORE=0.\n보상: \\(P_m\\) 획득. 종료 시각이 480분을 넘겼다면 초과근무 보너스를 추가로 얻는다.\n이미 청소한 칸이나 빈 칸으로 이동하면 청소 보상은 없다.\n\n가격과 청소시간, 그리고 청소 1분당 가치는 다음과 같다.\n\n\n\n\\(m\\)\n\\(c_m\\) (청소분)\n\\(P_m\\)\n\\(P_m/c_m\\)\n\n\n\n\n1\n60\n80,000\n1,333\n\n\n2\n90\n140,000\n1,556\n\n\n3\n120\n180,000\n1,500\n\n\n4\n150\n240,000\n1,600\n\n\n5\n180\n250,000\n1,389\n\n\n6\n210\n300,000\n1,429\n\n\n\n\n\n\n\n\n\n노트채점 구조의 함정\n\n\n\nSCORE는 10개 테스트케이스에 걸쳐 누적되며, 한 번이라도 \\(&gt;720\\)을 만들면 누적 SCORE가 0이 될 수 있다. 따라서 안전성은 점수보다 우선이다.\n이 문제에서 가장 중요한 구현 원칙 중 하나는 다음과 같다.\n\n시간 초과 가능성이 있는 이동을 절대 호출하지 않는다.\n\n그래서 계획 단계에서 항상 newTime &lt;= 720을 확인한 뒤 실제 move()를 실행한다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#정식화-시간종속-이익을-갖는-주기적-orienteering-problem",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#정식화-시간종속-이익을-갖는-주기적-orienteering-problem",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "2 정식화 — 시간종속 이익을 갖는 주기적 Orienteering Problem",
+    "text": "2 정식화 — 시간종속 이익을 갖는 주기적 Orienteering Problem\n이 문제는 Orienteering Problem(OP) — “예산 안에서 방문할 노드의 부분집합과 순서를 정해 수집 점수를 최대화” — 의 변형이다.\n하루 내부에서 집 \\(i\\)에서 \\(j\\)로 이동할 때 필요한 시간은\n\\[\n\\tau(i,j)=d(i,j)+c_j\n\\]\n이다.\n여기서 \\(d(i,j)\\)는 맨해튼 거리, \\(c_j\\)는 도착한 집 \\(j\\)의 청소시간이다.\n따라서 코드에서 moveCost[i][j] 또는 더 명확하게 transitionTime[i][j]라고 부르는 값은 단순 이동거리만이 아니다.\n\\[\n\\boxed{\n\\text{transitionTime}[i][j]\n=\n\\text{distance}(i,j)\n+\n\\text{cleaningTime}(j)\n}\n\\]\n하루 최종 보상은 경로의 집 가격 합을 prize, 총 사용시간을 \\(t\\)라 하면\n\\[\n\\boxed{\n\\text{finalReward}\n=\n\\text{prize}\n+\n200\\,(t-480)^+\n}\n\\]\n로 볼 수 있다.\n\n\n\n\n\n\n중요정식화가 준 결정적 통찰\n\n\n\n목적함수는 하루별 기여의 합이고, 하루끼리 연결되는 핵심 정보는 다음 날의 시작 위치다.\n즉 31일 전체를 한 번에 최적화하지 않고,\n\n오늘 하루를 잘 푼다.\n오늘 끝 위치를 다음 날로 넘긴다.\n\n라는 분해가 가능하다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#차-접근과-정체-그리고-잘못된-천장-결론",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#차-접근과-정체-그리고-잘못된-천장-결론",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "3 1차 접근과 정체 — 그리고 잘못된 천장 결론",
+    "text": "3 1차 접근과 정체 — 그리고 잘못된 천장 결론\n처음에는 전역 tour 하나를 만들고 하루로 잘라 담는 틀에서 여러 방법을 시도했다.\n\nvalue-density greedy: 현재 위치에서 \\(P_m/(\\text{이동}+c_m)\\)가 최대인 집을 탐욕적으로 선택 → 319.5M\nGRASP: 무작위화 재시작\nor-opt / 2-opt: 국소 탐색\nLNS: destroy–repair\n\n\n\n\n방법\nSCORE\n\n\n\n\nvalue-density greedy\n319.5M\n\n\nGRASP (RCL=3, 2000 restarts)\n320.6M\n\n\nor-opt\n320.8M\n\n\n강력 LNS (40k iters)\n321.8M\n\n\n\n다섯 방법이 전부 320~322M에 수렴했다. 이동 무시·밀도 knapsack 상한이 356M이었기에, “여러 방법이 같은 값에 수렴하니 322M 근처가 실질 천장”이라고 잘못 결론지었다.\n\n\n\n\n\n\n경고이 결론은 틀렸다\n\n\n\n여러 방법이 같은 값에 수렴하더라도, 그 방법들이 같은 해 표현과 같은 이웃구조를 공유한다면 독립적인 검증이 아니다.\n여기서는 모두 “전역 tour + day packing”이라는 표현을 공유하고 있었고, 같은 basin에 갇혔다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#전환점-하루-단위-분해와-beam-search",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#전환점-하루-단위-분해와-beam-search",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "4 전환점 — 하루 단위 분해와 Beam Search",
+    "text": "4 전환점 — 하루 단위 분해와 Beam Search\n하루를 720분 예산의 작은 Orienteering Problem으로 보고 Beam Search로 풀었다.\n핵심 구성은 다음과 같다.\n\n전체 남은 집 중 오늘 볼 후보를 최대 63개로 축소\n한 Beam 상태에서 다음 후보는 최대 16개만 확장\n한 depth에서 살아남는 부분 경로는 최대 3800개\n최대 방문 수는 12개\n중간 pruning은 rank, 최종 하루 선택은 실제 finalReward"
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#beam-search의-의미",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#beam-search의-의미",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "5 Beam Search의 의미",
+    "text": "5 Beam Search의 의미\nBeam Search에서 가장 헷갈리기 쉬운 세 파라미터는 다음과 같다.\n#define CANDIDATE_COUNT 63\n#define NEXT_COUNT 16\n#define BEAM_WIDTH 3800\n이 셋은 전혀 다른 의미다.\n\n\n\n\n\n\n\n파라미터\n의미\n\n\n\n\nCANDIDATE_COUNT=63\n오늘 탐색 대상으로 삼는 집의 수\n\n\nNEXT_COUNT=16\n하나의 부분 경로에서 다음 단계로 실제 확장할 자식 수\n\n\nBEAM_WIDTH=3800\n한 depth에서 동시에 살아남길 부분 경로의 수\n\n\n\n즉 63개 경로를 유지하는 것이 아니다.\n예를 들어 후보 집이 A,B,C,D,E이고 NEXT_COUNT=2, BEAM_WIDTH=3이라면:\ndepth 0\n[]\n\ndepth 1\n[A]\n[B]\n\ndepth 2\n[A→C]\n[A→D]\n[B→C]\n[B→E]\n\n4개 생성 → rank 상위 3개만 생존\nBeam Width는 서로 다른 과거 경로를 얼마나 많이 기억할 것인가를 의미한다.\n\n\n\n\n\n\n힌트Beam Width의 직관\n\n\n\n\nBEAM_WIDTH가 작다 → 좋은 경로가 일찍 잘릴 수 있음\nBEAM_WIDTH가 크다 → 탐색 다양성은 증가하지만 시간·메모리 비용 증가\n그러나 크다고 SCORE가 단조 증가하는 것은 아니다\n\n중간 상태는 실제 SCORE가 아니라 불완전한 rank로 pruning하기 때문이다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#후보-사전선별-400개를-63개로-줄이기",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#후보-사전선별-400개를-63개로-줄이기",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "6 후보 사전선별 — 400개를 63개로 줄이기",
+    "text": "6 후보 사전선별 — 400개를 63개로 줄이기\n하루마다 현재 위치 기준으로 다음 점수를 계산한다.\n\\[\n\\boxed{\n\\text{candidateScore}\n=\nP_m\n-\n\\lambda c_m\n-\n\\mu d\n}\n\\]\n채택값은\n\\[\n\\lambda=1450,\\qquad \\mu=1000\n\\]\n이다.\nscore =\n    PRICE[level]\n    - CAND_LAMBDA * serviceTime\n    - CAND_MU * distance;\n하루 최대 청소 수는\n\\[\n720/60=12\n\\]\n이므로 63개 후보는 실제 방문 수보다 충분히 넓다. 동시에 63개 이하이므로 방문 여부를 unsigned long long 하나로 저장할 수 있다.\nunsigned long long visitedMask;\n\nif (visitedMask & (1ULL &lt;&lt; j)) {\n    // already visited\n}\n\n6.1 왜 CAND_LAMBDA≈1450인가?\n집의 청소시간 대비 가격은 대략 1333~1600점/분이다. 따라서 처음에는 “시간 1분의 기회비용”을 약 1500점으로 보는 것이 자연스럽다.\n1450은 수학적으로 고정된 값이 아니라 합리적인 초기 스케일에서 실험으로 조정된 값이다.\n\n\n6.2 왜 거리 계수는 1000인가?\n후보 선정 단계에서 거리를 너무 강하게 벌주면 현재 위치 근처의 집만 후보에 남는다. 조금 먼 곳의 고가 집 군집을 발견하려면 거리 패널티는 청소시간 패널티보다 약하게 두는 편이 유리할 수 있다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#전이-비용-사전-계산",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#전이-비용-사전-계산",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "7 전이 비용 사전 계산",
+    "text": "7 전이 비용 사전 계산\nBeam 내부에서 매번 맨해튼 거리와 청소시간을 다시 계산하면 -O0 환경에서 비싸다.\n그래서 하루 시작 시 다음을 미리 계산한다.\nstartCost[i]\nmoveCost[i][j]\n실제 의미는:\n\\[\n\\text{startCost}[i]\n=\nd(\\text{start},i)\n+\nc_i\n\\]\n\\[\n\\text{moveCost}[i][j]\n=\nd(i,j)\n+\nc_j\n\\]\n이다.\n따라서 moveCost라는 이름은 다소 오해의 여지가 있다. 학습용 코드라면 다음 이름이 더 명확하다.\ntransitionTime[from][to]\n\n\n\n\n\n\n중요cost에는 청소시간이 이미 들어 있다\n\n\n\nBeam 내부의\nint cost =\n    state.lastCandidate &lt; 0\n    ? startCost[nextCandidate]\n    : moveCost[state.lastCandidate][nextCandidate];\n에서 cost는 단순 이동거리가 아니다.\n\\[\n\\boxed{\ncost\n=\n이동시간\n+\n도착한 집의 청소시간\n}\n\\]\n따라서\nnewTime = state.usedTime + cost;\n는 채점기의 시간 증가와 정확히 대응한다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#beam-상태-설계",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#beam-상태-설계",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "8 Beam 상태 설계",
+    "text": "8 Beam 상태 설계\n상태는 다음 정보를 가진다.\nstruct BeamState {\n    unsigned long long visitedMask;\n    int prize;\n    int rank;\n    unsigned short usedTime;\n    signed char lastCandidate;\n    unsigned char routeLength;\n    unsigned char route[MAX_DEPTH];\n};\n각 필드의 의미:\n\nvisitedMask: 후보 중 방문한 집 집합\nprize: 집 가격 합\nrank: Beam pruning용 평가값\nusedTime: 오늘 사용한 시간\nlastCandidate: 마지막으로 방문한 후보\nroute: 실제 실행할 경로\n\n\n8.1 왜 MAX_DEPTH=12인가?\n최소 청소시간이 60분이므로\n\\[\n\\boxed{\nMAX\\_DEPTH\n=\n720/60\n=\n12\n}\n\\]\n이다.\n이 값은 튜닝값이 아니라 문제 제약에서 직접 도출된다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#한-beam-상태에서-다음-후보-16개만-확장",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#한-beam-상태에서-다음-후보-16개만-확장",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "9 한 Beam 상태에서 다음 후보 16개만 확장",
+    "text": "9 한 Beam 상태에서 다음 후보 16개만 확장\n후보 63개를 모두 검사하되 실제 자식 상태는 다음 점수가 높은 16개만 만든다.\n\\[\n\\boxed{\n\\text{nextScore}(j)\n=\nP_j\n-\n\\nu\\,\\text{cost}_j\n}\n\\]\n채택값:\n\\[\n\\nu=1500\n\\]\nchoice.score =\n    candidatePrice[nextCandidate]\n    - NEXT_LAMBDA * cost;\n여기서도 cost는 이동 + 청소시간이다.\nNEXT_COUNT=16은 “한 상태가 다음에 얼마나 다양한 방향으로 갈 것인가”를 제어한다.\n\n너무 작으면 Greedy에 가까워진다.\n너무 크면 자식 상태를 너무 많이 만들고 대부분 바로 버린다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#beam-width-3800의-의미",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#beam-width-3800의-의미",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "10 Beam Width 3800의 의미",
+    "text": "10 Beam Width 3800의 의미\n각 상태가 최대 16개의 자식을 생성하므로, 한 depth에서 최대\n\\[\n3800\\times16\n=\n60,800\n\\]\n개의 다음 상태가 생길 수 있다.\n그 상태들을 rank 기준으로 정렬한 뒤 상위 3800개만 다음 depth로 넘긴다.\n최대 60,800개 child\n        ↓\nrank 기준 pruning\n        ↓\n3,800개 survivor\n즉 BEAM_WIDTH는 현재까지 서로 다른 경로 history를 몇 개까지 기억할 것인가를 결정한다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#초과근무-인지-rank",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#초과근무-인지-rank",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "11 초과근무 인지 rank",
+    "text": "11 초과근무 인지 rank\n중간 상태 pruning에는 실제 점수가 아니라 다음 potential을 사용한다.\n\\[\n\\boxed{\n\\text{rank}\n=\n\\text{prize}\n-\n1500\\min(t,480)\n-\n1300(t-480)^+\n}\n\\]\n480분 이전에는 시간 1분을 1500점의 기회비용으로 본다.\n480분 이후에는 실제 보상에서 1분당 200점을 추가로 받으므로 실질 시간 비용을\n\\[\n1500-200=1300\n\\]\n으로 낮춘다.\n따라서 이 식은 사실상\n\\[\n\\text{rank}\n\\approx\n\\text{finalReward}\n-\n1500t\n\\]\n로 해석할 수 있다.\n\n\n\n\n\n\n노트rank와 finalReward는 역할이 다르다\n\n\n\n\nrank: 어떤 중간 상태를 계속 탐색할지\nfinalReward: 어떤 완성된 하루 경로를 실제로 선택할지\n\n탐색용 대리 목적과 실제 목적을 분리하는 것은 Beam Search에서 매우 중요하다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#왜-beam-width를-크게-했는데-score가-떨어질-수-있는가",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#왜-beam-width를-크게-했는데-score가-떨어질-수-있는가",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "12 왜 Beam Width를 크게 했는데 SCORE가 떨어질 수 있는가?",
+    "text": "12 왜 Beam Width를 크게 했는데 SCORE가 떨어질 수 있는가?\n직관적으로는 Beam을 늘리면 기존 좋은 경로를 모두 포함하므로 SCORE가 올라갈 것 같지만, 휴리스틱 Beam Search에서는 보장되지 않는다.\n\n12.1 이유 1 — rank는 실제 objective가 아니다\n큰 Beam을 사용하면 이전에는 죽었던 많은 상태가 살아남는다. 그 상태들이 다음 depth에서 높은 rank의 자식을 대량 생성하면 기존 Beam에서 살아남던 경로가 오히려 밀려날 수 있다.\n즉\n\\[\n\\boxed{\n\\text{More Search}\n\\not\\Rightarrow\n\\text{Higher Score}\n}\n\\]\n이다.\n\n\n12.2 이유 2 — NEXT_COUNT는 그대로다\nBEAM_WIDTH만 크게 하고 NEXT_COUNT=16을 그대로 두면 모든 방향을 균형 있게 넓히는 것이 아니다. 많은 parent를 살리지만 각 parent는 여전히 같은 휴리스틱으로 고른 16개의 child만 만든다.\n\n\n12.3 이유 3 — 2-day lookahead와의 불균형\n오늘 Beam만 지나치게 강하게 하면 “오늘 점수가 높은 경로”가 Top-K를 점령할 수 있다. 하지만 그 경로들의 종료 위치가 내일 나쁠 수도 있다.\n예를 들어:\n오늘 A: 1,010,000 / 내일 800,000\n오늘 B:   995,000 / 내일 1,000,000\n2일 합은 B가 더 좋지만, TOPK=4에 B가 들어가지 못하면 내일 평가조차 해보지 못한다.\n\n\n12.4 이유 4 — 런타임과 메모리 급증\nBEAM_WIDTH=60,800이면 최대 child 수는\n\\[\n60,800\\times16\n=\n972,800\n\\]\n까지 증가한다.\n-O0에서는 State 복사와 정렬 비용이 폭증한다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#beam-pruning-구현-merge-sort를-유지한-이유",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#beam-pruning-구현-merge-sort를-유지한-이유",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "13 Beam pruning 구현 — Merge Sort를 유지한 이유",
+    "text": "13 Beam pruning 구현 — Merge Sort를 유지한 이유\n생성된 상태를 rank 내림차순으로 정렬하기 위해 bottom-up merge sort를 사용했다.\nstableSortStates(next, mergeBuffer, nextCount);\nnextCount = beamWidth;\nMin-Heap Top-K로 교체하는 것도 가능하고 이론적으로 목적에는 더 잘 맞는다. 하지만 시험 환경에서는 다음 이유로 merge sort를 유지하는 선택도 충분히 합리적이다.\n\n구현 원리가 단순하다.\n디버깅이 쉽다.\nworst-case \\(O(N\\log N)\\)이 명확하다.\nstable한 결과를 얻기 쉽다.\n현재 시간 제한 안에 이미 들어온다.\n\n\n\n\n\n\n\n힌트시험장에서는 “조금 더 빠른 코드”보다 “내가 확실히 구현 가능한 코드”가 중요하다\n\n\n\nMin-Heap이 이론적으로 더 효율적이어도, 구현 리스크와 디버깅 시간을 고려하면 이미 통과 가능한 merge sort를 유지하는 것이 더 좋은 전략일 수 있다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#day-beam-lookahead",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#day-beam-lookahead",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "14 2-day Beam Lookahead",
+    "text": "14 2-day Beam Lookahead\n1-day Beam은 오늘만 최적화하므로 하루 끝 위치가 내일에 미치는 영향을 충분히 반영하지 못한다.\n그래서 오늘의 상위 TOPK 경로 각각에 대해:\n\\[\n\\boxed{\n\\text{todayReward}\n+\n\\text{estimatedTomorrowReward}\n}\n\\]\n를 계산한다.\n채택값:\n#define TOPK 4\n#define LA_BEAM 400\n오늘은 폭 3800의 full Beam으로 탐색하지만, 내일은 실제 실행할 경로가 아니라 미래 가치를 추정하는 용도이므로 폭 400의 작은 Beam을 사용한다.\n오늘: 정확하게 탐색\n↓\n오늘 Top-4 후보\n\n각 후보에 대해:\n오늘 route를 실행했다고 가정\n↓\n내일 작은 Beam(400)\n↓\ntoday + tomorrow 비교\n실제로 내일이 되면 전날 예측한 route를 강제 실행하지 않고 다시 full Beam으로 재계산한다. 즉 rolling horizon 방식이다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#일-lookahead의-apply-evaluate-undo-패턴",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#일-lookahead의-apply-evaluate-undo-패턴",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "15 2일 Lookahead의 apply → evaluate → undo 패턴",
+    "text": "15 2일 Lookahead의 apply → evaluate → undo 패턴\n오늘 후보 \\(r\\)을 평가할 때:\n\n오늘 방문할 집들을 임시로 active=0\n그 상태에서 내일 Beam Search\n예상 내일 reward 확보\n오늘 집들을 다시 active=1\n\n한다.\napply\n→ evaluate\n→ undo\n이 패턴은 DFS, local search, simulated annealing, lookahead에서 매우 자주 사용된다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#lookahead-결과",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#lookahead-결과",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "16 Lookahead 결과",
+    "text": "16 Lookahead 결과\nBeam 추정 lookahead의 score–시간 프론티어:\n\n\n\n설정 (\\(K\\), LA_BEAM)\nSCORE\n\\(-O0\\) 시간\n\n\n\n\n없음 (base)\n332.10M\n6.9s\n\n\n(4, 400) — 채택\n333.03M\n9.3s\n\n\n(8, 1000)\n333.09M\n19s\n\n\n(10, 2000)\n333.41M\n36s\n\n\n\n더 무거운 lookahead는 점수를 계속 올리지만 시간 제한을 넘는다. 따라서 약 10초 예산에서는 \\((4,400)\\)이 현실적인 절충이다.\n\n\n\n\n\n\n힌트추정기의 편향이 방향을 가른다\n\n\n\n내일 보상을 Greedy로 추정했을 때는 오히려 점수가 하락했다. 반면 작은 Beam으로 추정하면 개선됐다.\n미래 추정기는 실제 해법과 비슷한 inductive bias를 가져야 한다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#파라미터는-어떻게-정해야-하는가",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#파라미터는-어떻게-정해야-하는가",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "17 파라미터는 어떻게 정해야 하는가?",
+    "text": "17 파라미터는 어떻게 정해야 하는가?\n완성 코드의 숫자를 외우는 것이 아니라, 파라미터의 역할과 튜닝 절차를 익혀야 한다.\n\n17.1 문제에서 직접 결정\nDAY_LIMIT = 720\nOVERTIME = 480\nOT_BONUS = 200\nMAX_DEPTH = 12\n\n\n17.2 문제 구조에서 초기값을 추론\nPRE_LAMBDA ≈ 1500\nPOST_LAMBDA = PRE_LAMBDA - OT_BONUS ≈ 1300\nNEXT_LAMBDA ≈ PRE_LAMBDA\n\n\n17.3 실험으로 결정\nCANDIDATE_COUNT\nBEAM_WIDTH\nNEXT_COUNT\nCAND_MU\nTOPK\nLA_BEAM"
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#lambda-튜닝-숫자보다-스케일을-먼저-찾는다",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#lambda-튜닝-숫자보다-스케일을-먼저-찾는다",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "18 Lambda 튜닝 — 숫자보다 스케일을 먼저 찾는다",
+    "text": "18 Lambda 튜닝 — 숫자보다 스케일을 먼저 찾는다\n집의 가격/청소시간이 대략 1333~1600점/분이므로 시간 1분의 초기 가치를 약 1500으로 잡을 수 있다.\n처음부터 1450을 맞힐 필요는 없다.\n\n18.1 Coarse search\n1000\n1200\n1400\n1600\n1800\n2000\n\n\n18.2 Fine search\n좋은 영역이 1400~1600이라면:\n1400\n1450\n1500\n1550\n1600\n처럼 좁힌다.\n\n\n\n\n\n\n노트좋은 파라미터는 보통 넓은 plateau를 만든다\n\n\n\n1498에서만 좋고 1497, 1499에서 급락한다면 위험한 휴리스틱이다.\n시험에서는 최고점 하나보다 넓은 안정 구간을 찾는 것이 더 중요하다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#next_count-튜닝",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#next_count-튜닝",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "19 NEXT_COUNT 튜닝",
+    "text": "19 NEXT_COUNT 튜닝\nNEXT_COUNT는 한 상태에서 다음 선택을 몇 갈래까지 펼칠지를 결정한다.\n추천 실험:\n4\n8\n12\n16\n24\n\n증가했을 때 SCORE가 크게 오른다 → 기존 탐색이 너무 Greedy\n증가해도 SCORE가 거의 그대로인데 시간만 증가 → 분기폭은 이미 충분\n\n시험장 첫 값으로는 4~8 정도가 적당하다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#beam_width-튜닝",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#beam_width-튜닝",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "20 BEAM_WIDTH 튜닝",
+    "text": "20 BEAM_WIDTH 튜닝\nBEAM_WIDTH는 서로 다른 history를 얼마나 많이 유지할지 결정한다.\n추천 실험:\n100\n300\n600\n1000\n2000\n4000\n관찰할 것은 단순 SCORE가 아니라\n\\[\n\\frac{\\Delta\\text{Score}}{\\Delta\\text{Runtime}}\n\\]\n이다.\n예:\n\n\n\nBeam\nSCORE\nRuntime\n\n\n\n\n1000\n331.0M\n3.0s\n\n\n2000\n332.0M\n4.8s\n\n\n3000\n332.4M\n6.3s\n\n\n4000\n332.5M\n8.2s\n\n\n\n4000 근처에서는 추가 탐색의 한계효용이 작다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#같은-탐색-예산에서-beam과-next의-차이",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#같은-탐색-예산에서-beam과-next의-차이",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "21 같은 탐색 예산에서 Beam과 Next의 차이",
+    "text": "21 같은 탐색 예산에서 Beam과 Next의 차이\n다음 두 설정은 최대 자식 수가 같다.\nA: Beam=2000, Next=16\nB: Beam=4000, Next=8\n둘 다:\n\\[\n32,000\n\\]\n개의 child를 만들 수 있다.\n하지만 의미는 다르다.\n\nA: 적은 history에서 다양한 다음 선택\nB: 많은 history를 유지하되 각 history에서 적은 선택\n\n현재 문제는 경로 history가 중요하므로 NEXT_COUNT를 너무 작게 만들지 않는 선에서 Beam Width에 더 많은 예산을 주는 전략이 잘 맞을 수 있다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#시험장에서의-구현-순서",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#시험장에서의-구현-순서",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "22 시험장에서의 구현 순서",
+    "text": "22 시험장에서의 구현 순서\n완성형 코드를 처음부터 한 번에 작성하려 하면 매우 어렵다. 이 문제의 최종 코드는 여러 단계의 개선 결과로 보는 것이 맞다.\n\n22.1 V0 — 안전한 Greedy\n현재 위치에서\nprice - λ*(이동+청소)\n가 좋은 집 선택\n먼저 SCORE가 0이 아닌 제출 가능한 baseline을 만든다.\n\n\n22.2 V1 — 후보 축소\n전체 집\n→ 유망 후보 30~60개\n\n\n22.3 V2 — 작은 Beam\n처음에는:\nCANDIDATE_COUNT = 30;\nNEXT_COUNT = 4;\nBEAM_WIDTH = 100;\n정도로 구현한다.\n\n\n22.4 V3 — rank 추가\n처음에는:\nrank = prize - 1500 * time;\n처럼 단순하게 시작한다.\n\n\n22.5 V4 — 초과근무 반영\nPRE_LAMBDA = 1500;\nPOST_LAMBDA = 1300;\n\n\n22.6 V5 — 전이시간 사전 계산\ndistance + cleaning\n반복 계산 제거.\n\n\n22.7 V6 — NEXT Top-K\n각 상태에서 모든 후보를 child로 만들지 않고 상위 몇 개만 실제 확장.\n\n\n22.8 V7 — Beam 폭 증가\n100 → 300 → 600 → 1000 → 2000 → ...\n\n\n22.9 V8 — 2-day lookahead\n1-day Beam이 안정적으로 돌아간 뒤 마지막 고득점 개선으로 붙인다.\n\n\n\n\n\n\n중요시험장의 핵심 전략\n\n\n\n처음부터 333M 코드를 작성하는 것이 목표가 아니다.\n항상 실행 가능한 버전을 유지하면서 한 단계씩 SCORE를 올린다.\nGreedy\n→ Candidate pruning\n→ Small Beam\n→ Better rank\n→ Precompute\n→ Larger Beam\n→ Lookahead\n이 순서가 훨씬 안전하다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#복잡도메모리-분석",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#복잡도메모리-분석",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "23 복잡도·메모리 분석",
+    "text": "23 복잡도·메모리 분석\n기호:\n\n\\(N\\): 집 수 (\\(\\le400\\))\n\\(C\\): 후보 수 (63)\n\\(B\\): Beam 폭 (3800)\n\\(R\\): 상태당 실제 확장 수 (NEXT_COUNT=16)\n\\(L\\): 최대 depth (12)\n\n\n23.1 후보 검사\n각 Beam 상태에서 최대 \\(C\\)개의 후보를 검사하므로:\n\\[\nO(LBC)\n\\]\n현재 값:\n\\[\n12\\times3800\\times63\n\\approx\n2.87\\times10^6\n\\]\n후보 검사 수준이다.\n\n\n23.2 자식 생성\n최대:\n\\[\nO(LBR)\n\\]\n이며 한 depth에서 최대:\n\\[\n3800\\times16\n=\n60,800\n\\]\n개의 child가 생성된다.\n\n\n23.3 정렬\n각 depth에서 child 상태를 merge sort하므로 대략:\n\\[\nO(BR\\log(BR))\n\\]\n비용이 추가된다.\n\n\n23.4 Lookahead\n하루 main Beam 한 번 + 오늘 Top-K 각각에 대해 작은 Beam을 수행한다.\nmain beam: width 3800\nlookahead: TOPK=4 × width 400"
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#메모리-분석-시-주의",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#메모리-분석-시-주의",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "24 메모리 분석 시 주의",
+    "text": "24 메모리 분석 시 주의\n기존 merge sort 구현에서는 다음 세 배열이 크다.\nstateA[MAX_NEXT_STATE]\nstateB[MAX_NEXT_STATE]\nmergeBuffer[MAX_NEXT_STATE]\n여기서:\n\\[\nMAX\\_NEXT\\_STATE\n=\nBEAM\\_WIDTH\n\\times\nNEXT\\_COUNT\n=\n60,800\n\\]\n이다.\n전역 배열이므로 스택 1MB 제약에는 직접 걸리지 않는다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#천장-진단-이동이-유일한-지렛대",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#천장-진단-이동이-유일한-지렛대",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "25 천장 진단 — 이동이 유일한 지렛대",
+    "text": "25 천장 진단 — 이동이 유일한 지렛대\nBeam 해의 점수를 성분 분해하면:\n\n\n\n성분\n값\n여지\n\n\n\n\n초과근무\n14.86M ≈ 이론상 최대 14.88M\n거의 없음\n\n\n유휴\n88분\n거의 없음\n\n\n이동\n15,182분\n핵심 개선 대상\n\n\n\n초과근무와 유휴가 거의 포화되어 있다면 더 이상 “하루를 더 꽉 채우자”가 핵심이 아니다.\n남은 지렛대는:\n\n이동시간을 줄여 청소시간으로 바꾸는 것\n\n이다.\n이 분석이 2-day lookahead를 시도한 근거가 된다. 오늘 마지막 위치를 더 좋게 만들면 다음 날 첫 이동을 줄일 수 있기 때문이다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#왜-이겼고-왜-이전-접근은-정체했는가",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#왜-이겼고-왜-이전-접근은-정체했는가",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "26 왜 이겼고, 왜 이전 접근은 정체했는가?",
+    "text": "26 왜 이겼고, 왜 이전 접근은 정체했는가?\nGreedy, GRASP, 2-opt, LNS는 모두 서로 다른 알고리즘처럼 보였지만 사실 같은 표현을 공유했다.\n전역 tour\n+\nday packing\n따라서 같은 구조적 약점을 공유했다.\nBeam Search의 가장 큰 개선은 파라미터가 아니라 문제 표현을 바꾼 것이다.\n전역 tour 최적화\n↓\n하루 단위 작은 OP 최적화\n이 한 번의 representation change가 이후의 모든 튜닝보다 더 큰 점수 상승을 만들었다."
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#시험-대비용-핵심-체크리스트",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#시험-대비용-핵심-체크리스트",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "27 시험 대비용 핵심 체크리스트",
+    "text": "27 시험 대비용 핵심 체크리스트\n새 점수형 문제를 보면 다음 순서로 생각한다.\n\n27.1 채점 코드\n\n실제 objective는 무엇인가?\n0점/리셋 조건은 무엇인가?\nhard constraint는 무엇인가?\n상태가 여러 라운드 사이에 무엇을 carry하는가?\n\n\n\n27.2 문제 구조\n\n전체 문제를 작은 독립 서브문제로 분리할 수 있는가?\n최대 depth를 제약에서 도출할 수 있는가?\n후보 수를 줄일 수 있는가?\n\n\n\n27.3 Baseline\n\n가장 단순한 Greedy는 무엇인가?\n시간 1단위의 대략적인 가치가 얼마인가?\n\n\n\n27.4 Beam\n\nState에 정말 필요한 정보만 넣었는가?\nCANDIDATE_COUNT, NEXT_COUNT, BEAM_WIDTH의 역할을 구분했는가?\npruning용 rank와 실제 objective를 분리했는가?\n\n\n\n27.5 실행시간\n\n반복되는 거리/비용을 사전 계산할 수 있는가?\n전체 정렬이 정말 필요한가?\n자료형 범위를 줄일 수 있는가?\n-O0에서 State 복사가 병목인가?\n\n\n\n27.6 튜닝\n\n한 번에 한 파라미터만 변경했는가?\nSCORE뿐 아니라 runtime도 기록했는가?\n테스트케이스별 악화 원인을 분석했는가?\nBeam을 더 키우는 것이 아니라 평가함수를 고쳐야 하는 상황은 아닌가?"
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#실험-기록-양식",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#실험-기록-양식",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "28 실험 기록 양식",
+    "text": "28 실험 기록 양식\n[버전]\nV__\n\n[탐색]\nCandidate:\nNext:\nBeam:\nTopK:\nLA_Beam:\n\n[평가함수]\nCandLambda:\nCandMu:\nNextLambda:\nPreLambda:\nPostLambda:\n\n[결과]\n총점:\n실행시간:\n\nTC1:\nTC2:\n...\nTC10:\n\n[변경점]\n-\n\n[좋아질 것으로 예상한 이유]\n-\n\n[실제 결과]\n-\n\n[나빠진 테스트의 특징]\n-\n\n[다음 실험]\n-"
+  },
+  {
+    "objectID": "study/problem-solving/EX_cleaner-beam-writeup.html#최종-교훈",
+    "href": "study/problem-solving/EX_cleaner-beam-writeup.html#최종-교훈",
+    "title": "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기",
+    "section": "29 최종 교훈",
+    "text": "29 최종 교훈\n\n표현을 바꾸는 것이 파라미터를 바꾸는 것보다 강하다.\n전역 tour → 하루 단위 Beam이라는 표현 전환이 가장 큰 도약이었다.\n상관된 방법의 수렴은 최적성의 증거가 아니다.\n같은 해 표현을 공유하는 알고리즘은 같은 basin에 갇힐 수 있다.\n탐색량을 늘린다고 SCORE가 반드시 증가하지 않는다.\n불완전한 rank와 pruning이 존재하는 휴리스틱에서는 More Search ≠ Better Score다.\nBeam Width와 Candidate Count는 다르다.\n후보는 집의 수이고, Beam은 살아남는 부분 경로의 수다.\ncost의 의미를 정확히 읽어야 한다.\n이 문제의 transition cost는 이동거리뿐 아니라 도착 집의 청소시간까지 포함한다.\n대리 목적과 실제 목적을 분리한다.\npruning은 rank, 최종 선택은 finalReward.\n파라미터는 외우지 말고 범위를 찾는 절차를 익힌다.\ncoarse search → fine search → runtime frontier.\n시험장에서는 항상 동작하는 버전을 유지한다.\nGreedy → 후보 축소 → 작은 Beam → 평가함수 → 최적화 → lookahead 순으로 발전시킨다.\n이미 제한시간 안에 들어오는 단순한 구현은 강한 자산이다.\nmerge sort가 이해하기 쉽고 충분히 빠르다면, 더 복잡한 Min-Heap으로 바꾸지 않는 선택도 좋은 최적화 전략이다.\n점수형 문제의 실력은 완성 코드를 외우는 것이 아니라, 병목을 보고 다음 개선을 선택하는 능력이다."
   }
 ]
