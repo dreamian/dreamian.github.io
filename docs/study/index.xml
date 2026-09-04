@@ -10,33 +10,80 @@
 <atom:link href="https://dreamian.github.io/study/index.xml" rel="self" type="application/rss+xml"/>
 <description></description>
 <generator>quarto-1.9.36</generator>
-<lastBuildDate>Wed, 26 Aug 2026 15:00:00 GMT</lastBuildDate>
+<lastBuildDate>Thu, 03 Sep 2026 15:00:00 GMT</lastBuildDate>
 <item>
-  <title>청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기</title>
+  <title>청소부 최적화: greedy 정체에서 adaptive beam search로 3.33억 돌파하기</title>
   <link>https://dreamian.github.io/study/problem-solving/EX_cleaner-beam-writeup.html</link>
   <description><![CDATA[ 
 
 
 
 
-<section id="문제-정의와-채점기-모델" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="문제-정의와-채점기-모델"><span class="header-section-number">1</span> 문제 정의와 채점기 모델</h2>
-<p>청소부가 <img src="https://latex.codecogs.com/png.latex?100%5Ctimes100"> 격자 위의 집들을 청소한다. 각 집에는 재료 <img src="https://latex.codecogs.com/png.latex?m%5Cin%5C%7B1,%5Cdots,6%5C%7D">가 있고, 그 집을 청소하면 가격 <img src="https://latex.codecogs.com/png.latex?P_m">을 얻는다. 하루는 720분이며, <code>nextDay()</code>를 최대 30번 호출할 수 있어 <strong>총 31개의 근무일 구간</strong>을 쓴다. 핵심은 <strong>위치가 날을 넘겨 이어진다는 점</strong>이다. 오늘 끝난 자리에서 내일이 시작한다.</p>
-<p>한 번의 <code>move(y,x)</code> 호출은 다음 순서로 처리된다.</p>
-<ul>
-<li>이동: 맨해튼 거리만큼 시간 소모. 그 결과 <img src="https://latex.codecogs.com/png.latex?%3E720">이면 <strong>SCORE=0</strong>.</li>
-<li>청소: 목표 칸이 집이면 <img src="https://latex.codecogs.com/png.latex?c_m=30m+30">분 소모. 역시 <img src="https://latex.codecogs.com/png.latex?%3E720">이면 <strong>SCORE=0</strong>.</li>
-<li>보상: <img src="https://latex.codecogs.com/png.latex?P_m"> 획득. 종료 시각이 480분을 넘겼다면 <strong>초과근무 보너스</strong>를 추가로 얻는다.</li>
-<li>이미 청소한 칸이나 빈 칸으로 이동하면 청소 보상은 없다.</li>
-</ul>
-<p>가격과 청소시간, 그리고 청소 1분당 가치는 다음과 같다.</p>
+<section id="문제를-풀면서-얻은-핵심-결론" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 문제를 풀면서 얻은 핵심 결론</h1>
+<p>이 문제에서 가장 중요한 교훈은 다음 한 문장으로 요약할 수 있다.</p>
+<blockquote class="blockquote">
+<p><strong>탐색을 무조건 넓거나 깊게 하는 것이 아니라, 평가함수가 비교적 정확하게 판단할 수 있는 후보만 남기고, 실제로 판단이 애매한 순간에만 추가 계산량을 집중해야 한다.</strong></p>
+</blockquote>
+<p>최종적으로 사용한 구조는 다음과 같다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb1-1">Today Candidate Top-64</span>
+<span id="cb1-2">        ↓</span>
+<span id="cb1-3">Today Beam Search</span>
+<span id="cb1-4">width = 3800</span>
+<span id="cb1-5">local branching = 16</span>
+<span id="cb1-6">        ↓</span>
+<span id="cb1-7">Today Plan Top-6</span>
+<span id="cb1-8">        ↓</span>
+<span id="cb1-9">각 Plan에 대해 Tomorrow Beam</span>
+<span id="cb1-10">width = 1270</span>
+<span id="cb1-11">        ↓</span>
+<span id="cb1-12">Today + 1.5 × Tomorrow</span>
+<span id="cb1-13">        ↓</span>
+<span id="cb1-14">1위와 2위 차이가 400 이하인가?</span>
+<span id="cb1-15">        │</span>
+<span id="cb1-16">        ├─ NO → 1위 실행</span>
+<span id="cb1-17">        │</span>
+<span id="cb1-18">        └─ YES</span>
+<span id="cb1-19">             ↓</span>
+<span id="cb1-20">        2위 challenger만</span>
+<span id="cb1-21">        width = 1750으로 재평가</span>
+<span id="cb1-22">             ↓</span>
+<span id="cb1-23">        기존 1위를 못 넘음?</span>
+<span id="cb1-24">        ├─ YES → 1위 실행</span>
+<span id="cb1-25">        └─ NO</span>
+<span id="cb1-26">             ↓</span>
+<span id="cb1-27">        그때만 1위도 width=1750 재평가</span>
+<span id="cb1-28">             ↓</span>
+<span id="cb1-29">        최종 비교</span></code></pre></div></div>
+<p>최종 점수는</p>
+<p>[ ]</p>
+<p>까지 도달했다.</p>
+<p>기존 고정형 2-day Beam의 최고점</p>
+<p>[ 333,198,800 ]</p>
+<p>보다</p>
+<p>[ ]</p>
+<p>향상되었다.</p>
+<hr>
+</section>
+<section id="문제-정의와-채점기-모델" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> 문제 정의와 채점기 모델</h1>
+<section id="격자와-집" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="격자와-집"><span class="header-section-number">2.1</span> 격자와 집</h2>
+<p>청소부는</p>
+<p>[ 100 ]</p>
+<p>격자 위를 이동한다.</p>
+<p>집은 최대 약 400개 존재하며, 각 집은 등급</p>
+<p>[ m{1,2,3,4,5,6} ]</p>
+<p>을 가진다.</p>
+<p>등급별 청소 시간은</p>
+<p>[ service(m)=30(m+1) ]</p>
+<p>이므로 다음과 같다.</p>
 <table class="caption-top table">
 <thead>
 <tr class="header">
-<th style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?m"></th>
-<th style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?c_m"> (청소분)</th>
-<th style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?P_m"></th>
-<th style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?P_m/c_m"></th>
+<th style="text-align: right;">등급</th>
+<th style="text-align: right;">청소 시간</th>
+<th style="text-align: right;">보상</th>
 </tr>
 </thead>
 <tbody>
@@ -44,399 +91,244 @@
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">60</td>
 <td style="text-align: right;">80,000</td>
-<td style="text-align: right;">1,333</td>
 </tr>
 <tr class="even">
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">90</td>
 <td style="text-align: right;">140,000</td>
-<td style="text-align: right;"><strong>1,556</strong></td>
 </tr>
 <tr class="odd">
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">120</td>
 <td style="text-align: right;">180,000</td>
-<td style="text-align: right;">1,500</td>
 </tr>
 <tr class="even">
 <td style="text-align: right;">4</td>
 <td style="text-align: right;">150</td>
 <td style="text-align: right;">240,000</td>
-<td style="text-align: right;"><strong>1,600</strong></td>
 </tr>
 <tr class="odd">
 <td style="text-align: right;">5</td>
 <td style="text-align: right;">180</td>
 <td style="text-align: right;">250,000</td>
-<td style="text-align: right;">1,389</td>
 </tr>
 <tr class="even">
 <td style="text-align: right;">6</td>
 <td style="text-align: right;">210</td>
 <td style="text-align: right;">300,000</td>
-<td style="text-align: right;">1,429</td>
 </tr>
 </tbody>
 </table>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">노트</span>채점 구조의 함정
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>SCORE는 10개 테스트케이스에 걸쳐 <strong>누적</strong>되며, 한 번이라도 <img src="https://latex.codecogs.com/png.latex?%3E720">을 만들면 누적 SCORE가 0이 될 수 있다. 따라서 안전성은 점수보다 우선이다.</p>
-<p>이 문제에서 가장 중요한 구현 원칙 중 하나는 다음과 같다.</p>
-<blockquote class="blockquote">
-<p><strong>시간 초과 가능성이 있는 이동을 절대 호출하지 않는다.</strong></p>
-</blockquote>
-<p>그래서 계획 단계에서 항상 <code>newTime &lt;= 720</code>을 확인한 뒤 실제 <code>move()</code>를 실행한다.</p>
-</div>
-</div>
-</section>
-<section id="정식화-시간종속-이익을-갖는-주기적-orienteering-problem" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="정식화-시간종속-이익을-갖는-주기적-orienteering-problem"><span class="header-section-number">2</span> 정식화 — 시간종속 이익을 갖는 주기적 Orienteering Problem</h2>
-<p>이 문제는 <strong>Orienteering Problem(OP)</strong> — “예산 안에서 방문할 노드의 부분집합과 순서를 정해 수집 점수를 최대화” — 의 변형이다.</p>
-<p>하루 내부에서 집 <img src="https://latex.codecogs.com/png.latex?i">에서 <img src="https://latex.codecogs.com/png.latex?j">로 이동할 때 필요한 시간은</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Ctau(i,j)=d(i,j)+c_j%0A"></p>
-<p>이다.</p>
-<p>여기서 <img src="https://latex.codecogs.com/png.latex?d(i,j)">는 맨해튼 거리, <img src="https://latex.codecogs.com/png.latex?c_j">는 <strong>도착한 집 <img src="https://latex.codecogs.com/png.latex?j">의 청소시간</strong>이다.</p>
-<p>따라서 코드에서 <code>moveCost[i][j]</code> 또는 더 명확하게 <code>transitionTime[i][j]</code>라고 부르는 값은 단순 이동거리만이 아니다.</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cboxed%7B%0A%5Ctext%7BtransitionTime%7D%5Bi%5D%5Bj%5D%0A=%0A%5Ctext%7Bdistance%7D(i,j)%0A+%0A%5Ctext%7BcleaningTime%7D(j)%0A%7D%0A"></p>
-<p>하루 최종 보상은 경로의 집 가격 합을 <code>prize</code>, 총 사용시간을 <img src="https://latex.codecogs.com/png.latex?t">라 하면</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cboxed%7B%0A%5Ctext%7BfinalReward%7D%0A=%0A%5Ctext%7Bprize%7D%0A+%0A200%5C,(t-480)%5E+%0A%7D%0A"></p>
-<p>로 볼 수 있다.</p>
-<div class="callout callout-style-default callout-important callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">중요</span>정식화가 준 결정적 통찰
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>목적함수는 <strong>하루별 기여의 합</strong>이고, 하루끼리 연결되는 핵심 정보는 <strong>다음 날의 시작 위치</strong>다.</p>
-<p>즉 31일 전체를 한 번에 최적화하지 않고,</p>
-<ol type="1">
-<li>오늘 하루를 잘 푼다.</li>
-<li>오늘 끝 위치를 다음 날로 넘긴다.</li>
-</ol>
-<p>라는 분해가 가능하다.</p>
-</div>
-</div>
-</section>
-<section id="차-접근과-정체-그리고-잘못된-천장-결론" class="level2" data-number="3">
-<h2 data-number="3" class="anchored" data-anchor-id="차-접근과-정체-그리고-잘못된-천장-결론"><span class="header-section-number">3</span> 1차 접근과 정체 — 그리고 잘못된 천장 결론</h2>
-<p>처음에는 <strong>전역 tour 하나를 만들고 하루로 잘라 담는</strong> 틀에서 여러 방법을 시도했다.</p>
-<ul>
-<li><strong>value-density greedy</strong>: 현재 위치에서 <img src="https://latex.codecogs.com/png.latex?P_m/(%5Ctext%7B%EC%9D%B4%EB%8F%99%7D+c_m)">가 최대인 집을 탐욕적으로 선택 → <strong>319.5M</strong></li>
-<li><strong>GRASP</strong>: 무작위화 재시작</li>
-<li><strong>or-opt / 2-opt</strong>: 국소 탐색</li>
-<li><strong>LNS</strong>: destroy–repair</li>
-</ul>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th>방법</th>
-<th style="text-align: right;">SCORE</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>value-density greedy</td>
-<td style="text-align: right;">319.5M</td>
-</tr>
-<tr class="even">
-<td>GRASP (RCL=3, 2000 restarts)</td>
-<td style="text-align: right;">320.6M</td>
-</tr>
-<tr class="odd">
-<td>or-opt</td>
-<td style="text-align: right;">320.8M</td>
-</tr>
-<tr class="even">
-<td>강력 LNS (40k iters)</td>
-<td style="text-align: right;">321.8M</td>
-</tr>
-</tbody>
-</table>
-<p>다섯 방법이 전부 <strong>320~322M</strong>에 수렴했다. 이동 무시·밀도 knapsack 상한이 356M이었기에, “여러 방법이 같은 값에 수렴하니 322M 근처가 실질 천장”이라고 잘못 결론지었다.</p>
-<div class="callout callout-style-default callout-warning callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">경고</span>이 결론은 틀렸다
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>여러 방법이 같은 값에 수렴하더라도, 그 방법들이 <strong>같은 해 표현과 같은 이웃구조</strong>를 공유한다면 독립적인 검증이 아니다.</p>
-<p>여기서는 모두 “전역 tour + day packing”이라는 표현을 공유하고 있었고, 같은 basin에 갇혔다.</p>
-</div>
-</div>
-</section>
-<section id="전환점-하루-단위-분해와-beam-search" class="level2" data-number="4">
-<h2 data-number="4" class="anchored" data-anchor-id="전환점-하루-단위-분해와-beam-search"><span class="header-section-number">4</span> 전환점 — 하루 단위 분해와 Beam Search</h2>
-<p>하루를 <strong>720분 예산의 작은 Orienteering Problem</strong>으로 보고 Beam Search로 풀었다.</p>
-<p>핵심 구성은 다음과 같다.</p>
-<ol type="1">
-<li>전체 남은 집 중 오늘 볼 후보를 최대 63개로 축소</li>
-<li>한 Beam 상태에서 다음 후보는 최대 16개만 확장</li>
-<li>한 depth에서 살아남는 부분 경로는 최대 3800개</li>
-<li>최대 방문 수는 12개</li>
-<li>중간 pruning은 <code>rank</code>, 최종 하루 선택은 실제 <code>finalReward</code></li>
-</ol>
-</section>
-<section id="beam-search의-의미" class="level2" data-number="5">
-<h2 data-number="5" class="anchored" data-anchor-id="beam-search의-의미"><span class="header-section-number">5</span> Beam Search의 의미</h2>
-<p>Beam Search에서 가장 헷갈리기 쉬운 세 파라미터는 다음과 같다.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb1-1"><span class="pp" style="color: #AD0000;
+<p>코드에서는 다음 배열을 사용했다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb2-1"><span class="at" style="color: #657422;
 background-color: null;
-font-style: inherit;">#define CANDIDATE_COUNT </span><span class="dv" style="color: #AD0000;
+font-style: inherit;">static</span> <span class="at" style="color: #657422;
 background-color: null;
-font-style: inherit;">63</span></span>
-<span id="cb1-2"><span class="pp" style="color: #AD0000;
+font-style: inherit;">const</span> <span class="dt" style="color: #AD0000;
 background-color: null;
-font-style: inherit;">#define NEXT_COUNT </span><span class="dv" style="color: #AD0000;
+font-style: inherit;">int</span> PRICE<span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">16</span></span>
-<span id="cb1-3"><span class="pp" style="color: #AD0000;
+font-style: inherit;">[</span><span class="dv" style="color: #AD0000;
 background-color: null;
-font-style: inherit;">#define BEAM_WIDTH </span><span class="dv" style="color: #AD0000;
+font-style: inherit;">7</span><span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">3800</span></span></code></pre></div></div>
-<p>이 셋은 전혀 다른 의미다.</p>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 50%">
-<col style="width: 50%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>파라미터</th>
-<th>의미</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>CANDIDATE_COUNT=63</code></td>
-<td>오늘 탐색 대상으로 삼는 <strong>집의 수</strong></td>
-</tr>
-<tr class="even">
-<td><code>NEXT_COUNT=16</code></td>
-<td>하나의 부분 경로에서 다음 단계로 실제 확장할 <strong>자식 수</strong></td>
-</tr>
-<tr class="odd">
-<td><code>BEAM_WIDTH=3800</code></td>
-<td>한 depth에서 동시에 살아남길 <strong>부분 경로의 수</strong></td>
-</tr>
-</tbody>
-</table>
-<p>즉 63개 경로를 유지하는 것이 아니다.</p>
-<p>예를 들어 후보 집이 <code>A,B,C,D,E</code>이고 <code>NEXT_COUNT=2</code>, <code>BEAM_WIDTH=3</code>이라면:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb2-1">depth 0</span>
-<span id="cb2-2">[]</span>
-<span id="cb2-3"></span>
-<span id="cb2-4">depth 1</span>
-<span id="cb2-5">[A]</span>
-<span id="cb2-6">[B]</span>
-<span id="cb2-7"></span>
-<span id="cb2-8">depth 2</span>
-<span id="cb2-9">[A→C]</span>
-<span id="cb2-10">[A→D]</span>
-<span id="cb2-11">[B→C]</span>
-<span id="cb2-12">[B→E]</span>
-<span id="cb2-13"></span>
-<span id="cb2-14">4개 생성 → rank 상위 3개만 생존</span></code></pre></div></div>
-<p>Beam Width는 <strong>서로 다른 과거 경로를 얼마나 많이 기억할 것인가</strong>를 의미한다.</p>
-<div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">힌트</span>Beam Width의 직관
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul>
-<li><code>BEAM_WIDTH</code>가 작다 → 좋은 경로가 일찍 잘릴 수 있음</li>
-<li><code>BEAM_WIDTH</code>가 크다 → 탐색 다양성은 증가하지만 시간·메모리 비용 증가</li>
-<li>그러나 <strong>크다고 SCORE가 단조 증가하는 것은 아니다</strong></li>
-</ul>
-<p>중간 상태는 실제 SCORE가 아니라 불완전한 <code>rank</code>로 pruning하기 때문이다.</p>
-</div>
-</div>
-</section>
-<section id="후보-사전선별-400개를-63개로-줄이기" class="level2" data-number="6">
-<h2 data-number="6" class="anchored" data-anchor-id="후보-사전선별-400개를-63개로-줄이기"><span class="header-section-number">6</span> 후보 사전선별 — 400개를 63개로 줄이기</h2>
-<p>하루마다 현재 위치 기준으로 다음 점수를 계산한다.</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cboxed%7B%0A%5Ctext%7BcandidateScore%7D%0A=%0AP_m%0A-%0A%5Clambda%20c_m%0A-%0A%5Cmu%20d%0A%7D%0A"></p>
-<p>채택값은</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Clambda=1450,%5Cqquad%20%5Cmu=1000%0A"></p>
-<p>이다.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb3-1">score <span class="op" style="color: #5E5E5E;
+font-style: inherit;">]</span> <span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">=</span></span>
-<span id="cb3-2">    PRICE<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[</span>level<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">]</span></span>
-<span id="cb3-3">    <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">-</span> CAND_LAMBDA <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span> serviceTime</span>
-<span id="cb3-4">    <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">-</span> CAND_MU <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span> distance<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span></code></pre></div></div>
-<p>하루 최대 청소 수는</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A720/60=12%0A"></p>
-<p>이므로 63개 후보는 실제 방문 수보다 충분히 넓다. 동시에 63개 이하이므로 방문 여부를 <code>unsigned long long</code> 하나로 저장할 수 있다.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb4-1"><span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">unsigned</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">long</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">long</span> visitedMask<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb4-2"></span>
-<span id="cb4-3"><span class="cf" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">(</span>visitedMask <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&amp;</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">(</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span><span class="bu" style="color: null;
-background-color: null;
-font-style: inherit;">ULL</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;&lt;</span> j<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">))</span> <span class="op" style="color: #5E5E5E;
+font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">{</span></span>
-<span id="cb4-4">    <span class="co" style="color: #5E5E5E;
+<span id="cb2-2">    <span class="dv" style="color: #AD0000;
 background-color: null;
-font-style: inherit;">// already visited</span></span>
-<span id="cb4-5"><span class="op" style="color: #5E5E5E;
+font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">}</span></span></code></pre></div></div>
-<section id="왜-cand_lambda1450인가" class="level3" data-number="6.1">
-<h3 data-number="6.1" class="anchored" data-anchor-id="왜-cand_lambda1450인가"><span class="header-section-number">6.1</span> 왜 <code>CAND_LAMBDA≈1450</code>인가?</h3>
-<p>집의 청소시간 대비 가격은 대략 1333~1600점/분이다. 따라서 처음에는 “시간 1분의 기회비용”을 약 1500점으로 보는 것이 자연스럽다.</p>
-<p>1450은 수학적으로 고정된 값이 아니라 <strong>합리적인 초기 스케일에서 실험으로 조정된 값</strong>이다.</p>
+font-style: inherit;">,</span></span>
+<span id="cb2-3">    <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">80000</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span></span>
+<span id="cb2-4">    <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">140000</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span></span>
+<span id="cb2-5">    <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">180000</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span></span>
+<span id="cb2-6">    <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">240000</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span></span>
+<span id="cb2-7">    <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">250000</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span></span>
+<span id="cb2-8">    <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">300000</span></span>
+<span id="cb2-9"><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">};</span></span></code></pre></div></div>
 </section>
-<section id="왜-거리-계수는-1000인가" class="level3" data-number="6.2">
-<h3 data-number="6.2" class="anchored" data-anchor-id="왜-거리-계수는-1000인가"><span class="header-section-number">6.2</span> 왜 거리 계수는 1000인가?</h3>
-<p>후보 선정 단계에서 거리를 너무 강하게 벌주면 현재 위치 근처의 집만 후보에 남는다. 조금 먼 곳의 고가 집 군집을 발견하려면 거리 패널티는 청소시간 패널티보다 약하게 두는 편이 유리할 수 있다.</p>
-</section>
-</section>
-<section id="전이-비용-사전-계산" class="level2" data-number="7">
-<h2 data-number="7" class="anchored" data-anchor-id="전이-비용-사전-계산"><span class="header-section-number">7</span> 전이 비용 사전 계산</h2>
-<p>Beam 내부에서 매번 맨해튼 거리와 청소시간을 다시 계산하면 <code>-O0</code> 환경에서 비싸다.</p>
-<p>그래서 하루 시작 시 다음을 미리 계산한다.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb5-1">startCost<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">]</span></span>
-<span id="cb5-2">moveCost<span class="op" style="color: #5E5E5E;
+<section id="이동-비용" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="이동-비용"><span class="header-section-number">2.2</span> 이동 비용</h2>
+<p>두 위치 사이의 이동 시간은 Manhattan distance다.</p>
+<p>[ d((y_1,x_1),(y_2,x_2)) = |y_1-y_2|+|x_1-x_2| ]</p>
+<p>집 (j)로 이동하여 청소하는 총 시간은</p>
+<p>[ cost(i,j) = distance(i,j)+service(j) ]</p>
+<p>이다.</p>
+<p>따라서 전이 비용은 목적지 집의 service time을 포함하므로 비대칭 형태로 취급한다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb3-1">transition_cost<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">][</span>j<span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">]</span></span></code></pre></div></div>
-<p>실제 의미는:</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Ctext%7BstartCost%7D%5Bi%5D%0A=%0Ad(%5Ctext%7Bstart%7D,i)%0A+%0Ac_i%0A"></p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Ctext%7BmoveCost%7D%5Bi%5D%5Bj%5D%0A=%0Ad(i,j)%0A+%0Ac_j%0A"></p>
-<p>이다.</p>
-<p>따라서 <code>moveCost</code>라는 이름은 다소 오해의 여지가 있다. 학습용 코드라면 다음 이름이 더 명확하다.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb6-1">transitionTime<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[</span>from<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">][</span>to<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">]</span></span></code></pre></div></div>
-<div class="callout callout-style-default callout-important callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">중요</span><code>cost</code>에는 청소시간이 이미 들어 있다
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>Beam 내부의</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb7-1"><span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">int</span> cost <span class="op" style="color: #5E5E5E;
+font-style: inherit;">]</span></span>
+<span id="cb3-2"><span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span></span>
-<span id="cb7-2">    state<span class="op" style="color: #5E5E5E;
+<span id="cb3-3">abs<span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">.</span>lastCandidate <span class="op" style="color: #5E5E5E;
+font-style: inherit;">(</span>candidate<span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">&lt;</span> <span class="dv" style="color: #AD0000;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">0</span></span>
-<span id="cb7-3">    <span class="op" style="color: #5E5E5E;
+font-style: inherit;">].</span>y <span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">?</span> startCost<span class="op" style="color: #5E5E5E;
+font-style: inherit;">-</span> candidate<span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">[</span>nextCandidate<span class="op" style="color: #5E5E5E;
+font-style: inherit;">[</span>j<span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">]</span></span>
-<span id="cb7-4">    <span class="op" style="color: #5E5E5E;
+font-style: inherit;">].</span>y<span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">:</span> moveCost<span class="op" style="color: #5E5E5E;
+font-style: inherit;">)</span></span>
+<span id="cb3-4"><span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">[</span>state<span class="op" style="color: #5E5E5E;
+font-style: inherit;">+</span></span>
+<span id="cb3-5">abs<span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">.</span>lastCandidate<span class="op" style="color: #5E5E5E;
+font-style: inherit;">(</span>candidate<span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">][</span>nextCandidate<span class="op" style="color: #5E5E5E;
+font-style: inherit;">[</span>i<span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">];</span></span></code></pre></div></div>
-<p>에서 <code>cost</code>는 단순 이동거리가 아니다.</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cboxed%7B%0Acost%0A=%0A%EC%9D%B4%EB%8F%99%EC%8B%9C%EA%B0%84%0A+%0A%EB%8F%84%EC%B0%A9%ED%95%9C%20%EC%A7%91%EC%9D%98%20%EC%B2%AD%EC%86%8C%EC%8B%9C%EA%B0%84%0A%7D%0A"></p>
-<p>따라서</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb8-1">newTime <span class="op" style="color: #5E5E5E;
+font-style: inherit;">].</span>x <span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">=</span> state<span class="op" style="color: #5E5E5E;
+font-style: inherit;">-</span> candidate<span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">.</span>usedTime <span class="op" style="color: #5E5E5E;
+font-style: inherit;">[</span>j<span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">+</span> cost<span class="op" style="color: #5E5E5E;
+font-style: inherit;">].</span>x<span class="op" style="color: #5E5E5E;
 background-color: null;
-font-style: inherit;">;</span></span></code></pre></div></div>
-<p>는 채점기의 시간 증가와 정확히 대응한다.</p>
-</div>
-</div>
+font-style: inherit;">)</span></span>
+<span id="cb3-6"><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span></span>
+<span id="cb3-7">service<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>candidate<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>j<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">]);</span></span></code></pre></div></div>
+<p>격자 크기가 100이므로 최대 Manhattan distance는</p>
+<p>[ 99+99=198 ]</p>
+<p>이고 최대 service time은 210이다.</p>
+<p>따라서 한 번의 전이는 최대</p>
+<p>[ 198+210=408 ]</p>
+<p>분이다.</p>
 </section>
-<section id="beam-상태-설계" class="level2" data-number="8">
-<h2 data-number="8" class="anchored" data-anchor-id="beam-상태-설계"><span class="header-section-number">8</span> Beam 상태 설계</h2>
-<p>상태는 다음 정보를 가진다.</p>
+<section id="하루-시간-제한" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="하루-시간-제한"><span class="header-section-number">2.3</span> 하루 시간 제한</h2>
+<p>하루 제한은</p>
+<p>[ 720 ]</p>
+<p>분이다.</p>
+<p>최소 청소 시간이 60분이므로 이동 시간을 완전히 무시하더라도 하루 최대 청소 집 수는</p>
+<p>[ 720/60=12 ]</p>
+<p>이다.</p>
+<p>따라서 Beam의 최대 depth를</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb4-1"><span class="pp" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">#define BEAM_DEPTH </span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">12</span></span></code></pre></div></div>
+<p>로 둘 수 있다.</p>
+<p>이러한 <strong>물리적인 상한을 먼저 계산하는 것</strong>이 중요하다.</p>
+<p>탐색 depth를 막연히 20이나 30으로 잡을 이유가 없다.</p>
+</section>
+<section id="총-작업-일수" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="총-작업-일수"><span class="header-section-number">2.4</span> 총 작업 일수</h2>
+<p><code>nextDay()</code>와 날짜 처리 구조를 보면 실제 작업 가능한 날은</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb5-1">day = 0, 1, ..., 30</span></code></pre></div></div>
+<p>이다.</p>
+<p>즉 총</p>
+<p>[ 31 ]</p>
+<p>이다.</p>
+</section>
+</section>
+<section id="가장-중요한-채점기-특징-overtime이-패널티가-아니다" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> 가장 중요한 채점기 특징: overtime이 패널티가 아니다</h1>
+<p>일반적인 스케줄링 문제라면 overtime은 패널티일 것 같지만 이 문제에서는 반대다.</p>
+<p>480분을 초과한 작업 시간에 대해</p>
+<p>[ +200 ]</p>
+<p>점/분이 추가된다.</p>
+<p>한 하루 route의 총 시간이 (T)라면 실제 reward는 사실상</p>
+<p>[ Reward = PRICE + 200(0,T-480) ]</p>
+<p>으로 계산할 수 있다.</p>
+<p>따라서 480분을 넘는 것 자체를 무조건 피하면 안 된다.</p>
+<p>다만 여기에서 매우 중요한 점이 있다.</p>
+<blockquote class="blockquote">
+<p><strong>실제 reward가 overtime에 +200을 준다고 해서 Beam rank에서도 반드시 overtime 시간을 +200만큼 높게 평가해야 하는 것은 아니다.</strong></p>
+</blockquote>
+<p>Beam rank는 실제 목적함수가 아니라 <strong>미래 좋은 상태를 살려두기 위한 surrogate objective</strong>이기 때문이다.</p>
+<p>예를 들어 실제 reward에서는 현재 overtime 1분이 +200이더라도, Beam에서는 그 1분 때문에 다음 고가치 집 하나를 방문하지 못할 수 있다.</p>
+<p>따라서 실제 reward와 Beam rank는 분리해서 생각해야 한다.</p>
+</section>
+<section id="첫-접근-greedy" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> 첫 접근: Greedy</h1>
+<p>가장 자연스러운 Greedy는 다음과 같다.</p>
+<p>[ score(h) = PRICE_h - ,service_h - ,distance(current,h) ]</p>
+<p>또는</p>
+<p>[ {distance+service} ]</p>
+<p>같은 효율 기반 평가를 사용할 수 있다.</p>
+<p>이러한 Greedy는 구현이 매우 쉽고 빠르다.</p>
+<p>하지만 점수가 약</p>
+<p>[ 319M322M ]</p>
+<p>근처에서 정체되었다.</p>
+</section>
+<section id="greedy가-정체되는-이유" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Greedy가 정체되는 이유</h1>
+<p>Greedy는 현재 집 하나만 본다.</p>
+<p>예를 들어 현재 위치에서</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb6-1">A: 매우 비싼 집 1개</span>
+<span id="cb6-2">B: 중간 가격 집 여러 개가 밀집된 지역</span></code></pre></div></div>
+<p>이 있다고 하자.</p>
+<p>Greedy는 A를 선택하기 쉽다.</p>
+<p>하지만 실제 하루 route 전체로 보면</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb7-1">현재 → B1 → B2 → B3 → B4</span></code></pre></div></div>
+<p>처럼 밀집 지역을 연결하는 것이 더 높은 점수를 줄 수 있다.</p>
+<p>즉 이 문제는 사실상 하루마다 작은 Orienteering Problem을 반복해서 푸는 구조다.</p>
+<p>핵심은</p>
+<p>[ ]</p>
+<p>는 것이다.</p>
+</section>
+<section id="하루-단위-문제로-분해하기" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> 하루 단위 문제로 분해하기</h1>
+<p>전체 31일 경로를 한 번에 탐색하는 것은 불가능하다.</p>
+<p>따라서 문제를</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb8-1">오늘 하루의 좋은 route를 고른다.</span>
+<span id="cb8-2">→ 실제로 실행한다.</span>
+<span id="cb8-3">→ 다음 날 다시 푼다.</span></code></pre></div></div>
+<p>로 분해했다.</p>
+<p>하루 최대 depth가 12라는 강한 제약이 있으므로 Beam Search가 잘 맞는다.</p>
+</section>
+<section id="beam-search의-상태" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> Beam Search의 상태</h1>
+<p>사용한 상태는 다음과 같다.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb9-1"><span class="kw" style="color: #003B4F;
 background-color: null;
 font-weight: bold;
@@ -447,806 +339,1478 @@ font-style: inherit;">{</span></span>
 background-color: null;
 font-style: inherit;">unsigned</span> <span class="dt" style="color: #AD0000;
 background-color: null;
+font-style: inherit;">char</span> route<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>BEAM_DEPTH<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">];</span></span>
+<span id="cb9-3">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">unsigned</span> <span class="dt" style="color: #AD0000;
+background-color: null;
 font-style: inherit;">long</span> <span class="dt" style="color: #AD0000;
 background-color: null;
-font-style: inherit;">long</span> visitedMask<span class="op" style="color: #5E5E5E;
+font-style: inherit;">long</span> visit_mask<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">;</span></span>
-<span id="cb9-3">    <span class="dt" style="color: #AD0000;
+<span id="cb9-4"></span>
+<span id="cb9-5">    <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span> prize<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">;</span></span>
-<span id="cb9-4">    <span class="dt" style="color: #AD0000;
+<span id="cb9-6">    <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span> rank<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">;</span></span>
-<span id="cb9-5">    <span class="dt" style="color: #AD0000;
+<span id="cb9-7"></span>
+<span id="cb9-8">    <span class="dt" style="color: #AD0000;
 background-color: null;
-font-style: inherit;">unsigned</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">short</span> usedTime<span class="op" style="color: #5E5E5E;
+font-style: inherit;">short</span> used_time<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">;</span></span>
-<span id="cb9-6">    <span class="dt" style="color: #AD0000;
+<span id="cb9-9"></span>
+<span id="cb9-10">    <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">signed</span> <span class="dt" style="color: #AD0000;
 background-color: null;
-font-style: inherit;">char</span> lastCandidate<span class="op" style="color: #5E5E5E;
+font-style: inherit;">char</span> last<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">;</span></span>
-<span id="cb9-7">    <span class="dt" style="color: #AD0000;
+<span id="cb9-11">    <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">unsigned</span> <span class="dt" style="color: #AD0000;
 background-color: null;
-font-style: inherit;">char</span> routeLength<span class="op" style="color: #5E5E5E;
+font-style: inherit;">char</span> route_len<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">;</span></span>
-<span id="cb9-8">    <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">unsigned</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">char</span> route<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[</span>MAX_DEPTH<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">];</span></span>
-<span id="cb9-9"><span class="op" style="color: #5E5E5E;
+<span id="cb9-12"><span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">};</span></span></code></pre></div></div>
-<p>각 필드의 의미:</p>
-<ul>
-<li><code>visitedMask</code>: 후보 중 방문한 집 집합</li>
-<li><code>prize</code>: 집 가격 합</li>
-<li><code>rank</code>: Beam pruning용 평가값</li>
-<li><code>usedTime</code>: 오늘 사용한 시간</li>
-<li><code>lastCandidate</code>: 마지막으로 방문한 후보</li>
-<li><code>route</code>: 실제 실행할 경로</li>
-</ul>
-<section id="왜-max_depth12인가" class="level3" data-number="8.1">
-<h3 data-number="8.1" class="anchored" data-anchor-id="왜-max_depth12인가"><span class="header-section-number">8.1</span> 왜 <code>MAX_DEPTH=12</code>인가?</h3>
-<p>최소 청소시간이 60분이므로</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cboxed%7B%0AMAX%5C_DEPTH%0A=%0A720/60%0A=%0A12%0A%7D%0A"></p>
-<p>이다.</p>
-<p>이 값은 튜닝값이 아니라 문제 제약에서 직접 도출된다.</p>
+<p>주요 정보는 다음과 같다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb10-1">route</span>
+<span id="cb10-2">    현재까지 방문한 candidate 순서</span>
+<span id="cb10-3"></span>
+<span id="cb10-4">visit_mask</span>
+<span id="cb10-5">    방문한 후보 집 bitmask</span>
+<span id="cb10-6"></span>
+<span id="cb10-7">prize</span>
+<span id="cb10-8">    집 가격의 누적합</span>
+<span id="cb10-9"></span>
+<span id="cb10-10">used_time</span>
+<span id="cb10-11">    현재까지 소비한 시간</span>
+<span id="cb10-12"></span>
+<span id="cb10-13">last</span>
+<span id="cb10-14">    마지막 candidate</span>
+<span id="cb10-15"></span>
+<span id="cb10-16">rank</span>
+<span id="cb10-17">    Beam 생존용 surrogate score</span></code></pre></div></div>
+<p>후보를 최대 64개로 제한하므로</p>
+<p>[ 64bit ]</p>
+<p>정수 하나로 방문 집합을 저장할 수 있다.</p>
+<p>이 구조는 <code>-O0</code>에서도 매우 중요하다.</p>
+<p><code>bool visited[64]</code>, 동적 컨테이너, STL 등을 반복 복사하는 것보다 compact state를 통째로 복사하는 편이 빠르다.</p>
 </section>
+<section id="candidate를-먼저-줄여야-한다" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> Candidate를 먼저 줄여야 한다</h1>
+<p>집이 300~400개이고 각 Beam State마다 전부 확인하면 너무 비싸다.</p>
+<p>따라서 먼저 전역 후보를 Top-64로 축소한다.</p>
+<p>Candidate score는</p>
+<p>[ C(h) = PRICE_h -_C service_h -_C distance(start,h) ]</p>
+<p>를 사용했다.</p>
+<p>최종값은</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb11-1">TODAY_LAMBDA = 1400</span>
+<span id="cb11-2">TODAY_MU     = 900</span></code></pre></div></div>
+<p>Tomorrow 역시</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb12-1">LA_CAND_LAMBDA = 1400</span>
+<span id="cb12-2">LA_CAND_MU     = 900</span></code></pre></div></div>
+<p>이 좋았다.</p>
 </section>
-<section id="한-beam-상태에서-다음-후보-16개만-확장" class="level2" data-number="9">
-<h2 data-number="9" class="anchored" data-anchor-id="한-beam-상태에서-다음-후보-16개만-확장"><span class="header-section-number">9</span> 한 Beam 상태에서 다음 후보 16개만 확장</h2>
-<p>후보 63개를 모두 검사하되 실제 자식 상태는 다음 점수가 높은 16개만 만든다.</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cboxed%7B%0A%5Ctext%7BnextScore%7D(j)%0A=%0AP_j%0A-%0A%5Cnu%5C,%5Ctext%7Bcost%7D_j%0A%7D%0A"></p>
-<p>채택값:</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cnu=1500%0A"></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb10-1">choice<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">.</span>score <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span></span>
-<span id="cb10-2">    candidatePrice<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[</span>nextCandidate<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">]</span></span>
-<span id="cb10-3">    <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">-</span> NEXT_LAMBDA <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span> cost<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span></code></pre></div></div>
-<p>여기서도 <code>cost</code>는 이동 + 청소시간이다.</p>
-<p><code>NEXT_COUNT=16</code>은 “한 상태가 다음에 얼마나 다양한 방향으로 갈 것인가”를 제어한다.</p>
-<ul>
-<li>너무 작으면 Greedy에 가까워진다.</li>
-<li>너무 크면 자식 상태를 너무 많이 만들고 대부분 바로 버린다.</li>
-</ul>
+<section id="왜-candidate-top-64인가" class="level1" data-number="9">
+<h1 data-number="9"><span class="header-section-number">9</span> 왜 Candidate Top-64인가</h1>
+<p>처음에는 64라는 값이 단순히 <code>uint64_t visit_mask</code> 때문에 생긴 구현 제약인지 의심했다.</p>
+<p>그래서 128 candidate까지 지원하도록 2개의 64bit mask를 구현해서 실험했다.</p>
+<p>하지만 결과는 다음과 같은 경향을 보였다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb13-1">64   → 333.1460M</span>
+<span id="cb13-2">68   → 333.0458M</span>
+<span id="cb13-3">72   → 332.9372M</span>
+<span id="cb13-4">80   → 332.8136M</span>
+<span id="cb13-5">96   → 332.7572M</span>
+<span id="cb13-6">128  → 332.6886M</span></code></pre></div></div>
+<p>후보가 많아질수록 오히려 점수가 떨어졌다.</p>
+<p>따라서</p>
+<p>[ ]</p>
+<p>이었다.</p>
+<p>원인은 후보가 많아질수록 approximate rank가 잘못 평가한 action까지 Beam에 유입되어 <strong>ranking noise가 증가하기 때문</strong>으로 해석할 수 있다.</p>
 </section>
-<section id="beam-width-3800의-의미" class="level2" data-number="10">
-<h2 data-number="10" class="anchored" data-anchor-id="beam-width-3800의-의미"><span class="header-section-number">10</span> Beam Width 3800의 의미</h2>
-<p>각 상태가 최대 16개의 자식을 생성하므로, 한 depth에서 최대</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A3800%5Ctimes16%0A=%0A60,800%0A"></p>
-<p>개의 다음 상태가 생길 수 있다.</p>
-<p>그 상태들을 <code>rank</code> 기준으로 정렬한 뒤 상위 3800개만 다음 depth로 넘긴다.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb11-1">최대 60,800개 child</span>
-<span id="cb11-2">        ↓</span>
-<span id="cb11-3">rank 기준 pruning</span>
-<span id="cb11-4">        ↓</span>
-<span id="cb11-5">3,800개 survivor</span></code></pre></div></div>
-<p>즉 <code>BEAM_WIDTH</code>는 <strong>현재까지 서로 다른 경로 history를 몇 개까지 기억할 것인가</strong>를 결정한다.</p>
+<section id="candidate-recall과-ranking-noise의-균형" class="level1" data-number="10">
+<h1 data-number="10"><span class="header-section-number">10</span> Candidate recall과 ranking noise의 균형</h1>
+<p>Candidate 수를 줄였을 때도 점수가 떨어졌다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb14-1">32 → 332.5666M</span>
+<span id="cb14-2">40 → 332.5604M</span>
+<span id="cb14-3">48 → 332.9182M</span>
+<span id="cb14-4">56 → 332.9762M</span>
+<span id="cb14-5">64 → 333.1460M</span></code></pre></div></div>
+<p>즉 candidate 수는 다음 두 힘의 균형이다.</p>
+<p>[ ]</p>
+<p>[ ]</p>
+<p>이 문제에서는 64가 가장 좋았다.</p>
 </section>
-<section id="초과근무-인지-rank" class="level2" data-number="11">
-<h2 data-number="11" class="anchored" data-anchor-id="초과근무-인지-rank"><span class="header-section-number">11</span> 초과근무 인지 rank</h2>
-<p>중간 상태 pruning에는 실제 점수가 아니라 다음 potential을 사용한다.</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cboxed%7B%0A%5Ctext%7Brank%7D%0A=%0A%5Ctext%7Bprize%7D%0A-%0A1500%5Cmin(t,480)%0A-%0A1300(t-480)%5E+%0A%7D%0A"></p>
-<p>480분 이전에는 시간 1분을 1500점의 기회비용으로 본다.</p>
-<p>480분 이후에는 실제 보상에서 1분당 200점을 추가로 받으므로 실질 시간 비용을</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A1500-200=1300%0A"></p>
-<p>으로 낮춘다.</p>
-<p>따라서 이 식은 사실상</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Ctext%7Brank%7D%0A%5Capprox%0A%5Ctext%7BfinalReward%7D%0A-%0A1500t%0A"></p>
-<p>로 해석할 수 있다.</p>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">노트</span>rank와 finalReward는 역할이 다르다
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul>
-<li><code>rank</code>: 어떤 <strong>중간 상태를 계속 탐색할지</strong></li>
-<li><code>finalReward</code>: 어떤 <strong>완성된 하루 경로를 실제로 선택할지</strong></li>
-</ul>
-<p>탐색용 대리 목적과 실제 목적을 분리하는 것은 Beam Search에서 매우 중요하다.</p>
-</div>
-</div>
+<section id="price-rescue-후보가-실패한-이유" class="level1" data-number="11">
+<h1 data-number="11"><span class="header-section-number">11</span> PRICE rescue 후보가 실패한 이유</h1>
+<p>Candidate Top-64 중 일부를 단순 고가격 집으로 강제 교체하는 실험도 했다.</p>
+<p>하지만 rescue 개수가 증가할수록 점수가 하락했다.</p>
+<p>결론은</p>
+<p>[ ]</p>
+<p>였다.</p>
+<p>집 가격뿐 아니라 service time, 위치, 주변 집들과의 연결 가능성이 함께 중요하기 때문이다.</p>
 </section>
-<section id="왜-beam-width를-크게-했는데-score가-떨어질-수-있는가" class="level2" data-number="12">
-<h2 data-number="12" class="anchored" data-anchor-id="왜-beam-width를-크게-했는데-score가-떨어질-수-있는가"><span class="header-section-number">12</span> 왜 Beam Width를 크게 했는데 SCORE가 떨어질 수 있는가?</h2>
-<p>직관적으로는 Beam을 늘리면 기존 좋은 경로를 모두 포함하므로 SCORE가 올라갈 것 같지만, 휴리스틱 Beam Search에서는 보장되지 않는다.</p>
-<section id="이유-1-rank는-실제-objective가-아니다" class="level3" data-number="12.1">
-<h3 data-number="12.1" class="anchored" data-anchor-id="이유-1-rank는-실제-objective가-아니다"><span class="header-section-number">12.1</span> 이유 1 — <code>rank</code>는 실제 objective가 아니다</h3>
-<p>큰 Beam을 사용하면 이전에는 죽었던 많은 상태가 살아남는다. 그 상태들이 다음 depth에서 높은 <code>rank</code>의 자식을 대량 생성하면 기존 Beam에서 살아남던 경로가 오히려 밀려날 수 있다.</p>
-<p>즉</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cboxed%7B%0A%5Ctext%7BMore%20Search%7D%0A%5Cnot%5CRightarrow%0A%5Ctext%7BHigher%20Score%7D%0A%7D%0A"></p>
-<p>이다.</p>
+<section id="state별-local-branching" class="level1" data-number="12">
+<h1 data-number="12"><span class="header-section-number">12</span> State별 local branching</h1>
+<p>Candidate 64개를 만들었다고 해서 각 state에서 64개 child를 모두 생성하면 너무 비싸다.</p>
+<p>각 상태마다</p>
+<p>[ score(j) = PRICE_j - _N cost(last,j) ]</p>
+<p>로 local action을 평가하고 Top-N만 생성한다.</p>
+<p>최종값은</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb15-1">NEXT_COUNT = 16</span></code></pre></div></div>
+<p>이었다.</p>
+<p>Tomorrow에서도</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb16-1">LA_NEXT_COUNT = 16</span></code></pre></div></div>
+<p>이 가장 좋았다.</p>
+<p>실험에서는</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb17-1">8   → 332.3816M</span>
+<span id="cb17-2">12  → 332.6514M</span>
+<span id="cb17-3">16  → 333.1460M</span>
+<span id="cb17-4">20  → 332.7440M</span>
+<span id="cb17-5">24  → 332.8642M</span>
+<span id="cb17-6">32  → 332.7980M</span></code></pre></div></div>
+<p>정도의 경향을 보였다.</p>
+<p>즉 branching도 많다고 무조건 좋지 않다.</p>
 </section>
-<section id="이유-2-next_count는-그대로다" class="level3" data-number="12.2">
-<h3 data-number="12.2" class="anchored" data-anchor-id="이유-2-next_count는-그대로다"><span class="header-section-number">12.2</span> 이유 2 — NEXT_COUNT는 그대로다</h3>
-<p><code>BEAM_WIDTH</code>만 크게 하고 <code>NEXT_COUNT=16</code>을 그대로 두면 모든 방향을 균형 있게 넓히는 것이 아니다. 많은 parent를 살리지만 각 parent는 여전히 같은 휴리스틱으로 고른 16개의 child만 만든다.</p>
-</section>
-<section id="이유-3-2-day-lookahead와의-불균형" class="level3" data-number="12.3">
-<h3 data-number="12.3" class="anchored" data-anchor-id="이유-3-2-day-lookahead와의-불균형"><span class="header-section-number">12.3</span> 이유 3 — 2-day lookahead와의 불균형</h3>
-<p>오늘 Beam만 지나치게 강하게 하면 “오늘 점수가 높은 경로”가 Top-K를 점령할 수 있다. 하지만 그 경로들의 종료 위치가 내일 나쁠 수도 있다.</p>
-<p>예를 들어:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb12-1">오늘 A: 1,010,000 / 내일 800,000</span>
-<span id="cb12-2">오늘 B:   995,000 / 내일 1,000,000</span></code></pre></div></div>
-<p>2일 합은 B가 더 좋지만, <code>TOPK=4</code>에 B가 들어가지 못하면 내일 평가조차 해보지 못한다.</p>
-</section>
-<section id="이유-4-런타임과-메모리-급증" class="level3" data-number="12.4">
-<h3 data-number="12.4" class="anchored" data-anchor-id="이유-4-런타임과-메모리-급증"><span class="header-section-number">12.4</span> 이유 4 — 런타임과 메모리 급증</h3>
-<p><code>BEAM_WIDTH=60,800</code>이면 최대 child 수는</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A60,800%5Ctimes16%0A=%0A972,800%0A"></p>
-<p>까지 증가한다.</p>
-<p><code>-O0</code>에서는 State 복사와 정렬 비용이 폭증한다.</p>
-</section>
-</section>
-<section id="beam-pruning-구현-merge-sort를-유지한-이유" class="level2" data-number="13">
-<h2 data-number="13" class="anchored" data-anchor-id="beam-pruning-구현-merge-sort를-유지한-이유"><span class="header-section-number">13</span> Beam pruning 구현 — Merge Sort를 유지한 이유</h2>
-<p>생성된 상태를 <code>rank</code> 내림차순으로 정렬하기 위해 bottom-up merge sort를 사용했다.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb13-1">stableSortStates<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">(</span>next<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> mergeBuffer<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> nextCount<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">);</span></span>
-<span id="cb13-2">nextCount <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> beamWidth<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span></code></pre></div></div>
-<p>Min-Heap Top-K로 교체하는 것도 가능하고 이론적으로 목적에는 더 잘 맞는다. 하지만 시험 환경에서는 다음 이유로 merge sort를 유지하는 선택도 충분히 합리적이다.</p>
-<ul>
-<li>구현 원리가 단순하다.</li>
-<li>디버깅이 쉽다.</li>
-<li>worst-case <img src="https://latex.codecogs.com/png.latex?O(N%5Clog%20N)">이 명확하다.</li>
-<li>stable한 결과를 얻기 쉽다.</li>
-<li>현재 시간 제한 안에 이미 들어온다.</li>
-</ul>
-<div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">힌트</span>시험장에서는 “조금 더 빠른 코드”보다 “내가 확실히 구현 가능한 코드”가 중요하다
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>Min-Heap이 이론적으로 더 효율적이어도, 구현 리스크와 디버깅 시간을 고려하면 이미 통과 가능한 merge sort를 유지하는 것이 더 좋은 전략일 수 있다.</p>
-</div>
-</div>
-</section>
-<section id="day-beam-lookahead" class="level2" data-number="14">
-<h2 data-number="14" class="anchored" data-anchor-id="day-beam-lookahead"><span class="header-section-number">14</span> 2-day Beam Lookahead</h2>
-<p>1-day Beam은 오늘만 최적화하므로 하루 끝 위치가 내일에 미치는 영향을 충분히 반영하지 못한다.</p>
-<p>그래서 오늘의 상위 <code>TOPK</code> 경로 각각에 대해:</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cboxed%7B%0A%5Ctext%7BtodayReward%7D%0A+%0A%5Ctext%7BestimatedTomorrowReward%7D%0A%7D%0A"></p>
-<p>를 계산한다.</p>
-<p>채택값:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb14-1"><span class="pp" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">#define TOPK </span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4</span></span>
-<span id="cb14-2"><span class="pp" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">#define LA_BEAM </span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">400</span></span></code></pre></div></div>
-<p>오늘은 폭 3800의 full Beam으로 탐색하지만, 내일은 실제 실행할 경로가 아니라 미래 가치를 추정하는 용도이므로 폭 400의 작은 Beam을 사용한다.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb15-1">오늘: 정확하게 탐색</span>
-<span id="cb15-2">↓</span>
-<span id="cb15-3">오늘 Top-4 후보</span>
-<span id="cb15-4"></span>
-<span id="cb15-5">각 후보에 대해:</span>
-<span id="cb15-6">오늘 route를 실행했다고 가정</span>
-<span id="cb15-7">↓</span>
-<span id="cb15-8">내일 작은 Beam(400)</span>
-<span id="cb15-9">↓</span>
-<span id="cb15-10">today + tomorrow 비교</span></code></pre></div></div>
-<p>실제로 내일이 되면 전날 예측한 route를 강제 실행하지 않고 다시 full Beam으로 재계산한다. 즉 rolling horizon 방식이다.</p>
-</section>
-<section id="일-lookahead의-apply-evaluate-undo-패턴" class="level2" data-number="15">
-<h2 data-number="15" class="anchored" data-anchor-id="일-lookahead의-apply-evaluate-undo-패턴"><span class="header-section-number">15</span> 2일 Lookahead의 apply → evaluate → undo 패턴</h2>
-<p>오늘 후보 <img src="https://latex.codecogs.com/png.latex?r">을 평가할 때:</p>
-<ol type="1">
-<li>오늘 방문할 집들을 임시로 <code>active=0</code></li>
-<li>그 상태에서 내일 Beam Search</li>
-<li>예상 내일 reward 확보</li>
-<li>오늘 집들을 다시 <code>active=1</code></li>
-</ol>
-<p>한다.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb16-1">apply</span>
-<span id="cb16-2">→ evaluate</span>
-<span id="cb16-3">→ undo</span></code></pre></div></div>
-<p>이 패턴은 DFS, local search, simulated annealing, lookahead에서 매우 자주 사용된다.</p>
-</section>
-<section id="lookahead-결과" class="level2" data-number="16">
-<h2 data-number="16" class="anchored" data-anchor-id="lookahead-결과"><span class="header-section-number">16</span> Lookahead 결과</h2>
-<p>Beam 추정 lookahead의 score–시간 프론티어:</p>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th>설정 (<img src="https://latex.codecogs.com/png.latex?K">, LA_BEAM)</th>
-<th style="text-align: right;">SCORE</th>
-<th style="text-align: right;"><img src="https://latex.codecogs.com/png.latex?-O0"> 시간</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>없음 (base)</td>
-<td style="text-align: right;">332.10M</td>
-<td style="text-align: right;">6.9s</td>
-</tr>
-<tr class="even">
-<td><strong>(4, 400) — 채택</strong></td>
-<td style="text-align: right;"><strong>333.03M</strong></td>
-<td style="text-align: right;"><strong>9.3s</strong></td>
-</tr>
-<tr class="odd">
-<td>(8, 1000)</td>
-<td style="text-align: right;">333.09M</td>
-<td style="text-align: right;">19s</td>
-</tr>
-<tr class="even">
-<td>(10, 2000)</td>
-<td style="text-align: right;">333.41M</td>
-<td style="text-align: right;">36s</td>
-</tr>
-</tbody>
-</table>
-<p>더 무거운 lookahead는 점수를 계속 올리지만 시간 제한을 넘는다. 따라서 약 10초 예산에서는 <img src="https://latex.codecogs.com/png.latex?(4,400)">이 현실적인 절충이다.</p>
-<div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">힌트</span>추정기의 편향이 방향을 가른다
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>내일 보상을 Greedy로 추정했을 때는 오히려 점수가 하락했다. 반면 작은 Beam으로 추정하면 개선됐다.</p>
-<p>미래 추정기는 실제 해법과 <strong>비슷한 inductive bias</strong>를 가져야 한다.</p>
-</div>
-</div>
-</section>
-<section id="파라미터는-어떻게-정해야-하는가" class="level2" data-number="17">
-<h2 data-number="17" class="anchored" data-anchor-id="파라미터는-어떻게-정해야-하는가"><span class="header-section-number">17</span> 파라미터는 어떻게 정해야 하는가?</h2>
-<p>완성 코드의 숫자를 외우는 것이 아니라, <strong>파라미터의 역할과 튜닝 절차</strong>를 익혀야 한다.</p>
-<section id="문제에서-직접-결정" class="level3" data-number="17.1">
-<h3 data-number="17.1" class="anchored" data-anchor-id="문제에서-직접-결정"><span class="header-section-number">17.1</span> 문제에서 직접 결정</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb17-1">DAY_LIMIT = 720</span>
-<span id="cb17-2">OVERTIME = 480</span>
-<span id="cb17-3">OT_BONUS = 200</span>
-<span id="cb17-4">MAX_DEPTH = 12</span></code></pre></div></div>
-</section>
-<section id="문제-구조에서-초기값을-추론" class="level3" data-number="17.2">
-<h3 data-number="17.2" class="anchored" data-anchor-id="문제-구조에서-초기값을-추론"><span class="header-section-number">17.2</span> 문제 구조에서 초기값을 추론</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb18-1">PRE_LAMBDA ≈ 1500</span>
-<span id="cb18-2">POST_LAMBDA = PRE_LAMBDA - OT_BONUS ≈ 1300</span>
-<span id="cb18-3">NEXT_LAMBDA ≈ PRE_LAMBDA</span></code></pre></div></div>
-</section>
-<section id="실험으로-결정" class="level3" data-number="17.3">
-<h3 data-number="17.3" class="anchored" data-anchor-id="실험으로-결정"><span class="header-section-number">17.3</span> 실험으로 결정</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb19-1">CANDIDATE_COUNT</span>
-<span id="cb19-2">BEAM_WIDTH</span>
-<span id="cb19-3">NEXT_COUNT</span>
-<span id="cb19-4">CAND_MU</span>
-<span id="cb19-5">TOPK</span>
-<span id="cb19-6">LA_BEAM</span></code></pre></div></div>
-</section>
-</section>
-<section id="lambda-튜닝-숫자보다-스케일을-먼저-찾는다" class="level2" data-number="18">
-<h2 data-number="18" class="anchored" data-anchor-id="lambda-튜닝-숫자보다-스케일을-먼저-찾는다"><span class="header-section-number">18</span> Lambda 튜닝 — 숫자보다 스케일을 먼저 찾는다</h2>
-<p>집의 가격/청소시간이 대략 1333~1600점/분이므로 시간 1분의 초기 가치를 약 1500으로 잡을 수 있다.</p>
-<p>처음부터 1450을 맞힐 필요는 없다.</p>
-<section id="coarse-search" class="level3" data-number="18.1">
-<h3 data-number="18.1" class="anchored" data-anchor-id="coarse-search"><span class="header-section-number">18.1</span> Coarse search</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb20-1">1000</span>
-<span id="cb20-2">1200</span>
-<span id="cb20-3">1400</span>
-<span id="cb20-4">1600</span>
-<span id="cb20-5">1800</span>
-<span id="cb20-6">2000</span></code></pre></div></div>
-</section>
-<section id="fine-search" class="level3" data-number="18.2">
-<h3 data-number="18.2" class="anchored" data-anchor-id="fine-search"><span class="header-section-number">18.2</span> Fine search</h3>
-<p>좋은 영역이 1400~1600이라면:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb21-1">1400</span>
-<span id="cb21-2">1450</span>
-<span id="cb21-3">1500</span>
-<span id="cb21-4">1550</span>
-<span id="cb21-5">1600</span></code></pre></div></div>
-<p>처럼 좁힌다.</p>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">노트</span>좋은 파라미터는 보통 넓은 plateau를 만든다
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><code>1498</code>에서만 좋고 <code>1497</code>, <code>1499</code>에서 급락한다면 위험한 휴리스틱이다.</p>
-<p>시험에서는 최고점 하나보다 <strong>넓은 안정 구간</strong>을 찾는 것이 더 중요하다.</p>
-</div>
-</div>
-</section>
-</section>
-<section id="next_count-튜닝" class="level2" data-number="19">
-<h2 data-number="19" class="anchored" data-anchor-id="next_count-튜닝"><span class="header-section-number">19</span> NEXT_COUNT 튜닝</h2>
-<p><code>NEXT_COUNT</code>는 한 상태에서 다음 선택을 몇 갈래까지 펼칠지를 결정한다.</p>
-<p>추천 실험:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb22-1">4</span>
-<span id="cb22-2">8</span>
-<span id="cb22-3">12</span>
-<span id="cb22-4">16</span>
-<span id="cb22-5">24</span></code></pre></div></div>
-<ul>
-<li>증가했을 때 SCORE가 크게 오른다 → 기존 탐색이 너무 Greedy</li>
-<li>증가해도 SCORE가 거의 그대로인데 시간만 증가 → 분기폭은 이미 충분</li>
-</ul>
-<p>시험장 첫 값으로는 <code>4~8</code> 정도가 적당하다.</p>
-</section>
-<section id="beam_width-튜닝" class="level2" data-number="20">
-<h2 data-number="20" class="anchored" data-anchor-id="beam_width-튜닝"><span class="header-section-number">20</span> BEAM_WIDTH 튜닝</h2>
-<p><code>BEAM_WIDTH</code>는 서로 다른 history를 얼마나 많이 유지할지 결정한다.</p>
-<p>추천 실험:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb23-1">100</span>
-<span id="cb23-2">300</span>
-<span id="cb23-3">600</span>
-<span id="cb23-4">1000</span>
-<span id="cb23-5">2000</span>
-<span id="cb23-6">4000</span></code></pre></div></div>
-<p>관찰할 것은 단순 SCORE가 아니라</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cfrac%7B%5CDelta%5Ctext%7BScore%7D%7D%7B%5CDelta%5Ctext%7BRuntime%7D%7D%0A"></p>
-<p>이다.</p>
-<p>예:</p>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th style="text-align: right;">Beam</th>
-<th style="text-align: right;">SCORE</th>
-<th style="text-align: right;">Runtime</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: right;">1000</td>
-<td style="text-align: right;">331.0M</td>
-<td style="text-align: right;">3.0s</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">2000</td>
-<td style="text-align: right;">332.0M</td>
-<td style="text-align: right;">4.8s</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">3000</td>
-<td style="text-align: right;">332.4M</td>
-<td style="text-align: right;">6.3s</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">4000</td>
-<td style="text-align: right;">332.5M</td>
-<td style="text-align: right;">8.2s</td>
-</tr>
-</tbody>
-</table>
-<p>4000 근처에서는 추가 탐색의 한계효용이 작다.</p>
-</section>
-<section id="같은-탐색-예산에서-beam과-next의-차이" class="level2" data-number="21">
-<h2 data-number="21" class="anchored" data-anchor-id="같은-탐색-예산에서-beam과-next의-차이"><span class="header-section-number">21</span> 같은 탐색 예산에서 Beam과 Next의 차이</h2>
-<p>다음 두 설정은 최대 자식 수가 같다.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb24-1">A: Beam=2000, Next=16</span>
-<span id="cb24-2">B: Beam=4000, Next=8</span></code></pre></div></div>
-<p>둘 다:</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A32,000%0A"></p>
-<p>개의 child를 만들 수 있다.</p>
-<p>하지만 의미는 다르다.</p>
-<ul>
-<li>A: 적은 history에서 다양한 다음 선택</li>
-<li>B: 많은 history를 유지하되 각 history에서 적은 선택</li>
-</ul>
-<p>현재 문제는 경로 history가 중요하므로 <code>NEXT_COUNT</code>를 너무 작게 만들지 않는 선에서 Beam Width에 더 많은 예산을 주는 전략이 잘 맞을 수 있다.</p>
-</section>
-<section id="시험장에서의-구현-순서" class="level2" data-number="22">
-<h2 data-number="22" class="anchored" data-anchor-id="시험장에서의-구현-순서"><span class="header-section-number">22</span> 시험장에서의 구현 순서</h2>
-<p>완성형 코드를 처음부터 한 번에 작성하려 하면 매우 어렵다. 이 문제의 최종 코드는 여러 단계의 개선 결과로 보는 것이 맞다.</p>
-<section id="v0-안전한-greedy" class="level3" data-number="22.1">
-<h3 data-number="22.1" class="anchored" data-anchor-id="v0-안전한-greedy"><span class="header-section-number">22.1</span> V0 — 안전한 Greedy</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb25-1">현재 위치에서</span>
-<span id="cb25-2">price - λ*(이동+청소)</span>
-<span id="cb25-3">가 좋은 집 선택</span></code></pre></div></div>
-<p>먼저 SCORE가 0이 아닌 제출 가능한 baseline을 만든다.</p>
-</section>
-<section id="v1-후보-축소" class="level3" data-number="22.2">
-<h3 data-number="22.2" class="anchored" data-anchor-id="v1-후보-축소"><span class="header-section-number">22.2</span> V1 — 후보 축소</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb26" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb26-1">전체 집</span>
-<span id="cb26-2">→ 유망 후보 30~60개</span></code></pre></div></div>
-</section>
-<section id="v2-작은-beam" class="level3" data-number="22.3">
-<h3 data-number="22.3" class="anchored" data-anchor-id="v2-작은-beam"><span class="header-section-number">22.3</span> V2 — 작은 Beam</h3>
-<p>처음에는:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb27-1">CANDIDATE_COUNT <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">30</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb27-2">NEXT_COUNT <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb27-3">BEAM_WIDTH <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">100</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span></code></pre></div></div>
-<p>정도로 구현한다.</p>
-</section>
-<section id="v3-rank-추가" class="level3" data-number="22.4">
-<h3 data-number="22.4" class="anchored" data-anchor-id="v3-rank-추가"><span class="header-section-number">22.4</span> V3 — rank 추가</h3>
-<p>처음에는:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb28" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb28-1">rank <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> prize <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">-</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1500</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span> time<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span></code></pre></div></div>
-<p>처럼 단순하게 시작한다.</p>
-</section>
-<section id="v4-초과근무-반영" class="level3" data-number="22.5">
-<h3 data-number="22.5" class="anchored" data-anchor-id="v4-초과근무-반영"><span class="header-section-number">22.5</span> V4 — 초과근무 반영</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb29-1">PRE_LAMBDA <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1500</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb29-2">POST_LAMBDA <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1300</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span></code></pre></div></div>
-</section>
-<section id="v5-전이시간-사전-계산" class="level3" data-number="22.6">
-<h3 data-number="22.6" class="anchored" data-anchor-id="v5-전이시간-사전-계산"><span class="header-section-number">22.6</span> V5 — 전이시간 사전 계산</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb30" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb30-1">distance + cleaning</span></code></pre></div></div>
-<p>반복 계산 제거.</p>
-</section>
-<section id="v6-next-top-k" class="level3" data-number="22.7">
-<h3 data-number="22.7" class="anchored" data-anchor-id="v6-next-top-k"><span class="header-section-number">22.7</span> V6 — NEXT Top-K</h3>
-<p>각 상태에서 모든 후보를 child로 만들지 않고 상위 몇 개만 실제 확장.</p>
-</section>
-<section id="v7-beam-폭-증가" class="level3" data-number="22.8">
-<h3 data-number="22.8" class="anchored" data-anchor-id="v7-beam-폭-증가"><span class="header-section-number">22.8</span> V7 — Beam 폭 증가</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb31-1">100 → 300 → 600 → 1000 → 2000 → ...</span></code></pre></div></div>
-</section>
-<section id="v8-2-day-lookahead" class="level3" data-number="22.9">
-<h3 data-number="22.9" class="anchored" data-anchor-id="v8-2-day-lookahead"><span class="header-section-number">22.9</span> V8 — 2-day lookahead</h3>
-<p>1-day Beam이 안정적으로 돌아간 뒤 마지막 고득점 개선으로 붙인다.</p>
-<div class="callout callout-style-default callout-important callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">중요</span>시험장의 핵심 전략
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>처음부터 333M 코드를 작성하는 것이 목표가 아니다.</p>
-<p><strong>항상 실행 가능한 버전을 유지하면서 한 단계씩 SCORE를 올린다.</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb32" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb32-1">Greedy</span>
-<span id="cb32-2">→ Candidate pruning</span>
-<span id="cb32-3">→ Small Beam</span>
-<span id="cb32-4">→ Better rank</span>
-<span id="cb32-5">→ Precompute</span>
-<span id="cb32-6">→ Larger Beam</span>
-<span id="cb32-7">→ Lookahead</span></code></pre></div></div>
-<p>이 순서가 훨씬 안전하다.</p>
-</div>
-</div>
-</section>
-</section>
-<section id="복잡도메모리-분석" class="level2" data-number="23">
-<h2 data-number="23" class="anchored" data-anchor-id="복잡도메모리-분석"><span class="header-section-number">23</span> 복잡도·메모리 분석</h2>
-<p>기호:</p>
-<ul>
-<li><img src="https://latex.codecogs.com/png.latex?N">: 집 수 (<img src="https://latex.codecogs.com/png.latex?%5Cle400">)</li>
-<li><img src="https://latex.codecogs.com/png.latex?C">: 후보 수 (63)</li>
-<li><img src="https://latex.codecogs.com/png.latex?B">: Beam 폭 (3800)</li>
-<li><img src="https://latex.codecogs.com/png.latex?R">: 상태당 실제 확장 수 (<code>NEXT_COUNT=16</code>)</li>
-<li><img src="https://latex.codecogs.com/png.latex?L">: 최대 depth (12)</li>
-</ul>
-<section id="후보-검사" class="level3" data-number="23.1">
-<h3 data-number="23.1" class="anchored" data-anchor-id="후보-검사"><span class="header-section-number">23.1</span> 후보 검사</h3>
-<p>각 Beam 상태에서 최대 <img src="https://latex.codecogs.com/png.latex?C">개의 후보를 검사하므로:</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0AO(LBC)%0A"></p>
-<p>현재 값:</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A12%5Ctimes3800%5Ctimes63%0A%5Capprox%0A2.87%5Ctimes10%5E6%0A"></p>
-<p>후보 검사 수준이다.</p>
-</section>
-<section id="자식-생성" class="level3" data-number="23.2">
-<h3 data-number="23.2" class="anchored" data-anchor-id="자식-생성"><span class="header-section-number">23.2</span> 자식 생성</h3>
-<p>최대:</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0AO(LBR)%0A"></p>
-<p>이며 한 depth에서 최대:</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A3800%5Ctimes16%0A=%0A60,800%0A"></p>
-<p>개의 child가 생성된다.</p>
-</section>
-<section id="정렬" class="level3" data-number="23.3">
-<h3 data-number="23.3" class="anchored" data-anchor-id="정렬"><span class="header-section-number">23.3</span> 정렬</h3>
-<p>각 depth에서 child 상태를 merge sort하므로 대략:</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0AO(BR%5Clog(BR))%0A"></p>
-<p>비용이 추가된다.</p>
-</section>
-<section id="lookahead" class="level3" data-number="23.4">
-<h3 data-number="23.4" class="anchored" data-anchor-id="lookahead"><span class="header-section-number">23.4</span> Lookahead</h3>
-<p>하루 main Beam 한 번 + 오늘 Top-K 각각에 대해 작은 Beam을 수행한다.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb33-1">main beam: width 3800</span>
-<span id="cb33-2">lookahead: TOPK=4 × width 400</span></code></pre></div></div>
-</section>
-</section>
-<section id="메모리-분석-시-주의" class="level2" data-number="24">
-<h2 data-number="24" class="anchored" data-anchor-id="메모리-분석-시-주의"><span class="header-section-number">24</span> 메모리 분석 시 주의</h2>
-<p>기존 merge sort 구현에서는 다음 세 배열이 크다.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb34" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb34-1">stateA<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[</span>MAX_NEXT_STATE<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">]</span></span>
-<span id="cb34-2">stateB<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[</span>MAX_NEXT_STATE<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">]</span></span>
-<span id="cb34-3">mergeBuffer<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[</span>MAX_NEXT_STATE<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">]</span></span></code></pre></div></div>
-<p>여기서:</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0AMAX%5C_NEXT%5C_STATE%0A=%0ABEAM%5C_WIDTH%0A%5Ctimes%0ANEXT%5C_COUNT%0A=%0A60,800%0A"></p>
-<p>이다.</p>
-<p>전역 배열이므로 스택 1MB 제약에는 직접 걸리지 않는다.</p>
-</section>
-<section id="천장-진단-이동이-유일한-지렛대" class="level2" data-number="25">
-<h2 data-number="25" class="anchored" data-anchor-id="천장-진단-이동이-유일한-지렛대"><span class="header-section-number">25</span> 천장 진단 — 이동이 유일한 지렛대</h2>
-<p>Beam 해의 점수를 성분 분해하면:</p>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th>성분</th>
-<th style="text-align: right;">값</th>
-<th>여지</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>초과근무</td>
-<td style="text-align: right;">14.86M ≈ 이론상 최대 14.88M</td>
-<td>거의 없음</td>
-</tr>
-<tr class="even">
-<td>유휴</td>
-<td style="text-align: right;">88분</td>
-<td>거의 없음</td>
-</tr>
-<tr class="odd">
-<td>이동</td>
-<td style="text-align: right;">15,182분</td>
-<td><strong>핵심 개선 대상</strong></td>
-</tr>
-</tbody>
-</table>
-<p>초과근무와 유휴가 거의 포화되어 있다면 더 이상 “하루를 더 꽉 채우자”가 핵심이 아니다.</p>
-<p>남은 지렛대는:</p>
+<section id="candidate-stage와-local-branching은-역할이-다르다" class="level1" data-number="13">
+<h1 data-number="13"><span class="header-section-number">13</span> Candidate stage와 local branching은 역할이 다르다</h1>
+<p>두 단계를 혼동하면 안 된다.</p>
+<p>Candidate Top-64는</p>
 <blockquote class="blockquote">
-<p><strong>이동시간을 줄여 청소시간으로 바꾸는 것</strong></p>
+<p>오늘 하루 동안 고려할 수 있는 <strong>전역 action universe</strong></p>
+</blockquote>
+<p>를 만드는 단계다.</p>
+<p>State별 Top-16은</p>
+<blockquote class="blockquote">
+<p>현재 위치와 방문 history를 고려했을 때 실제로 확장할 <strong>local action set</strong></p>
 </blockquote>
 <p>이다.</p>
-<p>이 분석이 2-day lookahead를 시도한 근거가 된다. 오늘 마지막 위치를 더 좋게 만들면 다음 날 첫 이동을 줄일 수 있기 때문이다.</p>
+<p>정리하면</p>
+<p>[ ]</p>
+<p>[ ]</p>
+<p>라고 이해할 수 있다.</p>
 </section>
-<section id="왜-이겼고-왜-이전-접근은-정체했는가" class="level2" data-number="26">
-<h2 data-number="26" class="anchored" data-anchor-id="왜-이겼고-왜-이전-접근은-정체했는가"><span class="header-section-number">26</span> 왜 이겼고, 왜 이전 접근은 정체했는가?</h2>
-<p>Greedy, GRASP, 2-opt, LNS는 모두 서로 다른 알고리즘처럼 보였지만 사실 같은 표현을 공유했다.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb35" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb35-1">전역 tour</span>
-<span id="cb35-2">+</span>
-<span id="cb35-3">day packing</span></code></pre></div></div>
-<p>따라서 같은 구조적 약점을 공유했다.</p>
-<p>Beam Search의 가장 큰 개선은 파라미터가 아니라 <strong>문제 표현을 바꾼 것</strong>이다.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb36" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb36-1">전역 tour 최적화</span>
-<span id="cb36-2">↓</span>
-<span id="cb36-3">하루 단위 작은 OP 최적화</span></code></pre></div></div>
-<p>이 한 번의 representation change가 이후의 모든 튜닝보다 더 큰 점수 상승을 만들었다.</p>
+<section id="local-ranking을-매번-정렬하지-않기" class="level1" data-number="14">
+<h1 data-number="14"><span class="header-section-number">14</span> local ranking을 매번 정렬하지 않기</h1>
+<p>초기 코드에서는 각 state마다 child score를 계산한 뒤 insertion sort로 Top-16을 골랐다.</p>
+<p>Beam state가 수천 개이므로 이것이 반복되면 <code>-O0</code> 환경에서는 상당히 비싸다.</p>
+<p>그런데 local score는</p>
+<p>[ PRICE_j-cost(i,j) ]</p>
+<p>이고, 현재 위치가 candidate (i)로 정해졌을 때 순서는 고정된다.</p>
+<p>따라서 미리</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb18-1">cand_order<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>last <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">][...]</span></span></code></pre></div></div>
+<p>를 계산할 수 있다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb19-1">last = -1</span>
+<span id="cb19-2">    → 하루 시작 위치에서의 action order</span>
+<span id="cb19-3"></span>
+<span id="cb19-4">last = 0</span>
+<span id="cb19-5">    → candidate 0에서의 action order</span>
+<span id="cb19-6"></span>
+<span id="cb19-7">...</span>
+<span id="cb19-8"></span>
+<span id="cb19-9">last = 63</span></code></pre></div></div>
+<p>각 state에서는 precomputed order를 앞에서부터 읽으면서</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb20-1">이미 방문했는가?</span>
+<span id="cb20-2">시간 제한을 넘는가?</span></code></pre></div></div>
+<p>만 확인하고 feasible한 16개를 선택한다.</p>
+<p>이 최적화는 반복 insertion sort를 제거해 runtime을 크게 줄였다.</p>
 </section>
-<section id="시험-대비용-핵심-체크리스트" class="level2" data-number="27">
-<h2 data-number="27" class="anchored" data-anchor-id="시험-대비용-핵심-체크리스트"><span class="header-section-number">27</span> 시험 대비용 핵심 체크리스트</h2>
-<p>새 점수형 문제를 보면 다음 순서로 생각한다.</p>
-<section id="채점-코드" class="level3" data-number="27.1">
-<h3 data-number="27.1" class="anchored" data-anchor-id="채점-코드"><span class="header-section-number">27.1</span> 채점 코드</h3>
-<ul>
-<li>실제 objective는 무엇인가?</li>
-<li>0점/리셋 조건은 무엇인가?</li>
-<li>hard constraint는 무엇인가?</li>
-<li>상태가 여러 라운드 사이에 무엇을 carry하는가?</li>
-</ul>
+<section id="today-beam-rank" class="level1" data-number="15">
+<h1 data-number="15"><span class="header-section-number">15</span> Today Beam rank</h1>
+<p>Today Beam의 생존 rank는 최종적으로</p>
+<p>[ Rank = Prize - 1500UsedTime ]</p>
+<p>형태가 가장 좋았다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb21-1">TODAY_RANK_LAMBDA = 1500</span></code></pre></div></div>
+<p>이다.</p>
+<p>State별 local action에서도</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb22-1">TODAY_NEXT_LAMBDA = 1500</span></code></pre></div></div>
+<p>이 좋았다.</p>
+<p>흥미롭게도 Today에서는 local과 global의 시간 가치가 동일한 값에 수렴했다.</p>
 </section>
-<section id="문제-구조" class="level3" data-number="27.2">
-<h3 data-number="27.2" class="anchored" data-anchor-id="문제-구조"><span class="header-section-number">27.2</span> 문제 구조</h3>
-<ul>
-<li>전체 문제를 작은 독립 서브문제로 분리할 수 있는가?</li>
-<li>최대 depth를 제약에서 도출할 수 있는가?</li>
-<li>후보 수를 줄일 수 있는가?</li>
-</ul>
+<section id="today_next_lambda-실험" class="level1" data-number="16">
+<h1 data-number="16"><span class="header-section-number">16</span> TODAY_NEXT_LAMBDA 실험</h1>
+<p>대표적인 결과는 다음과 같다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb23-1">1450 → 332.5564M</span>
+<span id="cb23-2">1485 → 332.8860M</span>
+<span id="cb23-3">1490 → 333.0270M</span>
+<span id="cb23-4">1495 → 333.1590M</span>
+<span id="cb23-5">1500 → 333.1988M</span>
+<span id="cb23-6">1505 → 333.1988M</span>
+<span id="cb23-7">1510 → 333.1988M</span>
+<span id="cb23-8">1515 → 333.1988M</span>
+<span id="cb23-9">1520 → 333.1872M</span>
+<span id="cb23-10">1550 → 333.0172M</span></code></pre></div></div>
+<p>따라서</p>
+<p>[ ]</p>
+<p>으로 두었다.</p>
 </section>
-<section id="baseline" class="level3" data-number="27.3">
-<h3 data-number="27.3" class="anchored" data-anchor-id="baseline"><span class="header-section-number">27.3</span> Baseline</h3>
-<ul>
-<li>가장 단순한 Greedy는 무엇인가?</li>
-<li>시간 1단위의 대략적인 가치가 얼마인가?</li>
-</ul>
+<section id="today_rank_lambda의-날카로운-경계" class="level1" data-number="17">
+<h1 data-number="17"><span class="header-section-number">17</span> TODAY_RANK_LAMBDA의 날카로운 경계</h1>
+<p>Global Beam rank를 따로 튜닝하자 다음과 같은 매우 날카로운 결과가 나왔다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb24-1">1496 → 333.0764M</span>
+<span id="cb24-2">1497 → 333.0764M</span>
+<span id="cb24-3">1498 → 333.0764M</span>
+<span id="cb24-4">1499 → 333.0764M</span>
+<span id="cb24-5"></span>
+<span id="cb24-6">1500 → 333.1988M</span>
+<span id="cb24-7"></span>
+<span id="cb24-8">1501 → 333.0888M</span>
+<span id="cb24-9">1502 → 333.0078M</span>
+<span id="cb24-10">1503 → 333.0078M</span>
+<span id="cb24-11">1504 → 333.0078M</span></code></pre></div></div>
+<p>따라서 정확히</p>
+<p>[ ]</p>
+<p>이 가장 좋았다.</p>
+<p>이 현상은 휴리스틱의 score surface가 부드럽지 않다는 것을 보여준다.</p>
+<p>두 state A, B의 rank가</p>
+<p>[ R_A=P_A-T_A ]</p>
+<p>[ R_B=P_B-T_B ]</p>
+<p>라면 순서가 바뀌는 지점은</p>
+<p>[ = {T_A-T_B} ]</p>
+<p>이다.</p>
+<p>따라서 특정 정수 ()에서 Beam survivor가 바뀌고 이후 31일 trajectory 전체가 바뀔 수 있다.</p>
 </section>
-<section id="beam" class="level3" data-number="27.4">
-<h3 data-number="27.4" class="anchored" data-anchor-id="beam"><span class="header-section-number">27.4</span> Beam</h3>
-<ul>
-<li>State에 정말 필요한 정보만 넣었는가?</li>
-<li><code>CANDIDATE_COUNT</code>, <code>NEXT_COUNT</code>, <code>BEAM_WIDTH</code>의 역할을 구분했는가?</li>
-<li>pruning용 rank와 실제 objective를 분리했는가?</li>
-</ul>
+<section id="휴리스틱-파라미터-지형은-계단-함수에-가깝다" class="level1" data-number="18">
+<h1 data-number="18"><span class="header-section-number">18</span> 휴리스틱 파라미터 지형은 계단 함수에 가깝다</h1>
+<p>실험에서 다음 패턴이 반복되었다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb25-1">1496~1499</span>
+<span id="cb25-2">    동일 SCORE</span>
+<span id="cb25-3"></span>
+<span id="cb25-4">1500</span>
+<span id="cb25-5">    갑자기 상승</span>
+<span id="cb25-6"></span>
+<span id="cb25-7">1501</span>
+<span id="cb25-8">    다시 하락</span>
+<span id="cb25-9"></span>
+<span id="cb25-10">1502~1504</span>
+<span id="cb25-11">    다시 동일 SCORE</span></code></pre></div></div>
+<p>즉</p>
+<p>[ parameter Beam ordering survivor 변화 오늘 route 변화 이후 모든 날짜 상태 변화 ]</p>
+<p>가 일어난다.</p>
+<p>따라서 휴리스틱 최적화에서는 gradient를 생각하기보다</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb26" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb26-1">coarse sweep</span>
+<span id="cb26-2">→ plateau 확인</span>
+<span id="cb26-3">→ boundary fine sweep</span>
+<span id="cb26-4">→ 구조적 원인 분석</span></code></pre></div></div>
+<p>이 적절하다.</p>
 </section>
-<section id="실행시간" class="level3" data-number="27.5">
-<h3 data-number="27.5" class="anchored" data-anchor-id="실행시간"><span class="header-section-number">27.5</span> 실행시간</h3>
-<ul>
-<li>반복되는 거리/비용을 사전 계산할 수 있는가?</li>
-<li>전체 정렬이 정말 필요한가?</li>
-<li>자료형 범위를 줄일 수 있는가?</li>
-<li><code>-O0</code>에서 State 복사가 병목인가?</li>
-</ul>
+<section id="beam-width" class="level1" data-number="19">
+<h1 data-number="19"><span class="header-section-number">19</span> Beam Width</h1>
+<p>Today Beam width를 늘리면 초반에는 점수가 크게 향상되었다.</p>
+<p>대표적으로 width가 작은 경우에는 탐색 다양성이 크게 부족했다.</p>
+<p>이후 최종 구조에서는</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb27-1">TODAY_BEAM_WIDTH = 3800</span></code></pre></div></div>
+<p>이 가장 좋았다.</p>
+<p>3800과 4000이 동일 최고점을 기록했으므로 더 저렴한 3800을 선택했다.</p>
+<p>또한 width를 계속 늘린다고 점수가 증가하지 않았다.</p>
+<p>이는 매우 중요한 원칙이다.</p>
+<p>[ ]</p>
+<p>Beam rank가 실제 목적함수가 아니라 근사함수이기 때문이다.</p>
 </section>
-<section id="튜닝" class="level3" data-number="27.6">
-<h3 data-number="27.6" class="anchored" data-anchor-id="튜닝"><span class="header-section-number">27.6</span> 튜닝</h3>
-<ul>
-<li>한 번에 한 파라미터만 변경했는가?</li>
-<li>SCORE뿐 아니라 runtime도 기록했는가?</li>
-<li>테스트케이스별 악화 원인을 분석했는가?</li>
-<li>Beam을 더 키우는 것이 아니라 평가함수를 고쳐야 하는 상황은 아닌가?</li>
-</ul>
+<section id="beam-survivor-선택-최적화" class="level1" data-number="20">
+<h1 data-number="20"><span class="header-section-number">20</span> Beam survivor 선택 최적화</h1>
+<p>초기에는 최대</p>
+<p>[ 3800=60,800 ]</p>
+<p>개의 <code>BeamState</code>를 전체 정렬했다.</p>
+<p><code>BeamState</code> 자체를 계속 merge sort하면 복사 비용이 크다.</p>
+<p>그래서 다음 방식으로 변경했다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb28" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb28-1">BeamState 전체 정렬 X</span>
+<span id="cb28-2"></span>
+<span id="cb28-3">RankKey {</span>
+<span id="cb28-4">    rank,</span>
+<span id="cb28-5">    original index</span>
+<span id="cb28-6">}</span>
+<span id="cb28-7">만 생성</span>
+<span id="cb28-8"></span>
+<span id="cb28-9">↓</span>
+<span id="cb28-10">quickselect로 Top-W 영역만 확보</span>
+<span id="cb28-11"></span>
+<span id="cb28-12">↓</span>
+<span id="cb28-13">Top-W key만 정렬</span>
+<span id="cb28-14"></span>
+<span id="cb28-15">↓</span>
+<span id="cb28-16">실제 BeamState는 survivor만 복사</span></code></pre></div></div>
+<p>tie ordering은 반드시 기존 stable sort와 동일하도록</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb29-1"><span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>a<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>rank <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">!=</span> b<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>rank<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span></span>
+<span id="cb29-2">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span> a<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>rank <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> b<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>rank<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb29-3"></span>
+<span id="cb29-4"><span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">return</span> a<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>idx <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&lt;</span> b<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>idx<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span></code></pre></div></div>
+<p>를 사용했다.</p>
+<p>즉</p>
+<p>[ (rank&nbsp;descending,&nbsp;generation&nbsp;index&nbsp;ascending) ]</p>
+<p>순서를 보존했다.</p>
+<p>이 변경만으로 runtime이 크게 감소했다.</p>
+</section>
+<section id="tie-ordering은-알고리즘의-일부다" class="level1" data-number="21">
+<h1 data-number="21"><span class="header-section-number">21</span> Tie ordering은 알고리즘의 일부다</h1>
+<p>휴리스틱에서는 다음과 같은 코드를 사소하게 보면 안 된다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb30" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb30-1"><span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>A<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>rank <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;=</span> B<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>rank<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span></span>
+<span id="cb30-2">    A first<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span></code></pre></div></div>
+<p>동일 rank가 많이 발생하면 tie ordering 자체가 탐색 방향을 결정한다.</p>
+<p>실제로 future proxy를 tie-break로 사용했을 때 점수가 크게 하락한 실험이 있었다.</p>
+<p>따라서</p>
+<p>[ ]</p>
+<p>이다.</p>
+</section>
+<section id="dayplan-top-k" class="level1" data-number="22">
+<h1 data-number="22"><span class="header-section-number">22</span> DayPlan Top-K</h1>
+<p>Today Beam에서 얻은 모든 survivor를 실제 tomorrow lookahead에 넣으면 너무 비싸다.</p>
+<p>따라서 실제 하루 reward 기준 Top-K route만 저장한다.</p>
+<p>최종적으로</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb31-1">TOP_K = 6</span></code></pre></div></div>
+<p>이 가장 좋았다.</p>
+<p>최신 평가기에서 다시 튜닝한 결과:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb32" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb32-1">K=2  → 331.8484M</span>
+<span id="cb32-2">K=3  → 332.2326M</span>
+<span id="cb32-3">K=4  → 332.7278M</span>
+<span id="cb32-4">K=5  → 332.6288M</span>
+<span id="cb32-5">K=6  → 333.1988M</span>
+<span id="cb32-6">K=7  → 332.7728M</span>
+<span id="cb32-7">K=8  → 332.8350M</span>
+<span id="cb32-8">...</span>
+<span id="cb32-9">K=16 → 332.7752M</span></code></pre></div></div>
+<p>즉</p>
+<p>[ ]</p>
+<p>이다.</p>
+</section>
+<section id="왜-top-k를-크게-하면-오히려-나빠지는가" class="level1" data-number="23">
+<h1 data-number="23"><span class="header-section-number">23</span> 왜 Top-K를 크게 하면 오히려 나빠지는가</h1>
+<p>Approximate future evaluator가 있다고 하자.</p>
+<p>각 후보 (p)의 실제 미래가치가 (V_p), 평가 오차가 (_p)라면</p>
+<p>[ V_p = V_p+_p ]</p>
+<p>를 보고</p>
+<p>[ _pV_p ]</p>
+<p>를 고른다.</p>
+<p>후보를 많이 넣을수록 우연히 큰 양의 오차를 가진 후보가 선택될 가능성이 증가한다.</p>
+<p>이것을 이 문제에서는 일종의 <strong>winner’s curse</strong>로 볼 수 있다.</p>
+<p>따라서</p>
+<p>[ ]</p>
+<p>가 성립하지 않는다.</p>
+</section>
+<section id="dayplan-tie-break" class="level1" data-number="24">
+<h1 data-number="24"><span class="header-section-number">24</span> DayPlan tie-break</h1>
+<p>DayPlan은 다음 순서로 정렬했다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb33-1">1. reward 큰 route</span>
+<span id="cb33-2">2. reward가 같으면 route_len 큰 route</span></code></pre></div></div>
+<p>이 tie rule을 바꾸면 점수가 달라졌다.</p>
+<p>따라서 이것 역시 유지해야 한다.</p>
+</section>
+<section id="day-lookahead" class="level1" data-number="25">
+<h1 data-number="25"><span class="header-section-number">25</span> 2-day Lookahead</h1>
+<p>Today reward만으로 route를 고르면 마지막 위치가 다음 날에 미치는 영향을 고려하지 못한다.</p>
+<p>따라서 각 Today Plan에 대해 hypothetical하게</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb34" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb34-1">오늘 청소한 집들을 deactivate</span>
+<span id="cb34-2">청소부 위치를 Today endpoint로 이동</span>
+<span id="cb34-3">Tomorrow Beam 실행</span>
+<span id="cb34-4">상태 복구</span></code></pre></div></div>
+<p>를 수행했다.</p>
+<p>평가식은</p>
+<p>[ Value(p) = TodayReward(p) + TomorrowReward(p) ]</p>
+<p>이다.</p>
+<p>코드에서는 정수 scaling을 사용했다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb35" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb35-1">profit <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span></span>
+<span id="cb35-2">    day_plan<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">[</span>p<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">].</span>reward</span>
+<span id="cb35-3">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">long</span> <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">long</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span>tomo <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> TOMO_COEF <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1000</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span></code></pre></div></div>
+</section>
+<section id="tomo_coef" class="level1" data-number="26">
+<h1 data-number="26"><span class="header-section-number">26</span> TOMO_COEF</h1>
+<p>최종 구조에서 sweep한 결과:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb36" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb36-1">500  → 332.5398M</span>
+<span id="cb36-2">1000 → 332.9076M</span>
+<span id="cb36-3">1100~1400 → 333.1288M</span>
+<span id="cb36-4">1500~1900 → 333.1988M</span>
+<span id="cb36-5">2000 → 333.1198M</span></code></pre></div></div>
+<p>따라서 넓은 최고 plateau인</p>
+<p>[ 15001900 ]</p>
+<p>중 가장 작은</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb37" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb37-1">TOMO_COEF = 1500</span></code></pre></div></div>
+<p>을 사용했다.</p>
+<p>즉</p>
+<p>[ Today + 1.5Tomorrow ]</p>
+<p>이다.</p>
+</section>
+<section id="왜-tomorrow에-1보다-큰-가중치를-주는가" class="level1" data-number="27">
+<h1 data-number="27"><span class="header-section-number">27</span> 왜 Tomorrow에 1보다 큰 가중치를 주는가</h1>
+<p>직관적으로 1일 reward와 다음 날 reward를 그냥 더하면 될 것 같지만</p>
+<p>[ &gt;1 ]</p>
+<p>이 더 좋았다.</p>
+<p>이는 현재 lookahead가 day+1에서 종료되므로 Tomorrow reward가 사실상 그 이후의</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb38" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb38-1">day+2</span>
+<span id="cb38-2">day+3</span>
+<span id="cb38-3">...</span></code></pre></div></div>
+<p>가치를 일부 대표하기 때문이다.</p>
+<p>Tomorrow에 약간 더 높은 비중을 주는 것은 finite horizon을 보상하는 역할을 할 수 있다.</p>
+</section>
+<section id="same_future-cache" class="level1" data-number="28">
+<h1 data-number="28"><span class="header-section-number">28</span> same_future cache</h1>
+<p>서로 다른 Today route라도 다음 두 조건이 같으면 Tomorrow 관점에서는 동일한 상태다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb39" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb39-1">1. 오늘 청소된 집의 집합이 동일</span>
+<span id="cb39-2">2. 오늘 마지막 위치가 동일</span></code></pre></div></div>
+<p>다음 날에는 하루 사용 시간이 다시 0으로 초기화되므로 오늘 집 방문 순서 자체는 미래에 영향을 주지 않는다.</p>
+<p>따라서 <code>same_future</code>를 사용해 Tomorrow 계산 결과를 cache할 수 있다.</p>
+<p>중요한 것은:</p>
+<blockquote class="blockquote">
+<p><strong>중복 DayPlan을 제거하면 안 되고, 평가 결과만 cache해야 한다.</strong></p>
+</blockquote>
+<p>중복 plan을 제거한 뒤 다음 unique candidate를 Top-K에 새로 넣는 실험은 오히려 점수가 하락했다.</p>
+<p>이유는 후보 집합 자체가 넓어지면서 winner’s curse가 증가했기 때문이다.</p>
+<p>따라서</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb40" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb40-1">candidate composition 유지</span>
+<span id="cb40-2">evaluation만 재사용</span></code></pre></div></div>
+<p>해야 한다.</p>
+</section>
+<section id="tomorrow-beam의-평가함수" class="level1" data-number="29">
+<h1 data-number="29"><span class="header-section-number">29</span> Tomorrow Beam의 평가함수</h1>
+<p>Tomorrow local branching은</p>
+<p>[ PRICE - 1570cost ]</p>
+<p>가 가장 좋았다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb41" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb41-1">LA_NEXT_LAMBDA = 1570</span></code></pre></div></div>
+<p>Global Beam rank는</p>
+<p>[ Prize - 1540UsedTime ]</p>
+<p>이 좋았다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb42" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb42-1">LA_RANK_LAMBDA = 1540</span></code></pre></div></div>
+<p>즉 Today와 달리</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb43" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb43-1">local lambda = 1570</span>
+<span id="cb43-2">global lambda = 1540</span></code></pre></div></div>
+<p>이다.</p>
+<p>해석하면 Tomorrow approximation에서는 local branching 단계에서 더 강하게 효율 나쁜 action을 제거하고, global Beam에서는 약간 더 다양한 history를 유지하는 것이 좋았다고 볼 수 있다.</p>
+</section>
+<section id="overtime-bonus를-tomorrow-rank에-직접-넣은-실험" class="level1" data-number="30">
+<h1 data-number="30"><span class="header-section-number">30</span> Overtime Bonus를 Tomorrow rank에 직접 넣은 실험</h1>
+<p>Tomorrow rank에</p>
+<p>[ OT_BONUS (0,T-480) ]</p>
+<p>을 추가하는 실험을 했다.</p>
+<p>하지만 최적은</p>
+<p>[ ]</p>
+<p>이었다.</p>
+<p>이는 다시 한 번</p>
+<p>[ ]</p>
+<p>는 점을 보여준다.</p>
+</section>
+<section id="tomorrow-width" class="level1" data-number="31">
+<h1 data-number="31"><span class="header-section-number">31</span> Tomorrow width</h1>
+<p>고정 Tomorrow Beam에서 <code>MAX_TOMO_WIDTH</code>를 튜닝한 결과:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb44" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb44-1">600   → 332.5990M</span>
+<span id="cb44-2">800   → 332.9838M</span>
+<span id="cb44-3">1000  → 333.0030M</span>
+<span id="cb44-4">1200  → 333.1460M</span>
+<span id="cb44-5">1250  → 333.1966M</span>
+<span id="cb44-6">1270  → 333.1988M</span>
+<span id="cb44-7">1280  → 332.8396M</span>
+<span id="cb44-8">1400  → 332.8388M</span>
+<span id="cb44-9">1600  → 333.0770M</span>
+<span id="cb44-10">...</span></code></pre></div></div>
+<p>최종적으로</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb45" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb45-1">MAX_TOMO_WIDTH = 1270</span></code></pre></div></div>
+<p>을 선택했다.</p>
+<p>여기에서도 width를 더 크게 한다고 점수가 증가하지 않았다.</p>
+</section>
+<section id="day2를-직접-보면-더-좋아질까" class="level1" data-number="32">
+<h1 data-number="32"><span class="header-section-number">32</span> Day+2를 직접 보면 더 좋아질까?</h1>
+<p>2-day lookahead가 성공했으므로 자연스럽게</p>
+<p>[ Today + Tomorrow + Day2 ]</p>
+<p>를 생각했다.</p>
+<p>하지만 여러 시도가 모두 실패했다.</p>
+<p>이 실험들은 매우 중요하다.</p>
+</section>
+<section id="실패-1-top-1-future-proxy" class="level1" data-number="33">
+<h1 data-number="33"><span class="header-section-number">33</span> 실패 1: Top-1 Future Proxy</h1>
+<p>Tomorrow endpoint에서 남은 집 중</p>
+<p>[ PRICE_h - (distance+service) ]</p>
+<p>가 가장 큰 집 하나를 day+2 proxy로 사용했다.</p>
+<p>[ FutureProxy = _h [ PRICE_h-cost_h] ]</p>
+<p>하지만 <code>FUTURE_COEF=1</code>만 줘도</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb46" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb46-1">0 → 333.1988M</span>
+<span id="cb46-2">1 → 332.7170M</span>
+<span id="cb46-3">2~12 → 332.6970M</span>
+<span id="cb46-4">...</span></code></pre></div></div>
+<p>으로 크게 하락했다.</p>
+<p>즉 좋은 집 하나가 endpoint 근처에 있다는 사실은 day+2 전체 route 가치를 잘 나타내지 못했다.</p>
+</section>
+<section id="실패-2-3-step-greedy-rollout" class="level1" data-number="34">
+<h1 data-number="34"><span class="header-section-number">34</span> 실패 2: 3-step greedy rollout</h1>
+<p>단순 Top-1 대신 실제 위치를 움직이며</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb47" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb47-1">endpoint</span>
+<span id="cb47-2">→ A</span>
+<span id="cb47-3">→ B</span>
+<span id="cb47-4">→ C</span></code></pre></div></div>
+<p>형태의 day+2 greedy rollout을 만들었다.</p>
+<p>그리고 기존 Tomorrow reward가 정확히 같은 state들끼리만 tie-break로 사용했다.</p>
+<p>그럼에도</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb48" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb48-1">steps=0 → 333.1988M</span>
+<span id="cb48-2">steps=1 → 332.8296M</span>
+<span id="cb48-3">steps=2 → 332.9094M</span>
+<span id="cb48-4">steps=3 → 332.4110M</span>
+<span id="cb48-5">...</span></code></pre></div></div>
+<p>으로 모두 하락했다.</p>
+<p>즉 기존 stable tie ordering 자체가 생각보다 좋은 implicit bias를 가지고 있었다.</p>
+</section>
+<section id="실패-3-실제-day2-beam-search" class="level1" data-number="35">
+<h1 data-number="35"><span class="header-section-number">35</span> 실패 3: 실제 day+2 Beam Search</h1>
+<p>마지막으로 cheap proxy가 아니라 실제로</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb49" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb49-1">Today</span>
+<span id="cb49-2">→ Tomorrow Beam</span>
+<span id="cb49-3">→ Day+2 Beam</span></code></pre></div></div>
+<p>을 수행했다.</p>
+<p>Today 상위 두 후보가 가까울 때에만 expensive day+2를 실행했다.</p>
+<p>그럼에도 작은 Day2 가중치에서도 점수가 하락했다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb50" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb50-1">DAY2_COEF=0 → 333.1988M</span>
+<span id="cb50-2">1 → 333.0776M</span>
+<span id="cb50-3">2 → 333.1076M</span>
+<span id="cb50-4">3 → 332.9982M</span>
+<span id="cb50-5">...</span>
+<span id="cb50-6">50 → 332.9680M</span></code></pre></div></div>
+<p>따라서</p>
+<p>[ ]</p>
+<p>라는 결론을 얻었다.</p>
+</section>
+<section id="왜-더-정확해-보이는-3-day-탐색이-나빠질-수-있는가" class="level1" data-number="36">
+<h1 data-number="36"><span class="header-section-number">36</span> 왜 더 정확해 보이는 3-day 탐색이 나빠질 수 있는가</h1>
+<p>완전탐색이라면 horizon을 늘리는 것이 보통 더 정확하다.</p>
+<p>하지만 실제 구현은</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb51" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb51-1">Candidate Top-64</span>
+<span id="cb51-2">Local Top-16</span>
+<span id="cb51-3">Beam cutoff</span>
+<span id="cb51-4">Surrogate rank</span></code></pre></div></div>
+<p>를 반복한다.</p>
+<p>따라서</p>
+<p>[ V_2 = V_2+_2 ]</p>
+<p>인데 3-day에서는</p>
+<p>[ V_3 = V_3+_2+_3 ]</p>
+<p>처럼 추가 approximation error가 들어갈 수 있다.</p>
+<p>추가 미래정보보다 추가 오차가 더 크다면 탐색을 깊게 하는 것이 오히려 나쁘다.</p>
+</section>
+<section id="성공한-구조적-개선-adaptive-tomorrow-beam" class="level1" data-number="37">
+<h1 data-number="37"><span class="header-section-number">37</span> 성공한 구조적 개선: Adaptive Tomorrow Beam</h1>
+<p>Day+2가 실패한 뒤 방향을 바꾸었다.</p>
+<blockquote class="blockquote">
+<p>더 먼 미래를 부정확하게 보는 대신, <strong>당장 다음 날 평가가 애매할 때 그 평가 자체를 더 정확하게 만들자.</strong></p>
+</blockquote>
+<p>기본 Tomorrow width는</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb52" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb52-1">1270</span></code></pre></div></div>
+<p>을 유지한다.</p>
+<p>다만 Today plan의 1위와 2위 평가가 매우 가까우면 두 후보만 더 큰 width로 다시 평가한다.</p>
+</section>
+<section id="adaptive-width-실험" class="level1" data-number="38">
+<h1 data-number="38"><span class="header-section-number">38</span> Adaptive width 실험</h1>
+<p>초기 threshold를 10,000, Top-K를 2로 두고 adaptive width를 변경했다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb53" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb53-1">1270 → 333.1988M</span>
+<span id="cb53-2">1500 → 333.1988M</span>
+<span id="cb53-3">1750 → 333.3584M</span>
+<span id="cb53-4">2000 → 333.3180M</span>
+<span id="cb53-5">2250 → 333.3180M</span>
+<span id="cb53-6">2500 → 333.3180M</span>
+<span id="cb53-7">2750 → 333.3180M</span>
+<span id="cb53-8">3000 → 333.2158M</span>
+<span id="cb53-9">3250 → 333.2158M</span>
+<span id="cb53-10">3500 → 333.2158M</span>
+<span id="cb53-11">3800 → 333.2158M</span></code></pre></div></div>
+<p>처음으로 기존 최고점을 넘어섰다.</p>
+</section>
+<section id="adaptive-width의-세밀한-경계" class="level1" data-number="39">
+<h1 data-number="39"><span class="header-section-number">39</span> Adaptive width의 세밀한 경계</h1>
+<p>1550~2000을 다시 sweep했다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb54" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb54-1">1550~1650</span>
+<span id="cb54-2">    333.3180M</span>
+<span id="cb54-3"></span>
+<span id="cb54-4">1660~1740</span>
+<span id="cb54-5">    333.3184M</span>
+<span id="cb54-6"></span>
+<span id="cb54-7">1750~1960</span>
+<span id="cb54-8">    333.3584M</span>
+<span id="cb54-9"></span>
+<span id="cb54-10">1970~2000</span>
+<span id="cb54-11">    333.3180M</span></code></pre></div></div>
+<p>따라서 넓은 최고 plateau는</p>
+<p>[ 17501960 ]</p>
+<p>이다.</p>
+<p>동일 점수라면 작은 width가 유리하므로</p>
+<p>[ ]</p>
+<p>을 선택했다.</p>
+</section>
+<section id="adaptive-threshold" class="level1" data-number="40">
+<h1 data-number="40"><span class="header-section-number">40</span> Adaptive threshold</h1>
+<p>기본 1위와 2위의 평가값 차이를</p>
+<p>[ gap=P_1-P_2 ]</p>
+<p>라고 하자.</p>
+<p>다음 조건에서만 adaptive search를 실행한다.</p>
+<p>[ gap ADAPTIVE_CLOSE_THRESHOLD ]</p>
+<p>실험 결과:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb55" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb55-1">adaptive off(-1)</span>
+<span id="cb55-2">    333.1988M</span>
+<span id="cb55-3"></span>
+<span id="cb55-4">threshold=0</span>
+<span id="cb55-5">    333.3184M</span>
+<span id="cb55-6"></span>
+<span id="cb55-7">threshold=500</span>
+<span id="cb55-8">    333.3584M</span>
+<span id="cb55-9"></span>
+<span id="cb55-10">1000~50000</span>
+<span id="cb55-11">    333.3584M</span></code></pre></div></div>
+<p>따라서 0~500을 다시 세밀하게 확인했다.</p>
+<p>결과는 정확히</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb56" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb56-1">399 → 333.3184M</span>
+<span id="cb56-2">400 → 333.3584M</span></code></pre></div></div>
+<p>에서 바뀌었다.</p>
+<p>즉 현재 테스트에서는</p>
+<p>[ ]</p>
+<p>이 최소 충분값이다.</p>
+</section>
+<section id="threshold0도-이미-좋아진-이유" class="level1" data-number="41">
+<h1 data-number="41"><span class="header-section-number">41</span> Threshold=0도 이미 좋아진 이유</h1>
+<p>Threshold 0은</p>
+<p>[ P_1=P_2 ]</p>
+<p>인 exact tie에서만 adaptive evaluation을 한다.</p>
+<p>그런데 그것만으로도</p>
+<p>[ 333.1988M 333.3184M ]</p>
+<p>으로 +119,600 향상되었다.</p>
+<p>즉 기본 width 1270에서 동률로 보이는 후보들을 width 1750으로 다시 판별하는 것만으로도 효과가 있었다.</p>
+<p>그리고 gap=400인 critical decision까지 재평가하면서 추가로</p>
+<p>[ +40,000 ]</p>
+<p>이 향상되었다.</p>
+</section>
+<section id="adaptive-top-k" class="level1" data-number="42">
+<h1 data-number="42"><span class="header-section-number">42</span> Adaptive Top-K</h1>
+<p>Adaptive trigger가 걸렸을 때 baseline 상위 몇 개를 width 1750으로 다시 평가할지 실험했다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb57" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb57-1">K=1 → 333.1988M</span>
+<span id="cb57-2">K=2 → 333.3584M</span>
+<span id="cb57-3">K=3 → 333.1890M</span>
+<span id="cb57-4">K=4 → 333.1280M</span>
+<span id="cb57-5">K=5 → 333.0184M</span>
+<span id="cb57-6">K=6 → 332.9566M</span></code></pre></div></div>
+<p>명확하게</p>
+<p>[ ]</p>
+<p>이다.</p>
+</section>
+<section id="왜-k1은-아무-효과가-없고-k2가-좋아졌는가" class="level1" data-number="43">
+<h1 data-number="43"><span class="header-section-number">43</span> 왜 K=1은 아무 효과가 없고 K=2가 좋아졌는가</h1>
+<p>K=1이면 baseline 1위만 재평가한다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb58" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb58-1">Plan A = baseline 1위</span>
+<span id="cb58-2">Plan B = baseline 2위</span>
+<span id="cb58-3"></span>
+<span id="cb58-4">A → width 1750</span>
+<span id="cb58-5">B → width 1270</span></code></pre></div></div>
+<p>점수는 baseline과 정확히 같았다.</p>
+<p>반면 K=2이면</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb59" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb59-1">A → width 1750</span>
+<span id="cb59-2">B → width 1750</span></code></pre></div></div>
+<p>이고 점수가 +159,600 향상되었다.</p>
+<p>따라서 개선의 핵심은</p>
+<blockquote class="blockquote">
+<p>기존 1위를 더 정확히 평가한 것이 아니라, <strong>기존 2위 challenger에게 더 정밀한 평가 기회를 준 것</strong></p>
+</blockquote>
+<p>이라고 볼 수 있다.</p>
+</section>
+<section id="k3-이상에서-다시-나빠지는-이유" class="level1" data-number="44">
+<h1 data-number="44"><span class="header-section-number">44</span> K=3 이상에서 다시 나빠지는 이유</h1>
+<p>Adaptive evaluation 대상이 늘어나면 더 많은 후보의 approximate future estimate 중 maximum을 고르게 된다.</p>
+<p>따라서 다시 winner’s curse가 커진다.</p>
+<p>결과도 거의 단조롭게 하락했다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb60" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb60-1">K=2 → 333.3584M</span>
+<span id="cb60-2">K=3 → 333.1890M</span>
+<span id="cb60-3">K=4 → 333.1280M</span>
+<span id="cb60-4">K=5 → 333.0184M</span>
+<span id="cb60-5">K=6 → 332.9566M</span></code></pre></div></div>
+<p>결론은</p>
+<p>[ ]</p>
+<p>이다.</p>
+</section>
+<section id="lazy-challenger-verification" class="level1" data-number="45">
+<h1 data-number="45"><span class="header-section-number">45</span> Lazy Challenger Verification</h1>
+<p>Adaptive Top-2는 trigger될 때마다</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb61" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb61-1">1위 width1750 재평가</span>
+<span id="cb61-2">2위 width1750 재평가</span></code></pre></div></div>
+<p>를 모두 수행한다.</p>
+<p>하지만 K=1 실험에서 1위만 재평가하는 것은 아무 효과가 없었다.</p>
+<p>따라서 계산을 더 줄이기 위해 다음 구조를 사용했다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb62" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb62-1">Champion = baseline 1위</span>
+<span id="cb62-2">Challenger = baseline 2위</span>
+<span id="cb62-3"></span>
+<span id="cb62-4">gap &lt;= 400이면</span>
+<span id="cb62-5"></span>
+<span id="cb62-6">1. Challenger만 width=1750 재평가</span>
+<span id="cb62-7"></span>
+<span id="cb62-8">2. Challenger가 Champion의</span>
+<span id="cb62-9">   baseline width=1270 점수도 못 넘으면</span>
+<span id="cb62-10">   → Champion 유지</span>
+<span id="cb62-11">   → 종료</span>
+<span id="cb62-12"></span>
+<span id="cb62-13">3. Challenger가 잠정 역전하면</span>
+<span id="cb62-14">   그때만 Champion도 width=1750 재평가</span>
+<span id="cb62-15"></span>
+<span id="cb62-16">4. 두 wide 평가를 최종 비교</span></code></pre></div></div>
+<p>수도코드는 다음과 같다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb63" style="background: #f1f3f5;"><pre class="sourceCode numberSource cpp number-lines code-with-copy"><code class="sourceCode cpp"><span id="cb63-1">champion <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> baseline_rank_1<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb63-2">challenger <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> baseline_rank_2<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span>
+<span id="cb63-3"></span>
+<span id="cb63-4"><span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>gap <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&lt;=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">400</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb63-5"></span>
+<span id="cb63-6">    challenger_wide <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span></span>
+<span id="cb63-7">        evaluate<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>challenger<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1750</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span>
+<span id="cb63-8"></span>
+<span id="cb63-9">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span></span>
+<span id="cb63-10">        challenger_wide</span>
+<span id="cb63-11">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> champion_baseline</span>
+<span id="cb63-12">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span></span>
+<span id="cb63-13"></span>
+<span id="cb63-14">        champion_wide <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span></span>
+<span id="cb63-15">            evaluate<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>champion<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1750</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span>
+<span id="cb63-16"></span>
+<span id="cb63-17">        choose max<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span></span>
+<span id="cb63-18">            champion_wide<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">,</span></span>
+<span id="cb63-19">            challenger_wide</span>
+<span id="cb63-20">        <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span>
+<span id="cb63-21">    <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span>
+<span id="cb63-22"><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span></span></code></pre></div></div>
+<p>이것은 일종의</p>
+<p>[ ]</p>
+<p>이다.</p>
+</section>
+<section id="lazy-방식의-결과" class="level1" data-number="46">
+<h1 data-number="46"><span class="header-section-number">46</span> Lazy 방식의 결과</h1>
+<p>기존 Adaptive Top-2:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb64" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb64-1">SCORE   = 333,358,400</span>
+<span id="cb64-2">runtime ≈ 8.6 sec</span></code></pre></div></div>
+<p>Lazy challenger:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb65" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb65-1">SCORE   = 333,358,400</span>
+<span id="cb65-2">runtime ≈ 8.17 sec</span></code></pre></div></div>
+<p>즉</p>
+<p>[ ]</p>
+<p>을 달성했다.</p>
+</section>
+<section id="최종-알고리즘" class="level1" data-number="47">
+<h1 data-number="47"><span class="header-section-number">47</span> 최종 알고리즘</h1>
+<p>최종 구조를 수도코드로 정리하면 다음과 같다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb66" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb66-1">for day = 0 .. 30:</span>
+<span id="cb66-2"></span>
+<span id="cb66-3">    1. Today candidate selection</span>
+<span id="cb66-4">       active house 중</span>
+<span id="cb66-5">       PRICE - 1400 * service - 900 * distance</span>
+<span id="cb66-6">       기준 Top-64</span>
+<span id="cb66-7"></span>
+<span id="cb66-8">    2. Today Beam</span>
+<span id="cb66-9">       width = 3800</span>
+<span id="cb66-10">       local branch = 16</span>
+<span id="cb66-11">       local score = PRICE - 1500 * cost</span>
+<span id="cb66-12">       global rank = prize - 1500 * used_time</span>
+<span id="cb66-13">       actual daily reward 기준 Top-6 DayPlan 유지</span>
+<span id="cb66-14"></span>
+<span id="cb66-15">    3. Baseline Tomorrow evaluation</span>
+<span id="cb66-16">       Tomorrow candidate Top-64</span>
+<span id="cb66-17">       width = 1270</span>
+<span id="cb66-18">       local branch = 16</span>
+<span id="cb66-19">       local = PRICE - 1570 * cost</span>
+<span id="cb66-20">       global = prize - 1540 * used_time</span>
+<span id="cb66-21">       value = TodayReward + 1.5 * TomorrowReward</span>
+<span id="cb66-22"></span>
+<span id="cb66-23">    4. Confidence check</span>
+<span id="cb66-24">       best와 second best의 value 차이 계산</span>
+<span id="cb66-25"></span>
+<span id="cb66-26">       if gap &gt; 400:</span>
+<span id="cb66-27">           baseline best 실행</span>
+<span id="cb66-28">       else:</span>
+<span id="cb66-29">           challenger만 width=1750으로 재평가</span>
+<span id="cb66-30"></span>
+<span id="cb66-31">    5. Lazy verification</span>
+<span id="cb66-32">       challenger_wide &lt;= champion_baseline 이면 champion 실행</span>
+<span id="cb66-33">       아니면 champion도 width=1750으로 재평가 후 재비교</span>
+<span id="cb66-34"></span>
+<span id="cb66-35">    6. 실제 route 실행</span>
+<span id="cb66-36">       선택한 Today route 실행</span>
+<span id="cb66-37">       집 deactivate</span>
+<span id="cb66-38">       nextDay()</span></code></pre></div></div>
+</section>
+<section id="최종-파라미터" class="level1" data-number="48">
+<h1 data-number="48"><span class="header-section-number">48</span> 최종 파라미터</h1>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb67" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb67-1">[Today Candidate]</span>
+<span id="cb67-2">COUNT               64</span>
+<span id="cb67-3">LAMBDA              1400</span>
+<span id="cb67-4">MU                   900</span>
+<span id="cb67-5"></span>
+<span id="cb67-6">[Today Beam]</span>
+<span id="cb67-7">WIDTH               3800</span>
+<span id="cb67-8">NEXT_COUNT            16</span>
+<span id="cb67-9">NEXT_LAMBDA         1500</span>
+<span id="cb67-10">RANK_LAMBDA         1500</span>
+<span id="cb67-11"></span>
+<span id="cb67-12">[Tomorrow Candidate]</span>
+<span id="cb67-13">COUNT                 64</span>
+<span id="cb67-14">LAMBDA              1400</span>
+<span id="cb67-15">MU                    900</span>
+<span id="cb67-16"></span>
+<span id="cb67-17">[Tomorrow Beam]</span>
+<span id="cb67-18">WIDTH               1270</span>
+<span id="cb67-19">NEXT_COUNT            16</span>
+<span id="cb67-20">NEXT_LAMBDA         1570</span>
+<span id="cb67-21">RANK_LAMBDA         1540</span>
+<span id="cb67-22">OT_BONUS                0</span>
+<span id="cb67-23"></span>
+<span id="cb67-24">[Lookahead]</span>
+<span id="cb67-25">TOP_K                   6</span>
+<span id="cb67-26">TOMO_COEF            1500</span>
+<span id="cb67-27"></span>
+<span id="cb67-28">[Adaptive Tomorrow]</span>
+<span id="cb67-29">CLOSE_THRESHOLD       400</span>
+<span id="cb67-30">ADAPTIVE_WIDTH       1750</span>
+<span id="cb67-31">COMPETITORS             2</span>
+<span id="cb67-32"></span>
+<span id="cb67-33">[Final]</span>
+<span id="cb67-34">SCORE          333,358,400</span>
+<span id="cb67-35">runtime             ~8.17s</span></code></pre></div></div>
+</section>
+<section id="왜-전체-tomorrow-width를-1750으로-하지-않는가" class="level1" data-number="49">
+<h1 data-number="49"><span class="header-section-number">49</span> 왜 전체 Tomorrow width를 1750으로 하지 않는가</h1>
+<p>고정 Tomorrow width를 크게 하는 실험에서는 1270 부근이 가장 좋았다.</p>
+<p>하지만 adaptive 구조에서는</p>
+[ W(state) =
+<img src="https://latex.codecogs.com/png.latex?%5Cbegin%7Bcases%7D%0A1270,%20&amp;%20%5Ctext%7B%ED%8F%89%EA%B0%80%20%EC%B0%A8%EC%9D%B4%EA%B0%80%20%EC%B6%A9%EB%B6%84%ED%9E%88%20%ED%81%BC%7D%5C%5C%0A1750,%20&amp;%20%5Ctext%7B1%EC%9C%84%EC%99%80%202%EC%9C%84%EA%B0%80%20%EA%B1%B0%EC%9D%98%20%EB%8F%99%EB%A5%A0%7D%0A%5Cend%7Bcases%7D">
+<p>]</p>
+<p>이 더 좋았다.</p>
+<p>즉 하나의 전역 최적 파라미터보다</p>
+<p>[ ]</p>
+<p>가 더 좋은 것이다.</p>
+<p>이것이 단순 parameter tuning에서 adaptive heuristic으로 넘어가는 지점이다.</p>
+</section>
+<section id="이-문제에서-얻은-일반적인-휴리스틱-원칙" class="level1" data-number="50">
+<h1 data-number="50"><span class="header-section-number">50</span> 이 문제에서 얻은 일반적인 휴리스틱 원칙</h1>
+<section id="탐색량은-항상-좋은-것이-아니다" class="level2" data-number="50.1">
+<h2 data-number="50.1" class="anchored" data-anchor-id="탐색량은-항상-좋은-것이-아니다"><span class="header-section-number">50.1</span> 탐색량은 항상 좋은 것이 아니다</h2>
+<p>다음 모든 실험에서 동일한 현상이 나타났다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb68" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb68-1">Candidate 64 → 좋음</span>
+<span id="cb68-2">Candidate 128 → 나쁨</span>
+<span id="cb68-3"></span>
+<span id="cb68-4">Next count 16 → 좋음</span>
+<span id="cb68-5">Next count 32 → 나쁨</span>
+<span id="cb68-6"></span>
+<span id="cb68-7">Tomorrow width 1270 → 좋음</span>
+<span id="cb68-8">너무 큰 width → 나쁨</span>
+<span id="cb68-9"></span>
+<span id="cb68-10">Top-K 6 → 좋음</span>
+<span id="cb68-11">더 큰 Top-K → 나쁨</span>
+<span id="cb68-12"></span>
+<span id="cb68-13">Adaptive Top-K 2 → 좋음</span>
+<span id="cb68-14">3~6 → 계속 나쁨</span></code></pre></div></div>
+<p>원인은 approximate evaluation이다.</p>
+<p>탐색 공간이 커질수록 좋은 후보도 늘지만 평가 오차에 노출되는 후보도 증가한다.</p>
+</section>
+<section id="평가함수는-실제-목적함수와-같을-필요가-없다" class="level2" data-number="50.2">
+<h2 data-number="50.2" class="anchored" data-anchor-id="평가함수는-실제-목적함수와-같을-필요가-없다"><span class="header-section-number">50.2</span> 평가함수는 실제 목적함수와 같을 필요가 없다</h2>
+<p>Actual reward에는 overtime +200/min이 있다.</p>
+<p>하지만 Beam rank에서 overtime을 직접 보상하는 것은 좋지 않았다.</p>
+<p>휴리스틱의 평가함수는</p>
+<blockquote class="blockquote">
+<p>현재 점수를 정확하게 표현하는 함수</p>
+</blockquote>
+<p>가 아니라</p>
+<blockquote class="blockquote">
+<p>미래에 좋은 최종 해로 이어질 상태를 잘 살리는 함수</p>
+</blockquote>
+<p>여야 한다.</p>
+</section>
+<section id="candidate-recall과-beam-precision을-분리한다" class="level2" data-number="50.3">
+<h2 data-number="50.3" class="anchored" data-anchor-id="candidate-recall과-beam-precision을-분리한다"><span class="header-section-number">50.3</span> Candidate recall과 Beam precision을 분리한다</h2>
+<p>좋은 구조는 다음처럼 여러 단계로 후보를 줄이는 것이다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb69" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb69-1">전체 집 300~400</span>
+<span id="cb69-2">    ↓</span>
+<span id="cb69-3">Candidate Top-64</span>
+<span id="cb69-4">    ↓</span>
+<span id="cb69-5">State-specific Top-16 action</span>
+<span id="cb69-6">    ↓</span>
+<span id="cb69-7">Beam Top-3800</span>
+<span id="cb69-8">    ↓</span>
+<span id="cb69-9">DayPlan Top-6</span>
+<span id="cb69-10">    ↓</span>
+<span id="cb69-11">Tomorrow evaluation</span>
+<span id="cb69-12">    ↓</span>
+<span id="cb69-13">애매하면 Top-2만 재평가</span></code></pre></div></div>
+<p>한 번에 모든 것을 평가하려고 하면 느리고 noise도 커진다.</p>
+</section>
+<section id="tie는-절대로-사소하지-않다" class="level2" data-number="50.4">
+<h2 data-number="50.4" class="anchored" data-anchor-id="tie는-절대로-사소하지-않다"><span class="header-section-number">50.4</span> Tie는 절대로 사소하지 않다</h2>
+<p>휴리스틱에서는 동일 score가 매우 자주 발생한다.</p>
+<p>따라서</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb70" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb70-1">stable order</span>
+<span id="cb70-2">generation order</span>
+<span id="cb70-3">route_len tie-break</span>
+<span id="cb70-4">candidate index</span></code></pre></div></div>
+<p>같은 작은 규칙도 실제 최종 SCORE에 영향을 줄 수 있다.</p>
+<p>코드를 최적화할 때 기존 tie semantics를 보존해야 한다.</p>
 </section>
 </section>
-<section id="실험-기록-양식" class="level2" data-number="28">
-<h2 data-number="28" class="anchored" data-anchor-id="실험-기록-양식"><span class="header-section-number">28</span> 실험 기록 양식</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb37" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb37-1">[버전]</span>
-<span id="cb37-2">V__</span>
-<span id="cb37-3"></span>
-<span id="cb37-4">[탐색]</span>
-<span id="cb37-5">Candidate:</span>
-<span id="cb37-6">Next:</span>
-<span id="cb37-7">Beam:</span>
-<span id="cb37-8">TopK:</span>
-<span id="cb37-9">LA_Beam:</span>
-<span id="cb37-10"></span>
-<span id="cb37-11">[평가함수]</span>
-<span id="cb37-12">CandLambda:</span>
-<span id="cb37-13">CandMu:</span>
-<span id="cb37-14">NextLambda:</span>
-<span id="cb37-15">PreLambda:</span>
-<span id="cb37-16">PostLambda:</span>
-<span id="cb37-17"></span>
-<span id="cb37-18">[결과]</span>
-<span id="cb37-19">총점:</span>
-<span id="cb37-20">실행시간:</span>
-<span id="cb37-21"></span>
-<span id="cb37-22">TC1:</span>
-<span id="cb37-23">TC2:</span>
-<span id="cb37-24">...</span>
-<span id="cb37-25">TC10:</span>
-<span id="cb37-26"></span>
-<span id="cb37-27">[변경점]</span>
-<span id="cb37-28">-</span>
-<span id="cb37-29"></span>
-<span id="cb37-30">[좋아질 것으로 예상한 이유]</span>
-<span id="cb37-31">-</span>
-<span id="cb37-32"></span>
-<span id="cb37-33">[실제 결과]</span>
-<span id="cb37-34">-</span>
-<span id="cb37-35"></span>
-<span id="cb37-36">[나빠진 테스트의 특징]</span>
-<span id="cb37-37">-</span>
-<span id="cb37-38"></span>
-<span id="cb37-39">[다음 실험]</span>
-<span id="cb37-40">-</span></code></pre></div></div>
+<section id="o0-환경에서의-구현-원칙" class="level1" data-number="51">
+<h1 data-number="51"><span class="header-section-number">51</span> <code>-O0</code> 환경에서의 구현 원칙</h1>
+<p>컴파일러 최적화가 없으면 C++ abstraction 비용이 그대로 나타날 수 있다.</p>
+<p>따라서 다음을 적극적으로 고려한다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb71" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb71-1">STL container 최소화</span>
+<span id="cb71-2">동적 할당 금지</span>
+<span id="cb71-3">고정 배열 사용</span>
+<span id="cb71-4">bitmask 사용</span>
+<span id="cb71-5">작은 struct 사용</span>
+<span id="cb71-6">float 대신 integer arithmetic</span>
+<span id="cb71-7">반복 정렬 제거</span>
+<span id="cb71-8">cost precompute</span>
+<span id="cb71-9">action order precompute</span>
+<span id="cb71-10">전체 struct 정렬 대신 key 정렬</span>
+<span id="cb71-11">full sort 대신 quickselect + partial sort</span>
+<span id="cb71-12">hypothetical state restore 최소화</span></code></pre></div></div>
+<p>특히 Beam Search에서는 알고리즘 복잡도뿐 아니라</p>
+<p>[ ]</p>
+<p>도 매우 중요하다.</p>
 </section>
-<section id="최종-교훈" class="level2" data-number="29">
-<h2 data-number="29" class="anchored" data-anchor-id="최종-교훈"><span class="header-section-number">29</span> 최종 교훈</h2>
+<section id="실험-결과를-기록하는-방법" class="level1" data-number="52">
+<h1 data-number="52"><span class="header-section-number">52</span> 실험 결과를 기록하는 방법</h1>
+<p>휴리스틱 튜닝은 기억으로 하면 안 된다.</p>
+<p>각 실험마다 최소한 다음을 기록한다.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>항목</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>총점</td>
+<td>전체 SCORE</td>
+</tr>
+<tr class="even">
+<td>TC별 점수</td>
+<td>어떤 테스트가 좋아지고 나빠졌는가</td>
+</tr>
+<tr class="odd">
+<td>실행시간</td>
+<td>최악/평균</td>
+</tr>
+<tr class="even">
+<td>변경 변수</td>
+<td>무엇을 바꿨는가</td>
+</tr>
+<tr class="odd">
+<td>가설</td>
+<td>왜 좋아질 것으로 예상했는가</td>
+</tr>
+<tr class="even">
+<td>결과</td>
+<td>실제로 좋아졌는가</td>
+</tr>
+<tr class="odd">
+<td>실패 TC 특징</td>
+<td>밀집형, 분산형, 고가치 집 비율 등</td>
+</tr>
+<tr class="even">
+<td>다음 행동</td>
+<td>유지 / 폐기 / fine sweep</td>
+</tr>
+</tbody>
+</table>
+<p>특히 최종 제출 전에는 총점뿐 아니라 <strong>테스트케이스별 점수</strong>도 비교해야 한다.</p>
+<p>어떤 날카로운 parameter peak가 특정 testcase 하나에만 과적합된 결과일 수도 있기 때문이다.</p>
+</section>
+<section id="broad-plateau와-sharp-peak" class="level1" data-number="53">
+<h1 data-number="53"><span class="header-section-number">53</span> Broad plateau와 sharp peak</h1>
+<p>두 종류의 좋은 parameter가 있다.</p>
+<p>예를 들어 <code>TOMO_COEF</code>는</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb72" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb72-1">1500~1900</span></code></pre></div></div>
+<p>에서 넓은 plateau였다.</p>
+<p>이 경우 가장 단순하고 작은 1500을 선택하는 것이 안전하다.</p>
+<p>반면 <code>TODAY_RANK_LAMBDA</code>는</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb73" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb73-1">1499 → 333.0764M</span>
+<span id="cb73-2">1500 → 333.1988M</span>
+<span id="cb73-3">1501 → 333.0888M</span></code></pre></div></div>
+<p>처럼 매우 날카로웠다.</p>
+<p>이 경우 해당 boundary가 실제로 의미 있는 Beam ordering 변화인지 확인해야 한다.</p>
+<p>숨은 testcase가 존재하는 대회라면 일반적으로는 넓은 plateau 쪽이 더 robust할 가능성이 높다.</p>
+</section>
+<section id="시간-시험에서의-설계-전략" class="level1" data-number="54">
+<h1 data-number="54"><span class="header-section-number">54</span> 4시간 시험에서의 설계 전략</h1>
+<p>시험 시간이 4시간이라면 모든 아이디어를 구현할 수 없다.</p>
+<p>가장 중요한 것은 <strong>정확한 순서로 시간을 쓰는 것</strong>이다.</p>
+<section id="분-채점기부터-읽는다" class="level2" data-number="54.1">
+<h2 data-number="54.1" class="anchored" data-anchor-id="분-채점기부터-읽는다"><span class="header-section-number">54.1</span> 0~30분: 채점기부터 읽는다</h2>
+<p>문제 설명보다 채점 코드를 먼저 본다.</p>
+<p>반드시 확인해야 할 것은 다음과 같다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb74" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb74-1">실제 SCORE 식</span>
+<span id="cb74-2">illegal 조건</span>
+<span id="cb74-3">시간 제한</span>
+<span id="cb74-4">하루/턴 수</span>
+<span id="cb74-5">상태가 다음 턴으로 무엇이 전달되는가</span>
+<span id="cb74-6">숨은 보너스/패널티</span>
+<span id="cb74-7">최대 입력 크기</span>
+<span id="cb74-8">최대 action 횟수</span></code></pre></div></div>
+<p>이 문제에서는 이 단계에서 바로 다음을 얻어야 한다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb75" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb75-1">하루 720분</span>
+<span id="cb75-2">overtime 480분 이후 +200/min</span>
+<span id="cb75-3">최소 service 60</span>
+<span id="cb75-4">→ 하루 최대 12집</span>
+<span id="cb75-5">position은 다음 날 유지</span>
+<span id="cb75-6">day0~30</span>
+<span id="cb75-7">→ 총 31일</span></code></pre></div></div>
+<p>이런 사실들이 이후 탐색 구조를 결정한다.</p>
+</section>
+<section id="분-반드시-동작하는-greedy를-만든다" class="level2" data-number="54.2">
+<h2 data-number="54.2" class="anchored" data-anchor-id="분-반드시-동작하는-greedy를-만든다"><span class="header-section-number">54.2</span> 30~60분: 반드시 동작하는 Greedy를 만든다</h2>
+<p>첫 1시간 안에는 무조건 SCORE가 나오는 코드를 만든다.</p>
+<p>예:</p>
+<p>[ PRICE - service - distance ]</p>
+<p>Greedy.</p>
+<p>목적은 높은 점수가 아니다.</p>
+<p>목적은</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb76" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb76-1">입출력 확인</span>
+<span id="cb76-2">채점기 해석 확인</span>
+<span id="cb76-3">illegal 여부 확인</span>
+<span id="cb76-4">대략적인 점수 scale 확인</span></code></pre></div></div>
+<p>이다.</p>
+<p><strong>작동하는 320M 코드가 없는 상태에서 330M Beam을 설계하면 위험하다.</strong></p>
+</section>
+<section id="분-가장-큰-구조-개선-하나를-한다" class="level2" data-number="54.3">
+<h2 data-number="54.3" class="anchored" data-anchor-id="분-가장-큰-구조-개선-하나를-한다"><span class="header-section-number">54.3</span> 60~120분: 가장 큰 구조 개선 하나를 한다</h2>
+<p>이 문제에서는 Beam Search가 해당한다.</p>
+<p>먼저 복잡한 lookahead를 넣지 말고</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb77" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb77-1">Candidate Top-L</span>
+<span id="cb77-2">State Top-N</span>
+<span id="cb77-3">Beam Width-W</span></code></pre></div></div>
+<p>의 하루 탐색을 완성한다.</p>
+<p>시험에서는 처음부터 정확한 파라미터를 찾을 필요 없다.</p>
+<p>예를 들어:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb78" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb78-1">Candidate = 64</span>
+<span id="cb78-2">Next = 8~16</span>
+<span id="cb78-3">Beam = 500~2000</span></code></pre></div></div>
+<p>정도의 합리적 값을 사용한다.</p>
+<p>이 단계에서 Greedy보다 큰 폭으로 올라가면 방향이 맞는 것이다.</p>
+</section>
+<section id="분-미래가치를-추가한다" class="level2" data-number="54.4">
+<h2 data-number="54.4" class="anchored" data-anchor-id="분-미래가치를-추가한다"><span class="header-section-number">54.4</span> 120~180분: 미래가치를 추가한다</h2>
+<p>하루 Beam이 안정된 뒤에야 1-day lookahead를 추가한다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb79" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb79-1">Today Top-K</span>
+<span id="cb79-2">→ Tomorrow evaluator</span></code></pre></div></div>
+<p>형태다.</p>
+<p>처음에는 Top-K를 작게 둔다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb80" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb80-1">K=2~4</span></code></pre></div></div>
+<p>정도로 시작하고 시간이 허락하면 늘린다.</p>
+<p>중요한 원칙:</p>
+<blockquote class="blockquote">
+<p><strong>lookahead depth보다 evaluator의 신뢰성이 먼저다.</strong></p>
+</blockquote>
+<p>이번 문제에서도 day+2보다 정확한 Tomorrow 재평가가 훨씬 효과적이었다.</p>
+</section>
+<section id="분-실행시간-최적화" class="level2" data-number="54.5">
+<h2 data-number="54.5" class="anchored" data-anchor-id="분-실행시간-최적화"><span class="header-section-number">54.5</span> 180~210분: 실행시간 최적화</h2>
+<p>점수가 충분히 좋아졌다면 탐색을 더 추가하기 전에 병목을 제거한다.</p>
+<p>확인할 것은 다음과 같다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb81" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb81-1">매 state마다 정렬하고 있는가?</span>
+<span id="cb81-2">같은 cost를 반복 계산하는가?</span>
+<span id="cb81-3">큰 struct를 전체 sort하는가?</span>
+<span id="cb81-4">visited 배열을 반복 초기화하는가?</span>
+<span id="cb81-5">hypothetical state 전체를 backup하는가?</span>
+<span id="cb81-6">같은 future를 여러 번 계산하는가?</span></code></pre></div></div>
+<p>이 문제에서는</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb82" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb82-1">cand_order precompute</span>
+<span id="cb82-2">compact BeamState</span>
+<span id="cb82-3">RankKey quickselect</span>
+<span id="cb82-4">same_future cache</span></code></pre></div></div>
+<p>가 큰 효과를 냈다.</p>
+<p>실행시간을 줄이면 그만큼 다시 탐색에 투자할 수 있다.</p>
+</section>
+<section id="분-adaptive-계산을-고려한다" class="level2" data-number="54.6">
+<h2 data-number="54.6" class="anchored" data-anchor-id="분-adaptive-계산을-고려한다"><span class="header-section-number">54.6</span> 210~230분: adaptive 계산을 고려한다</h2>
+<p>모든 상태에 계산량을 늘리는 대신</p>
+<p>[ ]</p>
+<p>에만 계산을 추가한다.</p>
+<p>예:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb83" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb83-1">1위-2위 gap 큼</span>
+<span id="cb83-2">→ 그대로 선택</span>
+<span id="cb83-3"></span>
+<span id="cb83-4">gap 작음</span>
+<span id="cb83-5">→ 상위 두 후보만 더 큰 Beam</span></code></pre></div></div>
+<p>이 방식은 4시간짜리 시험에서 매우 강력하다.</p>
+<p>전체 알고리즘을 다시 만드는 것이 아니라 기존 evaluator 위에 작은 조건문으로 추가할 수 있기 때문이다.</p>
+</section>
+<section id="마지막-1030분-새-구조를-만들지-않는다" class="level2" data-number="54.7">
+<h2 data-number="54.7" class="anchored" data-anchor-id="마지막-1030분-새-구조를-만들지-않는다"><span class="header-section-number">54.7</span> 마지막 10~30분: 새 구조를 만들지 않는다</h2>
+<p>마지막 시간에는 다음만 한다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb84" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb84-1">illegal 가능성 점검</span>
+<span id="cb84-2">배열 boundary</span>
+<span id="cb84-3">bit shift</span>
+<span id="cb84-4">day 마지막 처리</span>
+<span id="cb84-5">empty candidate 처리</span>
+<span id="cb84-6">long long overflow</span>
+<span id="cb84-7">runtime 최악값</span>
+<span id="cb84-8">regression score 확인</span></code></pre></div></div>
+<p>새로운 simulated annealing이나 완전히 다른 search를 마지막 20분에 넣으면 위험하다.</p>
+</section>
+</section>
+<section id="시간-시험용-우선순위" class="level1" data-number="55">
+<h1 data-number="55"><span class="header-section-number">55</span> 4시간 시험용 우선순위</h1>
+<p>시간이 부족할수록 다음 우선순위를 기억한다.</p>
+<p>[ ]</p>
+<p>특히</p>
+<p>[ ]</p>
+<p>이다.</p>
+<p>이번 문제에서도 실제 day+2 Beam조차 실패했다.</p>
+</section>
+<section id="시험에서-파라미터를-튜닝하는-법" class="level1" data-number="56">
+<h1 data-number="56"><span class="header-section-number">56</span> 시험에서 파라미터를 튜닝하는 법</h1>
+<p>시간이 4시간뿐이면 모든 숫자를 1단위 sweep할 수 없다.</p>
+<p>다음 순서를 사용한다.</p>
+<section id="단계-coarse-sweep" class="level2" data-number="56.1">
+<h2 data-number="56.1" class="anchored" data-anchor-id="단계-coarse-sweep"><span class="header-section-number">56.1</span> 1단계: coarse sweep</h2>
+<p>예:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb85" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb85-1">Beam width</span>
+<span id="cb85-2">500</span>
+<span id="cb85-3">1000</span>
+<span id="cb85-4">2000</span>
+<span id="cb85-5">4000</span></code></pre></div></div>
+</section>
+<section id="단계-좋은-구간만-fine-sweep" class="level2" data-number="56.2">
+<h2 data-number="56.2" class="anchored" data-anchor-id="단계-좋은-구간만-fine-sweep"><span class="header-section-number">56.2</span> 2단계: 좋은 구간만 fine sweep</h2>
+<p>예:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb86" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb86-1">1200</span>
+<span id="cb86-2">1400</span>
+<span id="cb86-3">1600</span>
+<span id="cb86-4">1800</span></code></pre></div></div>
+</section>
+<section id="단계-plateau와-boundary-확인" class="level2" data-number="56.3">
+<h2 data-number="56.3" class="anchored" data-anchor-id="단계-plateau와-boundary-확인"><span class="header-section-number">56.3</span> 3단계: plateau와 boundary 확인</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb87" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb87-1">1700</span>
+<span id="cb87-2">1750</span>
+<span id="cb87-3">1800</span>
+<span id="cb87-4">1850</span></code></pre></div></div>
+</section>
+<section id="단계-하나를-고정하고-다음-축으로-이동" class="level2" data-number="56.4">
+<h2 data-number="56.4" class="anchored" data-anchor-id="단계-하나를-고정하고-다음-축으로-이동"><span class="header-section-number">56.4</span> 4단계: 하나를 고정하고 다음 축으로 이동</h2>
+<p>한 축을 끝없이 튜닝하지 않는다.</p>
+</section>
+</section>
+<section id="점수-개선량과-runtime을-함께-본다" class="level1" data-number="57">
+<h1 data-number="57"><span class="header-section-number">57</span> 점수 개선량과 runtime을 함께 본다</h1>
+<p>예를 들어</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb88" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb88-1">A:</span>
+<span id="cb88-2">333.30M</span>
+<span id="cb88-3">7 sec</span>
+<span id="cb88-4"></span>
+<span id="cb88-5">B:</span>
+<span id="cb88-6">333.31M</span>
+<span id="cb88-7">20 sec</span></code></pre></div></div>
+<p>라면 B가 항상 좋은 선택은 아니다.</p>
+<p>남은 시간이 있다면 13초를 다른 구조 개선에 투자하는 것이 더 큰 점수를 줄 수 있다.</p>
+<p>따라서 휴리스틱에서는</p>
+<p>[ ]</p>
+<p>감각도 중요하다.</p>
+</section>
+<section id="실패한-아이디어를-빨리-버리는-기준" class="level1" data-number="58">
+<h1 data-number="58"><span class="header-section-number">58</span> 실패한 아이디어를 빨리 버리는 기준</h1>
+<p>다음 상황이면 한 축을 닫는다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb89" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb89-1">coarse sweep 전체가 baseline 이하</span>
+<span id="cb89-2">작은 coefficient부터 바로 악화</span>
+<span id="cb89-3">구조적으로 다른 2~3개 variant도 모두 실패</span>
+<span id="cb89-4">runtime만 크게 증가</span></code></pre></div></div>
+<p>이번 문제에서는 day+2에 대해</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb90" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb90-1">Top-1 proxy 실패</span>
+<span id="cb90-2">Greedy rollout 실패</span>
+<span id="cb90-3">Actual Beam 실패</span></code></pre></div></div>
+<p>까지 확인했으므로 더 이상 day+2 lambda를 세밀하게 튜닝하지 않았다.</p>
+<p>이것이 시험 시간 관리에서 중요하다.</p>
+</section>
+<section id="휴리스틱에서-자주-하는-실수" class="level1" data-number="59">
+<h1 data-number="59"><span class="header-section-number">59</span> 휴리스틱에서 자주 하는 실수</h1>
+<section id="실제-목적함수를-그대로-rank로-쓴다" class="level2" data-number="59.1">
+<h2 data-number="59.1" class="anchored" data-anchor-id="실제-목적함수를-그대로-rank로-쓴다"><span class="header-section-number">59.1</span> 실제 목적함수를 그대로 rank로 쓴다</h2>
+<p>Beam rank는 survivor selection을 위한 함수다.</p>
+<p>실제 SCORE와 같을 필요가 없다.</p>
+</section>
+<section id="탐색량을-늘리면-무조건-좋아진다고-생각한다" class="level2" data-number="59.2">
+<h2 data-number="59.2" class="anchored" data-anchor-id="탐색량을-늘리면-무조건-좋아진다고-생각한다"><span class="header-section-number">59.2</span> 탐색량을 늘리면 무조건 좋아진다고 생각한다</h2>
+<p>Approximate evaluator에서는 오히려 나빠질 수 있다.</p>
+</section>
+<section id="후보-diversity와-evaluator-정확도를-혼동한다" class="level2" data-number="59.3">
+<h2 data-number="59.3" class="anchored" data-anchor-id="후보-diversity와-evaluator-정확도를-혼동한다"><span class="header-section-number">59.3</span> 후보 diversity와 evaluator 정확도를 혼동한다</h2>
+<p>후보를 늘리면 recall은 올라가지만 winner’s curse도 증가한다.</p>
+</section>
+<section id="parameter-하나의-최고점만-보고-확정한다" class="level2" data-number="59.4">
+<h2 data-number="59.4" class="anchored" data-anchor-id="parameter-하나의-최고점만-보고-확정한다"><span class="header-section-number">59.4</span> parameter 하나의 최고점만 보고 확정한다</h2>
+<p>plateau와 testcase별 변화를 확인해야 한다.</p>
+</section>
+<section id="코드-최적화에서-tie-ordering을-바꾼다" class="level2" data-number="59.5">
+<h2 data-number="59.5" class="anchored" data-anchor-id="코드-최적화에서-tie-ordering을-바꾼다"><span class="header-section-number">59.5</span> 코드 최적화에서 tie ordering을 바꾼다</h2>
+<p>점수가 달라질 수 있다.</p>
+</section>
+<section id="미래-proxy를-직관만-믿고-사용한다" class="level2" data-number="59.6">
+<h2 data-number="59.6" class="anchored" data-anchor-id="미래-proxy를-직관만-믿고-사용한다"><span class="header-section-number">59.6</span> 미래 proxy를 직관만 믿고 사용한다</h2>
+<p>FutureProxy는 반드시 <code>COEF=0</code> regression부터 확인하고 작은 coefficient로 검증한다.</p>
+</section>
+</section>
+<section id="regression-test의-중요성" class="level1" data-number="60">
+<h1 data-number="60"><span class="header-section-number">60</span> Regression Test의 중요성</h1>
+<p>새 기능을 추가할 때 항상</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb91" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb91-1">NEW_FEATURE_COEF = 0</span></code></pre></div></div>
+<p>또는</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb92" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb92-1">FEATURE_DISABLED</span></code></pre></div></div>
+<p>에서 기존 점수가 정확히 재현되는지 확인한다.</p>
+<p>이번 실험에서도 계속 사용했다.</p>
+<p>예:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb93" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb93-1">Future proxy coef=0</span>
+<span id="cb93-2">→ 333.1988M</span>
+<span id="cb93-3"></span>
+<span id="cb93-4">Greedy steps=0</span>
+<span id="cb93-5">→ 333.1988M</span>
+<span id="cb93-6"></span>
+<span id="cb93-7">Day2 coef=0</span>
+<span id="cb93-8">→ 333.1988M</span>
+<span id="cb93-9"></span>
+<span id="cb93-10">Adaptive width=1270</span>
+<span id="cb93-11">→ 333.1988M</span>
+<span id="cb93-12"></span>
+<span id="cb93-13">Adaptive OFF</span>
+<span id="cb93-14">→ 333.1988M</span></code></pre></div></div>
+<p>이 검증이 있어야</p>
+<blockquote class="blockquote">
+<p>점수가 변한 이유가 아이디어 때문인지 버그 때문인지</p>
+</blockquote>
+<p>구분할 수 있다.</p>
+</section>
+<section id="최종적으로-배운-것" class="level1" data-number="61">
+<h1 data-number="61"><span class="header-section-number">61</span> 최종적으로 배운 것</h1>
+<p>이 문제는 단순히 Beam Search를 배우는 문제가 아니었다.</p>
+<p>가장 중요한 학습 내용은 다음 흐름이다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb94" style="background: #f1f3f5;"><pre class="sourceCode numberSource text number-lines code-with-copy"><code class="sourceCode"><span id="cb94-1">Greedy</span>
+<span id="cb94-2">    ↓</span>
+<span id="cb94-3">하루 단위 Beam</span>
+<span id="cb94-4">    ↓</span>
+<span id="cb94-5">Candidate filtering</span>
+<span id="cb94-6">    ↓</span>
+<span id="cb94-7">State-specific branching</span>
+<span id="cb94-8">    ↓</span>
+<span id="cb94-9">Surrogate rank</span>
+<span id="cb94-10">    ↓</span>
+<span id="cb94-11">Top-K DayPlan</span>
+<span id="cb94-12">    ↓</span>
+<span id="cb94-13">Tomorrow lookahead</span>
+<span id="cb94-14">    ↓</span>
+<span id="cb94-15">Evaluator parameter 분리</span>
+<span id="cb94-16">    ↓</span>
+<span id="cb94-17">Beam selection 최적화</span>
+<span id="cb94-18">    ↓</span>
+<span id="cb94-19">Cache</span>
+<span id="cb94-20">    ↓</span>
+<span id="cb94-21">실패한 future proxy</span>
+<span id="cb94-22">    ↓</span>
+<span id="cb94-23">실패한 deeper lookahead</span>
+<span id="cb94-24">    ↓</span>
+<span id="cb94-25">Adaptive search</span>
+<span id="cb94-26">    ↓</span>
+<span id="cb94-27">Lazy challenger verification</span></code></pre></div></div>
+<p>결론적으로 좋은 휴리스틱은</p>
+<p>[ ]</p>
+<p>이 아니라</p>
+<p>[ ]</p>
+<p>이었다.</p>
+<p>최종 adaptive 정책은 그 원칙을 가장 잘 보여준다.</p>
+<p>[ ]</p>
+<p>그리고 추가 계산도 모든 후보가 아니라</p>
+<p>[ ]</p>
+<p>에게 먼저 사용한다.</p>
+<p>이것이 4시간 제한의 점수형 대회에서 특히 중요한 구현 감각이다.</p>
+</section>
+<section id="시험-직전-체크리스트" class="level1" data-number="62">
+<h1 data-number="62"><span class="header-section-number">62</span> 시험 직전 체크리스트</h1>
 <ol type="1">
-<li><p><strong>표현을 바꾸는 것이 파라미터를 바꾸는 것보다 강하다.</strong><br>
-전역 tour → 하루 단위 Beam이라는 표현 전환이 가장 큰 도약이었다.</p></li>
-<li><p><strong>상관된 방법의 수렴은 최적성의 증거가 아니다.</strong><br>
-같은 해 표현을 공유하는 알고리즘은 같은 basin에 갇힐 수 있다.</p></li>
-<li><p><strong>탐색량을 늘린다고 SCORE가 반드시 증가하지 않는다.</strong><br>
-불완전한 rank와 pruning이 존재하는 휴리스틱에서는 <code>More Search ≠ Better Score</code>다.</p></li>
-<li><p><strong>Beam Width와 Candidate Count는 다르다.</strong><br>
-후보는 집의 수이고, Beam은 살아남는 부분 경로의 수다.</p></li>
-<li><p><strong><code>cost</code>의 의미를 정확히 읽어야 한다.</strong><br>
-이 문제의 transition cost는 이동거리뿐 아니라 도착 집의 청소시간까지 포함한다.</p></li>
-<li><p><strong>대리 목적과 실제 목적을 분리한다.</strong><br>
-pruning은 <code>rank</code>, 최종 선택은 <code>finalReward</code>.</p></li>
-<li><p><strong>파라미터는 외우지 말고 범위를 찾는 절차를 익힌다.</strong><br>
-coarse search → fine search → runtime frontier.</p></li>
-<li><p><strong>시험장에서는 항상 동작하는 버전을 유지한다.</strong><br>
-Greedy → 후보 축소 → 작은 Beam → 평가함수 → 최적화 → lookahead 순으로 발전시킨다.</p></li>
-<li><p><strong>이미 제한시간 안에 들어오는 단순한 구현은 강한 자산이다.</strong><br>
-merge sort가 이해하기 쉽고 충분히 빠르다면, 더 복잡한 Min-Heap으로 바꾸지 않는 선택도 좋은 최적화 전략이다.</p></li>
-<li><p><strong>점수형 문제의 실력은 완성 코드를 외우는 것이 아니라, 병목을 보고 다음 개선을 선택하는 능력이다.</strong></p></li>
+<li>채점 코드에서 실제 목적함수와 illegal 조건부터 찾는다.</li>
+<li>입력 크기에서 물리적인 탐색 depth 상한을 계산한다.</li>
+<li>1시간 안에 합법적인 Greedy baseline을 만든다.</li>
+<li>전역 후보 축소와 state별 branching을 분리한다.</li>
+<li>Beam rank와 실제 reward를 분리해서 생각한다.</li>
+<li>탐색량을 늘렸을 때 점수가 떨어질 수 있음을 항상 가정한다.</li>
+<li>lookahead는 Today Top-K에만 사용한다.</li>
+<li>approximate evaluator에 너무 많은 후보를 노출하지 않는다.</li>
+<li><code>-O0</code>에서는 반복 정렬, 큰 struct 복사, 동적 할당을 특히 경계한다.</li>
+<li>precompute, bitmask, compact state, Top-K selection을 적극 활용한다.</li>
+<li>새 아이디어는 feature OFF에서 기존 SCORE가 재현되는지 먼저 확인한다.</li>
+<li>coarse sweep → fine sweep → boundary 분석 순으로 튜닝한다.</li>
+<li>넓은 plateau는 robustness 신호로 본다.</li>
+<li>sharp peak는 Beam ordering boundary인지 확인한다.</li>
+<li>깊은 탐색보다 가까운 evaluator의 품질을 먼저 개선한다.</li>
+<li>계산량은 모든 후보가 아니라 uncertain decision에 집중한다.</li>
+<li>상위 후보가 매우 가까우면 challenger verification을 고려한다.</li>
+<li>총점뿐 아니라 testcase별 점수와 runtime을 기록한다.</li>
+<li>마지막 20분에는 구조 변경보다 버그와 worst-case runtime을 점검한다.</li>
+<li>최고의 휴리스틱 질문은 항상 이것이다.</li>
 </ol>
+<blockquote class="blockquote">
+<p><strong>“지금 추가로 쓸 수 있는 계산량을 어디에 투자해야 최종 선택이 가장 많이 개선되는가?”</strong></p>
+</blockquote>
 
 
 </section>
 
  ]]></description>
   <category>최적화</category>
-  <category>메타휴리스틱</category>
+  <category>휴리스틱</category>
   <category>Beam Search</category>
+  <category>Lookahead</category>
   <category>Orienteering Problem</category>
   <category>PS</category>
   <guid>https://dreamian.github.io/study/problem-solving/EX_cleaner-beam-writeup.html</guid>
-  <pubDate>Wed, 26 Aug 2026 15:00:00 GMT</pubDate>
+  <pubDate>Thu, 03 Sep 2026 15:00:00 GMT</pubDate>
 </item>
 <item>
   <title>쿠키 상점 시뮬레이션 — TLE 개선 노트</title>

@@ -1,11 +1,12 @@
 ---
-title: "청소부 최적화: greedy 정체에서 beam search로 3.3억 돌파하기"
-description: "밀도 greedy·메타휴리스틱이 322M에서 멈춘 이유, 하루 단위 분해와 beam search로 332M을 넘고, 2일 lookahead로 333M에 도달하기까지의 기록"
-date: 2026-08-27
+title: "청소부 최적화: greedy 정체에서 adaptive beam search로 3.33억 돌파하기"
+description: "밀도 greedy가 3.2억 부근에서 정체된 이유부터 하루 단위 Beam Search, 2-day lookahead, 후보 축소, surrogate 평가함수, quickselect 최적화, adaptive challenger verification으로 333.3584M에 도달하기까지의 기록"
+date: 2026-09-04
 categories:
   - 최적화
-  - 메타휴리스틱
+  - 휴리스틱
   - Beam Search
+  - Lookahead
   - Orienteering Problem
   - PS
 format:
@@ -19,1097 +20,2385 @@ format:
 lang: ko
 ---
 
-## 문제 정의와 채점기 모델
+# 문제를 풀면서 얻은 핵심 결론
 
-청소부가 $100\times100$ 격자 위의 집들을 청소한다. 각 집에는 재료 $m\in\{1,\dots,6\}$가 있고, 그 집을 청소하면 가격 $P_m$을 얻는다. 하루는 720분이며, `nextDay()`를 최대 30번 호출할 수 있어 **총 31개의 근무일 구간**을 쓴다. 핵심은 **위치가 날을 넘겨 이어진다는 점**이다. 오늘 끝난 자리에서 내일이 시작한다.
+이 문제에서 가장 중요한 교훈은 다음 한 문장으로 요약할 수 있다.
 
-한 번의 `move(y,x)` 호출은 다음 순서로 처리된다.
+> **탐색을 무조건 넓거나 깊게 하는 것이 아니라, 평가함수가 비교적 정확하게 판단할 수 있는 후보만 남기고, 실제로 판단이 애매한 순간에만 추가 계산량을 집중해야 한다.**
 
-- 이동: 맨해튼 거리만큼 시간 소모. 그 결과 $>720$이면 **SCORE=0**.
-- 청소: 목표 칸이 집이면 $c_m=30m+30$분 소모. 역시 $>720$이면 **SCORE=0**.
-- 보상: $P_m$ 획득. 종료 시각이 480분을 넘겼다면 **초과근무 보너스**를 추가로 얻는다.
-- 이미 청소한 칸이나 빈 칸으로 이동하면 청소 보상은 없다.
-
-가격과 청소시간, 그리고 청소 1분당 가치는 다음과 같다.
-
-| $m$ | $c_m$ (청소분) | $P_m$ | $P_m/c_m$ |
-|---:|---:|---:|---:|
-| 1 | 60  | 80,000  | 1,333 |
-| 2 | 90  | 140,000 | **1,556** |
-| 3 | 120 | 180,000 | 1,500 |
-| 4 | 150 | 240,000 | **1,600** |
-| 5 | 180 | 250,000 | 1,389 |
-| 6 | 210 | 300,000 | 1,429 |
-
-::: {.callout-note}
-## 채점 구조의 함정
-
-SCORE는 10개 테스트케이스에 걸쳐 **누적**되며, 한 번이라도 $>720$을 만들면 누적 SCORE가 0이 될 수 있다. 따라서 안전성은 점수보다 우선이다.
-
-이 문제에서 가장 중요한 구현 원칙 중 하나는 다음과 같다.
-
-> **시간 초과 가능성이 있는 이동을 절대 호출하지 않는다.**
-
-그래서 계획 단계에서 항상 `newTime <= 720`을 확인한 뒤 실제 `move()`를 실행한다.
-:::
-
-## 정식화 — 시간종속 이익을 갖는 주기적 Orienteering Problem
-
-이 문제는 **Orienteering Problem(OP)** — “예산 안에서 방문할 노드의 부분집합과 순서를 정해 수집 점수를 최대화” — 의 변형이다.
-
-하루 내부에서 집 $i$에서 $j$로 이동할 때 필요한 시간은
-
-$$
-\tau(i,j)=d(i,j)+c_j
-$$
-
-이다.
-
-여기서 $d(i,j)$는 맨해튼 거리, $c_j$는 **도착한 집 $j$의 청소시간**이다.
-
-따라서 코드에서 `moveCost[i][j]` 또는 더 명확하게 `transitionTime[i][j]`라고 부르는 값은 단순 이동거리만이 아니다.
-
-$$
-\boxed{
-\text{transitionTime}[i][j]
-=
-\text{distance}(i,j)
-+
-\text{cleaningTime}(j)
-}
-$$
-
-하루 최종 보상은 경로의 집 가격 합을 `prize`, 총 사용시간을 $t$라 하면
-
-$$
-\boxed{
-\text{finalReward}
-=
-\text{prize}
-+
-200\,(t-480)^+
-}
-$$
-
-로 볼 수 있다.
-
-::: {.callout-important}
-## 정식화가 준 결정적 통찰
-
-목적함수는 **하루별 기여의 합**이고, 하루끼리 연결되는 핵심 정보는 **다음 날의 시작 위치**다.
-
-즉 31일 전체를 한 번에 최적화하지 않고,
-
-1. 오늘 하루를 잘 푼다.
-2. 오늘 끝 위치를 다음 날로 넘긴다.
-
-라는 분해가 가능하다.
-:::
-
-## 1차 접근과 정체 — 그리고 잘못된 천장 결론
-
-처음에는 **전역 tour 하나를 만들고 하루로 잘라 담는** 틀에서 여러 방법을 시도했다.
-
-- **value-density greedy**: 현재 위치에서 $P_m/(\text{이동}+c_m)$가 최대인 집을 탐욕적으로 선택 → **319.5M**
-- **GRASP**: 무작위화 재시작
-- **or-opt / 2-opt**: 국소 탐색
-- **LNS**: destroy–repair
-
-| 방법 | SCORE |
-|---|---:|
-| value-density greedy | 319.5M |
-| GRASP (RCL=3, 2000 restarts) | 320.6M |
-| or-opt | 320.8M |
-| 강력 LNS (40k iters) | 321.8M |
-
-다섯 방법이 전부 **320~322M**에 수렴했다. 이동 무시·밀도 knapsack 상한이 356M이었기에, “여러 방법이 같은 값에 수렴하니 322M 근처가 실질 천장”이라고 잘못 결론지었다.
-
-::: {.callout-warning}
-## 이 결론은 틀렸다
-
-여러 방법이 같은 값에 수렴하더라도, 그 방법들이 **같은 해 표현과 같은 이웃구조**를 공유한다면 독립적인 검증이 아니다.
-
-여기서는 모두 “전역 tour + day packing”이라는 표현을 공유하고 있었고, 같은 basin에 갇혔다.
-:::
-
-## 전환점 — 하루 단위 분해와 Beam Search
-
-하루를 **720분 예산의 작은 Orienteering Problem**으로 보고 Beam Search로 풀었다.
-
-핵심 구성은 다음과 같다.
-
-1. 전체 남은 집 중 오늘 볼 후보를 최대 63개로 축소
-2. 한 Beam 상태에서 다음 후보는 최대 16개만 확장
-3. 한 depth에서 살아남는 부분 경로는 최대 3800개
-4. 최대 방문 수는 12개
-5. 중간 pruning은 `rank`, 최종 하루 선택은 실제 `finalReward`
-
-## Beam Search의 의미
-
-Beam Search에서 가장 헷갈리기 쉬운 세 파라미터는 다음과 같다.
-
-```cpp
-#define CANDIDATE_COUNT 63
-#define NEXT_COUNT 16
-#define BEAM_WIDTH 3800
-```
-
-이 셋은 전혀 다른 의미다.
-
-| 파라미터 | 의미 |
-|---|---|
-| `CANDIDATE_COUNT=63` | 오늘 탐색 대상으로 삼는 **집의 수** |
-| `NEXT_COUNT=16` | 하나의 부분 경로에서 다음 단계로 실제 확장할 **자식 수** |
-| `BEAM_WIDTH=3800` | 한 depth에서 동시에 살아남길 **부분 경로의 수** |
-
-즉 63개 경로를 유지하는 것이 아니다.
-
-예를 들어 후보 집이 `A,B,C,D,E`이고 `NEXT_COUNT=2`, `BEAM_WIDTH=3`이라면:
+최종적으로 사용한 구조는 다음과 같다.
 
 ```text
-depth 0
-[]
-
-depth 1
-[A]
-[B]
-
-depth 2
-[A→C]
-[A→D]
-[B→C]
-[B→E]
-
-4개 생성 → rank 상위 3개만 생존
+Today Candidate Top-64
+        ↓
+Today Beam Search
+width = 3800
+local branching = 16
+        ↓
+Today Plan Top-6
+        ↓
+각 Plan에 대해 Tomorrow Beam
+width = 1270
+        ↓
+Today + 1.5 × Tomorrow
+        ↓
+1위와 2위 차이가 400 이하인가?
+        │
+        ├─ NO → 1위 실행
+        │
+        └─ YES
+             ↓
+        2위 challenger만
+        width = 1750으로 재평가
+             ↓
+        기존 1위를 못 넘음?
+        ├─ YES → 1위 실행
+        └─ NO
+             ↓
+        그때만 1위도 width=1750 재평가
+             ↓
+        최종 비교
 ```
 
-Beam Width는 **서로 다른 과거 경로를 얼마나 많이 기억할 것인가**를 의미한다.
+최종 점수는
 
-::: {.callout-tip}
-## Beam Width의 직관
+\[
+\boxed{333,358,400}
+\]
 
-- `BEAM_WIDTH`가 작다 → 좋은 경로가 일찍 잘릴 수 있음
-- `BEAM_WIDTH`가 크다 → 탐색 다양성은 증가하지만 시간·메모리 비용 증가
-- 그러나 **크다고 SCORE가 단조 증가하는 것은 아니다**
+까지 도달했다.
 
-중간 상태는 실제 SCORE가 아니라 불완전한 `rank`로 pruning하기 때문이다.
-:::
+기존 고정형 2-day Beam의 최고점
 
-## 후보 사전선별 — 400개를 63개로 줄이기
+\[
+333,198,800
+\]
 
-하루마다 현재 위치 기준으로 다음 점수를 계산한다.
+보다
 
-$$
-\boxed{
-\text{candidateScore}
-=
-P_m
--
-\lambda c_m
--
-\mu d
-}
-$$
+\[
+\boxed{+159,600}
+\]
 
-채택값은
+향상되었다.
 
-$$
-\lambda=1450,\qquad \mu=1000
-$$
+---
 
-이다.
+# 문제 정의와 채점기 모델
 
-```cpp
-score =
-    PRICE[level]
-    - CAND_LAMBDA * serviceTime
-    - CAND_MU * distance;
-```
+## 격자와 집
 
-하루 최대 청소 수는
+청소부는
 
-$$
-720/60=12
-$$
+\[
+100\times100
+\]
 
-이므로 63개 후보는 실제 방문 수보다 충분히 넓다. 동시에 63개 이하이므로 방문 여부를 `unsigned long long` 하나로 저장할 수 있다.
+격자 위를 이동한다.
 
-```cpp
-unsigned long long visitedMask;
+집은 최대 약 400개 존재하며, 각 집은 등급
 
-if (visitedMask & (1ULL << j)) {
-    // already visited
-}
-```
+\[
+m\in\{1,2,3,4,5,6\}
+\]
 
-### 왜 `CAND_LAMBDA≈1450`인가?
+을 가진다.
 
-집의 청소시간 대비 가격은 대략 1333~1600점/분이다. 따라서 처음에는 “시간 1분의 기회비용”을 약 1500점으로 보는 것이 자연스럽다.
+등급별 청소 시간은
 
-1450은 수학적으로 고정된 값이 아니라 **합리적인 초기 스케일에서 실험으로 조정된 값**이다.
+\[
+service(m)=30(m+1)
+\]
 
-### 왜 거리 계수는 1000인가?
+이므로 다음과 같다.
 
-후보 선정 단계에서 거리를 너무 강하게 벌주면 현재 위치 근처의 집만 후보에 남는다. 조금 먼 곳의 고가 집 군집을 발견하려면 거리 패널티는 청소시간 패널티보다 약하게 두는 편이 유리할 수 있다.
+| 등급 | 청소 시간 | 보상 |
+|---:|---:|---:|
+| 1 | 60 | 80,000 |
+| 2 | 90 | 140,000 |
+| 3 | 120 | 180,000 |
+| 4 | 150 | 240,000 |
+| 5 | 180 | 250,000 |
+| 6 | 210 | 300,000 |
 
-## 전이 비용 사전 계산
-
-Beam 내부에서 매번 맨해튼 거리와 청소시간을 다시 계산하면 `-O0` 환경에서 비싸다.
-
-그래서 하루 시작 시 다음을 미리 계산한다.
+코드에서는 다음 배열을 사용했다.
 
 ```cpp
-startCost[i]
-moveCost[i][j]
-```
-
-실제 의미는:
-
-$$
-\text{startCost}[i]
-=
-d(\text{start},i)
-+
-c_i
-$$
-
-$$
-\text{moveCost}[i][j]
-=
-d(i,j)
-+
-c_j
-$$
-
-이다.
-
-따라서 `moveCost`라는 이름은 다소 오해의 여지가 있다. 학습용 코드라면 다음 이름이 더 명확하다.
-
-```cpp
-transitionTime[from][to]
-```
-
-::: {.callout-important}
-## `cost`에는 청소시간이 이미 들어 있다
-
-Beam 내부의
-
-```cpp
-int cost =
-    state.lastCandidate < 0
-    ? startCost[nextCandidate]
-    : moveCost[state.lastCandidate][nextCandidate];
-```
-
-에서 `cost`는 단순 이동거리가 아니다.
-
-$$
-\boxed{
-cost
-=
-이동시간
-+
-도착한 집의 청소시간
-}
-$$
-
-따라서
-
-```cpp
-newTime = state.usedTime + cost;
-```
-
-는 채점기의 시간 증가와 정확히 대응한다.
-:::
-
-## Beam 상태 설계
-
-상태는 다음 정보를 가진다.
-
-```cpp
-struct BeamState {
-    unsigned long long visitedMask;
-    int prize;
-    int rank;
-    unsigned short usedTime;
-    signed char lastCandidate;
-    unsigned char routeLength;
-    unsigned char route[MAX_DEPTH];
+static const int PRICE[7] = {
+    0,
+    80000,
+    140000,
+    180000,
+    240000,
+    250000,
+    300000
 };
 ```
 
-각 필드의 의미:
+## 이동 비용
 
-- `visitedMask`: 후보 중 방문한 집 집합
-- `prize`: 집 가격 합
-- `rank`: Beam pruning용 평가값
-- `usedTime`: 오늘 사용한 시간
-- `lastCandidate`: 마지막으로 방문한 후보
-- `route`: 실제 실행할 경로
+두 위치 사이의 이동 시간은 Manhattan distance다.
 
-### 왜 `MAX_DEPTH=12`인가?
-
-최소 청소시간이 60분이므로
-
-$$
-\boxed{
-MAX\_DEPTH
+\[
+d((y_1,x_1),(y_2,x_2))
 =
-720/60
+|y_1-y_2|+|x_1-x_2|
+\]
+
+집 \(j\)로 이동하여 청소하는 총 시간은
+
+\[
+cost(i,j)
 =
-12
-}
-$$
+distance(i,j)+service(j)
+\]
 
 이다.
 
-이 값은 튜닝값이 아니라 문제 제약에서 직접 도출된다.
-
-## 한 Beam 상태에서 다음 후보 16개만 확장
-
-후보 63개를 모두 검사하되 실제 자식 상태는 다음 점수가 높은 16개만 만든다.
-
-$$
-\boxed{
-\text{nextScore}(j)
-=
-P_j
--
-\nu\,\text{cost}_j
-}
-$$
-
-채택값:
-
-$$
-\nu=1500
-$$
+따라서 전이 비용은 목적지 집의 service time을 포함하므로 비대칭 형태로 취급한다.
 
 ```cpp
-choice.score =
-    candidatePrice[nextCandidate]
-    - NEXT_LAMBDA * cost;
+transition_cost[i][j]
+=
+abs(candidate[i].y - candidate[j].y)
++
+abs(candidate[i].x - candidate[j].x)
++
+service(candidate[j]);
 ```
 
-여기서도 `cost`는 이동 + 청소시간이다.
+격자 크기가 100이므로 최대 Manhattan distance는
 
-`NEXT_COUNT=16`은 “한 상태가 다음에 얼마나 다양한 방향으로 갈 것인가”를 제어한다.
+\[
+99+99=198
+\]
 
-- 너무 작으면 Greedy에 가까워진다.
-- 너무 크면 자식 상태를 너무 많이 만들고 대부분 바로 버린다.
+이고 최대 service time은 210이다.
 
-## Beam Width 3800의 의미
+따라서 한 번의 전이는 최대
 
-각 상태가 최대 16개의 자식을 생성하므로, 한 depth에서 최대
+\[
+198+210=408
+\]
 
-$$
-3800\times16
-=
-60,800
-$$
+분이다.
 
-개의 다음 상태가 생길 수 있다.
+## 하루 시간 제한
 
-그 상태들을 `rank` 기준으로 정렬한 뒤 상위 3800개만 다음 depth로 넘긴다.
+하루 제한은
+
+\[
+720
+\]
+
+분이다.
+
+최소 청소 시간이 60분이므로 이동 시간을 완전히 무시하더라도 하루 최대 청소 집 수는
+
+\[
+720/60=12
+\]
+
+이다.
+
+따라서 Beam의 최대 depth를
+
+```cpp
+#define BEAM_DEPTH 12
+```
+
+로 둘 수 있다.
+
+이러한 **물리적인 상한을 먼저 계산하는 것**이 중요하다.
+
+탐색 depth를 막연히 20이나 30으로 잡을 이유가 없다.
+
+## 총 작업 일수
+
+`nextDay()`와 날짜 처리 구조를 보면 실제 작업 가능한 날은
 
 ```text
-최대 60,800개 child
-        ↓
-rank 기준 pruning
-        ↓
-3,800개 survivor
+day = 0, 1, ..., 30
 ```
 
-즉 `BEAM_WIDTH`는 **현재까지 서로 다른 경로 history를 몇 개까지 기억할 것인가**를 결정한다.
+이다.
 
-## 초과근무 인지 rank
+즉 총
 
-중간 상태 pruning에는 실제 점수가 아니라 다음 potential을 사용한다.
+\[
+31\text{일}
+\]
 
-$$
-\boxed{
-\text{rank}
+이다.
+
+# 가장 중요한 채점기 특징: overtime이 패널티가 아니다
+
+일반적인 스케줄링 문제라면 overtime은 패널티일 것 같지만 이 문제에서는 반대다.
+
+480분을 초과한 작업 시간에 대해
+
+\[
++200
+\]
+
+점/분이 추가된다.
+
+한 하루 route의 총 시간이 \(T\)라면 실제 reward는 사실상
+
+\[
+Reward
 =
-\text{prize}
+\sum PRICE
++
+200\max(0,T-480)
+\]
+
+으로 계산할 수 있다.
+
+따라서 480분을 넘는 것 자체를 무조건 피하면 안 된다.
+
+다만 여기에서 매우 중요한 점이 있다.
+
+> **실제 reward가 overtime에 +200을 준다고 해서 Beam rank에서도 반드시 overtime 시간을 +200만큼 높게 평가해야 하는 것은 아니다.**
+
+Beam rank는 실제 목적함수가 아니라 **미래 좋은 상태를 살려두기 위한 surrogate objective**이기 때문이다.
+
+예를 들어 실제 reward에서는 현재 overtime 1분이 +200이더라도, Beam에서는 그 1분 때문에 다음 고가치 집 하나를 방문하지 못할 수 있다.
+
+따라서 실제 reward와 Beam rank는 분리해서 생각해야 한다.
+
+# 첫 접근: Greedy
+
+가장 자연스러운 Greedy는 다음과 같다.
+
+\[
+score(h)
+=
+PRICE_h
 -
-1500\min(t,480)
+\lambda\,service_h
 -
-1300(t-480)^+
-}
-$$
+\mu\,distance(current,h)
+\]
 
-480분 이전에는 시간 1분을 1500점의 기회비용으로 본다.
+또는
 
-480분 이후에는 실제 보상에서 1분당 200점을 추가로 받으므로 실질 시간 비용을
+\[
+\frac{PRICE_h}
+{distance+service}
+\]
 
-$$
-1500-200=1300
-$$
+같은 효율 기반 평가를 사용할 수 있다.
 
-으로 낮춘다.
+이러한 Greedy는 구현이 매우 쉽고 빠르다.
 
-따라서 이 식은 사실상
+하지만 점수가 약
 
-$$
-\text{rank}
-\approx
-\text{finalReward}
+\[
+319M\sim322M
+\]
+
+근처에서 정체되었다.
+
+# Greedy가 정체되는 이유
+
+Greedy는 현재 집 하나만 본다.
+
+예를 들어 현재 위치에서
+
+```text
+A: 매우 비싼 집 1개
+B: 중간 가격 집 여러 개가 밀집된 지역
+```
+
+이 있다고 하자.
+
+Greedy는 A를 선택하기 쉽다.
+
+하지만 실제 하루 route 전체로 보면
+
+```text
+현재 → B1 → B2 → B3 → B4
+```
+
+처럼 밀집 지역을 연결하는 것이 더 높은 점수를 줄 수 있다.
+
+즉 이 문제는 사실상 하루마다 작은 Orienteering Problem을 반복해서 푸는 구조다.
+
+핵심은
+
+\[
+\boxed{\text{한 집의 가치보다 route 전체의 가치가 중요하다}}
+\]
+
+는 것이다.
+
+# 하루 단위 문제로 분해하기
+
+전체 31일 경로를 한 번에 탐색하는 것은 불가능하다.
+
+따라서 문제를
+
+```text
+오늘 하루의 좋은 route를 고른다.
+→ 실제로 실행한다.
+→ 다음 날 다시 푼다.
+```
+
+로 분해했다.
+
+하루 최대 depth가 12라는 강한 제약이 있으므로 Beam Search가 잘 맞는다.
+
+# Beam Search의 상태
+
+사용한 상태는 다음과 같다.
+
+```cpp
+struct BeamState {
+    unsigned char route[BEAM_DEPTH];
+    unsigned long long visit_mask;
+
+    int prize;
+    int rank;
+
+    short used_time;
+
+    signed char last;
+    unsigned char route_len;
+};
+```
+
+주요 정보는 다음과 같다.
+
+```text
+route
+    현재까지 방문한 candidate 순서
+
+visit_mask
+    방문한 후보 집 bitmask
+
+prize
+    집 가격의 누적합
+
+used_time
+    현재까지 소비한 시간
+
+last
+    마지막 candidate
+
+rank
+    Beam 생존용 surrogate score
+```
+
+후보를 최대 64개로 제한하므로
+
+\[
+64bit
+\]
+
+정수 하나로 방문 집합을 저장할 수 있다.
+
+이 구조는 `-O0`에서도 매우 중요하다.
+
+`bool visited[64]`, 동적 컨테이너, STL 등을 반복 복사하는 것보다 compact state를 통째로 복사하는 편이 빠르다.
+
+# Candidate를 먼저 줄여야 한다
+
+집이 300~400개이고 각 Beam State마다 전부 확인하면 너무 비싸다.
+
+따라서 먼저 전역 후보를 Top-64로 축소한다.
+
+Candidate score는
+
+\[
+C(h)
+=
+PRICE_h
+-\lambda_C service_h
+-\mu_C distance(start,h)
+\]
+
+를 사용했다.
+
+최종값은
+
+```text
+TODAY_LAMBDA = 1400
+TODAY_MU     = 900
+```
+
+Tomorrow 역시
+
+```text
+LA_CAND_LAMBDA = 1400
+LA_CAND_MU     = 900
+```
+
+이 좋았다.
+
+# 왜 Candidate Top-64인가
+
+처음에는 64라는 값이 단순히 `uint64_t visit_mask` 때문에 생긴 구현 제약인지 의심했다.
+
+그래서 128 candidate까지 지원하도록 2개의 64bit mask를 구현해서 실험했다.
+
+하지만 결과는 다음과 같은 경향을 보였다.
+
+```text
+64   → 333.1460M
+68   → 333.0458M
+72   → 332.9372M
+80   → 332.8136M
+96   → 332.7572M
+128  → 332.6886M
+```
+
+후보가 많아질수록 오히려 점수가 떨어졌다.
+
+따라서
+
+\[
+\boxed{64는 단순 bitmask 한계가 아니라 실제 탐색의 sweet spot}
+\]
+
+이었다.
+
+원인은 후보가 많아질수록 approximate rank가 잘못 평가한 action까지 Beam에 유입되어 **ranking noise가 증가하기 때문**으로 해석할 수 있다.
+
+# Candidate recall과 ranking noise의 균형
+
+Candidate 수를 줄였을 때도 점수가 떨어졌다.
+
+```text
+32 → 332.5666M
+40 → 332.5604M
+48 → 332.9182M
+56 → 332.9762M
+64 → 333.1460M
+```
+
+즉 candidate 수는 다음 두 힘의 균형이다.
+
+\[
+\text{Too small}
+\Rightarrow
+\text{좋은 action 자체가 후보에서 사라짐}
+\]
+
+\[
+\text{Too large}
+\Rightarrow
+\text{ranking noise 증가}
+\]
+
+이 문제에서는 64가 가장 좋았다.
+
+# PRICE rescue 후보가 실패한 이유
+
+Candidate Top-64 중 일부를 단순 고가격 집으로 강제 교체하는 실험도 했다.
+
+하지만 rescue 개수가 증가할수록 점수가 하락했다.
+
+결론은
+
+\[
+\boxed{\text{고가치라고 해서 좋은 route 후보는 아니다}}
+\]
+
+였다.
+
+집 가격뿐 아니라 service time, 위치, 주변 집들과의 연결 가능성이 함께 중요하기 때문이다.
+
+# State별 local branching
+
+Candidate 64개를 만들었다고 해서 각 state에서 64개 child를 모두 생성하면 너무 비싸다.
+
+각 상태마다
+
+\[
+score(j)
+=
+PRICE_j
 -
-1500t
-$$
+\lambda_N cost(last,j)
+\]
 
-로 해석할 수 있다.
+로 local action을 평가하고 Top-N만 생성한다.
 
-::: {.callout-note}
-## rank와 finalReward는 역할이 다르다
+최종값은
 
-- `rank`: 어떤 **중간 상태를 계속 탐색할지**
-- `finalReward`: 어떤 **완성된 하루 경로를 실제로 선택할지**
+```text
+NEXT_COUNT = 16
+```
 
-탐색용 대리 목적과 실제 목적을 분리하는 것은 Beam Search에서 매우 중요하다.
-:::
+이었다.
 
-## 왜 Beam Width를 크게 했는데 SCORE가 떨어질 수 있는가?
+Tomorrow에서도
 
-직관적으로는 Beam을 늘리면 기존 좋은 경로를 모두 포함하므로 SCORE가 올라갈 것 같지만, 휴리스틱 Beam Search에서는 보장되지 않는다.
+```text
+LA_NEXT_COUNT = 16
+```
 
-### 이유 1 — `rank`는 실제 objective가 아니다
+이 가장 좋았다.
 
-큰 Beam을 사용하면 이전에는 죽었던 많은 상태가 살아남는다. 그 상태들이 다음 depth에서 높은 `rank`의 자식을 대량 생성하면 기존 Beam에서 살아남던 경로가 오히려 밀려날 수 있다.
+실험에서는
+
+```text
+8   → 332.3816M
+12  → 332.6514M
+16  → 333.1460M
+20  → 332.7440M
+24  → 332.8642M
+32  → 332.7980M
+```
+
+정도의 경향을 보였다.
+
+즉 branching도 많다고 무조건 좋지 않다.
+
+# Candidate stage와 local branching은 역할이 다르다
+
+두 단계를 혼동하면 안 된다.
+
+Candidate Top-64는
+
+> 오늘 하루 동안 고려할 수 있는 **전역 action universe**
+
+를 만드는 단계다.
+
+State별 Top-16은
+
+> 현재 위치와 방문 history를 고려했을 때 실제로 확장할 **local action set**
+
+이다.
+
+정리하면
+
+\[
+\boxed{\text{Candidate stage = recall}}
+\]
+
+\[
+\boxed{\text{Local branch = precision}}
+\]
+
+라고 이해할 수 있다.
+
+# local ranking을 매번 정렬하지 않기
+
+초기 코드에서는 각 state마다 child score를 계산한 뒤 insertion sort로 Top-16을 골랐다.
+
+Beam state가 수천 개이므로 이것이 반복되면 `-O0` 환경에서는 상당히 비싸다.
+
+그런데 local score는
+
+\[
+PRICE_j-\lambda cost(i,j)
+\]
+
+이고, 현재 위치가 candidate \(i\)로 정해졌을 때 순서는 고정된다.
+
+따라서 미리
+
+```cpp
+cand_order[last + 1][...]
+```
+
+를 계산할 수 있다.
+
+```text
+last = -1
+    → 하루 시작 위치에서의 action order
+
+last = 0
+    → candidate 0에서의 action order
+
+...
+
+last = 63
+```
+
+각 state에서는 precomputed order를 앞에서부터 읽으면서
+
+```text
+이미 방문했는가?
+시간 제한을 넘는가?
+```
+
+만 확인하고 feasible한 16개를 선택한다.
+
+이 최적화는 반복 insertion sort를 제거해 runtime을 크게 줄였다.
+
+# Today Beam rank
+
+Today Beam의 생존 rank는 최종적으로
+
+\[
+Rank
+=
+Prize
+-
+1500\times UsedTime
+\]
+
+형태가 가장 좋았다.
+
+```text
+TODAY_RANK_LAMBDA = 1500
+```
+
+이다.
+
+State별 local action에서도
+
+```text
+TODAY_NEXT_LAMBDA = 1500
+```
+
+이 좋았다.
+
+흥미롭게도 Today에서는 local과 global의 시간 가치가 동일한 값에 수렴했다.
+
+# TODAY_NEXT_LAMBDA 실험
+
+대표적인 결과는 다음과 같다.
+
+```text
+1450 → 332.5564M
+1485 → 332.8860M
+1490 → 333.0270M
+1495 → 333.1590M
+1500 → 333.1988M
+1505 → 333.1988M
+1510 → 333.1988M
+1515 → 333.1988M
+1520 → 333.1872M
+1550 → 333.0172M
+```
+
+따라서
+
+\[
+\boxed{TODAY\_NEXT\_LAMBDA=1500}
+\]
+
+으로 두었다.
+
+# TODAY_RANK_LAMBDA의 날카로운 경계
+
+Global Beam rank를 따로 튜닝하자 다음과 같은 매우 날카로운 결과가 나왔다.
+
+```text
+1496 → 333.0764M
+1497 → 333.0764M
+1498 → 333.0764M
+1499 → 333.0764M
+
+1500 → 333.1988M
+
+1501 → 333.0888M
+1502 → 333.0078M
+1503 → 333.0078M
+1504 → 333.0078M
+```
+
+따라서 정확히
+
+\[
+\boxed{1500}
+\]
+
+이 가장 좋았다.
+
+이 현상은 휴리스틱의 score surface가 부드럽지 않다는 것을 보여준다.
+
+두 state A, B의 rank가
+
+\[
+R_A=P_A-\lambda T_A
+\]
+
+\[
+R_B=P_B-\lambda T_B
+\]
+
+라면 순서가 바뀌는 지점은
+
+\[
+\lambda
+=
+\frac{P_A-P_B}
+{T_A-T_B}
+\]
+
+이다.
+
+따라서 특정 정수 \(\lambda\)에서 Beam survivor가 바뀌고 이후 31일 trajectory 전체가 바뀔 수 있다.
+
+# 휴리스틱 파라미터 지형은 계단 함수에 가깝다
+
+실험에서 다음 패턴이 반복되었다.
+
+```text
+1496~1499
+    동일 SCORE
+
+1500
+    갑자기 상승
+
+1501
+    다시 하락
+
+1502~1504
+    다시 동일 SCORE
+```
 
 즉
 
-$$
-\boxed{
-\text{More Search}
-\not\Rightarrow
-\text{Higher Score}
+\[
+parameter
+\rightarrow
+Beam ordering
+\rightarrow
+survivor 변화
+\rightarrow
+오늘 route 변화
+\rightarrow
+이후 모든 날짜 상태 변화
+\]
+
+가 일어난다.
+
+따라서 휴리스틱 최적화에서는 gradient를 생각하기보다
+
+```text
+coarse sweep
+→ plateau 확인
+→ boundary fine sweep
+→ 구조적 원인 분석
+```
+
+이 적절하다.
+
+# Beam Width
+
+Today Beam width를 늘리면 초반에는 점수가 크게 향상되었다.
+
+대표적으로 width가 작은 경우에는 탐색 다양성이 크게 부족했다.
+
+이후 최종 구조에서는
+
+```text
+TODAY_BEAM_WIDTH = 3800
+```
+
+이 가장 좋았다.
+
+3800과 4000이 동일 최고점을 기록했으므로 더 저렴한 3800을 선택했다.
+
+또한 width를 계속 늘린다고 점수가 증가하지 않았다.
+
+이는 매우 중요한 원칙이다.
+
+\[
+\boxed{\text{More search} \neq \text{Better heuristic score}}
+\]
+
+Beam rank가 실제 목적함수가 아니라 근사함수이기 때문이다.
+
+# Beam survivor 선택 최적화
+
+초기에는 최대
+
+\[
+3800\times16=60,800
+\]
+
+개의 `BeamState`를 전체 정렬했다.
+
+`BeamState` 자체를 계속 merge sort하면 복사 비용이 크다.
+
+그래서 다음 방식으로 변경했다.
+
+```text
+BeamState 전체 정렬 X
+
+RankKey {
+    rank,
+    original index
 }
-$$
+만 생성
+
+↓
+quickselect로 Top-W 영역만 확보
+
+↓
+Top-W key만 정렬
+
+↓
+실제 BeamState는 survivor만 복사
+```
+
+tie ordering은 반드시 기존 stable sort와 동일하도록
+
+```cpp
+if (a.rank != b.rank)
+    return a.rank > b.rank;
+
+return a.idx < b.idx;
+```
+
+를 사용했다.
+
+즉
+
+\[
+(rank\ descending,\ generation\ index\ ascending)
+\]
+
+순서를 보존했다.
+
+이 변경만으로 runtime이 크게 감소했다.
+
+# Tie ordering은 알고리즘의 일부다
+
+휴리스틱에서는 다음과 같은 코드를 사소하게 보면 안 된다.
+
+```cpp
+if (A.rank >= B.rank)
+    A first;
+```
+
+동일 rank가 많이 발생하면 tie ordering 자체가 탐색 방향을 결정한다.
+
+실제로 future proxy를 tie-break로 사용했을 때 점수가 크게 하락한 실험이 있었다.
+
+따라서
+
+\[
+\boxed{\text{deterministic tie rule도 heuristic policy의 일부}}
+\]
 
 이다.
 
-### 이유 2 — NEXT_COUNT는 그대로다
+# DayPlan Top-K
 
-`BEAM_WIDTH`만 크게 하고 `NEXT_COUNT=16`을 그대로 두면 모든 방향을 균형 있게 넓히는 것이 아니다. 많은 parent를 살리지만 각 parent는 여전히 같은 휴리스틱으로 고른 16개의 child만 만든다.
+Today Beam에서 얻은 모든 survivor를 실제 tomorrow lookahead에 넣으면 너무 비싸다.
 
-### 이유 3 — 2-day lookahead와의 불균형
+따라서 실제 하루 reward 기준 Top-K route만 저장한다.
 
-오늘 Beam만 지나치게 강하게 하면 “오늘 점수가 높은 경로”가 Top-K를 점령할 수 있다. 하지만 그 경로들의 종료 위치가 내일 나쁠 수도 있다.
+최종적으로
+
+```text
+TOP_K = 6
+```
+
+이 가장 좋았다.
+
+최신 평가기에서 다시 튜닝한 결과:
+
+```text
+K=2  → 331.8484M
+K=3  → 332.2326M
+K=4  → 332.7278M
+K=5  → 332.6288M
+K=6  → 333.1988M
+K=7  → 332.7728M
+K=8  → 332.8350M
+...
+K=16 → 332.7752M
+```
+
+즉
+
+\[
+\boxed{TOP\_K=6}
+\]
+
+이다.
+
+# 왜 Top-K를 크게 하면 오히려 나빠지는가
+
+Approximate future evaluator가 있다고 하자.
+
+각 후보 \(p\)의 실제 미래가치가 \(V_p\), 평가 오차가 \(\epsilon_p\)라면
+
+\[
+\hat V_p
+=
+V_p+\epsilon_p
+\]
+
+를 보고
+
+\[
+\arg\max_p\hat V_p
+\]
+
+를 고른다.
+
+후보를 많이 넣을수록 우연히 큰 양의 오차를 가진 후보가 선택될 가능성이 증가한다.
+
+이것을 이 문제에서는 일종의 **winner's curse**로 볼 수 있다.
+
+따라서
+
+\[
+\boxed{\text{후보 수 증가} \Rightarrow \text{최종 선택 품질 증가}}
+\]
+
+가 성립하지 않는다.
+
+# DayPlan tie-break
+
+DayPlan은 다음 순서로 정렬했다.
+
+```text
+1. reward 큰 route
+2. reward가 같으면 route_len 큰 route
+```
+
+이 tie rule을 바꾸면 점수가 달라졌다.
+
+따라서 이것 역시 유지해야 한다.
+
+# 2-day Lookahead
+
+Today reward만으로 route를 고르면 마지막 위치가 다음 날에 미치는 영향을 고려하지 못한다.
+
+따라서 각 Today Plan에 대해 hypothetical하게
+
+```text
+오늘 청소한 집들을 deactivate
+청소부 위치를 Today endpoint로 이동
+Tomorrow Beam 실행
+상태 복구
+```
+
+를 수행했다.
+
+평가식은
+
+\[
+Value(p)
+=
+TodayReward(p)
++
+\alpha TomorrowReward(p)
+\]
+
+이다.
+
+코드에서는 정수 scaling을 사용했다.
+
+```cpp
+profit =
+    day_plan[p].reward
+    + (long long)tomo * TOMO_COEF / 1000;
+```
+
+# TOMO_COEF
+
+최종 구조에서 sweep한 결과:
+
+```text
+500  → 332.5398M
+1000 → 332.9076M
+1100~1400 → 333.1288M
+1500~1900 → 333.1988M
+2000 → 333.1198M
+```
+
+따라서 넓은 최고 plateau인
+
+\[
+1500\sim1900
+\]
+
+중 가장 작은
+
+```text
+TOMO_COEF = 1500
+```
+
+을 사용했다.
+
+즉
+
+\[
+Today + 1.5\times Tomorrow
+\]
+
+이다.
+
+# 왜 Tomorrow에 1보다 큰 가중치를 주는가
+
+직관적으로 1일 reward와 다음 날 reward를 그냥 더하면 될 것 같지만
+
+\[
+\alpha>1
+\]
+
+이 더 좋았다.
+
+이는 현재 lookahead가 day+1에서 종료되므로 Tomorrow reward가 사실상 그 이후의
+
+```text
+day+2
+day+3
+...
+```
+
+가치를 일부 대표하기 때문이다.
+
+Tomorrow에 약간 더 높은 비중을 주는 것은 finite horizon을 보상하는 역할을 할 수 있다.
+
+# same_future cache
+
+서로 다른 Today route라도 다음 두 조건이 같으면 Tomorrow 관점에서는 동일한 상태다.
+
+```text
+1. 오늘 청소된 집의 집합이 동일
+2. 오늘 마지막 위치가 동일
+```
+
+다음 날에는 하루 사용 시간이 다시 0으로 초기화되므로 오늘 집 방문 순서 자체는 미래에 영향을 주지 않는다.
+
+따라서 `same_future`를 사용해 Tomorrow 계산 결과를 cache할 수 있다.
+
+중요한 것은:
+
+> **중복 DayPlan을 제거하면 안 되고, 평가 결과만 cache해야 한다.**
+
+중복 plan을 제거한 뒤 다음 unique candidate를 Top-K에 새로 넣는 실험은 오히려 점수가 하락했다.
+
+이유는 후보 집합 자체가 넓어지면서 winner's curse가 증가했기 때문이다.
+
+따라서
+
+```text
+candidate composition 유지
+evaluation만 재사용
+```
+
+해야 한다.
+
+# Tomorrow Beam의 평가함수
+
+Tomorrow local branching은
+
+\[
+PRICE
+-
+1570\times cost
+\]
+
+가 가장 좋았다.
+
+```text
+LA_NEXT_LAMBDA = 1570
+```
+
+Global Beam rank는
+
+\[
+Prize
+-
+1540\times UsedTime
+\]
+
+이 좋았다.
+
+```text
+LA_RANK_LAMBDA = 1540
+```
+
+즉 Today와 달리
+
+```text
+local lambda = 1570
+global lambda = 1540
+```
+
+이다.
+
+해석하면 Tomorrow approximation에서는 local branching 단계에서 더 강하게 효율 나쁜 action을 제거하고, global Beam에서는 약간 더 다양한 history를 유지하는 것이 좋았다고 볼 수 있다.
+
+# Overtime Bonus를 Tomorrow rank에 직접 넣은 실험
+
+Tomorrow rank에
+
+\[
+OT\_BONUS
+\times
+\max(0,T-480)
+\]
+
+을 추가하는 실험을 했다.
+
+하지만 최적은
+
+\[
+\boxed{LA\_OT\_BONUS=0}
+\]
+
+이었다.
+
+이는 다시 한 번
+
+\[
+\boxed{\text{true reward와 Beam surrogate는 다르다}}
+\]
+
+는 점을 보여준다.
+
+# Tomorrow width
+
+고정 Tomorrow Beam에서 `MAX_TOMO_WIDTH`를 튜닝한 결과:
+
+```text
+600   → 332.5990M
+800   → 332.9838M
+1000  → 333.0030M
+1200  → 333.1460M
+1250  → 333.1966M
+1270  → 333.1988M
+1280  → 332.8396M
+1400  → 332.8388M
+1600  → 333.0770M
+...
+```
+
+최종적으로
+
+```text
+MAX_TOMO_WIDTH = 1270
+```
+
+을 선택했다.
+
+여기에서도 width를 더 크게 한다고 점수가 증가하지 않았다.
+
+# Day+2를 직접 보면 더 좋아질까?
+
+2-day lookahead가 성공했으므로 자연스럽게
+
+\[
+Today
++
+Tomorrow
++
+Day2
+\]
+
+를 생각했다.
+
+하지만 여러 시도가 모두 실패했다.
+
+이 실험들은 매우 중요하다.
+
+# 실패 1: Top-1 Future Proxy
+
+Tomorrow endpoint에서 남은 집 중
+
+\[
+PRICE_h
+-
+\lambda(distance+service)
+\]
+
+가 가장 큰 집 하나를 day+2 proxy로 사용했다.
+
+\[
+FutureProxy
+=
+\max_h
+[
+PRICE_h-\lambda cost_h
+]
+\]
+
+하지만 `FUTURE_COEF=1`만 줘도
+
+```text
+0 → 333.1988M
+1 → 332.7170M
+2~12 → 332.6970M
+...
+```
+
+으로 크게 하락했다.
+
+즉 좋은 집 하나가 endpoint 근처에 있다는 사실은 day+2 전체 route 가치를 잘 나타내지 못했다.
+
+# 실패 2: 3-step greedy rollout
+
+단순 Top-1 대신 실제 위치를 움직이며
+
+```text
+endpoint
+→ A
+→ B
+→ C
+```
+
+형태의 day+2 greedy rollout을 만들었다.
+
+그리고 기존 Tomorrow reward가 정확히 같은 state들끼리만 tie-break로 사용했다.
+
+그럼에도
+
+```text
+steps=0 → 333.1988M
+steps=1 → 332.8296M
+steps=2 → 332.9094M
+steps=3 → 332.4110M
+...
+```
+
+으로 모두 하락했다.
+
+즉 기존 stable tie ordering 자체가 생각보다 좋은 implicit bias를 가지고 있었다.
+
+# 실패 3: 실제 day+2 Beam Search
+
+마지막으로 cheap proxy가 아니라 실제로
+
+```text
+Today
+→ Tomorrow Beam
+→ Day+2 Beam
+```
+
+을 수행했다.
+
+Today 상위 두 후보가 가까울 때에만 expensive day+2를 실행했다.
+
+그럼에도 작은 Day2 가중치에서도 점수가 하락했다.
+
+```text
+DAY2_COEF=0 → 333.1988M
+1 → 333.0776M
+2 → 333.1076M
+3 → 332.9982M
+...
+50 → 332.9680M
+```
+
+따라서
+
+\[
+\boxed{\text{더 깊은 horizon이 반드시 더 좋은 것은 아니다}}
+\]
+
+라는 결론을 얻었다.
+
+# 왜 더 정확해 보이는 3-day 탐색이 나빠질 수 있는가
+
+완전탐색이라면 horizon을 늘리는 것이 보통 더 정확하다.
+
+하지만 실제 구현은
+
+```text
+Candidate Top-64
+Local Top-16
+Beam cutoff
+Surrogate rank
+```
+
+를 반복한다.
+
+따라서
+
+\[
+\hat V_2
+=
+V_2+\epsilon_2
+\]
+
+인데 3-day에서는
+
+\[
+\hat V_3
+=
+V_3+\epsilon_2+\epsilon_3
+\]
+
+처럼 추가 approximation error가 들어갈 수 있다.
+
+추가 미래정보보다 추가 오차가 더 크다면 탐색을 깊게 하는 것이 오히려 나쁘다.
+
+# 성공한 구조적 개선: Adaptive Tomorrow Beam
+
+Day+2가 실패한 뒤 방향을 바꾸었다.
+
+> 더 먼 미래를 부정확하게 보는 대신, **당장 다음 날 평가가 애매할 때 그 평가 자체를 더 정확하게 만들자.**
+
+기본 Tomorrow width는
+
+```text
+1270
+```
+
+을 유지한다.
+
+다만 Today plan의 1위와 2위 평가가 매우 가까우면 두 후보만 더 큰 width로 다시 평가한다.
+
+# Adaptive width 실험
+
+초기 threshold를 10,000, Top-K를 2로 두고 adaptive width를 변경했다.
+
+```text
+1270 → 333.1988M
+1500 → 333.1988M
+1750 → 333.3584M
+2000 → 333.3180M
+2250 → 333.3180M
+2500 → 333.3180M
+2750 → 333.3180M
+3000 → 333.2158M
+3250 → 333.2158M
+3500 → 333.2158M
+3800 → 333.2158M
+```
+
+처음으로 기존 최고점을 넘어섰다.
+
+# Adaptive width의 세밀한 경계
+
+1550~2000을 다시 sweep했다.
+
+```text
+1550~1650
+    333.3180M
+
+1660~1740
+    333.3184M
+
+1750~1960
+    333.3584M
+
+1970~2000
+    333.3180M
+```
+
+따라서 넓은 최고 plateau는
+
+\[
+1750\sim1960
+\]
+
+이다.
+
+동일 점수라면 작은 width가 유리하므로
+
+\[
+\boxed{ADAPTIVE\_TOMO\_WIDTH=1750}
+\]
+
+을 선택했다.
+
+# Adaptive threshold
+
+기본 1위와 2위의 평가값 차이를
+
+\[
+gap=P_1-P_2
+\]
+
+라고 하자.
+
+다음 조건에서만 adaptive search를 실행한다.
+
+\[
+gap
+\le
+ADAPTIVE\_CLOSE\_THRESHOLD
+\]
+
+실험 결과:
+
+```text
+adaptive off(-1)
+    333.1988M
+
+threshold=0
+    333.3184M
+
+threshold=500
+    333.3584M
+
+1000~50000
+    333.3584M
+```
+
+따라서 0~500을 다시 세밀하게 확인했다.
+
+결과는 정확히
+
+```text
+399 → 333.3184M
+400 → 333.3584M
+```
+
+에서 바뀌었다.
+
+즉 현재 테스트에서는
+
+\[
+\boxed{ADAPTIVE\_CLOSE\_THRESHOLD=400}
+\]
+
+이 최소 충분값이다.
+
+# Threshold=0도 이미 좋아진 이유
+
+Threshold 0은
+
+\[
+P_1=P_2
+\]
+
+인 exact tie에서만 adaptive evaluation을 한다.
+
+그런데 그것만으로도
+
+\[
+333.1988M
+\rightarrow
+333.3184M
+\]
+
+으로 +119,600 향상되었다.
+
+즉 기본 width 1270에서 동률로 보이는 후보들을 width 1750으로 다시 판별하는 것만으로도 효과가 있었다.
+
+그리고 gap=400인 critical decision까지 재평가하면서 추가로
+
+\[
++40,000
+\]
+
+이 향상되었다.
+
+# Adaptive Top-K
+
+Adaptive trigger가 걸렸을 때 baseline 상위 몇 개를 width 1750으로 다시 평가할지 실험했다.
+
+```text
+K=1 → 333.1988M
+K=2 → 333.3584M
+K=3 → 333.1890M
+K=4 → 333.1280M
+K=5 → 333.0184M
+K=6 → 332.9566M
+```
+
+명확하게
+
+\[
+\boxed{ADAPTIVE\_TOP\_K=2}
+\]
+
+이다.
+
+# 왜 K=1은 아무 효과가 없고 K=2가 좋아졌는가
+
+K=1이면 baseline 1위만 재평가한다.
+
+```text
+Plan A = baseline 1위
+Plan B = baseline 2위
+
+A → width 1750
+B → width 1270
+```
+
+점수는 baseline과 정확히 같았다.
+
+반면 K=2이면
+
+```text
+A → width 1750
+B → width 1750
+```
+
+이고 점수가 +159,600 향상되었다.
+
+따라서 개선의 핵심은
+
+> 기존 1위를 더 정확히 평가한 것이 아니라, **기존 2위 challenger에게 더 정밀한 평가 기회를 준 것**
+
+이라고 볼 수 있다.
+
+# K=3 이상에서 다시 나빠지는 이유
+
+Adaptive evaluation 대상이 늘어나면 더 많은 후보의 approximate future estimate 중 maximum을 고르게 된다.
+
+따라서 다시 winner's curse가 커진다.
+
+결과도 거의 단조롭게 하락했다.
+
+```text
+K=2 → 333.3584M
+K=3 → 333.1890M
+K=4 → 333.1280M
+K=5 → 333.0184M
+K=6 → 332.9566M
+```
+
+결론은
+
+\[
+\boxed{\text{실제로 승부 중인 두 후보만 정밀 재평가}}
+\]
+
+이다.
+
+# Lazy Challenger Verification
+
+Adaptive Top-2는 trigger될 때마다
+
+```text
+1위 width1750 재평가
+2위 width1750 재평가
+```
+
+를 모두 수행한다.
+
+하지만 K=1 실험에서 1위만 재평가하는 것은 아무 효과가 없었다.
+
+따라서 계산을 더 줄이기 위해 다음 구조를 사용했다.
+
+```text
+Champion = baseline 1위
+Challenger = baseline 2위
+
+gap <= 400이면
+
+1. Challenger만 width=1750 재평가
+
+2. Challenger가 Champion의
+   baseline width=1270 점수도 못 넘으면
+   → Champion 유지
+   → 종료
+
+3. Challenger가 잠정 역전하면
+   그때만 Champion도 width=1750 재평가
+
+4. 두 wide 평가를 최종 비교
+```
+
+수도코드는 다음과 같다.
+
+```cpp
+champion = baseline_rank_1;
+challenger = baseline_rank_2;
+
+if (gap <= 400) {
+
+    challenger_wide =
+        evaluate(challenger, 1750);
+
+    if (
+        challenger_wide
+        > champion_baseline
+    ) {
+
+        champion_wide =
+            evaluate(champion, 1750);
+
+        choose max(
+            champion_wide,
+            challenger_wide
+        );
+    }
+}
+```
+
+이것은 일종의
+
+\[
+\boxed{\text{lazy verification}}
+\]
+
+이다.
+
+# Lazy 방식의 결과
+
+기존 Adaptive Top-2:
+
+```text
+SCORE   = 333,358,400
+runtime ≈ 8.6 sec
+```
+
+Lazy challenger:
+
+```text
+SCORE   = 333,358,400
+runtime ≈ 8.17 sec
+```
+
+즉
+
+\[
+\boxed{\text{동일 점수 + 더 작은 실행시간}}
+\]
+
+을 달성했다.
+
+# 최종 알고리즘
+
+최종 구조를 수도코드로 정리하면 다음과 같다.
+
+```text
+for day = 0 .. 30:
+
+    1. Today candidate selection
+       active house 중
+       PRICE - 1400 * service - 900 * distance
+       기준 Top-64
+
+    2. Today Beam
+       width = 3800
+       local branch = 16
+       local score = PRICE - 1500 * cost
+       global rank = prize - 1500 * used_time
+       actual daily reward 기준 Top-6 DayPlan 유지
+
+    3. Baseline Tomorrow evaluation
+       Tomorrow candidate Top-64
+       width = 1270
+       local branch = 16
+       local = PRICE - 1570 * cost
+       global = prize - 1540 * used_time
+       value = TodayReward + 1.5 * TomorrowReward
+
+    4. Confidence check
+       best와 second best의 value 차이 계산
+
+       if gap > 400:
+           baseline best 실행
+       else:
+           challenger만 width=1750으로 재평가
+
+    5. Lazy verification
+       challenger_wide <= champion_baseline 이면 champion 실행
+       아니면 champion도 width=1750으로 재평가 후 재비교
+
+    6. 실제 route 실행
+       선택한 Today route 실행
+       집 deactivate
+       nextDay()
+```
+
+# 최종 파라미터
+
+```text
+[Today Candidate]
+COUNT               64
+LAMBDA              1400
+MU                   900
+
+[Today Beam]
+WIDTH               3800
+NEXT_COUNT            16
+NEXT_LAMBDA         1500
+RANK_LAMBDA         1500
+
+[Tomorrow Candidate]
+COUNT                 64
+LAMBDA              1400
+MU                    900
+
+[Tomorrow Beam]
+WIDTH               1270
+NEXT_COUNT            16
+NEXT_LAMBDA         1570
+RANK_LAMBDA         1540
+OT_BONUS                0
+
+[Lookahead]
+TOP_K                   6
+TOMO_COEF            1500
+
+[Adaptive Tomorrow]
+CLOSE_THRESHOLD       400
+ADAPTIVE_WIDTH       1750
+COMPETITORS             2
+
+[Final]
+SCORE          333,358,400
+runtime             ~8.17s
+```
+
+# 왜 전체 Tomorrow width를 1750으로 하지 않는가
+
+고정 Tomorrow width를 크게 하는 실험에서는 1270 부근이 가장 좋았다.
+
+하지만 adaptive 구조에서는
+
+\[
+W(state)
+=
+\begin{cases}
+1270, & \text{평가 차이가 충분히 큼}\\
+1750, & \text{1위와 2위가 거의 동률}
+\end{cases}
+\]
+
+이 더 좋았다.
+
+즉 하나의 전역 최적 파라미터보다
+
+\[
+\boxed{\text{state-dependent parameter}}
+\]
+
+가 더 좋은 것이다.
+
+이것이 단순 parameter tuning에서 adaptive heuristic으로 넘어가는 지점이다.
+
+# 이 문제에서 얻은 일반적인 휴리스틱 원칙
+
+## 탐색량은 항상 좋은 것이 아니다
+
+다음 모든 실험에서 동일한 현상이 나타났다.
+
+```text
+Candidate 64 → 좋음
+Candidate 128 → 나쁨
+
+Next count 16 → 좋음
+Next count 32 → 나쁨
+
+Tomorrow width 1270 → 좋음
+너무 큰 width → 나쁨
+
+Top-K 6 → 좋음
+더 큰 Top-K → 나쁨
+
+Adaptive Top-K 2 → 좋음
+3~6 → 계속 나쁨
+```
+
+원인은 approximate evaluation이다.
+
+탐색 공간이 커질수록 좋은 후보도 늘지만 평가 오차에 노출되는 후보도 증가한다.
+
+## 평가함수는 실제 목적함수와 같을 필요가 없다
+
+Actual reward에는 overtime +200/min이 있다.
+
+하지만 Beam rank에서 overtime을 직접 보상하는 것은 좋지 않았다.
+
+휴리스틱의 평가함수는
+
+> 현재 점수를 정확하게 표현하는 함수
+
+가 아니라
+
+> 미래에 좋은 최종 해로 이어질 상태를 잘 살리는 함수
+
+여야 한다.
+
+## Candidate recall과 Beam precision을 분리한다
+
+좋은 구조는 다음처럼 여러 단계로 후보를 줄이는 것이다.
+
+```text
+전체 집 300~400
+    ↓
+Candidate Top-64
+    ↓
+State-specific Top-16 action
+    ↓
+Beam Top-3800
+    ↓
+DayPlan Top-6
+    ↓
+Tomorrow evaluation
+    ↓
+애매하면 Top-2만 재평가
+```
+
+한 번에 모든 것을 평가하려고 하면 느리고 noise도 커진다.
+
+## Tie는 절대로 사소하지 않다
+
+휴리스틱에서는 동일 score가 매우 자주 발생한다.
+
+따라서
+
+```text
+stable order
+generation order
+route_len tie-break
+candidate index
+```
+
+같은 작은 규칙도 실제 최종 SCORE에 영향을 줄 수 있다.
+
+코드를 최적화할 때 기존 tie semantics를 보존해야 한다.
+
+# `-O0` 환경에서의 구현 원칙
+
+컴파일러 최적화가 없으면 C++ abstraction 비용이 그대로 나타날 수 있다.
+
+따라서 다음을 적극적으로 고려한다.
+
+```text
+STL container 최소화
+동적 할당 금지
+고정 배열 사용
+bitmask 사용
+작은 struct 사용
+float 대신 integer arithmetic
+반복 정렬 제거
+cost precompute
+action order precompute
+전체 struct 정렬 대신 key 정렬
+full sort 대신 quickselect + partial sort
+hypothetical state restore 최소화
+```
+
+특히 Beam Search에서는 알고리즘 복잡도뿐 아니라
+
+\[
+\boxed{\text{한 state를 몇 byte 복사하는가}}
+\]
+
+도 매우 중요하다.
+
+# 실험 결과를 기록하는 방법
+
+휴리스틱 튜닝은 기억으로 하면 안 된다.
+
+각 실험마다 최소한 다음을 기록한다.
+
+| 항목 | 내용 |
+|---|---|
+| 총점 | 전체 SCORE |
+| TC별 점수 | 어떤 테스트가 좋아지고 나빠졌는가 |
+| 실행시간 | 최악/평균 |
+| 변경 변수 | 무엇을 바꿨는가 |
+| 가설 | 왜 좋아질 것으로 예상했는가 |
+| 결과 | 실제로 좋아졌는가 |
+| 실패 TC 특징 | 밀집형, 분산형, 고가치 집 비율 등 |
+| 다음 행동 | 유지 / 폐기 / fine sweep |
+
+특히 최종 제출 전에는 총점뿐 아니라 **테스트케이스별 점수**도 비교해야 한다.
+
+어떤 날카로운 parameter peak가 특정 testcase 하나에만 과적합된 결과일 수도 있기 때문이다.
+
+# Broad plateau와 sharp peak
+
+두 종류의 좋은 parameter가 있다.
+
+예를 들어 `TOMO_COEF`는
+
+```text
+1500~1900
+```
+
+에서 넓은 plateau였다.
+
+이 경우 가장 단순하고 작은 1500을 선택하는 것이 안전하다.
+
+반면 `TODAY_RANK_LAMBDA`는
+
+```text
+1499 → 333.0764M
+1500 → 333.1988M
+1501 → 333.0888M
+```
+
+처럼 매우 날카로웠다.
+
+이 경우 해당 boundary가 실제로 의미 있는 Beam ordering 변화인지 확인해야 한다.
+
+숨은 testcase가 존재하는 대회라면 일반적으로는 넓은 plateau 쪽이 더 robust할 가능성이 높다.
+
+# 4시간 시험에서의 설계 전략
+
+시험 시간이 4시간이라면 모든 아이디어를 구현할 수 없다.
+
+가장 중요한 것은 **정확한 순서로 시간을 쓰는 것**이다.
+
+## 0~30분: 채점기부터 읽는다
+
+문제 설명보다 채점 코드를 먼저 본다.
+
+반드시 확인해야 할 것은 다음과 같다.
+
+```text
+실제 SCORE 식
+illegal 조건
+시간 제한
+하루/턴 수
+상태가 다음 턴으로 무엇이 전달되는가
+숨은 보너스/패널티
+최대 입력 크기
+최대 action 횟수
+```
+
+이 문제에서는 이 단계에서 바로 다음을 얻어야 한다.
+
+```text
+하루 720분
+overtime 480분 이후 +200/min
+최소 service 60
+→ 하루 최대 12집
+position은 다음 날 유지
+day0~30
+→ 총 31일
+```
+
+이런 사실들이 이후 탐색 구조를 결정한다.
+
+## 30~60분: 반드시 동작하는 Greedy를 만든다
+
+첫 1시간 안에는 무조건 SCORE가 나오는 코드를 만든다.
+
+예:
+
+\[
+PRICE
+-
+\lambda service
+-
+\mu distance
+\]
+
+Greedy.
+
+목적은 높은 점수가 아니다.
+
+목적은
+
+```text
+입출력 확인
+채점기 해석 확인
+illegal 여부 확인
+대략적인 점수 scale 확인
+```
+
+이다.
+
+**작동하는 320M 코드가 없는 상태에서 330M Beam을 설계하면 위험하다.**
+
+## 60~120분: 가장 큰 구조 개선 하나를 한다
+
+이 문제에서는 Beam Search가 해당한다.
+
+먼저 복잡한 lookahead를 넣지 말고
+
+```text
+Candidate Top-L
+State Top-N
+Beam Width-W
+```
+
+의 하루 탐색을 완성한다.
+
+시험에서는 처음부터 정확한 파라미터를 찾을 필요 없다.
 
 예를 들어:
 
 ```text
-오늘 A: 1,010,000 / 내일 800,000
-오늘 B:   995,000 / 내일 1,000,000
+Candidate = 64
+Next = 8~16
+Beam = 500~2000
 ```
 
-2일 합은 B가 더 좋지만, `TOPK=4`에 B가 들어가지 못하면 내일 평가조차 해보지 못한다.
+정도의 합리적 값을 사용한다.
 
-### 이유 4 — 런타임과 메모리 급증
+이 단계에서 Greedy보다 큰 폭으로 올라가면 방향이 맞는 것이다.
 
-`BEAM_WIDTH=60,800`이면 최대 child 수는
+## 120~180분: 미래가치를 추가한다
 
-$$
-60,800\times16
-=
-972,800
-$$
+하루 Beam이 안정된 뒤에야 1-day lookahead를 추가한다.
 
-까지 증가한다.
-
-`-O0`에서는 State 복사와 정렬 비용이 폭증한다.
-
-## Beam pruning 구현 — Merge Sort를 유지한 이유
-
-생성된 상태를 `rank` 내림차순으로 정렬하기 위해 bottom-up merge sort를 사용했다.
-
-```cpp
-stableSortStates(next, mergeBuffer, nextCount);
-nextCount = beamWidth;
+```text
+Today Top-K
+→ Tomorrow evaluator
 ```
 
-Min-Heap Top-K로 교체하는 것도 가능하고 이론적으로 목적에는 더 잘 맞는다. 하지만 시험 환경에서는 다음 이유로 merge sort를 유지하는 선택도 충분히 합리적이다.
+형태다.
 
-- 구현 원리가 단순하다.
-- 디버깅이 쉽다.
-- worst-case $O(N\log N)$이 명확하다.
-- stable한 결과를 얻기 쉽다.
-- 현재 시간 제한 안에 이미 들어온다.
+처음에는 Top-K를 작게 둔다.
 
-::: {.callout-tip}
-## 시험장에서는 “조금 더 빠른 코드”보다 “내가 확실히 구현 가능한 코드”가 중요하다
+```text
+K=2~4
+```
 
-Min-Heap이 이론적으로 더 효율적이어도, 구현 리스크와 디버깅 시간을 고려하면 이미 통과 가능한 merge sort를 유지하는 것이 더 좋은 전략일 수 있다.
-:::
+정도로 시작하고 시간이 허락하면 늘린다.
 
-## 2-day Beam Lookahead
+중요한 원칙:
 
-1-day Beam은 오늘만 최적화하므로 하루 끝 위치가 내일에 미치는 영향을 충분히 반영하지 못한다.
+> **lookahead depth보다 evaluator의 신뢰성이 먼저다.**
 
-그래서 오늘의 상위 `TOPK` 경로 각각에 대해:
+이번 문제에서도 day+2보다 정확한 Tomorrow 재평가가 훨씬 효과적이었다.
 
-$$
+## 180~210분: 실행시간 최적화
+
+점수가 충분히 좋아졌다면 탐색을 더 추가하기 전에 병목을 제거한다.
+
+확인할 것은 다음과 같다.
+
+```text
+매 state마다 정렬하고 있는가?
+같은 cost를 반복 계산하는가?
+큰 struct를 전체 sort하는가?
+visited 배열을 반복 초기화하는가?
+hypothetical state 전체를 backup하는가?
+같은 future를 여러 번 계산하는가?
+```
+
+이 문제에서는
+
+```text
+cand_order precompute
+compact BeamState
+RankKey quickselect
+same_future cache
+```
+
+가 큰 효과를 냈다.
+
+실행시간을 줄이면 그만큼 다시 탐색에 투자할 수 있다.
+
+## 210~230분: adaptive 계산을 고려한다
+
+모든 상태에 계산량을 늘리는 대신
+
+\[
+\text{uncertain decision}
+\]
+
+에만 계산을 추가한다.
+
+예:
+
+```text
+1위-2위 gap 큼
+→ 그대로 선택
+
+gap 작음
+→ 상위 두 후보만 더 큰 Beam
+```
+
+이 방식은 4시간짜리 시험에서 매우 강력하다.
+
+전체 알고리즘을 다시 만드는 것이 아니라 기존 evaluator 위에 작은 조건문으로 추가할 수 있기 때문이다.
+
+## 마지막 10~30분: 새 구조를 만들지 않는다
+
+마지막 시간에는 다음만 한다.
+
+```text
+illegal 가능성 점검
+배열 boundary
+bit shift
+day 마지막 처리
+empty candidate 처리
+long long overflow
+runtime 최악값
+regression score 확인
+```
+
+새로운 simulated annealing이나 완전히 다른 search를 마지막 20분에 넣으면 위험하다.
+
+# 4시간 시험용 우선순위
+
+시간이 부족할수록 다음 우선순위를 기억한다.
+
+\[
 \boxed{
-\text{todayReward}
-+
-\text{estimatedTomorrowReward}
+\text{채점기 이해}
+>
+\text{합법적인 baseline}
+>
+\text{후보 축소}
+>
+\text{Beam 다양성}
+>
+\text{1-step lookahead}
+>
+\text{구현 최적화}
+>
+\text{adaptive search}
+>
+\text{더 깊은 horizon}
 }
-$$
+\]
 
-를 계산한다.
+특히
 
-채택값:
+\[
+\boxed{\text{더 깊은 horizon은 가장 마지막}}
+\]
 
-```cpp
-#define TOPK 4
-#define LA_BEAM 400
-```
+이다.
 
-오늘은 폭 3800의 full Beam으로 탐색하지만, 내일은 실제 실행할 경로가 아니라 미래 가치를 추정하는 용도이므로 폭 400의 작은 Beam을 사용한다.
+이번 문제에서도 실제 day+2 Beam조차 실패했다.
 
-```text
-오늘: 정확하게 탐색
-↓
-오늘 Top-4 후보
+# 시험에서 파라미터를 튜닝하는 법
 
-각 후보에 대해:
-오늘 route를 실행했다고 가정
-↓
-내일 작은 Beam(400)
-↓
-today + tomorrow 비교
-```
+시간이 4시간뿐이면 모든 숫자를 1단위 sweep할 수 없다.
 
-실제로 내일이 되면 전날 예측한 route를 강제 실행하지 않고 다시 full Beam으로 재계산한다. 즉 rolling horizon 방식이다.
+다음 순서를 사용한다.
 
-## 2일 Lookahead의 apply → evaluate → undo 패턴
+## 1단계: coarse sweep
 
-오늘 후보 $r$을 평가할 때:
-
-1. 오늘 방문할 집들을 임시로 `active=0`
-2. 그 상태에서 내일 Beam Search
-3. 예상 내일 reward 확보
-4. 오늘 집들을 다시 `active=1`
-
-한다.
+예:
 
 ```text
-apply
-→ evaluate
-→ undo
-```
-
-이 패턴은 DFS, local search, simulated annealing, lookahead에서 매우 자주 사용된다.
-
-## Lookahead 결과
-
-Beam 추정 lookahead의 score–시간 프론티어:
-
-| 설정 ($K$, LA_BEAM) | SCORE | $-O0$ 시간 |
-|---|---:|---:|
-| 없음 (base) | 332.10M | 6.9s |
-| **(4, 400) — 채택** | **333.03M** | **9.3s** |
-| (8, 1000) | 333.09M | 19s |
-| (10, 2000) | 333.41M | 36s |
-
-더 무거운 lookahead는 점수를 계속 올리지만 시간 제한을 넘는다. 따라서 약 10초 예산에서는 $(4,400)$이 현실적인 절충이다.
-
-::: {.callout-tip}
-## 추정기의 편향이 방향을 가른다
-
-내일 보상을 Greedy로 추정했을 때는 오히려 점수가 하락했다. 반면 작은 Beam으로 추정하면 개선됐다.
-
-미래 추정기는 실제 해법과 **비슷한 inductive bias**를 가져야 한다.
-:::
-
-## 파라미터는 어떻게 정해야 하는가?
-
-완성 코드의 숫자를 외우는 것이 아니라, **파라미터의 역할과 튜닝 절차**를 익혀야 한다.
-
-### 문제에서 직접 결정
-
-```text
-DAY_LIMIT = 720
-OVERTIME = 480
-OT_BONUS = 200
-MAX_DEPTH = 12
-```
-
-### 문제 구조에서 초기값을 추론
-
-```text
-PRE_LAMBDA ≈ 1500
-POST_LAMBDA = PRE_LAMBDA - OT_BONUS ≈ 1300
-NEXT_LAMBDA ≈ PRE_LAMBDA
-```
-
-### 실험으로 결정
-
-```text
-CANDIDATE_COUNT
-BEAM_WIDTH
-NEXT_COUNT
-CAND_MU
-TOPK
-LA_BEAM
-```
-
-## Lambda 튜닝 — 숫자보다 스케일을 먼저 찾는다
-
-집의 가격/청소시간이 대략 1333~1600점/분이므로 시간 1분의 초기 가치를 약 1500으로 잡을 수 있다.
-
-처음부터 1450을 맞힐 필요는 없다.
-
-### Coarse search
-
-```text
-1000
-1200
-1400
-1600
-1800
-2000
-```
-
-### Fine search
-
-좋은 영역이 1400~1600이라면:
-
-```text
-1400
-1450
-1500
-1550
-1600
-```
-
-처럼 좁힌다.
-
-::: {.callout-note}
-## 좋은 파라미터는 보통 넓은 plateau를 만든다
-
-`1498`에서만 좋고 `1497`, `1499`에서 급락한다면 위험한 휴리스틱이다.
-
-시험에서는 최고점 하나보다 **넓은 안정 구간**을 찾는 것이 더 중요하다.
-:::
-
-## NEXT_COUNT 튜닝
-
-`NEXT_COUNT`는 한 상태에서 다음 선택을 몇 갈래까지 펼칠지를 결정한다.
-
-추천 실험:
-
-```text
-4
-8
-12
-16
-24
-```
-
-- 증가했을 때 SCORE가 크게 오른다 → 기존 탐색이 너무 Greedy
-- 증가해도 SCORE가 거의 그대로인데 시간만 증가 → 분기폭은 이미 충분
-
-시험장 첫 값으로는 `4~8` 정도가 적당하다.
-
-## BEAM_WIDTH 튜닝
-
-`BEAM_WIDTH`는 서로 다른 history를 얼마나 많이 유지할지 결정한다.
-
-추천 실험:
-
-```text
-100
-300
-600
+Beam width
+500
 1000
 2000
 4000
 ```
 
-관찰할 것은 단순 SCORE가 아니라
-
-$$
-\frac{\Delta\text{Score}}{\Delta\text{Runtime}}
-$$
-
-이다.
+## 2단계: 좋은 구간만 fine sweep
 
 예:
 
-| Beam | SCORE | Runtime |
-|---:|---:|---:|
-| 1000 | 331.0M | 3.0s |
-| 2000 | 332.0M | 4.8s |
-| 3000 | 332.4M | 6.3s |
-| 4000 | 332.5M | 8.2s |
+```text
+1200
+1400
+1600
+1800
+```
 
-4000 근처에서는 추가 탐색의 한계효용이 작다.
-
-## 같은 탐색 예산에서 Beam과 Next의 차이
-
-다음 두 설정은 최대 자식 수가 같다.
+## 3단계: plateau와 boundary 확인
 
 ```text
-A: Beam=2000, Next=16
-B: Beam=4000, Next=8
+1700
+1750
+1800
+1850
 ```
 
-둘 다:
+## 4단계: 하나를 고정하고 다음 축으로 이동
 
-$$
-32,000
-$$
+한 축을 끝없이 튜닝하지 않는다.
 
-개의 child를 만들 수 있다.
+# 점수 개선량과 runtime을 함께 본다
 
-하지만 의미는 다르다.
-
-- A: 적은 history에서 다양한 다음 선택
-- B: 많은 history를 유지하되 각 history에서 적은 선택
-
-현재 문제는 경로 history가 중요하므로 `NEXT_COUNT`를 너무 작게 만들지 않는 선에서 Beam Width에 더 많은 예산을 주는 전략이 잘 맞을 수 있다.
-
-## 시험장에서의 구현 순서
-
-완성형 코드를 처음부터 한 번에 작성하려 하면 매우 어렵다. 이 문제의 최종 코드는 여러 단계의 개선 결과로 보는 것이 맞다.
-
-### V0 — 안전한 Greedy
+예를 들어
 
 ```text
-현재 위치에서
-price - λ*(이동+청소)
-가 좋은 집 선택
+A:
+333.30M
+7 sec
+
+B:
+333.31M
+20 sec
 ```
 
-먼저 SCORE가 0이 아닌 제출 가능한 baseline을 만든다.
+라면 B가 항상 좋은 선택은 아니다.
 
-### V1 — 후보 축소
+남은 시간이 있다면 13초를 다른 구조 개선에 투자하는 것이 더 큰 점수를 줄 수 있다.
+
+따라서 휴리스틱에서는
+
+\[
+\boxed{\frac{\Delta SCORE}{\Delta Runtime}}
+\]
+
+감각도 중요하다.
+
+# 실패한 아이디어를 빨리 버리는 기준
+
+다음 상황이면 한 축을 닫는다.
 
 ```text
-전체 집
-→ 유망 후보 30~60개
+coarse sweep 전체가 baseline 이하
+작은 coefficient부터 바로 악화
+구조적으로 다른 2~3개 variant도 모두 실패
+runtime만 크게 증가
 ```
 
-### V2 — 작은 Beam
-
-처음에는:
-
-```cpp
-CANDIDATE_COUNT = 30;
-NEXT_COUNT = 4;
-BEAM_WIDTH = 100;
-```
-
-정도로 구현한다.
-
-### V3 — rank 추가
-
-처음에는:
-
-```cpp
-rank = prize - 1500 * time;
-```
-
-처럼 단순하게 시작한다.
-
-### V4 — 초과근무 반영
-
-```cpp
-PRE_LAMBDA = 1500;
-POST_LAMBDA = 1300;
-```
-
-### V5 — 전이시간 사전 계산
+이번 문제에서는 day+2에 대해
 
 ```text
-distance + cleaning
+Top-1 proxy 실패
+Greedy rollout 실패
+Actual Beam 실패
 ```
 
-반복 계산 제거.
+까지 확인했으므로 더 이상 day+2 lambda를 세밀하게 튜닝하지 않았다.
 
-### V6 — NEXT Top-K
+이것이 시험 시간 관리에서 중요하다.
 
-각 상태에서 모든 후보를 child로 만들지 않고 상위 몇 개만 실제 확장.
+# 휴리스틱에서 자주 하는 실수
 
-### V7 — Beam 폭 증가
+## 실제 목적함수를 그대로 rank로 쓴다
+
+Beam rank는 survivor selection을 위한 함수다.
+
+실제 SCORE와 같을 필요가 없다.
+
+## 탐색량을 늘리면 무조건 좋아진다고 생각한다
+
+Approximate evaluator에서는 오히려 나빠질 수 있다.
+
+## 후보 diversity와 evaluator 정확도를 혼동한다
+
+후보를 늘리면 recall은 올라가지만 winner's curse도 증가한다.
+
+## parameter 하나의 최고점만 보고 확정한다
+
+plateau와 testcase별 변화를 확인해야 한다.
+
+## 코드 최적화에서 tie ordering을 바꾼다
+
+점수가 달라질 수 있다.
+
+## 미래 proxy를 직관만 믿고 사용한다
+
+FutureProxy는 반드시 `COEF=0` regression부터 확인하고 작은 coefficient로 검증한다.
+
+# Regression Test의 중요성
+
+새 기능을 추가할 때 항상
 
 ```text
-100 → 300 → 600 → 1000 → 2000 → ...
+NEW_FEATURE_COEF = 0
 ```
 
-### V8 — 2-day lookahead
+또는
 
-1-day Beam이 안정적으로 돌아간 뒤 마지막 고득점 개선으로 붙인다.
+```text
+FEATURE_DISABLED
+```
 
-::: {.callout-important}
-## 시험장의 핵심 전략
+에서 기존 점수가 정확히 재현되는지 확인한다.
 
-처음부터 333M 코드를 작성하는 것이 목표가 아니다.
+이번 실험에서도 계속 사용했다.
 
-**항상 실행 가능한 버전을 유지하면서 한 단계씩 SCORE를 올린다.**
+예:
+
+```text
+Future proxy coef=0
+→ 333.1988M
+
+Greedy steps=0
+→ 333.1988M
+
+Day2 coef=0
+→ 333.1988M
+
+Adaptive width=1270
+→ 333.1988M
+
+Adaptive OFF
+→ 333.1988M
+```
+
+이 검증이 있어야
+
+> 점수가 변한 이유가 아이디어 때문인지 버그 때문인지
+
+구분할 수 있다.
+
+# 최종적으로 배운 것
+
+이 문제는 단순히 Beam Search를 배우는 문제가 아니었다.
+
+가장 중요한 학습 내용은 다음 흐름이다.
 
 ```text
 Greedy
-→ Candidate pruning
-→ Small Beam
-→ Better rank
-→ Precompute
-→ Larger Beam
-→ Lookahead
+    ↓
+하루 단위 Beam
+    ↓
+Candidate filtering
+    ↓
+State-specific branching
+    ↓
+Surrogate rank
+    ↓
+Top-K DayPlan
+    ↓
+Tomorrow lookahead
+    ↓
+Evaluator parameter 분리
+    ↓
+Beam selection 최적화
+    ↓
+Cache
+    ↓
+실패한 future proxy
+    ↓
+실패한 deeper lookahead
+    ↓
+Adaptive search
+    ↓
+Lazy challenger verification
 ```
 
-이 순서가 훨씬 안전하다.
-:::
-
-## 복잡도·메모리 분석
-
-기호:
-
-- $N$: 집 수 ($\le400$)
-- $C$: 후보 수 (63)
-- $B$: Beam 폭 (3800)
-- $R$: 상태당 실제 확장 수 (`NEXT_COUNT=16`)
-- $L$: 최대 depth (12)
-
-### 후보 검사
-
-각 Beam 상태에서 최대 $C$개의 후보를 검사하므로:
-
-$$
-O(LBC)
-$$
-
-현재 값:
-
-$$
-12\times3800\times63
-\approx
-2.87\times10^6
-$$
-
-후보 검사 수준이다.
-
-### 자식 생성
-
-최대:
-
-$$
-O(LBR)
-$$
-
-이며 한 depth에서 최대:
-
-$$
-3800\times16
-=
-60,800
-$$
-
-개의 child가 생성된다.
-
-### 정렬
-
-각 depth에서 child 상태를 merge sort하므로 대략:
-
-$$
-O(BR\log(BR))
-$$
-
-비용이 추가된다.
-
-### Lookahead
-
-하루 main Beam 한 번 + 오늘 Top-K 각각에 대해 작은 Beam을 수행한다.
-
-```text
-main beam: width 3800
-lookahead: TOPK=4 × width 400
-```
-
-## 메모리 분석 시 주의
-
-기존 merge sort 구현에서는 다음 세 배열이 크다.
-
-```cpp
-stateA[MAX_NEXT_STATE]
-stateB[MAX_NEXT_STATE]
-mergeBuffer[MAX_NEXT_STATE]
-```
-
-여기서:
-
-$$
-MAX\_NEXT\_STATE
-=
-BEAM\_WIDTH
-\times
-NEXT\_COUNT
-=
-60,800
-$$
-
-이다.
-
-전역 배열이므로 스택 1MB 제약에는 직접 걸리지 않는다.
-
-## 천장 진단 — 이동이 유일한 지렛대
-
-Beam 해의 점수를 성분 분해하면:
-
-| 성분 | 값 | 여지 |
-|---|---:|---|
-| 초과근무 | 14.86M ≈ 이론상 최대 14.88M | 거의 없음 |
-| 유휴 | 88분 | 거의 없음 |
-| 이동 | 15,182분 | **핵심 개선 대상** |
-
-초과근무와 유휴가 거의 포화되어 있다면 더 이상 “하루를 더 꽉 채우자”가 핵심이 아니다.
-
-남은 지렛대는:
-
-> **이동시간을 줄여 청소시간으로 바꾸는 것**
-
-이다.
-
-이 분석이 2-day lookahead를 시도한 근거가 된다. 오늘 마지막 위치를 더 좋게 만들면 다음 날 첫 이동을 줄일 수 있기 때문이다.
-
-## 왜 이겼고, 왜 이전 접근은 정체했는가?
-
-Greedy, GRASP, 2-opt, LNS는 모두 서로 다른 알고리즘처럼 보였지만 사실 같은 표현을 공유했다.
-
-```text
-전역 tour
-+
-day packing
-```
-
-따라서 같은 구조적 약점을 공유했다.
-
-Beam Search의 가장 큰 개선은 파라미터가 아니라 **문제 표현을 바꾼 것**이다.
-
-```text
-전역 tour 최적화
-↓
-하루 단위 작은 OP 최적화
-```
-
-이 한 번의 representation change가 이후의 모든 튜닝보다 더 큰 점수 상승을 만들었다.
-
-## 시험 대비용 핵심 체크리스트
-
-새 점수형 문제를 보면 다음 순서로 생각한다.
-
-### 채점 코드
-
-- 실제 objective는 무엇인가?
-- 0점/리셋 조건은 무엇인가?
-- hard constraint는 무엇인가?
-- 상태가 여러 라운드 사이에 무엇을 carry하는가?
-
-### 문제 구조
-
-- 전체 문제를 작은 독립 서브문제로 분리할 수 있는가?
-- 최대 depth를 제약에서 도출할 수 있는가?
-- 후보 수를 줄일 수 있는가?
-
-### Baseline
-
-- 가장 단순한 Greedy는 무엇인가?
-- 시간 1단위의 대략적인 가치가 얼마인가?
-
-### Beam
-
-- State에 정말 필요한 정보만 넣었는가?
-- `CANDIDATE_COUNT`, `NEXT_COUNT`, `BEAM_WIDTH`의 역할을 구분했는가?
-- pruning용 rank와 실제 objective를 분리했는가?
-
-### 실행시간
-
-- 반복되는 거리/비용을 사전 계산할 수 있는가?
-- 전체 정렬이 정말 필요한가?
-- 자료형 범위를 줄일 수 있는가?
-- `-O0`에서 State 복사가 병목인가?
-
-### 튜닝
-
-- 한 번에 한 파라미터만 변경했는가?
-- SCORE뿐 아니라 runtime도 기록했는가?
-- 테스트케이스별 악화 원인을 분석했는가?
-- Beam을 더 키우는 것이 아니라 평가함수를 고쳐야 하는 상황은 아닌가?
-
-## 실험 기록 양식
-
-```text
-[버전]
-V__
-
-[탐색]
-Candidate:
-Next:
-Beam:
-TopK:
-LA_Beam:
-
-[평가함수]
-CandLambda:
-CandMu:
-NextLambda:
-PreLambda:
-PostLambda:
-
-[결과]
-총점:
-실행시간:
-
-TC1:
-TC2:
-...
-TC10:
-
-[변경점]
--
-
-[좋아질 것으로 예상한 이유]
--
-
-[실제 결과]
--
-
-[나빠진 테스트의 특징]
--
-
-[다음 실험]
--
-```
-
-## 최종 교훈
-
-1. **표현을 바꾸는 것이 파라미터를 바꾸는 것보다 강하다.**  
-   전역 tour → 하루 단위 Beam이라는 표현 전환이 가장 큰 도약이었다.
-
-2. **상관된 방법의 수렴은 최적성의 증거가 아니다.**  
-   같은 해 표현을 공유하는 알고리즘은 같은 basin에 갇힐 수 있다.
-
-3. **탐색량을 늘린다고 SCORE가 반드시 증가하지 않는다.**  
-   불완전한 rank와 pruning이 존재하는 휴리스틱에서는 `More Search ≠ Better Score`다.
-
-4. **Beam Width와 Candidate Count는 다르다.**  
-   후보는 집의 수이고, Beam은 살아남는 부분 경로의 수다.
-
-5. **`cost`의 의미를 정확히 읽어야 한다.**  
-   이 문제의 transition cost는 이동거리뿐 아니라 도착 집의 청소시간까지 포함한다.
-
-6. **대리 목적과 실제 목적을 분리한다.**  
-   pruning은 `rank`, 최종 선택은 `finalReward`.
-
-7. **파라미터는 외우지 말고 범위를 찾는 절차를 익힌다.**  
-   coarse search → fine search → runtime frontier.
-
-8. **시험장에서는 항상 동작하는 버전을 유지한다.**  
-   Greedy → 후보 축소 → 작은 Beam → 평가함수 → 최적화 → lookahead 순으로 발전시킨다.
-
-9. **이미 제한시간 안에 들어오는 단순한 구현은 강한 자산이다.**  
-   merge sort가 이해하기 쉽고 충분히 빠르다면, 더 복잡한 Min-Heap으로 바꾸지 않는 선택도 좋은 최적화 전략이다.
-
-10. **점수형 문제의 실력은 완성 코드를 외우는 것이 아니라, 병목을 보고 다음 개선을 선택하는 능력이다.**
+결론적으로 좋은 휴리스틱은
+
+\[
+\boxed{\text{많이 탐색하는 알고리즘}}
+\]
+
+이 아니라
+
+\[
+\boxed{\text{어디를 더 탐색해야 하는지 판단하는 알고리즘}}
+\]
+
+이었다.
+
+최종 adaptive 정책은 그 원칙을 가장 잘 보여준다.
+
+\[
+\boxed{
+W=
+\begin{cases}
+1270 & \text{일반적인 판단}\\
+1750 & \text{1위와 2위가 거의 동률}
+\end{cases}
+}
+\]
+
+그리고 추가 계산도 모든 후보가 아니라
+
+\[
+\boxed{\text{실제로 1위를 위협하는 challenger}}
+\]
+
+에게 먼저 사용한다.
+
+이것이 4시간 제한의 점수형 대회에서 특히 중요한 구현 감각이다.
+
+# 시험 직전 체크리스트
+
+1. 채점 코드에서 실제 목적함수와 illegal 조건부터 찾는다.
+2. 입력 크기에서 물리적인 탐색 depth 상한을 계산한다.
+3. 1시간 안에 합법적인 Greedy baseline을 만든다.
+4. 전역 후보 축소와 state별 branching을 분리한다.
+5. Beam rank와 실제 reward를 분리해서 생각한다.
+6. 탐색량을 늘렸을 때 점수가 떨어질 수 있음을 항상 가정한다.
+7. lookahead는 Today Top-K에만 사용한다.
+8. approximate evaluator에 너무 많은 후보를 노출하지 않는다.
+9. `-O0`에서는 반복 정렬, 큰 struct 복사, 동적 할당을 특히 경계한다.
+10. precompute, bitmask, compact state, Top-K selection을 적극 활용한다.
+11. 새 아이디어는 feature OFF에서 기존 SCORE가 재현되는지 먼저 확인한다.
+12. coarse sweep → fine sweep → boundary 분석 순으로 튜닝한다.
+13. 넓은 plateau는 robustness 신호로 본다.
+14. sharp peak는 Beam ordering boundary인지 확인한다.
+15. 깊은 탐색보다 가까운 evaluator의 품질을 먼저 개선한다.
+16. 계산량은 모든 후보가 아니라 uncertain decision에 집중한다.
+17. 상위 후보가 매우 가까우면 challenger verification을 고려한다.
+18. 총점뿐 아니라 testcase별 점수와 runtime을 기록한다.
+19. 마지막 20분에는 구조 변경보다 버그와 worst-case runtime을 점검한다.
+20. 최고의 휴리스틱 질문은 항상 이것이다.
+
+> **“지금 추가로 쓸 수 있는 계산량을 어디에 투자해야 최종 선택이 가장 많이 개선되는가?”**
