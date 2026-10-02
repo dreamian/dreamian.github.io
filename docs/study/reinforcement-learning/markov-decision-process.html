@@ -1,0 +1,2302 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.36">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-10-02">
+
+<title>마르코프 결정 과정 (Markov Decision Process) – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-845c23b38eaddc0f92fda52bfe77a8c8.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-2c169b83e1fc2996b25bcc8774810429.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script src="../../site_libs/quarto-diagram/mermaid.min.js"></script>
+<script src="../../site_libs/quarto-diagram/mermaid-init.js"></script>
+<link href="../../site_libs/quarto-diagram/mermaid.css" rel="stylesheet">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/reinforcement-learning/index.html">
+ <span class="dropdown-text">Reinforcement Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/random-signal-theory/index.html">
+ <span class="dropdown-text">Random Signal Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-science/index.html">
+ <span class="dropdown-text">Data Science</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../docs/research/papers/index.html">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#표기" id="toc-표기" class="nav-link active" data-scroll-target="#표기">표기</a></li>
+  <li><a href="#순차적-의사결정-sequential-decision-making" id="toc-순차적-의사결정-sequential-decision-making" class="nav-link" data-scroll-target="#순차적-의사결정-sequential-decision-making"><span class="header-section-number">1</span> 순차적 의사결정 (Sequential Decision Making)</a>
+  <ul class="collapse">
+  <li><a href="#두-가지-핵심-특징" id="toc-두-가지-핵심-특징" class="nav-link" data-scroll-target="#두-가지-핵심-특징"><span class="header-section-number">1.1</span> 두 가지 핵심 특징</a></li>
+  <li><a href="#agentenvironment-상호작용" id="toc-agentenvironment-상호작용" class="nav-link" data-scroll-target="#agentenvironment-상호작용"><span class="header-section-number">1.2</span> Agent–Environment 상호작용</a></li>
+  <li><a href="#보상에-대한-가정" id="toc-보상에-대한-가정" class="nav-link" data-scroll-target="#보상에-대한-가정"><span class="header-section-number">1.3</span> 보상에 대한 가정</a></li>
+  <li><a href="#왜-지도학습으로-풀-수-없는가" id="toc-왜-지도학습으로-풀-수-없는가" class="nav-link" data-scroll-target="#왜-지도학습으로-풀-수-없는가"><span class="header-section-number">1.4</span> 왜 지도학습으로 풀 수 없는가</a></li>
+  </ul></li>
+  <li><a href="#mdp의-구성-요소" id="toc-mdp의-구성-요소" class="nav-link" data-scroll-target="#mdp의-구성-요소"><span class="header-section-number">2</span> MDP의 구성 요소</a>
+  <ul class="collapse">
+  <li><a href="#보상-함수는-결정론적인가" id="toc-보상-함수는-결정론적인가" class="nav-link" data-scroll-target="#보상-함수는-결정론적인가"><span class="header-section-number">2.1</span> 보상 함수는 결정론적인가</a></li>
+  <li><a href="#할인율-gamma" id="toc-할인율-gamma" class="nav-link" data-scroll-target="#할인율-gamma"><span class="header-section-number">2.2</span> 할인율 <span class="math inline">\(\gamma\)</span></a>
+  <ul class="collapse">
+  <li><a href="#리턴의-수렴" id="toc-리턴의-수렴" class="nav-link" data-scroll-target="#리턴의-수렴"><span class="header-section-number">2.2.1</span> 리턴의 수렴</a></li>
+  <li><a href="#왜-개구간-01인가" id="toc-왜-개구간-01인가" class="nav-link" data-scroll-target="#왜-개구간-01인가"><span class="header-section-number">2.2.2</span> 왜 개구간 <span class="math inline">\((0,1)\)</span>인가</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#결정-규칙과-정책" id="toc-결정-규칙과-정책" class="nav-link" data-scroll-target="#결정-규칙과-정책"><span class="header-section-number">3</span> 결정 규칙과 정책</a>
+  <ul class="collapse">
+  <li><a href="#결정-규칙-decision-rule" id="toc-결정-규칙-decision-rule" class="nav-link" data-scroll-target="#결정-규칙-decision-rule"><span class="header-section-number">3.1</span> 결정 규칙 (Decision Rule)</a></li>
+  <li><a href="#정책-policy" id="toc-정책-policy" class="nav-link" data-scroll-target="#정책-policy"><span class="header-section-number">3.2</span> 정책 (Policy)</a>
+  <ul class="collapse">
+  <li><a href="#시점마다-결정-규칙이-달라지는가" id="toc-시점마다-결정-규칙이-달라지는가" class="nav-link" data-scroll-target="#시점마다-결정-규칙이-달라지는가"><span class="header-section-number">3.2.1</span> 시점마다 결정 규칙이 달라지는가</a></li>
+  </ul></li>
+  <li><a href="#정책-공간-pi" id="toc-정책-공간-pi" class="nav-link" data-scroll-target="#정책-공간-pi"><span class="header-section-number">3.3</span> 정책 공간 <span class="math inline">\(\Pi\)</span></a></li>
+  <li><a href="#왜-행동-시퀀스가-아니라-정책을-최적화하는가" id="toc-왜-행동-시퀀스가-아니라-정책을-최적화하는가" class="nav-link" data-scroll-target="#왜-행동-시퀀스가-아니라-정책을-최적화하는가"><span class="header-section-number">3.4</span> 왜 행동 시퀀스가 아니라 정책을 최적화하는가</a></li>
+  </ul></li>
+  <li><a href="#sec-example" id="toc-sec-example" class="nav-link" data-scroll-target="#sec-example"><span class="header-section-number">4</span> 예제: 두 상태 MDP</a></li>
+  <li><a href="#mdp-문제와-그-어려움" id="toc-mdp-문제와-그-어려움" class="nav-link" data-scroll-target="#mdp-문제와-그-어려움"><span class="header-section-number">5</span> MDP 문제와 그 어려움</a></li>
+  <li><a href="#정책-평가와-monte-carlo-시뮬레이션" id="toc-정책-평가와-monte-carlo-시뮬레이션" class="nav-link" data-scroll-target="#정책-평가와-monte-carlo-시뮬레이션"><span class="header-section-number">6</span> 정책 평가와 Monte Carlo 시뮬레이션</a>
+  <ul class="collapse">
+  <li><a href="#절차" id="toc-절차" class="nav-link" data-scroll-target="#절차"><span class="header-section-number">6.1</span> 절차</a></li>
+  <li><a href="#장점-된다는-의미" id="toc-장점-된다는-의미" class="nav-link" data-scroll-target="#장점-된다는-의미"><span class="header-section-number">6.2</span> 장점: “된다”는 의미</a></li>
+  <li><a href="#단점-분산이-매우-크다" id="toc-단점-분산이-매우-크다" class="nav-link" data-scroll-target="#단점-분산이-매우-크다"><span class="header-section-number">6.3</span> 단점: 분산이 매우 크다</a></li>
+  </ul></li>
+  <li><a href="#가치-함수-value-function" id="toc-가치-함수-value-function" class="nav-link" data-scroll-target="#가치-함수-value-function"><span class="header-section-number">7</span> 가치 함수 (Value Function)</a>
+  <ul class="collapse">
+  <li><a href="#시작-시간은-중요하지-않다" id="toc-시작-시간은-중요하지-않다" class="nav-link" data-scroll-target="#시작-시간은-중요하지-않다"><span class="header-section-number">7.1</span> 시작 시간은 중요하지 않다</a></li>
+  <li><a href="#왜-정책-평가의-핵심-개념인가" id="toc-왜-정책-평가의-핵심-개념인가" class="nav-link" data-scroll-target="#왜-정책-평가의-핵심-개념인가"><span class="header-section-number">7.2</span> 왜 정책 평가의 핵심 개념인가</a></li>
+  </ul></li>
+  <li><a href="#정책-평가-방정식" id="toc-정책-평가-방정식" class="nav-link" data-scroll-target="#정책-평가-방정식"><span class="header-section-number">8</span> 정책 평가 방정식</a>
+  <ul class="collapse">
+  <li><a href="#분해-아이디어" id="toc-분해-아이디어" class="nav-link" data-scroll-target="#분해-아이디어"><span class="header-section-number">8.1</span> 분해 아이디어</a></li>
+  <li><a href="#유도" id="toc-유도" class="nav-link" data-scroll-target="#유도"><span class="header-section-number">8.2</span> 유도</a></li>
+  <li><a href="#행렬-형태" id="toc-행렬-형태" class="nav-link" data-scroll-target="#행렬-형태"><span class="header-section-number">8.3</span> 행렬 형태</a></li>
+  <li><a href="#sec-contraction" id="toc-sec-contraction" class="nav-link" data-scroll-target="#sec-contraction"><span class="header-section-number">8.4</span> 연산자 형태와 고정점</a></li>
+  </ul></li>
+  <li><a href="#최적-가치-함수" id="toc-최적-가치-함수" class="nav-link" data-scroll-target="#최적-가치-함수"><span class="header-section-number">9</span> 최적 가치 함수</a>
+  <ul class="collapse">
+  <li><a href="#최적-가치-함수를-구하면-mdp를-풀었다-왜" id="toc-최적-가치-함수를-구하면-mdp를-풀었다-왜" class="nav-link" data-scroll-target="#최적-가치-함수를-구하면-mdp를-풀었다-왜"><span class="header-section-number">9.1</span> “최적 가치 함수를 구하면 MDP를 풀었다” — 왜?</a></li>
+  </ul></li>
+  <li><a href="#bellman-방정식" id="toc-bellman-방정식" class="nav-link" data-scroll-target="#bellman-방정식"><span class="header-section-number">10</span> Bellman 방정식</a>
+  <ul class="collapse">
+  <li><a href="#구조와-해석" id="toc-구조와-해석" class="nav-link" data-scroll-target="#구조와-해석"><span class="header-section-number">10.1</span> 구조와 해석</a></li>
+  <li><a href="#숫자-예-상태별-argmax와-희생" id="toc-숫자-예-상태별-argmax와-희생" class="nav-link" data-scroll-target="#숫자-예-상태별-argmax와-희생"><span class="header-section-number">10.2</span> 숫자 예: 상태별 argmax와 희생</a></li>
+  <li><a href="#sec-stitching" id="toc-sec-stitching" class="nav-link" data-scroll-target="#sec-stitching"><span class="header-section-number">10.3</span> 상태별 최선 행동의 이어 붙이기</a></li>
+  </ul></li>
+  <li><a href="#최적-정책" id="toc-최적-정책" class="nav-link" data-scroll-target="#최적-정책"><span class="header-section-number">11</span> 최적 정책</a>
+  <ul class="collapse">
+  <li><a href="#확률적-markov-정책은-어떻게-얻는가" id="toc-확률적-markov-정책은-어떻게-얻는가" class="nav-link" data-scroll-target="#확률적-markov-정책은-어떻게-얻는가"><span class="header-section-number">11.1</span> 확률적 Markov 정책은 어떻게 얻는가</a></li>
+  <li><a href="#value-iteration-맛보기" id="toc-value-iteration-맛보기" class="nav-link" data-scroll-target="#value-iteration-맛보기"><span class="header-section-number">11.2</span> Value Iteration 맛보기</a></li>
+  </ul></li>
+  <li><a href="#보충-td-학습" id="toc-보충-td-학습" class="nav-link" data-scroll-target="#보충-td-학습"><span class="header-section-number">12</span> 보충: TD 학습</a></li>
+  <li><a href="#핵심-정리" id="toc-핵심-정리" class="nav-link" data-scroll-target="#핵심-정리"><span class="header-section-number">13</span> 핵심 정리</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">마르코프 결정 과정 (Markov Decision Process)</h1>
+<p class="subtitle lead">Stochastic Control &amp; Reinforcement Learning — 순차적 의사결정, MDP 구성 요소, 결정 규칙과 정책 공간, 두 상태 MDP 예제, MDP 문제의 어려움, Monte Carlo 정책 평가, 가치 함수, 정책 평가 방정식과 Bellman 기대 연산자, 최적 가치 함수, Bellman 최적 방정식, 최적 정책과 확률적 최적 정책, TD 학습</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">October 2, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="표기" class="level1 unnumbered">
+<h1 class="unnumbered">표기</h1>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>기호</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(S,\ A\)</span></td>
+<td>상태 공간, 행동 공간</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(s_t,\ a_t,\ r_t\)</span></td>
+<td>시각 <span class="math inline">\(t\)</span>의 상태, 행동, 보상</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(p(s'\mid s,a)\)</span></td>
+<td>전이 확률 <span class="math inline">\(\Pr(s_{t+1}=s'\mid s_t=s,\ a_t=a)\)</span></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(r(s,a)\)</span></td>
+<td>보상 함수 <span class="math inline">\(r: S\times A\to\mathbb{R}\)</span></td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(\gamma\)</span></td>
+<td>할인율, <span class="math inline">\(\gamma\in(0,1)\)</span></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(\pi\)</span></td>
+<td>정책 (결정론적 <span class="math inline">\(\pi(s)\)</span>, 확률적 <span class="math inline">\(\pi(a\mid s)\)</span>)</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(\Pi\)</span></td>
+<td>정책 공간 (정책들의 집합)</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(G_t\)</span></td>
+<td>리턴 <span class="math inline">\(\sum_{\tau\ge t}\gamma^{\tau-t}r_\tau\)</span> (확률변수)</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(J(\pi)\)</span></td>
+<td>정책의 점수 <span class="math inline">\(\mathbb{E}^\pi[G_0]\)</span></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(v^\pi(s)\)</span></td>
+<td>정책 <span class="math inline">\(\pi\)</span>의 가치 함수</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(v^*(s)\)</span></td>
+<td>최적 가치 함수</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(q^*(s,a)\)</span></td>
+<td>최적 행동가치 <span class="math inline">\(r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^*(s')\)</span></td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(\mathcal{T}^\pi,\ \mathcal{T}\)</span></td>
+<td>Bellman 기대 연산자, Bellman 최적 연산자</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="순차적-의사결정-sequential-decision-making" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 순차적 의사결정 (Sequential Decision Making)</h1>
+<section id="두-가지-핵심-특징" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="두-가지-핵심-특징"><span class="header-section-number">1.1</span> 두 가지 핵심 특징</h2>
+<div class="callout callout-style-default callout-important callout-titled" title="핵심">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><strong>현재 행동은 장기적 효과(long-term effect)를 갖는다.</strong> 지금 어떤 행동을 하느냐에 따라 앞으로 거쳐 갈 <strong>상태 궤적(state trajectory) 자체가 달라진다.</strong></li>
+<li>그래서 <strong>당장 보상 측면에서 손해인 행동이라도, 더 큰 장기적 이득을 가져온다면 그 행동을 택해야 한다.</strong></li>
+</ol>
+</div>
+</div>
+<p><strong>Q) 왜 행동이 장기적 효과를 갖는가?</strong> 행동은 보상만이 아니라 <strong>다음 상태의 분포</strong> <span class="math inline">\(p(\cdot\mid s,a)\)</span>를 정한다. 다음 상태가 바뀌면 그 이후 받을 수 있는 보상이 전부 바뀐다. 시각 <span class="math inline">\(t\)</span>에 <span class="math inline">\(a\)</span> 대신 <span class="math inline">\(a'\)</span>를 택하고 이후 같은 정책 <span class="math inline">\(\pi\)</span>를 쓰면, 두 선택의 차이는</p>
+<p><span class="math display">\[
+J(a)-J(a')=\underbrace{r(s,a)-r(s,a')}_{\text{즉각 항}}+\sum_{k\ge1}\gamma^k\,(p_a-p_{a'})\,P_\pi^{\,k-1}\,\bar r_\pi
+\]</span></p>
+<p>로 전파된다. 둘째 항이 장기 효과이며, 전이가 행동과 무관하면(<span class="math inline">\(p_a=p_{a'}\)</span>) 0이 되어 문제는 <strong>bandit</strong>으로 퇴화한다. 즉 <strong>장기 효과의 원천은 전이 확률의 행동 의존성</strong>이다.</p>
+<p><strong>Q) 즉각 보상을 희생해서 어떻게 장기 보상을 얻는가?</strong> 행동을 <span class="math inline">\(r(s,a)\)</span>가 아니라 <strong>“지금 보상 + 할인된 미래 가치”</strong> 기준으로 고른다. 희생이 정당화되는 조건은</p>
+<p><span class="math display">\[
+\underbrace{r(s,a_g)-r(s,a_*)}_{\text{포기하는 즉각 보상}}\;&lt;\;\gamma\Big[\sum_{s'}p(s'\mid s,a_*)v^*(s')-\sum_{s'}p(s'\mid s,a_g)v^*(s')\Big].
+\]</span></p>
+<p>즉 “희생”이란 <strong>현재 보상을 지불하고 미래 가치가 높은 상태를 사는 것</strong>이다.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="예: 갈림길">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>예: 갈림길
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>행동 A: 보상 1, 이후 막다른 길(매 스텝 0)</li>
+<li>행동 B: 보상 0, 확률 0.8로 황금길(매 스텝 2), 0.2로 막다른 길</li>
+</ul>
+<p><span class="math display">\[
+J(A)=1,\qquad J(B)=0.8\cdot\frac{2\gamma}{1-\gamma}=\frac{1.6\gamma}{1-\gamma}
+\quad\Longrightarrow\quad B\text{가 최적} \iff \gamma&gt;\tfrac{1}{2.6}\approx0.385.
+\]</span></p>
+<p><span class="math inline">\(\gamma\)</span>가 작으면(근시안적) 즉각 보상이 큰 A가, 크면 B가 최적이다.</p>
+</div>
+</div>
+</section>
+<section id="agentenvironment-상호작용" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="agentenvironment-상호작용"><span class="header-section-number">1.2</span> Agent–Environment 상호작용</h2>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart LR
+  AG["Agent&lt;br/&gt;(정책 π)"] -- "행동 a_t" --&gt; EN["Environment&lt;br/&gt;(p, r)"]
+  EN -- "보상 r_t = r(s_t,a_t)" --&gt; AG
+  EN -- "다음 상태 s_{t+1} ~ p(·|s_t,a_t)" --&gt; AG
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th>하는 일</th>
+<th>대응 객체</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Agent</td>
+<td><span class="math inline">\(s_t\)</span> 관찰 → <span class="math inline">\(a_t\)</span> 선택 → <span class="math inline">\(r_t\)</span> 수신</td>
+<td>정책 <span class="math inline">\(\pi\)</span> (<strong>설계·최적화 대상</strong>)</td>
+</tr>
+<tr class="even">
+<td>Environment</td>
+<td><span class="math inline">\(a_t\)</span> 수신 → <span class="math inline">\(r_t\)</span> 방출 → <span class="math inline">\(s_{t+1}\)</span>로 갱신</td>
+<td><span class="math inline">\(r,\ p\)</span> (<strong>주어진 것</strong>)</td>
+</tr>
+</tbody>
+</table>
+<p>정책을 고정하면 궤적 위의 확률분포가 정해진다.</p>
+<p><span class="math display">\[
+P^\pi(s_0,a_0,s_1,a_1,\dots)=\mu_0(s_0)\prod_t \pi(a_t\mid s_t)\,p(s_{t+1}\mid s_t,a_t)
+\]</span></p>
+<p>목적함수의 <span class="math inline">\(\mathbb{E}^\pi\)</span>는 <strong>이 분포에 대한 기댓값</strong>이다.</p>
+</section>
+<section id="보상에-대한-가정" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="보상에-대한-가정"><span class="header-section-number">1.3</span> 보상에 대한 가정</h2>
+<p><strong>보상 가설</strong>: 모든 목표는 <em>스칼라 보상의 누적 기댓값 최대화</em>로 기술할 수 있다. 이는 정리가 아니라 <strong>가정</strong>이다.</p>
+<ul>
+<li><strong>왜 스칼라인가?</strong> <span class="math inline">\(\mathbb{R}^d\)</span>에는 전순서가 없어 벡터 리턴끼리는 비교 불가능할 수 있다(답이 Pareto front가 됨). 교환비율 <span class="math inline">\(w\)</span>를 정하면 <span class="math inline">\(w^\top J(\pi)=\mathbb{E}^\pi[\sum_t\gamma^t w^\top r_t]\)</span>로 스칼라 MDP가 된다. 스칼라 보상은 이 스칼라화를 미리 끝낸 상태다. (vNM 효용 정리가 “스칼라 효용의 기댓값”을 정당화)</li>
+<li><strong>왜 기댓값인가?</strong> 리턴은 확률변수라 하나의 실수로 요약해야 하며, 기댓값의 선형성이 Bellman 재귀를 가능하게 한다. 분산·CVaR 같은 위험 민감 목표는 재귀 구조를 깨뜨리기 쉽다.</li>
+</ul>
+</section>
+<section id="왜-지도학습으로-풀-수-없는가" class="level2" data-number="1.4">
+<h2 data-number="1.4" class="anchored" data-anchor-id="왜-지도학습으로-풀-수-없는가"><span class="header-section-number">1.4</span> 왜 지도학습으로 풀 수 없는가</h2>
+<div class="callout callout-style-default callout-important callout-titled" title="핵심">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>보상 함수는 현재 상태·행동의 즉각적 이득만 측정할 뿐, 미래 행동이나 상태에서 얻을 이득은 측정하지 못한다.</strong> 그래서 지도학습으로 풀 수 없다.</p>
+</div>
+</div>
+<ul>
+<li>지도학습은 정답 레이블 <span class="math inline">\((s,\ a^*(s))\)</span>이 필요하다. 보상은 <strong>평가(evaluative)</strong>이지 <strong>정답 지시(instructive)</strong>가 아니다.</li>
+<li>즉각 보상 최대 행동 <span class="math inline">\(\arg\max_a r(s,a)\)</span>을 레이블로 쓰면 틀린다. 진짜 정답은 <span class="math inline">\(\arg\max_a q^*(s,a)\)</span>이고, <span class="math inline">\(q^*=r+\gamma\,\mathbb{E}[v^*]\)</span>의 <strong>둘째 항(미래 가치)을 보상이 담지 못한다.</strong></li>
+<li>올바른 레이블을 만들려면 <span class="math inline">\(v^*\)</span>가 필요한데, <span class="math inline">\(v^*\)</span>를 구하는 것이 곧 MDP를 푸는 것이다 (순환).</li>
+<li>추가로: 보상 지연(credit assignment), 방문 상태 분포 <span class="math inline">\(\mu_t^\pi\)</span>가 정책에 의존(i.i.d. 위반).</li>
+</ul>
+<div class="callout callout-style-default callout-tip callout-titled" title="보충">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>보충
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>정답 행동 데이터(전문가 시연)가 있으면 모방학습(behavior cloning)이라는 지도학습이 가능하다. “보상만 주어진” 설정에서 “보상 = 정답 레이블”로 쓸 수 없다는 뜻이다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="mdp의-구성-요소" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> MDP의 구성 요소</h1>
+<div class="callout callout-style-default callout-note callout-titled" title="정의 (MDP)">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>정의 (MDP)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>MDP는 튜플 <span class="math inline">\(\langle S, A, p, r, \gamma\rangle\)</span>이다.</p>
+<ul>
+<li><span class="math inline">\(S\)</span>: 상태 공간. 예: <span class="math inline">\(\{1,\dots,n\}\)</span> (이산), <span class="math inline">\(\mathbb{R}^n\)</span> (연속)</li>
+<li><span class="math inline">\(A\)</span>: 행동 공간. 예: <span class="math inline">\(\{1,\dots,m\}\)</span>, <span class="math inline">\(\mathbb{R}^m\)</span></li>
+<li><span class="math inline">\(p(s'\mid s,a):=\Pr(s_{t+1}=s'\mid s_t=s,\ a_t=a)\)</span>, <span class="math inline">\(\sum_{s'}p(s'\mid s,a)=1\ \forall(s,a)\)</span></li>
+<li><span class="math inline">\(r: S\times A\to\mathbb{R}\)</span>, <span class="math inline">\(r_t=r(s_t,a_t)\)</span></li>
+<li><span class="math inline">\(\gamma\in(0,1)\)</span>: 할인율</li>
+</ul>
+</div>
+</div>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>요소</th>
+<th>의미</th>
+<th>예</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>상태</td>
+<td>시스템의 상태를 정량화</td>
+<td>위치, 속도, 온도, 자산</td>
+</tr>
+<tr class="even">
+<td>행동</td>
+<td>시스템에 가하는 <strong>조절 가능한 입력</strong></td>
+<td>가속, 조향, ON/OFF, 매수/매도</td>
+</tr>
+<tr class="odd">
+<td>보상</td>
+<td>현재 상태·행동의 <strong>즉각적 이득</strong>(스칼라)</td>
+<td>수입, 점수, 음의 비용</td>
+</tr>
+<tr class="even">
+<td>전이 확률</td>
+<td><strong>확률적 동역학(stochastic dynamics)</strong> 모델링의 근간</td>
+<td>차량 동역학, 네트워크 혼잡</td>
+</tr>
+</tbody>
+</table>
+<section id="보상-함수는-결정론적인가" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="보상-함수는-결정론적인가"><span class="header-section-number">2.1</span> 보상 함수는 결정론적인가</h2>
+<ul>
+<li>이 정의에서 <strong>보상 함수 <span class="math inline">\(r(s,a)\)</span>는 결정론적</strong>이다. 같은 <span class="math inline">\((s,a)\)</span>이면 언제나 같은 값.</li>
+<li>그러나 <strong>실제로 받는 <span class="math inline">\(r_t=r(s_t,a_t)\)</span>는 확률변수</strong>다. 입력 <span class="math inline">\(s_t\)</span>(전이로 무작위)와 <span class="math inline">\(a_t\)</span>(확률적 정책이면 무작위)가 확률변수이기 때문.</li>
+</ul>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>요소</th>
+<th>확률적?</th>
+<th>정하는 주체</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>정책 <span class="math inline">\(\pi\)</span></td>
+<td>결정론적 또는 확률적 (선택)</td>
+<td>agent</td>
+</tr>
+<tr class="even">
+<td>전이 <span class="math inline">\(p\)</span></td>
+<td>확률적</td>
+<td>environment</td>
+</tr>
+<tr class="odd">
+<td>보상 함수 <span class="math inline">\(r\)</span></td>
+<td>결정론적</td>
+<td>environment</td>
+</tr>
+</tbody>
+</table>
+<p>보상에 노이즈가 있어도(<span class="math inline">\(R(\cdot\mid s,a)\)</span>), 목적이 기댓값이면 평균 보상 <span class="math inline">\(\bar r(s,a)=\mathbb{E}[r_t\mid s,a]\)</span>로 바꿔도 같은 문제가 된다 (tower property). <span class="math inline">\(r(s,a,s')\)</span> 형태도 <span class="math inline">\(\bar r(s,a)=\sum_{s'}p(s'\mid s,a)r(s,a,s')\)</span>로 환원된다. <strong>위험 민감 목표에서는 이 환원이 성립하지 않는다.</strong></p>
+</section>
+<section id="할인율-gamma" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="할인율-gamma"><span class="header-section-number">2.2</span> 할인율 <span class="math inline">\(\gamma\)</span></h2>
+<section id="리턴의-수렴" class="level3" data-number="2.2.1">
+<h3 data-number="2.2.1" class="anchored" data-anchor-id="리턴의-수렴"><span class="header-section-number">2.2.1</span> 리턴의 수렴</h3>
+<p><span class="math inline">\(|r_t|\le R_{\max}\)</span>이면 비교판정법에 의해</p>
+<p><span class="math display">\[
+\Big|\sum_{t=0}^\infty\gamma^t r_t\Big|\le\sum_{t=0}^\infty\gamma^t R_{\max}=\frac{R_{\max}}{1-\gamma}.
+\]</span></p>
+<ul>
+<li>등비급수는 <strong>합 자체의 공식이 아니라 상한</strong> 역할이다. 닫힌 형태 <span class="math inline">\(\frac{r}{1-\gamma}\)</span>는 보상이 상수일 때만.</li>
+<li>유한 MDP에서는 <span class="math inline">\(R_{\max}=\max_{s,a}|r(s,a)|\)</span>가 반드시 존재하므로 <span class="math inline">\(\gamma&lt;1\)</span>만으로 수렴이 보장된다.</li>
+<li>예: 보상이 <span class="math inline">\(2,0,2,0,\dots\)</span>이면 <span class="math inline">\(G=\frac{2}{1-\gamma^2}\le\frac{2}{1-\gamma}\)</span>.</li>
+</ul>
+</section>
+<section id="왜-개구간-01인가" class="level3" data-number="2.2.2">
+<h3 data-number="2.2.2" class="anchored" data-anchor-id="왜-개구간-01인가"><span class="header-section-number">2.2.2</span> 왜 개구간 <span class="math inline">\((0,1)\)</span>인가</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th><span class="math inline">\(\gamma\)</span></th>
+<th>목적함수</th>
+<th>문제점</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(0\)</span></td>
+<td>즉각 보상 <span class="math inline">\(r_0\)</span>만</td>
+<td>순차성이 사라짐 (greedy가 최적, bandit)</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\((0,1)\)</span></td>
+<td>할인 누적 보상</td>
+<td>없음 (유계 보상이면 항상 수렴)</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(1\)</span></td>
+<td>할인 없는 누적</td>
+<td>발산(<span class="math inline">\(2+2+\cdots\)</span>), 비교 불능(<span class="math inline">\(\infty\)</span> vs <span class="math inline">\(\infty\)</span>), 진동(<span class="math inline">\((-1)^t\)</span>)</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><span class="math inline">\(\gamma=1\)</span>이 허용되는 경우: 유한 지평, 반드시 종료되는 에피소드, 평균 보상 기준.</li>
+<li>해석: <span class="math inline">\(\gamma\)</span>는 매 스텝 확률 <span class="math inline">\(1-\gamma\)</span>로 종료되는 기하 지평과 동치. 유효 지평 <span class="math inline">\(\approx\frac{1}{1-\gamma}\)</span> (<span class="math inline">\(\gamma=0.99\to\)</span> 약 100스텝).</li>
+<li><span class="math inline">\(\gamma&lt;1\)</span>은 Bellman 연산자의 <strong>수축성</strong>(알고리즘 수렴)도 보장한다 (<a href="#sec-contraction" class="quarto-xref">Section&nbsp;8.4</a>).</li>
+</ul>
+</section>
+</section>
+</section>
+<section id="결정-규칙과-정책" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> 결정 규칙과 정책</h1>
+<section id="결정-규칙-decision-rule" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="결정-규칙-decision-rule"><span class="header-section-number">3.1</span> 결정 규칙 (Decision Rule)</h2>
+<div class="callout callout-style-default callout-important callout-titled" title="핵심">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>결정 규칙은 각 상태에서 택할 행동을 <strong>미리 지정해 두는 사상(mapping), 즉 함수</strong>다.</p>
+</div>
+</div>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>분류</th>
+<th>입력</th>
+<th>출력</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Markov, deterministic</td>
+<td>현재 상태 <span class="math inline">\(s_t\)</span></td>
+<td>행동 하나 <span class="math inline">\(\pi_t(s_t)\)</span></td>
+</tr>
+<tr class="even">
+<td>history-dependent</td>
+<td>히스토리 <span class="math inline">\((s_0,a_0,\dots,s_t)\)</span></td>
+<td>행동</td>
+</tr>
+<tr class="odd">
+<td>stochastic (randomized)</td>
+<td>상태 (또는 히스토리)</td>
+<td><strong>행동에 대한 확률분포</strong> <span class="math inline">\(\pi_t(\cdot\mid s_t)\)</span></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>결정론적: <span class="math inline">\(\pi: S\to A\)</span></li>
+<li>확률적: <span class="math inline">\(\pi: S\to\Delta(A)\)</span>, <span class="math inline">\(\sum_a\pi(a\mid s)=1\ \forall s\)</span></li>
+</ul>
+<div class="callout callout-style-default callout-warning callout-titled" title="자주 하는 혼동">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>자주 하는 혼동
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>정책의 <strong>입력은 <span class="math inline">\(S\)</span>이지 <span class="math inline">\(S\times A\)</span>가 아니다.</strong> <span class="math inline">\(\pi(a\mid s)\)</span>는 두 인자를 받는 것처럼 보이지만, <span class="math inline">\(s\)</span>가 정하는 분포에서 <span class="math inline">\(a\)</span>의 확률을 읽은 값이다. 정의역이 <span class="math inline">\(S\times A\)</span>인 것은 <span class="math inline">\(r\)</span>, <span class="math inline">\(p\)</span>, <span class="math inline">\(Q\)</span> (환경과 가치 쪽)이다. 행동을 정하는 쪽이 행동을 입력으로 받을 수는 없다.</p>
+</div>
+</div>
+<p><strong>근본 질문</strong>: 어떤 조건에서 매 단계 <strong>결정론적 Markov 결정 규칙</strong>을 쓰는 것이 최적인가? → 할인 무한 지평 + 시불변 <span class="math inline">\(p,r\)</span> + 유계 보상이면 충분하다 (<a href="#sec-stitching" class="quarto-xref">Section&nbsp;10.3</a>).</p>
+</section>
+<section id="정책-policy" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="정책-policy"><span class="header-section-number">3.2</span> 정책 (Policy)</h2>
+<ul>
+<li>정책은 <strong>모든 시점의 결정 규칙을 모아 놓은 것</strong>: <span class="math inline">\(\pi=(\pi_0,\pi_1,\pi_2,\dots)\)</span></li>
+<li>매 시점 같은 결정 규칙을 쓰면 <strong>stationary</strong>. 같은 사본을 반복해서 쓸 필요가 없으므로 “결정 규칙” 대신 그냥 “정책”이라 부른다.</li>
+</ul>
+<section id="시점마다-결정-규칙이-달라지는가" class="level3" data-number="3.2.1">
+<h3 data-number="3.2.1" class="anchored" data-anchor-id="시점마다-결정-규칙이-달라지는가"><span class="header-section-number">3.2.1</span> 시점마다 결정 규칙이 달라지는가</h3>
+<ul>
+<li>정의상 <strong>달라도 되고, 같아도 된다.</strong></li>
+<li>“규칙이 같다” ≠ “행동이 같다”: 하나의 규칙이 상태마다 다른 행동을 낸다.</li>
+<li>“시점마다 다른 규칙” ≠ “history-dependent”: 전자는 입력에 시각 <span class="math inline">\(t\)</span>가 추가될 뿐.</li>
+</ul>
+<p><strong>유한 지평에서는 달라진다.</strong> 두 상태 MDP(<a href="#sec-example" class="quarto-xref">Section&nbsp;4</a>)를 <span class="math inline">\(N\)</span>스텝, <span class="math inline">\(\gamma=1\)</span>로 돌리면, 남은 스텝 <span class="math inline">\(k\)</span>일 때 <span class="math inline">\(V_k(s_2)=-k\)</span>이고 <span class="math inline">\(s_1\)</span>에서</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>남은 스텝</th>
+<th><span class="math inline">\(a_{1,1}\)</span></th>
+<th><span class="math inline">\(a_{1,2}\)</span></th>
+<th>최적</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>5</td>
+<td><strong>10</strong></td>
+<td><span class="math inline">\(a_{1,2}\)</span></td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td><strong>9.5</strong></td>
+<td>9</td>
+<td><span class="math inline">\(a_{1,1}\)</span></td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td><strong>8.75</strong></td>
+<td>8</td>
+<td><span class="math inline">\(a_{1,1}\)</span></td>
+</tr>
+</tbody>
+</table>
+<p>마지막 스텝은 미래가 없어 greedy가 맞고, 그 전에는 <span class="math inline">\(s_1\)</span>에 머물 기회를 주는 <span class="math inline">\(a_{1,1}\)</span>이 낫다. 시점 의존의 숨은 원인은 <strong>남은 시간(time-to-go)</strong>이다.</p>
+<p><strong>할인 무한 지평에서는 안 달라져도 된다.</strong> 어느 시점에서 보든 남은 시간이 무한이고 <span class="math inline">\(p,r\)</span>이 시불변이면, 시각 <span class="math inline">\(t\)</span>에 <span class="math inline">\(s\)</span>에서 본 미래와 시각 0에 <span class="math inline">\(s\)</span>에서 본 미래가 통계적으로 같다. 최적 행동 기준에 <span class="math inline">\(t\)</span>가 등장하지 않으므로 stationary 정책으로 충분하다. (시각을 상태에 넣어 <span class="math inline">\((s,t)\)</span>로 확장하면 비정상 정책도 정상 정책으로 표현된다.)</p>
+</section>
+</section>
+<section id="정책-공간-pi" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="정책-공간-pi"><span class="header-section-number">3.3</span> 정책 공간 <span class="math inline">\(\Pi\)</span></h2>
+<p><span class="math inline">\(\Pi\)</span>는 <span class="math inline">\(S\times A\)</span>가 아니라 <strong>정책이라는 함수들의 집합</strong>이다 (함수 공간으로 한 단계 올라간 대상).</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>클래스</th>
+<th>원소</th>
+<th>크기·모양</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>결정론적 정상 <span class="math inline">\(\Pi^{SD}\)</span></td>
+<td><span class="math inline">\(S\to A\)</span></td>
+<td><span class="math inline">\(\lvert A\rvert^{\lvert S\rvert}\)</span>개</td>
+</tr>
+<tr class="even">
+<td>확률적 정상 <span class="math inline">\(\Pi^{SR}\)</span></td>
+<td><span class="math inline">\(S\to\Delta(A)\)</span></td>
+<td><span class="math inline">\(\prod_{s}\Delta(A_s)\)</span> (다면체)</td>
+</tr>
+<tr class="odd">
+<td>시각 의존 Markov <span class="math inline">\(\Pi^{MR}\)</span></td>
+<td><span class="math inline">\((\pi_0,\pi_1,\dots)\)</span></td>
+<td>무한 곱</td>
+</tr>
+<tr class="even">
+<td>history 의존 <span class="math inline">\(\Pi^{HR}\)</span></td>
+<td>기록 → 행동</td>
+<td>이중 지수</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[
+\Pi^{SD}\subset\Pi^{SR}\subset\Pi^{MR}\subset\Pi^{HR},\qquad
+\max_{\pi\in\Pi^{HR}}J(\pi)=\max_{\pi\in\Pi^{SD}}J(\pi)\ \ (\text{할인 무한 지평, 시불변})
+\]</span></p>
+<p>확률적 정상 정책 공간은 <span class="math inline">\(\sum_s(|A_s|-1)\)</span>차원 다면체이고, <strong>꼭짓점이 결정론적 정책</strong>이다.</p>
+</section>
+<section id="왜-행동-시퀀스가-아니라-정책을-최적화하는가" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="왜-행동-시퀀스가-아니라-정책을-최적화하는가"><span class="header-section-number">3.4</span> 왜 행동 시퀀스가 아니라 정책을 최적화하는가</h2>
+<div class="callout callout-style-default callout-important callout-titled" title="핵심">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>행동 시퀀스를 미리 최적화해 두면, 외란(disturbance)이나 확률적 변화를 완벽히 예측할 수 없어 <strong>불확실성 때문에 더 이상 최적이 아닐 수 있다.</strong> 정책 형태로 최적화해 두면 <strong>예상과 다르게 바뀐 다음 상태에 대해서도 대응할 행동을 이미 알고 있다.</strong></p>
+</div>
+</div>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>행동 시퀀스 (open-loop)</th>
+<th>정책 (closed-loop)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>형태</td>
+<td><span class="math inline">\((a_0,a_1,\dots)\)</span></td>
+<td><span class="math inline">\(a_t=\pi_t(s_t)\)</span></td>
+</tr>
+<tr class="even">
+<td>사용 정보</td>
+<td>시각 <span class="math inline">\(t\)</span>뿐</td>
+<td>시각 + <strong>관측한 상태</strong></td>
+</tr>
+</tbody>
+</table>
+<p>시퀀스는 <span class="math inline">\(\pi_t(s)\equiv a_t\)</span>인 특수한 정책이므로 <span class="math inline">\(\max_{\text{seq}}J\le\max_{\text{policy}}J\)</span>가 항상 성립한다.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="예: 동전 던지기">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>예: 동전 던지기
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(s_0\)</span>에서 “go”(보상 0) → 확률 0.5로 <span class="math inline">\(u\)</span>, 0.5로 <span class="math inline">\(v\)</span>. 다음 스텝 보상: <span class="math inline">\(u\)</span>에서 <span class="math inline">\(a\)</span>=10, <span class="math inline">\(b\)</span>=0 / <span class="math inline">\(v\)</span>에서 <span class="math inline">\(a\)</span>=0, <span class="math inline">\(b\)</span>=10.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><span class="math inline">\((\pi_1(u),\pi_1(v))\)</span></th>
+<th>기대 보상</th>
+<th>시퀀스?</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\((a,a)\)</span></td>
+<td>5</td>
+<td>✓</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\((b,b)\)</span></td>
+<td>5</td>
+<td>✓</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\((a,b)\)</span></td>
+<td><strong>10</strong></td>
+<td>✗</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\((b,a)\)</span></td>
+<td>0</td>
+<td>✗</td>
+</tr>
+</tbody>
+</table>
+<p>시퀀스의 최선은 5, 정책의 최선은 10. 차이 5가 <strong>관측한 상태를 활용하는 가치</strong>다.</p>
+</div>
+</div>
+<p>수식으로는 <strong>max와 기댓값의 순서</strong> 차이다.</p>
+<p><span class="math display">\[
+\mathbb{E}\big[\max_a X_a\big]\ \ge\ \max_a\mathbb{E}[X_a].
+\]</span></p>
+<p>전이가 결정론적이면 두 문제의 값은 같다. 정책이 필요한 것은 <strong>확률적 환경</strong>이기 때문이다.</p>
+</section>
+</section>
+<section id="sec-example" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> 예제: 두 상태 MDP</h1>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart LR
+  S1(("s1")) -- "a11: r=5, 0.5" --&gt; S1
+  S1 -- "a11: r=5, 0.5" --&gt; S2(("s2"))
+  S1 -- "a12: r=10, 1.0" --&gt; S2
+  S2 -- "a21: r=-1, 1.0" --&gt; S2
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<ul>
+<li><span class="math inline">\(S=\{s_1,s_2\}\)</span>, <span class="math inline">\(A_{s_1}=\{a_{1,1},a_{1,2}\}\)</span>, <span class="math inline">\(A_{s_2}=\{a_{2,1}\}\)</span> — <strong>상태별로 행동 집합을 다르게 잡아도 된다.</strong> 보상도 가능한 (상태, 행동) 조합에 대해서만 정의하면 된다.</li>
+<li>보상: <span class="math inline">\(r(s_1,a_{1,1})=5\)</span>, <span class="math inline">\(r(s_1,a_{1,2})=10\)</span>, <span class="math inline">\(r(s_2,a_{2,1})=-1\)</span></li>
+<li>전이:
+<ul>
+<li><span class="math inline">\(p(s_1\mid s_1,a_{1,1})=p(s_2\mid s_1,a_{1,1})=0.5\)</span></li>
+<li><span class="math inline">\(p(s_1\mid s_1,a_{1,2})=0,\ p(s_2\mid s_1,a_{1,2})=1\)</span></li>
+<li><span class="math inline">\(p(s_1\mid s_2,a_{2,1})=0,\ p(s_2\mid s_2,a_{2,1})=1\)</span></li>
+</ul></li>
+<li>상태·행동 집합이 모두 유한한 MDP를 <strong>discrete MDP</strong>라 한다.</li>
+</ul>
+<p><strong>Q) 결정론적 Markov 정책의 예?</strong> 모든 상태에 행동이 정의되어야 한다. <span class="math display">\[\pi(s_1)=a_{1,1},\quad \pi(s_2)=a_{2,1}\]</span></p>
+<p><strong>Q) 확률적 Markov 정책의 예?</strong> 각 상태에서 확률의 합이 1이 되면 된다. <span class="math display">\[\pi(a_{1,1}\mid s_1)=0.7,\quad \pi(a_{1,2}\mid s_1)=0.3,\quad \pi(a_{2,1}\mid s_2)=1\]</span></p>
+<p>이 예제의 정책 공간: 결정론적 정책 2개, 확률적 정책은 <span class="math inline">\(p:=\pi(a_{1,1}\mid s_1)\in[0,1]\)</span> 하나로 매개화되는 구간이며, 양 끝점이 두 결정론적 정책이다.</p>
+</section>
+<section id="mdp-문제와-그-어려움" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> MDP 문제와 그 어려움</h1>
+<p><span class="math display">\[
+\max_{\pi\in\Pi}\ \mathbb{E}^\pi\Big[\sum_{t=0}^{\infty}\gamma^t r(s_t,a_t)\Big]
+\]</span></p>
+<ul>
+<li>리턴 <span class="math inline">\(G_t=\sum_{\tau\ge t}\gamma^{\tau-t}r_\tau\)</span> (한 판의 값, 확률변수), 재귀 <span class="math inline">\(G_t=r_t+\gamma G_{t+1}\)</span></li>
+<li>정책의 점수 <span class="math inline">\(J(\pi)=\mathbb{E}^\pi[G_0]\)</span> — 위 max 안의 양</li>
+</ul>
+<p><strong>Q) 왜 직접 풀기 어려운가?</strong></p>
+<div class="callout callout-style-default callout-important callout-titled" title="핵심">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>정책이 <strong>함수</strong>이기 때문에, 목적함수의 <span class="math inline">\(\pi\)</span>에 대한 gradient를 어떻게 구할지 불분명하고 통상적인 수치 최적화 기법을 바로 적용하기 어렵다. → 해법: <strong>동적 계획법(DP)</strong></p>
+</div>
+</div>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>이유</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>변수가 함수</td>
+<td>gradient가 불분명 (연속 상태에서 특히)</td>
+</tr>
+<tr class="even">
+<td>조합 폭발</td>
+<td>결정론적 정책만 <span class="math inline">\(\lvert A\rvert^{\lvert S\rvert}\)</span>개 (<span class="math inline">\(\lvert S\rvert=100,\lvert A\rvert=4\)</span>이면 <span class="math inline">\(\approx1.6\times10^{60}\)</span>)</td>
+</tr>
+<tr class="odd">
+<td>시간 축 폭발</td>
+<td>history 의존 정책은 이중 지수, 궤적 수는 지수적</td>
+</tr>
+<tr class="even">
+<td>결정의 얽힘</td>
+<td>한 상태의 최선 행동이 다른 상태의 정책에 의존 (가장 본질적)</td>
+</tr>
+<tr class="odd">
+<td>비선형성</td>
+<td><span class="math inline">\(J\)</span>에 <span class="math inline">\(\pi\)</span>가 곱으로 들어가 비오목</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-tip callout-titled" title="보충">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>보충
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>어려운 것은 <strong>평가</strong>가 아니라 <strong>탐색</strong>이다. 정책 하나의 평가는 연립일차방정식 <span class="math inline">\(v^\pi=(I-\gamma P^\pi)^{-1}R^\pi\)</span>로 쉽다.</li>
+<li>정책을 <span class="math inline">\(\pi_\theta\)</span>로 매개화하면 gradient가 존재한다(policy gradient). 단 계산에 <span class="math inline">\(Q^{\pi_\theta}\)</span> 평가가 필요하다. 표 형태 정책에서는 정류점이 모두 전역 최적(gradient domination)이지만 수렴이 느릴 수 있다.</li>
+<li>DP는 변수를 함수 <span class="math inline">\(\pi\)</span>에서 <strong>벡터 <span class="math inline">\(v\in\mathbb{R}^{|S|}\)</span>로 바꿔 고정점 문제</strong>로 만든다. 대가: 모델 <span class="math inline">\((r,p)\)</span> 필요, 상태 수에 민감(차원의 저주).</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="정책-평가와-monte-carlo-시뮬레이션" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> 정책 평가와 Monte Carlo 시뮬레이션</h1>
+<p><strong>정책 평가(policy evaluation)</strong>: 정책 <span class="math inline">\(\pi\)</span>가 주어졌을 때 누적 보상의 기댓값을 계산하는 더 쉬운 문제.</p>
+<section id="절차" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="절차"><span class="header-section-number">6.1</span> 절차</h2>
+<ol type="1">
+<li>시작 상태 <span class="math inline">\(s_0\)</span>를 정하고 정책 <span class="math inline">\(\pi\)</span>를 계속 적용 → 샘플 궤적. <strong>전이가 결정론적이지 않으므로</strong> 매번 다른 궤적이 나온다.</li>
+<li><span class="math inline">\(N\)</span>번 반복, 무한대 대신 <strong>충분히 긴 시간 <span class="math inline">\(T\)</span></strong>까지 시뮬레이션.</li>
+<li>궤적마다 누적 보상 <span class="math inline">\(G_T^{(i)}=\sum_{t&lt;T}\gamma^t r_t^{(i)}\)</span>.</li>
+<li>표본평균 <span class="math inline">\(\hat J_N=\frac1N\sum_i G_T^{(i)}\)</span>.</li>
+</ol>
+</section>
+<section id="장점-된다는-의미" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="장점-된다는-의미"><span class="header-section-number">6.2</span> 장점: “된다”는 의미</h2>
+<div class="callout callout-style-default callout-important callout-titled" title="핵심">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Monte Carlo 추정량은 <strong>불편추정량(unbiased estimator)</strong>이다. 충분히 길게 시뮬레이션할 수 있다는 가정하에 편향 없이 그 정책의 가치를 측정한다.</p>
+</div>
+</div>
+<ul>
+<li><span class="math inline">\(\mathbb{E}[\hat J_N]=\mathbb{E}[G_T]\to J(\pi)\)</span>. 잘림 편향은 <span class="math inline">\(\le\frac{\gamma^T R_{\max}}{1-\gamma}\)</span>로 지수 감소.</li>
+<li>모델 <span class="math inline">\((p,r)\)</span>의 식이 필요 없다 — 시뮬레이터만 있으면 된다.</li>
+</ul>
+</section>
+<section id="단점-분산이-매우-크다" class="level2" data-number="6.3">
+<h2 data-number="6.3" class="anchored" data-anchor-id="단점-분산이-매우-크다"><span class="header-section-number">6.3</span> 단점: 분산이 매우 크다</h2>
+<div class="callout callout-style-default callout-important callout-titled" title="핵심">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>분산이 매우 커서 낮은 분산을 얻으려면 매우 많은 시도가 필요하다. 정책 최적화는 시작도 안 했는데 <strong>정책 평가만으로도 쉽지 않다.</strong> 게다가 모든 시작 상태에 대해 같은 과정을 반복해야 한다. → <strong>가치 함수 도입</strong></p>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled" title="예: 분산의 크기 ($\pi(s_1)=a_{1,1}$, $\gamma=0.9$, $s_1$에서 시작)">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>예: 분산의 크기 (<span class="math inline">\(\pi(s_1)=a_{1,1}\)</span>, <span class="math inline">\(\gamma=0.9\)</span>, <span class="math inline">\(s_1\)</span>에서 시작)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(s_1\)</span>에 머무는 횟수 <span class="math inline">\(K\sim\text{Geom}(1/2)\)</span>, <span class="math inline">\(\Pr(K=k)=2^{-k}\)</span>이고</p>
+<p><span class="math display">\[
+G=\frac{5-6\gamma^K}{1-\gamma}=50-60\cdot0.9^K.
+\]</span></p>
+<p><span class="math inline">\(K=1\Rightarrow G=-4\)</span> (확률 0.5), <span class="math inline">\(K=2\Rightarrow1.4\)</span>, <span class="math inline">\(K\to\infty\Rightarrow50\)</span>.</p>
+<p><span class="math display">\[
+\mathbb{E}[G]=50-60\cdot\tfrac{9}{11}\approx0.909,\qquad
+\mathrm{Var}(G)=3600\Big(\tfrac{81}{119}-\tfrac{81}{121}\Big)\approx40.5
+\]</span></p>
+<p>표준편차 <span class="math inline">\(\approx6.36\)</span> — <strong>평균의 약 7배.</strong> 표준오차 <span class="math inline">\(6.36/\sqrt N\)</span>:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><span class="math inline">\(N\)</span></th>
+<th>표준오차</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>100</td>
+<td>0.64</td>
+</tr>
+<tr class="even">
+<td>10,000</td>
+<td>0.064</td>
+</tr>
+<tr class="odd">
+<td>1,000,000</td>
+<td>0.0064</td>
+</tr>
+</tbody>
+</table>
+<p>정밀도 0.01에 약 <span class="math inline">\(4\times10^5\)</span>번 필요. 같은 값을 Bellman 방정식으로는 <span class="math inline">\(0.55v=0.5\)</span> 한 줄로 정확히 얻는다.</p>
+</div>
+</div>
+<p>분산이 큰 구조적 이유: 무작위 전이의 누적, 유효 지평 <span class="math inline">\(\frac{1}{1-\gamma}\)</span>에 비례하는 리턴의 범위, <span class="math inline">\(1/\sqrt N\)</span> 수렴 속도, 상태 간 정보 재사용 불가.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> mc_evaluate(N<span class="op">=</span><span class="dv">10_000</span>, T<span class="op">=</span><span class="dv">200</span>, gamma<span class="op">=</span><span class="fl">0.9</span>, rng<span class="op">=</span>np.random.default_rng(<span class="dv">0</span>)):</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""pi(s1)=a11, pi(s2)=a21 정책의 v(s1) Monte Carlo 추정"""</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    G <span class="op">=</span> np.zeros(N)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(N):</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        s, disc <span class="op">=</span> <span class="dv">1</span>, <span class="fl">1.0</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(T):</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> s <span class="op">==</span> <span class="dv">1</span>:</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>                G[i] <span class="op">+=</span> disc <span class="op">*</span> <span class="dv">5</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>                s <span class="op">=</span> <span class="dv">1</span> <span class="cf">if</span> rng.random() <span class="op">&lt;</span> <span class="fl">0.5</span> <span class="cf">else</span> <span class="dv">2</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>                G[i] <span class="op">+=</span> disc <span class="op">*</span> (<span class="op">-</span><span class="dv">1</span>)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>            disc <span class="op">*=</span> gamma</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> G.mean(), G.std() <span class="op">/</span> np.sqrt(N)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</section>
+<section id="가치-함수-value-function" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> 가치 함수 (Value Function)</h1>
+<div class="callout callout-style-default callout-note callout-titled" title="정의">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>정의
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math display">\[
+v^\pi(s):=\mathbb{E}^\pi\Big[\sum_{\tau=t}^{\infty}\gamma^{\tau-t}r(s_\tau,a_\tau)\ \Big|\ s_t=s\Big]=\mathbb{E}^\pi[G_t\mid s_t=s]
+\]</span></p>
+</div>
+</div>
+<div class="callout callout-style-default callout-important callout-titled" title="직관적 의미 (반드시 말로 답할 수 있어야 함)">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>직관적 의미 (반드시 말로 답할 수 있어야 함)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>“현재 상태 <span class="math inline">\(s\)</span>에서 출발해 정책 <span class="math inline">\(\pi\)</span>를 계속 사용했을 때 앞으로 얻을 누적 보상의 기댓값.”</strong></p>
+</div>
+</div>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>조각</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(s_t=s\)</span></td>
+<td>현재 시각에 상태를 <span class="math inline">\(s\)</span>로 고정</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(\sum_{\tau=t}^\infty\)</span></td>
+<td>지금부터 미래 전부</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(\gamma^{\tau-t}\)</span></td>
+<td>지금 보상은 할인 없이 (<span class="math inline">\(\gamma^0=1\)</span>)</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(\mathbb{E}^\pi\)</span></td>
+<td>정책과 전이의 무작위성에 대한 평균</td>
+</tr>
+</tbody>
+</table>
+<section id="시작-시간은-중요하지-않다" class="level2" data-number="7.1">
+<h2 data-number="7.1" class="anchored" data-anchor-id="시작-시간은-중요하지-않다"><span class="header-section-number">7.1</span> 시작 시간은 중요하지 않다</h2>
+<div class="callout callout-style-default callout-important callout-titled" title="핵심">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>무한대까지의 시간을 고려하고, 할인 가중치에 <span class="math inline">\(\gamma^{\tau-t}\)</span>로 <strong>시간 이동(time shift)</strong>을 주었기 때문에 <strong>discounted infinite-horizon MDP에서는 시작 시간이 중요하지 않다.</strong> <span class="math inline">\(v^\pi\)</span>는 <span class="math inline">\(t\)</span>가 아니라 <span class="math inline">\(s\)</span>만의 함수이다. (정책이 비정상이면 <span class="math inline">\(v_t^\pi(s)\)</span>로 시각 첨자가 필요.)</p>
+</div>
+</div>
+</section>
+<section id="왜-정책-평가의-핵심-개념인가" class="level2" data-number="7.2">
+<h2 data-number="7.2" class="anchored" data-anchor-id="왜-정책-평가의-핵심-개념인가"><span class="header-section-number">7.2</span> 왜 정책 평가의 핵심 개념인가</h2>
+<ol type="1">
+<li><strong>모든 시작점의 평가를 한 번에.</strong> 시작 분포 <span class="math inline">\(\mu_0\)</span>에 대해 <span class="math display">\[J(\pi)=\sum_s\mu_0(s)\,v^\pi(s).\]</span> 모든 상태에서 <span class="math inline">\(v^\pi\)</span>를 알면 정책 평가가 완벽히 끝난다.</li>
+<li><strong>재귀 구조</strong>: 미래 전체를 “다음 상태의 <span class="math inline">\(v^\pi\)</span>”라는 숫자 하나로 요약 → 연립방정식.</li>
+<li><strong>Markov 성질</strong>이 “<span class="math inline">\(s\)</span>에서 출발”만으로 미래를 정해 주므로 상태의 함수로 정의 가능.</li>
+</ol>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>기호</th>
+<th>정체</th>
+<th>출력</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(G_t\)</span></td>
+<td>한 판의 할인 누적 보상</td>
+<td>판마다 다른 실수</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(v^\pi(s)\)</span></td>
+<td><span class="math inline">\(G_t\)</span>의 조건부 평균</td>
+<td>상태마다 실수 (벡터)</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(J(\pi)\)</span></td>
+<td><span class="math inline">\(G_0\)</span>의 전체 평균</td>
+<td>실수 하나</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math inline">\(v^\pi(s)\)</span>는 <strong>같은 정책 규칙 <span class="math inline">\(\pi\)</span>를 끝까지 유지</strong>한다는 전제의 값이다. 규칙이 상태마다 다른 행동을 내는 것은 정의 그 자체이며, “첫 스텝만 <span class="math inline">\(a\)</span>를 하고 이후 <span class="math inline">\(\pi\)</span>”는 별도의 양 <span class="math inline">\(Q^\pi(s,a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^\pi(s')\)</span>이다.</p>
+</section>
+</section>
+<section id="정책-평가-방정식" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> 정책 평가 방정식</h1>
+<section id="분해-아이디어" class="level2" data-number="8.1">
+<h2 data-number="8.1" class="anchored" data-anchor-id="분해-아이디어"><span class="header-section-number">8.1</span> 분해 아이디어</h2>
+<div class="callout callout-style-default callout-important callout-titled" title="핵심">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>가치 함수를 <strong>(i) 즉각 보상 + (ii) 다음 상태의 할인된 가치</strong>로 쪼갠다.</p>
+<p><span class="math display">\[
+v^\pi(s)=\mathbb{E}^\pi\big[\underbrace{r(s_t,a_t)}_{\text{immediate reward}}+\gamma\underbrace{v^\pi(s_{t+1})}_{\text{value of next state}}\ \big|\ s_t=s\big]
+=\sum_{a\in A}\pi(a\mid s)\Big(r(s,a)+\gamma\sum_{s'\in S}p(s'\mid s,a)\,v^\pi(s')\Big)
+\]</span></p>
+</div>
+</div>
+<p><strong>기댓값은 무엇에 대해 걸리는가?</strong> <span class="math inline">\(s_t\)</span>가 결정되면 <span class="math inline">\(a_t\)</span>는 (확률적 정책이면) <span class="math inline">\(\pi(\cdot\mid s)\)</span>로, <span class="math inline">\(s_{t+1}\)</span>은 <span class="math inline">\(p(\cdot\mid s,a)\)</span>로 무작위다. 그래서 바깥 합 <span class="math inline">\(\sum_a\pi(a\mid s)\)</span>는 <strong>정책의 무작위성</strong>, 안쪽 합 <span class="math inline">\(\sum_{s'}p(s'\mid s,a)\)</span>는 <strong>환경의 무작위성</strong>이다.</p>
+</section>
+<section id="유도" class="level2" data-number="8.2">
+<h2 data-number="8.2" class="anchored" data-anchor-id="유도"><span class="header-section-number">8.2</span> 유도</h2>
+<p><strong>출발점</strong>: <span class="math inline">\(G_t=r_t+\gamma G_{t+1}\)</span>. 선형성으로 <span class="math display">\[v^\pi(s)=\mathbb{E}[r_t\mid s_t=s]+\gamma\,\mathbb{E}[G_{t+1}\mid s_t=s].\]</span></p>
+<p><strong>① 반복 기댓값 (tower property)</strong> — 순수한 확률 계산, 항상 성립 <span class="math display">\[
+\mathbb{E}[G_{t+1}\mid s_t=s]=\mathbb{E}\Big[\,\mathbb{E}[G_{t+1}\mid s_t=s,a_t,s_{t+1}]\ \Big|\ s_t=s\Big]
+\]</span> 안쪽은 <span class="math inline">\((a_t,s_{t+1})\)</span>에 따라 값이 달라지는 확률변수이고, 바깥이 그것을 가중평균한다.</p>
+<p><strong>② Markov 성질</strong> — 안쪽 조건에서 과거 제거 <span class="math display">\[
+\mathbb{E}[G_{t+1}\mid s_t=s,a_t,s_{t+1}=s']=\mathbb{E}[G_{t+1}\mid s_{t+1}=s']
+\]</span> <span class="math inline">\(G_{t+1}\)</span>은 미래 열의 함수이고, 그 확률 <span class="math inline">\(\pi(a_{t+1}\mid s_{t+1})p(s_{t+2}\mid s_{t+1},a_{t+1})\cdots\)</span>에 <span class="math inline">\(s_t,a_t\)</span>가 등장하지 않는다. <strong>Markov 전이 + Markov 정책</strong> 둘 다 필요하다.</p>
+<p><strong>③ 시불변성</strong> — <span class="math inline">\(\mathbb{E}[G_{t+1}\mid s_{t+1}=s']=v^\pi(s')\)</span> <span class="math inline">\(\pi,p,r\)</span>이 시각과 무관하면 “시각 <span class="math inline">\(t+1\)</span>에 <span class="math inline">\(s'\)</span>에서 출발한 미래”와 “시각 <span class="math inline">\(t\)</span>에 <span class="math inline">\(s'\)</span>에서 출발한 미래”의 통계가 같다.</p>
+<p><strong>④ 기댓값을 합으로</strong> — 행동으로 먼저 쪼개고(<span class="math inline">\(\pi(a\mid s)\)</span>), <span class="math inline">\((s,a)\)</span> 고정 후 <span class="math inline">\(r(s,a)\)</span>는 결정론적이므로 밖으로, <span class="math inline">\(v^\pi(s_{t+1})\)</span>은 <span class="math inline">\(p(\cdot\mid s,a)\)</span>로 평균.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>단계</th>
+<th>쓰이는 사실</th>
+<th>없으면</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>①</td>
+<td>반복 기댓값</td>
+<td>항상 성립</td>
+</tr>
+<tr class="even">
+<td>②</td>
+<td>Markov 전이·정책</td>
+<td><span class="math inline">\(v^\pi\)</span>가 <span class="math inline">\(s\)</span>만의 함수가 아님</td>
+</tr>
+<tr class="odd">
+<td>③</td>
+<td>시불변</td>
+<td><span class="math inline">\(v_t^\pi(s)\)</span> 필요</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="행렬-형태" class="level2" data-number="8.3">
+<h2 data-number="8.3" class="anchored" data-anchor-id="행렬-형태"><span class="header-section-number">8.3</span> 행렬 형태</h2>
+<p><span class="math display">\[
+R^\pi(s)=\sum_a\pi(a\mid s)r(s,a),\qquad P^\pi(s,s')=\sum_a\pi(a\mid s)p(s'\mid s,a)
+\]</span> <span class="math display">\[
+v^\pi=R^\pi+\gamma P^\pi v^\pi\quad\Longrightarrow\quad v^\pi=(I-\gamma P^\pi)^{-1}R^\pi
+\]</span></p>
+<div class="callout callout-style-default callout-important callout-titled" title="핵심">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(v^\pi\)</span>에 대해 <strong>선형</strong>이므로 좌변으로 묶어 <strong>역행렬</strong>로 계산할 수 있다. 행렬 형태는 <strong>소규모 문제</strong>에 적합하고, 연산자를 쓰는 방법이 <strong>더 일반적이고 계산 효율이 높다.</strong></p>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled" title="예: 두 상태 MDP ($\gamma=0.9$)">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>예: 두 상태 MDP (<span class="math inline">\(\gamma=0.9\)</span>)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(v^\pi(s_2)=-\frac{1}{1-\gamma}=-10\)</span> (모든 정책 공통)</p>
+<ul>
+<li><span class="math inline">\(\pi(s_1)=a_{1,2}\)</span>: <span class="math inline">\(v(s_1)=10+0.9(-10)=1\)</span></li>
+<li><span class="math inline">\(\pi(s_1)=a_{1,1}\)</span>: <span class="math inline">\(v=5+0.9(0.5v+0.5(-10))\Rightarrow0.55v=0.5\Rightarrow v\approx0.909\)</span></li>
+<li>확률적 정책 (0.7, 0.3): <span class="math inline">\(R^\pi(s_1)=6.5\)</span>, <span class="math inline">\(P^\pi(s_1,s_1)=0.35\)</span> <span class="math display">\[v=0.7(0.5+0.45v)+0.3\cdot1\Rightarrow v=\frac{0.65}{0.685}\approx0.949\]</span></li>
+<li>일반 <span class="math inline">\(p=\pi(a_{1,1}\mid s_1)\)</span>: <span class="math inline">\(v^\pi(s_1)=\frac{1-0.5p}{1-0.45p}\)</span>, <span class="math inline">\(\frac{dv}{dp}=\frac{-0.05}{(1-0.45p)^2}&lt;0\)</span> → <span class="math inline">\(p=0\)</span>이 최적.</li>
+</ul>
+<p>검산 (<span class="math inline">\(s_1\)</span>, 확률적 정책): <span class="math inline">\(6.5+0.9\,(0.35\cdot0.949+0.65\cdot(-10))\approx0.949\)</span> ✓</p>
+</div>
+</div>
+</section>
+<section id="sec-contraction" class="level2" data-number="8.4">
+<h2 data-number="8.4" class="anchored" data-anchor-id="sec-contraction"><span class="header-section-number">8.4</span> 연산자 형태와 고정점</h2>
+<p><span class="math display">\[
+(\mathcal{T}^\pi v)(s):=\sum_a\pi(a\mid s)\Big(r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v(s')\Big),\qquad v^\pi=\mathcal{T}^\pi v^\pi
+\]</span></p>
+<div class="callout callout-style-default callout-important callout-titled" title="핵심">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>핵심
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>좌변에 <span class="math inline">\(v^\pi\)</span>, 우변이 <span class="math inline">\(v^\pi\)</span>를 연산자에 넣은 출력이므로 <strong>연산자 <span class="math inline">\(\mathcal{T}^\pi\)</span>의 고정점(fixed point)을 구하는 문제</strong>로 귀결된다.</p>
+</div>
+</div>
+<ul>
+<li><span class="math inline">\(v^\pi\)</span>는 <strong>값</strong>(특정 벡터), <span class="math inline">\(\mathcal{T}^\pi\)</span>는 <strong>기계</strong>(<span class="math inline">\(\mathbb{R}^{|S|}\to\mathbb{R}^{|S|}\)</span>).</li>
+<li>직관: “다음 상태 가치가 <span class="math inline">\(v\)</span>라고 가정했을 때 지금 상태의 가치”로 갱신. 참값이면 갱신해도 변하지 않는다.</li>
+</ul>
+<p><strong>γ-수축 (contraction)</strong>: <span class="math inline">\(\mathcal{T}^\pi v-\mathcal{T}^\pi w=\gamma P^\pi(v-w)\)</span>이고 <span class="math inline">\(P^\pi\)</span>는 확률행렬이므로 <span class="math display">\[
+\|\mathcal{T}^\pi v-\mathcal{T}^\pi w\|_\infty\le\gamma\|v-w\|_\infty.
+\]</span> Banach 고정점 정리 → 고정점 <strong>존재·유일</strong>, 반복 <span class="math inline">\(v_{k+1}=\mathcal{T}^\pi v_k\)</span>가 <span class="math inline">\(\|v_k-v^\pi\|_\infty\le\gamma^k\|v_0-v^\pi\|_\infty\)</span>로 수렴.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="예: 반복 정책 평가 ($\pi(s_1)=a_{1,2}$, $\gamma=0.9$)">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>예: 반복 정책 평가 (<span class="math inline">\(\pi(s_1)=a_{1,2}\)</span>, <span class="math inline">\(\gamma=0.9\)</span>)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(\mathcal{T}^\pi v=(10+0.9v(s_2),\ -1+0.9v(s_2))\)</span></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+</colgroup>
+<thead>
+<tr class="header">
+<th><span class="math inline">\(k\)</span></th>
+<th>0</th>
+<th>1</th>
+<th>2</th>
+<th>3</th>
+<th>⋯</th>
+<th>∞</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(v_k\)</span></td>
+<td>(0, 0)</td>
+<td>(10, −1)</td>
+<td>(9.1, −1.9)</td>
+<td>(8.29, −2.71)</td>
+<td>⋯</td>
+<td><strong>(1, −10)</strong></td>
+</tr>
+</tbody>
+</table>
+<p><span class="math inline">\(s_2\)</span> 오차가 9, 8.1, 7.29, …로 정확히 0.9배씩 감소.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="최적-가치-함수" class="level1" data-number="9">
+<h1 data-number="9"><span class="header-section-number">9</span> 최적 가치 함수</h1>
+<div class="callout callout-style-default callout-note callout-titled" title="정의">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>정의
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math display">\[
+v^*(s):=\max_{\pi\in\Pi}v^\pi(s)=\max_{\pi}\mathbb{E}^\pi\Big[\sum_{\tau=t}^\infty\gamma^{\tau-t}r(s_\tau,a_\tau)\ \Big|\ s_t=s\Big]
+\]</span></p>
+</div>
+</div>
+<div class="callout callout-style-default callout-important callout-titled" title="직관적 의미">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>직관적 의미
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>현재 상태 <span class="math inline">\(s\)</span>에서 출발했을 때, 어떤 정책을 쓰든 앞으로 얻을 수 있는 누적 보상 기댓값의 최대치.</strong> 즉 <span class="math inline">\(v^*\)</span>는 <strong>낼 수 있는 최선의 성능(best possible performance)</strong>을 규정한다.</p>
+</div>
+</div>
+<section id="최적-가치-함수를-구하면-mdp를-풀었다-왜" class="level2" data-number="9.1">
+<h2 data-number="9.1" class="anchored" data-anchor-id="최적-가치-함수를-구하면-mdp를-풀었다-왜"><span class="header-section-number">9.1</span> “최적 가치 함수를 구하면 MDP를 풀었다” — 왜?</h2>
+<p>순서: <strong>최적 가치 함수 계산 → 최적 정책 추출.</strong></p>
+<ol type="1">
+<li><strong>성능 상한</strong>: 어떤 정책도 <span class="math inline">\(v^*(s)\)</span>를 넘지 못한다.</li>
+<li><strong>정책 생성기</strong>: <span class="math inline">\(v^*\)</span>에서 argmax 한 번으로 정책이 나온다 — Bellman 방정식의 max 값을 구하는 과정에서 argmax 행동이 이미 계산된다.</li>
+<li><strong>상한 달성</strong>: 그 정책 <span class="math inline">\(\pi^*\)</span>는 <span class="math inline">\(\mathcal{T}^{\pi^*}v^*=\mathcal{T}v^*=v^*\)</span>이므로 고정점의 유일성에 의해 <span class="math inline">\(v^{\pi^*}=v^*\)</span>.</li>
+</ol>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>단계</th>
+<th>하는 일</th>
+<th>난이도</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>① 최적 가치 계산</td>
+<td><span class="math inline">\(v=\mathcal{T}v\)</span>의 고정점</td>
+<td>반복 계산 필요</td>
+</tr>
+<tr class="even">
+<td>② 정책 추출</td>
+<td>같은 식의 argmax</td>
+<td>한 번의 비교</td>
+</tr>
+</tbody>
+</table>
+<p><strong>왜 가치부터?</strong> <span class="math inline">\(v^\pi\)</span>는 정책에 의존하고 정책의 우열은 가치로 판단하는 순환이 있다. <span class="math inline">\(v^*\)</span>는 <strong>어떤 정책에도 의존하지 않는 유일한 벡터</strong>라 먼저 구할 수 있다.</p>
+<p><strong>주의</strong></p>
+<ul>
+<li>정책 추출에 <span class="math inline">\(r,p\)</span>가 필요하다. 모델이 없으면 <span class="math inline">\(\pi^*(s)\in\arg\max_a Q^*(s,a)\)</span>, 즉 <span class="math inline">\(Q^*\)</span>가 필요하다.</li>
+<li><span class="math inline">\(v^*\)</span>는 유일하지만 <span class="math inline">\(\pi^*\)</span>는 동점이 있으면 여러 개.</li>
+<li>근사 <span class="math inline">\(v\)</span>의 탐욕 정책 <span class="math inline">\(\pi_v\)</span>의 손실: <span class="math inline">\(\|v^{\pi_v}-v^*\|_\infty\le\frac{2\gamma}{1-\gamma}\|v-v^*\|_\infty\)</span>.</li>
+</ul>
+</section>
+</section>
+<section id="bellman-방정식" class="level1" data-number="10">
+<h1 data-number="10"><span class="header-section-number">10</span> Bellman 방정식</h1>
+<div class="callout callout-style-default callout-note callout-titled" title="정리 (Bellman 방정식)">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>정리 (Bellman 방정식)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>최적 가치 함수 <span class="math inline">\(v^*\)</span>는 다음 방정식의 <strong>유일한 해</strong>이다. <span class="math display">\[
+v^*(s)=\max_{a\in A}\mathbb{E}\big[r(s_t,a_t)+\gamma v^*(s_{t+1})\mid s_t=s\big]
+=\max_{a\in A}\Big(r(s,a)+\gamma\sum_{s'\in S}p(s'\mid s,a)v^*(s')\Big)
+\]</span> 연산자 형태: <span class="math inline">\(v^*=\mathcal{T}v^*\)</span>, <span class="math inline">\((\mathcal{T}v)(s)=\max_a\big(r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v(s')\big)\)</span></p>
+</div>
+</div>
+<section id="구조와-해석" class="level2" data-number="10.1">
+<h2 data-number="10.1" class="anchored" data-anchor-id="구조와-해석"><span class="header-section-number">10.1</span> 구조와 해석</h2>
+<ul>
+<li>최적 가치도 <strong>즉각 보상 + 다음 상태로부터 얻을 누적 보상 기댓값의 최대치</strong>로 쪼갠다. 둘째 항에는 <strong>반드시 <span class="math inline">\(v^*\)</span>가 와야 한다</strong> (<span class="math inline">\(v^\pi\)</span>가 오면 안 됨).</li>
+<li><strong>최적화 변수의 변화</strong>: 원래는 정책(함수) 자체를 최적화했지만, 이제 <strong>현재 시점의 행동 하나</strong>를 최적화하는 문제로 바뀌었다.</li>
+<li><span class="math inline">\(\mathcal{T}^\pi\)</span>와 <span class="math inline">\(\mathcal{T}\)</span>의 차이: 정책으로 <strong>평균</strong> vs 최선 행동으로 <strong>max</strong>. 둘 다 γ-수축.</li>
+</ul>
+<div class="callout callout-style-default callout-important callout-titled" title="숨은 복잡도 (hidden complexity)">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>숨은 복잡도 (hidden complexity)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>어려운 문제가 갑자기 쉬워지는 일은 없다. 최적성을 잃지 않으면서 단순해졌다면 대가가 있어야 한다. 그 대가는 <strong>이 최대화를 각 상태 <span class="math inline">\(s\)</span>별로 풀어야 한다</strong>는 것이다. 각 상태별로 최대화를 달성하는 행동이 최적 행동으로 정해진다.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-important callout-titled" title="이 식이 말하는 바">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>이 식이 말하는 바
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>현재 시점에서 최적 행동을 하려면 <strong>즉각 보상뿐 아니라 장기적 이득까지 고려</strong>해야 한다. “당장의 즉각 보상을 조금 포기하더라도 장기적 이득을 더 크게 얻을 수 있다면 그 행동을 해야 한다”를 <strong>정확히 수학적 형태로 표현한 것이 Bellman 방정식</strong>이다. 고려할 것은 즉각 보상과 장기적 이득의 가중합이며, 다음 상태부터는 할인이 한 번 들어가므로 가중치는 <span class="math inline">\(\gamma\)</span>이다.</p>
+</div>
+</div>
+</section>
+<section id="숫자-예-상태별-argmax와-희생" class="level2" data-number="10.2">
+<h2 data-number="10.2" class="anchored" data-anchor-id="숫자-예-상태별-argmax와-희생"><span class="header-section-number">10.2</span> 숫자 예: 상태별 argmax와 희생</h2>
+<p>두 상태 MDP에 <span class="math inline">\(s_2\)</span>의 행동 <span class="math inline">\(a_{2,2}\)</span> (보상 <span class="math inline">\(-2\)</span>, 확률 1로 <span class="math inline">\(s_1\)</span>)를 추가, <span class="math inline">\(\gamma=0.9\)</span>.</p>
+<p>후보 <span class="math inline">\(\pi^*=(s_1{:}\,a_{1,2},\ s_2{:}\,a_{2,2})\)</span>는 보상 <span class="math inline">\(10,-2,10,-2,\dots\)</span> 순환: <span class="math display">\[v(s_1)=\frac{10-2\gamma}{1-\gamma^2}=\frac{8.2}{0.19}\approx43.16,\qquad v(s_2)=-2+0.9\cdot43.16\approx36.84\]</span></p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>상태</th>
+<th>행동</th>
+<th><span class="math inline">\(r+\gamma\sum p\,v^*\)</span></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(s_1\)</span></td>
+<td><span class="math inline">\(a_{1,1}\)</span></td>
+<td><span class="math inline">\(5+0.9\cdot40=41.00\)</span></td>
+<td></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(s_1\)</span></td>
+<td><span class="math inline">\(a_{1,2}\)</span></td>
+<td><span class="math inline">\(10+0.9\cdot36.84=43.16\)</span></td>
+<td><strong>max</strong></td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(s_2\)</span></td>
+<td><span class="math inline">\(a_{2,1}\)</span></td>
+<td><span class="math inline">\(-1+0.9\cdot36.84=32.16\)</span></td>
+<td></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(s_2\)</span></td>
+<td><span class="math inline">\(a_{2,2}\)</span></td>
+<td><span class="math inline">\(-2+0.9\cdot43.16=36.84\)</span></td>
+<td><strong>max</strong></td>
+</tr>
+</tbody>
+</table>
+<p><span class="math inline">\(s_2\)</span>에서 즉각 보상은 <span class="math inline">\(a_{2,1}\)</span>(<span class="math inline">\(-1\)</span>)이 크지만 최적은 <span class="math inline">\(a_{2,2}\)</span>(<span class="math inline">\(-2\)</span>) — <strong>즉각 보상의 희생</strong>이 자동으로 선택된다.</p>
+</section>
+<section id="sec-stitching" class="level2" data-number="10.3">
+<h2 data-number="10.3" class="anchored" data-anchor-id="sec-stitching"><span class="header-section-number">10.3</span> 상태별 최선 행동의 이어 붙이기</h2>
+<p><span class="math inline">\(v^*(s)=\max_\pi v^\pi(s)\)</span>는 <strong>상태마다 따로</strong> 최대화한 값이다. 일반적인 점 집합에서는 모든 좌표의 최댓값을 한 점이 동시에 갖지 않을 수 있지만(Pareto), MDP에서는 <strong>하나의 정책 <span class="math inline">\(\pi^*\)</span>가 모든 상태에서 동시에 <span class="math inline">\(v^*\)</span>를 달성</strong>한다.</p>
+<ul>
+<li>직관 (<strong>최적 꼬리</strong>): Markov 성질 때문에 <span class="math inline">\(s'\)</span>에서의 최선은 도착 경로와 무관한 숫자 <span class="math inline">\(v^*(s')\)</span>이다. 각 상태의 argmax 선택이 서로를 방해하지 않고 이어 붙여진다.</li>
+</ul>
+<p><strong>증명 스케치</strong> — 도구: 단조성(<span class="math inline">\(v\le w\Rightarrow\mathcal{T}v\le\mathcal{T}w\)</span>), 수축성.</p>
+<ol type="1">
+<li><span class="math inline">\(\hat v=\mathcal{T}\hat v\)</span>, <span class="math inline">\(\hat\pi\)</span>를 <span class="math inline">\(\hat v\)</span>에 대한 탐욕 정책이라 하면 <span class="math inline">\(\mathcal{T}^{\hat\pi}\hat v=\hat v\)</span> → <span class="math inline">\(\hat v=v^{\hat\pi}\)</span>.</li>
+<li>임의의 <span class="math inline">\(\pi\)</span>: <span class="math inline">\(v^\pi=\mathcal{T}^\pi v^\pi\le\mathcal{T}v^\pi\le\mathcal{T}^2v^\pi\le\cdots\to\hat v\)</span> → <span class="math inline">\(v^\pi\le\hat v\)</span>.</li>
+<li>따라서 <span class="math inline">\(\hat v=v^*\)</span>이고 탐욕 정책이 모든 상태에서 동시에 최적. ∎</li>
+</ol>
+<p><strong>성립하지 않는 경우</strong>: 위험 민감 목표, 제약 MDP, 부분 관측(POMDP), 비지수 할인.</p>
+</section>
+</section>
+<section id="최적-정책" class="level1" data-number="11">
+<h1 data-number="11"><span class="header-section-number">11</span> 최적 정책</h1>
+<div class="callout callout-style-default callout-note callout-titled" title="정리">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>정리
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math display">\[
+\pi^*(s)\in\arg\max_{a\in A}\Big(r(s,a)+\gamma\sum_{s'\in S}p(s'\mid s,a)v^*(s')\Big)\quad\forall s\in S
+\]</span> 로 정의한 <strong>결정론적 Markov 정책</strong>은 최적이다: <span class="math inline">\(v^{\pi^*}=v^*\)</span>.</p>
+</div>
+</div>
+<ul>
+<li><span class="math inline">\(v^*\)</span>만 계산하면 argmax로 현재 상태의 최적 행동을 바로 고를 수 있다.</li>
+</ul>
+<div class="callout callout-style-default callout-important callout-titled" title="숨은 복잡도">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>숨은 복잡도
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>한 줄로 써서 간단해 보이지만 <strong>각 상태별로</strong> 해 주어야 한다. 상태가 100만 개면 최대화를 100만 번 풀어야 한다 (병렬화의 여지는 있음).</p>
+</div>
+</div>
+<section id="확률적-markov-정책은-어떻게-얻는가" class="level2" data-number="11.1">
+<h2 data-number="11.1" class="anchored" data-anchor-id="확률적-markov-정책은-어떻게-얻는가"><span class="header-section-number">11.1</span> 확률적 Markov 정책은 어떻게 얻는가</h2>
+<p><span class="math display">\[
+A^*(s):=\arg\max_a q^*(s,a),\qquad q^*(s,a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^*(s')
+\]</span></p>
+<div class="callout callout-style-default callout-important callout-titled" title="답">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>답
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>argmax가 둘 이상(동점)인 상태에서 그 행동들 사이에 임의의 확률을 부여하면</strong> 확률적 최적 정책이 된다. 필요충분조건: <span class="math display">\[\operatorname{supp}\pi(\cdot\mid s)\subseteq A^*(s)\quad\forall s.\]</span> 동점이 없으면 확률적 최적 정책은 존재하지 않는다.</p>
+</div>
+</div>
+<ul>
+<li><strong>충분성</strong>: <span class="math inline">\((\mathcal{T}^\pi v^*)(s)=\sum_{a\in A^*(s)}\pi(a\mid s)v^*(s)=v^*(s)\)</span> → 고정점 유일성으로 <span class="math inline">\(v^\pi=v^*\)</span>.</li>
+<li><strong>필요성</strong>: <span class="math inline">\(d:=v^*-\mathcal{T}^\pi v^*\ge0\)</span>이고 argmax 밖에 확률을 두면 그 상태에서 <span class="math inline">\(d&gt;0\)</span>. <span class="math inline">\(v^*-v^\pi=(I-\gamma P^\pi)^{-1}d=\sum_k\gamma^k(P^\pi)^kd\ge d\)</span> → 엄밀히 최적 미달.</li>
+</ul>
+<div class="callout callout-style-default callout-note callout-titled" title="예: 두 상태 MDP">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>예: 두 상태 MDP
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><span class="math inline">\(\gamma=10/11\)</span>: <span class="math inline">\(v^*(s_2)=-11\)</span>, <span class="math inline">\(q^*(s_1,a_{1,1})=q^*(s_1,a_{1,2})=0\)</span> → 동점. 모든 <span class="math inline">\(p\in[0,1]\)</span>에서 <span class="math inline">\(v^\pi(s_1)=0=v^*(s_1)\)</span>.</li>
+<li><span class="math inline">\(\gamma=0.9\)</span>: <span class="math inline">\(v^\pi(s_1)=\frac{1-0.5p}{1-0.45p}\)</span>가 엄격 감소 → <span class="math inline">\(p=0\)</span>만 최적. 확률적 정책 (0.7, 0.3)의 값 <span class="math inline">\(0.949&lt;1\)</span>.</li>
+</ul>
+</div>
+</div>
+<p>기하학적으로, 최적 정책 집합은 정책 다면체에서 <span class="math inline">\(\prod_s\Delta(A^*(s))\)</span>라는 면(face)이며, 동점이 없으면 꼭짓점 하나로 퇴화한다.</p>
+<p>확률성이 <strong>필요</strong>해지는 설정: 엔트로피 정규화, 제약 MDP, POMDP, 다중 에이전트 게임, 학습 중 탐험(ε-greedy).</p>
+</section>
+<section id="value-iteration-맛보기" class="level2" data-number="11.2">
+<h2 data-number="11.2" class="anchored" data-anchor-id="value-iteration-맛보기"><span class="header-section-number">11.2</span> Value Iteration 맛보기</h2>
+<p><span class="math inline">\(v_{k+1}=\mathcal{T}v_k\)</span> (<span class="math inline">\(a_{2,2}\)</span>를 추가한 MDP, <span class="math inline">\(\gamma=0.9\)</span>, <span class="math inline">\(v_0=0\)</span>):</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><span class="math inline">\(k\)</span></th>
+<th><span class="math inline">\(v_k(s_1)\)</span></th>
+<th><span class="math inline">\(v_k(s_2)\)</span></th>
+<th>탐욕 정책</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>(<span class="math inline">\(a_{1,2}\)</span>, <span class="math inline">\(a_{2,1}\)</span>) ✗</td>
+</tr>
+<tr class="even">
+<td>1</td>
+<td>10</td>
+<td>−1</td>
+<td>(<span class="math inline">\(a_{1,2}\)</span>, <span class="math inline">\(a_{2,2}\)</span>) ✓</td>
+</tr>
+<tr class="odd">
+<td>2</td>
+<td>9.10</td>
+<td>7.00</td>
+<td>✓</td>
+</tr>
+<tr class="even">
+<td>3</td>
+<td>16.30</td>
+<td>6.19</td>
+<td>✓</td>
+</tr>
+<tr class="odd">
+<td>4</td>
+<td>15.57</td>
+<td>12.67</td>
+<td>✓</td>
+</tr>
+<tr class="even">
+<td>5</td>
+<td>21.40</td>
+<td>12.01</td>
+<td>✓</td>
+</tr>
+<tr class="odd">
+<td>∞</td>
+<td>43.16</td>
+<td>36.84</td>
+<td>✓</td>
+</tr>
+</tbody>
+</table>
+<p>가치는 아직 멀어도 <strong>행동 간 순서만 맞으면 정책은 이미 최적</strong>이다.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>gamma <span class="op">=</span> <span class="fl">0.9</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># (state, action) -&gt; (reward, {next_state: prob}); s1=0, s2=1</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>mdp <span class="op">=</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dv">0</span>: {<span class="st">"a11"</span>: (<span class="dv">5</span>, {<span class="dv">0</span>: <span class="fl">0.5</span>, <span class="dv">1</span>: <span class="fl">0.5</span>}), <span class="st">"a12"</span>: (<span class="dv">10</span>, {<span class="dv">1</span>: <span class="fl">1.0</span>})},</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dv">1</span>: {<span class="st">"a21"</span>: (<span class="op">-</span><span class="dv">1</span>, {<span class="dv">1</span>: <span class="fl">1.0</span>}), <span class="st">"a22"</span>: (<span class="op">-</span><span class="dv">2</span>, {<span class="dv">0</span>: <span class="fl">1.0</span>})},</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> bellman(v):</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    q <span class="op">=</span> {s: {a: r <span class="op">+</span> gamma <span class="op">*</span> <span class="bu">sum</span>(p <span class="op">*</span> v[s2] <span class="cf">for</span> s2, p <span class="kw">in</span> nxt.items())</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>             <span class="cf">for</span> a, (r, nxt) <span class="kw">in</span> acts.items()} <span class="cf">for</span> s, acts <span class="kw">in</span> mdp.items()}</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    v_new <span class="op">=</span> np.array([<span class="bu">max</span>(q[s].values()) <span class="cf">for</span> s <span class="kw">in</span> mdp])</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    greedy <span class="op">=</span> {s: <span class="bu">max</span>(q[s], key<span class="op">=</span>q[s].get) <span class="cf">for</span> s <span class="kw">in</span> mdp}</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> v_new, greedy</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>v <span class="op">=</span> np.zeros(<span class="dv">2</span>)</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> k <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">200</span>):</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    v, pi <span class="op">=</span> bellman(v)</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(v, pi)   <span class="co"># [43.16 36.84] {0: 'a12', 1: 'a22'}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</section>
+<section id="보충-td-학습" class="level1" data-number="12">
+<h1 data-number="12"><span class="header-section-number">12</span> 보충: TD 학습</h1>
+<p>모델 없이 샘플 <span class="math inline">\((s_t,a_t,r_t,s_{t+1})\)</span>마다 <span class="math inline">\(v^\pi\)</span> 추정치를 갱신하는 방법.</p>
+<p><span class="math display">\[
+V(s_t)\leftarrow V(s_t)+\alpha\,\delta_t,\qquad \delta_t=r_t+\gamma V(s_{t+1})-V(s_t)
+\]</span></p>
+<ul>
+<li>목표값을 실제 리턴 <span class="math inline">\(G_t\)</span>(MC) 대신 <strong>Bellman 재귀의 표본</strong> <span class="math inline">\(r_t+\gamma V(s_{t+1})\)</span>로 쓴다 (부트스트래핑).</li>
+<li><span class="math inline">\(\mathbb{E}[\delta_t\mid s_t=s]=(\mathcal{T}^\pi V)(s)-V(s)\)</span> → <strong><span class="math inline">\(\mathcal{T}^\pi\)</span> 반복의 표본 버전</strong>.</li>
+<li><span class="math inline">\(G_t-V(s_t)=\sum_k\gamma^k\delta_{t+k}\)</span>: MC 오차는 TD 오차의 할인 합.</li>
+</ul>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>MC</th>
+<th>TD(0)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>목표값</td>
+<td><span class="math inline">\(G_t\)</span></td>
+<td><span class="math inline">\(r_t+\gamma V(s_{t+1})\)</span></td>
+</tr>
+<tr class="even">
+<td>편향</td>
+<td>없음</td>
+<td>있음 (<span class="math inline">\(V\ne v^\pi\)</span> 동안)</td>
+</tr>
+<tr class="odd">
+<td>분산</td>
+<td>지평 전체</td>
+<td>한 스텝</td>
+</tr>
+<tr class="even">
+<td>갱신</td>
+<td>에피소드 후</td>
+<td>매 스텝</td>
+</tr>
+</tbody>
+</table>
+<p>예 (<span class="math inline">\(\pi(s_1)=a_{1,1}\)</span>, <span class="math inline">\(V=v^\pi\)</span>일 때): TD target 분산 <span class="math inline">\(0.25(5.818+4)^2\approx24.1\)</span> vs MC 리턴 분산 <span class="math inline">\(40.5\)</span>.</p>
+<p><span class="math inline">\(Q\)</span>로 확장하면 SARSA, <span class="math inline">\(\max\)</span>를 쓰면 Q-learning(<span class="math inline">\(\mathcal{T}\)</span>의 표본 버전).</p>
+</section>
+<section id="핵심-정리" class="level1" data-number="13">
+<h1 data-number="13"><span class="header-section-number">13</span> 핵심 정리</h1>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>질문</th>
+<th>답</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>행동은 왜 장기 효과를 갖나</td>
+<td>행동이 다음 상태의 분포(→ 이후 궤적)를 바꾸기 때문</td>
+</tr>
+<tr class="even">
+<td>왜 지도학습이 안 되나</td>
+<td>보상은 즉각 이득만 측정, 미래 이득을 담지 못함 → 정답 레이블 없음</td>
+</tr>
+<tr class="odd">
+<td>왜 시퀀스가 아니라 정책</td>
+<td>불확실성 때문에 미리 정한 시퀀스는 최적이 아닐 수 있음. 정책은 바뀐 상태에 대응할 행동을 이미 앎</td>
+</tr>
+<tr class="even">
+<td>MDP 문제는 왜 어렵나</td>
+<td>변수가 함수라 gradient·수치 최적화 적용이 불분명 (+조합 폭발, 결정 얽힘)</td>
+</tr>
+<tr class="odd">
+<td>Monte Carlo의 장단점</td>
+<td>불편추정량 / 분산이 매우 커서 많은 샘플 필요</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(v^\pi(s)\)</span>의 의미</td>
+<td><span class="math inline">\(s\)</span>에서 출발해 <span class="math inline">\(\pi\)</span>를 계속 쓸 때 얻을 누적 보상의 기댓값</td>
+</tr>
+<tr class="odd">
+<td>왜 시작 시간이 무관한가</td>
+<td>무한 지평 + <span class="math inline">\(\gamma^{\tau-t}\)</span>의 시간 이동</td>
+</tr>
+<tr class="even">
+<td>정책 평가 방정식</td>
+<td><span class="math inline">\(v^\pi=R^\pi+\gamma P^\pi v^\pi=\mathcal{T}^\pi v^\pi\)</span> (선형 → 역행렬, 연산자 → 고정점)</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(v^*(s)\)</span>의 의미</td>
+<td><span class="math inline">\(s\)</span>에서 낼 수 있는 최선의 성능</td>
+</tr>
+<tr class="even">
+<td>왜 <span class="math inline">\(v^*\)</span>를 구하면 풀린 것인가</td>
+<td>argmax로 최적 정책이 바로 나오고 <span class="math inline">\(v^{\pi^*}=v^*\)</span></td>
+</tr>
+<tr class="odd">
+<td>Bellman 방정식이 말하는 것</td>
+<td>즉각 보상 희생 vs 장기 이득을 <span class="math inline">\(\gamma\)</span> 가중합으로 비교</td>
+</tr>
+<tr class="even">
+<td>Bellman의 숨은 복잡도</td>
+<td>최대화를 <strong>모든 상태별로</strong> 풀어야 함</td>
+</tr>
+<tr class="odd">
+<td>확률적 최적 정책</td>
+<td>argmax 동점 행동들 사이에서 임의의 확률로 섞기</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(\gamma&lt;1\)</span>의 역할</td>
+<td>리턴 수렴 + 연산자 수축(고정점 유일·수렴)</td>
+</tr>
+</tbody>
+</table>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
