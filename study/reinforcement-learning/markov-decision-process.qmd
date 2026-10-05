@@ -20,16 +20,22 @@ execute:
 | $S,\ A$ | 상태 공간, 행동 공간 |
 | $s_t,\ a_t,\ r_t$ | 시각 $t$의 상태, 행동, 보상 |
 | $p(s'\mid s,a)$ | 전이 확률 $\Pr(s_{t+1}=s'\mid s_t=s,\ a_t=a)$ |
+| $p_a$ | 고정된 $s$에서의 다음 상태 분포 $p(\cdot\mid s,a)$ (행 벡터) |
 | $r(s,a)$ | 보상 함수 $r: S\times A\to\mathbb{R}$ |
 | $\gamma$ | 할인율, $\gamma\in(0,1)$ |
+| $\mu_0$ | 초기 상태 분포 $\mu_0(s)=\Pr(s_0=s)$ |
 | $\pi$ | 정책 (결정론적 $\pi(s)$, 확률적 $\pi(a\mid s)$) |
 | $\Pi$ | 정책 공간 (정책들의 집합) |
+| $P^\pi,\ R^\pi$ | 정책 $\pi$로 행동을 평균낸 상태 전이 행렬, 기대 즉각 보상 벡터 |
 | $G_t$ | 리턴 $\sum_{\tau\ge t}\gamma^{\tau-t}r_\tau$ (확률변수) |
 | $J(\pi)$ | 정책의 점수 $\mathbb{E}^\pi[G_0]$ |
 | $v^\pi(s)$ | 정책 $\pi$의 가치 함수 |
+| $Q^\pi(s,a)$ | 첫 행동만 $a$, 이후 $\pi$를 따를 때의 가치 |
 | $v^*(s)$ | 최적 가치 함수 |
 | $q^*(s,a)$ | 최적 행동가치 $r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^*(s')$ |
 | $\mathcal{T}^\pi,\ \mathcal{T}$ | Bellman 기대 연산자, Bellman 최적 연산자 |
+| $\mathbf 1$ | 모든 성분이 1인 벡터 |
+| $v\le w$ | 성분별 부등식 ($v(s)\le w(s)\ \forall s$) |
 
 # 순차적 의사결정 (Sequential Decision Making)
 
@@ -40,23 +46,119 @@ execute:
 2. 그래서 **당장 보상 측면에서 손해인 행동이라도, 더 큰 장기적 이득을 가져온다면 그 행동을 택해야 한다.**
 :::
 
-**Q) 왜 행동이 장기적 효과를 갖는가?**
+### Q) 왜 행동이 장기적 효과를 갖는가?
+
 행동은 보상만이 아니라 **다음 상태의 분포** $p(\cdot\mid s,a)$를 정한다. 다음 상태가 바뀌면 그 이후 받을 수 있는 보상이 전부 바뀐다. 시각 $t$에 $a$ 대신 $a'$를 택하고 이후 같은 정책 $\pi$를 쓰면, 두 선택의 차이는
 
 $$
-J(a)-J(a')=\underbrace{r(s,a)-r(s,a')}_{\text{즉각 항}}+\sum_{k\ge1}\gamma^k\,(p_a-p_{a'})\,P_\pi^{\,k-1}\,\bar r_\pi
+J(a)-J(a')=\underbrace{r(s,a)-r(s,a')}_{\text{즉각 항}}+\sum_{k\ge1}\gamma^k\,(p_a-p_{a'})\,(P^\pi)^{k-1}\,R^\pi
 $$
 
 로 전파된다. 둘째 항이 장기 효과이며, 전이가 행동과 무관하면($p_a=p_{a'}$) 0이 되어 문제는 **bandit**으로 퇴화한다. 즉 **장기 효과의 원천은 전이 확률의 행동 의존성**이다.
 
-**Q) 즉각 보상을 희생해서 어떻게 장기 보상을 얻는가?**
+::: {.callout-note title="기호: 정책을 고정했을 때의 전이 행렬과 기대 보상"}
+정책 $\pi$를 고정하면 행동 선택이 정책 안으로 흡수되어(marginalize), MDP는 상태만의 마르코프 체인이 된다.
+
+$$
+P^\pi(s,s')=\sum_a\pi(a\mid s)\,p(s'\mid s,a),\qquad R^\pi(s)=\sum_a\pi(a\mid s)\,r(s,a)
+$$
+
+- $P^\pi$: $|S|\times|S|$ 행렬, 각 행의 합이 1 (row-stochastic). "정책 $\pi$를 따를 때 한 스텝 뒤 어느 상태로 가는가."
+- $R^\pi$: $|S|$차원 벡터. "상태 $s$에서 정책 $\pi$를 따를 때, 행동에 대해 평균낸 즉각 보상."
+- $p_a=p(\cdot\mid s,a)$는 행 벡터이므로 $(p_a-p_{a'})(P^\pi)^{k-1}R^\pi$는 스칼라다.
+:::
+
+#### $J(a)$는 무엇인가
+
+$J(a)$는 **상태 $s$에서 첫 행동만 $a$로 고정하고, 이후로는 $\pi$를 따를 때의 할인 누적 보상 기댓값**이다.
+
+$$
+J(a)=\mathbb{E}\Big[\sum_{k=0}^{\infty}\gamma^k\,r(s_{t+k},a_{t+k})\ \Big|\ s_t=s,\ a_t=a,\ a_{t+j}\sim\pi(\cdot\mid s_{t+j})\ (j\ge1)\Big]=Q^\pi(s,a)
+$$
+
+#### 전개 과정
+
+$\gamma<1$이고 보상이 유계이면 합과 기댓값의 순서를 바꿀 수 있다.
+
+$$
+J(a)=\sum_{k=0}^{\infty}\gamma^k\,\mathbb{E}[r_{t+k}\mid s_t=s,a_t=a]
+$$
+
+**$k=0$**: $s_t=s,\ a_t=a$가 주어졌으므로 무작위성이 없다. $\mathbb{E}[r_t]=r(s,a)$.
+
+**$k\ge1$**: 먼저 $s_{t+k}$의 분포를 구한다. $s_t$에서 $s_{t+k}$까지 전이가 $k$번 일어나는데,
+
+| 전이 | 따르는 분포 |
+|---|---|
+| $s_t\to s_{t+1}$ | $p_a$ (행동 $a$로 고정) |
+| $s_{t+1}\to s_{t+2},\ \dots,\ s_{t+k-1}\to s_{t+k}$ ($k-1$번) | $P^\pi$ (정책을 따름) |
+
+마르코프성에 의해 전이가 곱으로 이어지므로
+
+$$
+\Pr(s_{t+k}=\cdot\mid s_t=s,a_t=a)=p_a\,(P^\pi)^{k-1}.
+$$
+
+시각 $t+k$의 행동 $a_{t+k}\sim\pi$에 대해 평균내면(tower property) $\mathbb{E}[r_{t+k}\mid s_{t+k}]=R^\pi(s_{t+k})$이므로
+
+$$
+\mathbb{E}[r_{t+k}]=p_a\,(P^\pi)^{k-1}R^\pi .
+$$
+
+따라서
+
+$$
+J(a)=r(s,a)+\sum_{k\ge1}\gamma^k\,p_a\,(P^\pi)^{k-1}R^\pi .
+$$
+
+$a'$에 대해 같은 식을 쓰고 빼면 위의 $J(a)-J(a')$가 나온다. $(P^\pi)^{k-1}R^\pi$는 두 선택에서 공통이므로, **첫 전이 분포의 차이 $p_a-p_{a'}$만이 장기 효과로 전달된다.**
+
+::: {.callout-tip title="왜 지수가 $k-1$인가"}
+첫 번째 전이는 행동 $a$에 의존하는 $p_a$가 이미 담당하고, 나머지 $k-1$번만 $P^\pi$가 담당하기 때문이다. $k=1$이면 $(P^\pi)^0=I$이므로 $\gamma\,p_aR^\pi$, 즉 $s_{t+1}\sim p_a$에서 바로 받는 보상이 된다.
+:::
+
+::: {.callout-tip title="Bellman 식과의 대응"}
+$j=k-1$로 바꾸면 $\gamma^k=\gamma\cdot\gamma^j$이므로
+
+$$
+\sum_{k\ge1}\gamma^kp_a(P^\pi)^{k-1}R^\pi=\gamma\,p_a\underbrace{\sum_{j\ge0}\gamma^j(P^\pi)^jR^\pi}_{=\,v^\pi}
+\quad\Longrightarrow\quad
+J(a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^\pi(s')=Q^\pi(s,a).
+$$
+
+즉 둘째 항은 $v^\pi$를 Neumann 급수 $\sum_j\gamma^j(P^\pi)^jR^\pi=(I-\gamma P^\pi)^{-1}R^\pi$로 펼쳐 쓴 것이다.
+:::
+
+::: {.callout-note title="\"bandit으로 퇴화한다\"의 의미"}
+**Multi-armed bandit**은 행동이 다음 상황에 영향을 주지 않는 문제다. 매 시점 $a$를 고르고 보상을 받으면 끝이므로, 최적 행동은 즉각 보상만 보고 $\arg\max_a r(a)$로 정해진다. ("퇴화(degenerate)"는 일반 구조가 특수한 단순 경우로 붕괴한다는 뜻.)
+
+모든 $s$에서 $p(\cdot\mid s,a)=p(\cdot\mid s,a')$이면
+
+$$
+J(a)-J(a')=r(s,a)-r(s,a')
+$$
+
+가 되어, 두 행동의 우열이 **즉각 보상만으로** 결정된다. Bellman 최적 방정식으로 보아도 $\sum_{s'}p(s'\mid s,a)v^*(s')$가 $a$와 무관한 상수가 되어 $\arg\max$에서 빠진다.
+
+| | 일반 MDP | 전이가 행동과 무관 |
+|---|---|---|
+| 행동의 효과 | 보상 + 다음 상태 분포 | 보상만 |
+| 최적 행동 | $\arg\max_a\,[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^*(s')]$ | $\arg\max_a r(s,a)$ |
+| 즉각 보상의 희생 | 가능 | 불가능 (greedy가 최적) |
+
+- **상태 전이가 있어도** 그 전이가 행동과 무관하면 퇴화한다 (상태가 외생적으로 변하는 contextual bandit). 핵심은 전이의 유무가 아니라 **전이의 행동 의존성**이다.
+- 여기서의 퇴화는 **최적화 구조**에 대한 이야기다. 보상을 모를 때의 탐험-활용(explore–exploit) 문제와는 층위가 다르다.
+:::
+
+### Q) 즉각 보상을 희생해서 어떻게 장기 보상을 얻는가?
+
 행동을 $r(s,a)$가 아니라 **"지금 보상 + 할인된 미래 가치"** 기준으로 고른다. 희생이 정당화되는 조건은
 
 $$
 \underbrace{r(s,a_g)-r(s,a_*)}_{\text{포기하는 즉각 보상}}\;<\;\gamma\Big[\sum_{s'}p(s'\mid s,a_*)v^*(s')-\sum_{s'}p(s'\mid s,a_g)v^*(s')\Big].
 $$
 
-즉 "희생"이란 **현재 보상을 지불하고 미래 가치가 높은 상태를 사는 것**이다.
+즉 "희생"이란 **현재 보상을 지불하고 미래 가치가 높은 상태를 사는 것**이다. 전이가 행동과 무관하면 우변이 0이 되어 이 조건을 만족할 수 없다 — 희생할 이유 자체가 사라진다(bandit).
 
 ::: {.callout-note title="예: 갈림길"}
 - 행동 A: 보상 1, 이후 막다른 길(매 스텝 0)
@@ -87,10 +189,19 @@ flowchart LR
 정책을 고정하면 궤적 위의 확률분포가 정해진다.
 
 $$
-P^\pi(s_0,a_0,s_1,a_1,\dots)=\mu_0(s_0)\prod_t \pi(a_t\mid s_t)\,p(s_{t+1}\mid s_t,a_t)
+P^\pi(s_0,a_0,s_1,a_1,\dots)=\underbrace{\mu_0(s_0)}_{\text{시작 상태}}\prod_t \underbrace{\pi(a_t\mid s_t)}_{\text{행동 선택}}\,\underbrace{p(s_{t+1}\mid s_t,a_t)}_{\text{환경 전이}}
 $$
 
 목적함수의 $\mathbb{E}^\pi$는 **이 분포에 대한 기댓값**이다.
+
+::: {.callout-tip title="$\mu_0$: 초기 상태 분포"}
+$\mu_0(s_0)=\Pr(s_0=s_0)$는 에피소드가 시작될 때 첫 상태의 분포다. 연쇄 법칙으로 궤적 확률을 분해할 때, 첫 항에는 조건으로 삼을 이전 상태가 없으므로 별도의 분포가 필요하다.
+
+- $\mu_0$와 $p$는 **환경**이 정하고, 정책이 바꾸는 것은 $\pi(a_t\mid s_t)$ 인수뿐이다.
+- 시작 상태가 항상 고정이면 $\mu_0=\delta_{s_0}$ (한 점에 확률 1).
+- $v^\pi(s)$나 $Q^\pi(s,a)$처럼 "$s_t=s$가 주어진" 양에서는 $\mu_0$ 대신 $\delta_s$를 쓰는 셈이라 $\mu_0$가 나타나지 않는다.
+- 전체 점수는 $J(\pi)=\sum_s\mu_0(s)\,v^\pi(s)$로, $\mu_0$에 대한 가중평균이다.
+:::
 
 ## 보상에 대한 가정
 
@@ -351,18 +462,52 @@ Monte Carlo 추정량은 **불편추정량(unbiased estimator)**이다. 충분�
 분산이 매우 커서 낮은 분산을 얻으려면 매우 많은 시도가 필요하다. 정책 최적화는 시작도 안 했는데 **정책 평가만으로도 쉽지 않다.** 게다가 모든 시작 상태에 대해 같은 과정을 반복해야 한다. → **가치 함수 도입**
 :::
 
+## 직관: 왜 편향이 없고 분산이 큰가
+
+::: {.callout-tip title="한 줄 요약"}
+MC는 **진짜 궤적 분포 $P^\pi$에서 실제로 뽑은 표본의 평균**이므로 평균적으로 정답을 맞히지만(불편), 표본 하나가 **긴 우연의 연쇄**에 좌우되므로 표본마다 크게 흔들린다(고분산).
+:::
+
+**편향이 없는 이유.** $v^\pi(s)=\mathbb{E}^\pi[G_t\mid s_t=s]$ — 가치의 **정의 자체가 리턴의 기댓값**이다. 표본평균 $\hat v=\frac1N\sum_iG^{(i)}$는
+
+$$
+\mathbb{E}[\hat v]=\frac1N\sum_i\mathbb{E}[G^{(i)}]=v^\pi(s)
+$$
+
+로, 정의를 그대로 표본평균으로 바꾼 것이라 어떤 근사도 끼어들지 않는다. 반대로 TD는 아직 틀린 추정값 $V$를 목표값 $r+\gamma V(s')$에 끼워 넣기 때문에 편향이 생긴다.
+
+**분산이 큰 이유.** $G_t$에는 매 스텝의 행동 샘플링($\pi$), 전이 샘플링($p$)이 **지평 전체에 걸쳐 누적**된다. 스텝별 노이즈가 독립이고 분산이 $\sigma^2$라는 단순 모델에서도 $\mathrm{Var}(G)\approx\sum_k\gamma^{2k}\sigma^2$로 지평이 길수록 커지며, 실제로는 초반 한 번의 분기가 이후 방문 상태 전체를 바꾸므로(앞의 $(P^\pi)^{k-1}$ 효과) 더 증폭될 수 있다.
+
+**비유 (미로).** MC는 출구까지 끝까지 걸어 보고 총 시간을 잰다. 매번 정직한 측정이지만, 초반에 어느 쪽으로 꺾었느냐에 따라 5분이 되기도 50분이 되기도 한다. TD는 한 걸음만 걷고 나머지는 "이미 알고 있는 추정치"로 대체한다. 우연이 한 스텝분만 들어가 안정적이지만, 추정치가 틀렸다면 그 오류를 물려받는다.
+
+**분산이 크다 ≠ 틀린다.** 분산이 큰 것은 **표본 하나**의 흔들림이며, 표본평균의 분산은 $\mathrm{Var}(G)/N$으로 줄어든다. 즉 MC의 단점은 같은 정확도에 도달하는 데 **많은 표본이 필요하다**(표준오차 $\propto1/\sqrt N$)는 비용의 문제다.
+
 ::: {.callout-note title="예: 분산의 크기 ($\pi(s_1)=a_{1,1}$, $\gamma=0.9$, $s_1$에서 시작)"}
-$s_1$에 머무는 횟수 $K\sim\text{Geom}(1/2)$, $\Pr(K=k)=2^{-k}$이고
+**구조.** $s_1$에 머무는 동안 매 스텝 보상 $+5$, 매 스텝 확률 $1/2$로 $s_2$로 이탈하고, $s_2$에서는 보상 $-1$을 영원히 받는다. $s_1$에 머무는 횟수 $K\sim\text{Geom}(1/2)$, $\Pr(K=k)=2^{-k}$ ($k\ge1$).
+
+**리턴이 $K$ 하나의 함수가 된다.** $K$번 머문 뒤 이탈하면
 
 $$
-G=\frac{5-6\gamma^K}{1-\gamma}=50-60\cdot0.9^K.
+G=\underbrace{5\sum_{j=0}^{K-1}\gamma^j}_{s_1\text{에서}}+\underbrace{\gamma^K\cdot\frac{-1}{1-\gamma}}_{s_2\text{에서}}=\frac{5-6\gamma^K}{1-\gamma}=50-60\cdot0.9^K.
 $$
 
-$K=1\Rightarrow G=-4$ (확률 0.5), $K=2\Rightarrow1.4$, $K\to\infty\Rightarrow50$.
+$K=1\Rightarrow G=-4$ (확률 0.5), $K=2\Rightarrow1.4$ (확률 0.25), $K\to\infty\Rightarrow50$.
+
+**평균.** $G$가 $0.9^K$의 일차식이므로 $\mathbb{E}[0.9^K]$만 구하면 된다. 등비급수 $\sum_{k\ge1}x^k=\frac{x}{1-x}$를 쓰면
 
 $$
-\mathbb{E}[G]=50-60\cdot\tfrac{9}{11}\approx0.909,\qquad
-\mathrm{Var}(G)=3600\Big(\tfrac{81}{119}-\tfrac{81}{121}\Big)\approx40.5
+\mathbb{E}[0.9^K]=\sum_{k\ge1}\Big(\frac{0.9}{2}\Big)^k=\frac{0.45}{0.55}=\frac{9}{11},\qquad
+\mathbb{E}[G]=50-60\cdot\tfrac{9}{11}=\tfrac{10}{11}\approx0.909.
+$$
+
+**분산.** $\mathrm{Var}(a-bX)=b^2\mathrm{Var}(X)$이고 $(0.9^K)^2=0.81^K$이므로
+
+$$
+\mathbb{E}[0.81^K]=\sum_{k\ge1}\Big(\frac{0.81}{2}\Big)^k=\frac{0.405}{0.595}=\frac{81}{119},
+$$
+
+$$
+\mathrm{Var}(G)=3600\Big(\mathbb{E}[0.81^K]-\mathbb{E}[0.9^K]^2\Big)=3600\Big(\tfrac{81}{119}-\tfrac{81}{121}\Big)=\frac{583200}{14399}\approx40.5.
 $$
 
 표준편차 $\approx6.36$ — **평균의 약 7배.** 표준오차 $6.36/\sqrt N$:
@@ -373,7 +518,24 @@ $$
 | 10,000 | 0.064 |
 | 1,000,000 | 0.0064 |
 
-정밀도 0.01에 약 $4\times10^5$번 필요. 같은 값을 Bellman 방정식으로는 $0.55v=0.5$ 한 줄로 정확히 얻는다.
+정밀도 0.01에는 $6.36/\sqrt N=0.01\Rightarrow N\approx4\times10^5$번이 필요하다.
+
+**분포가 극단적으로 비대칭이다.** 확률 0.5로 $-4$, 0.25로 $1.4$이고, 오래 머무는 드문 경우만 50에 가깝다. 평균 0.909는 이 드문 큰 값이 끌어올린 결과라 평균 근처 값은 거의 나오지 않으며, 표본이 적으면 꼬리 사건을 봤느냐에 따라 추정치가 크게 달라진다.
+
+**같은 양을 Bellman 방정식으로.** MC가 추정하는 $\mathbb{E}[G]$는 곧 $v^\pi(s_1)$이다. $v:=v^\pi(s_1)$을 미지수로 두고, 한 스텝 보상 5를 받은 뒤 확률 1/2로 다시 $s_1$($v$), 1/2로 $s_2$($-10$)로 간다는 자기참조 관계를 쓰면
+
+$$
+v=5+0.9\big(\tfrac12v+\tfrac12(-10)\big)\ \Rightarrow\ 0.55v=0.5\ \Rightarrow\ v=\tfrac{10}{11}.
+$$
+
+MC가 $4\times10^5$개 궤적으로도 근사에 그치는 **바로 그 값**을, 모델을 알면 한 줄로 정확히 얻는다.
+
+| | MC | Bellman 방정식 |
+|---|---|---|
+| 구하는 것 | $v^\pi(s_1)=\mathbb{E}[G]$ | 같은 $v^\pi(s_1)$ |
+| 방법 | 궤적 $N$개의 $G$를 평균 | 재귀식(연립방정식)을 풂 |
+| 필요한 것 | 시뮬레이터 | 모델 $p,r$ |
+| 결과 | 근사 (오차 $\approx6.36/\sqrt N$) | 정확 |
 :::
 
 분산이 큰 구조적 이유: 무작위 전이의 누적, 유효 지평 $\frac{1}{1-\gamma}$에 비례하는 리턴의 범위, $1/\sqrt N$ 수렴 속도, 상태 간 정보 재사용 불가.
@@ -435,7 +597,7 @@ $$J(\pi)=\sum_s\mu_0(s)\,v^\pi(s).$$
 | $v^\pi(s)$ | $G_t$의 조건부 평균 | 상태마다 실수 (벡터) |
 | $J(\pi)$ | $G_0$의 전체 평균 | 실수 하나 |
 
-$v^\pi(s)$는 **같은 정책 규칙 $\pi$를 끝까지 유지**한다는 전제의 값이다. 규칙이 상태마다 다른 행동을 내는 것은 정의 그 자체이며, "첫 스텝만 $a$를 하고 이후 $\pi$"는 별도의 양 $Q^\pi(s,a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^\pi(s')$이다.
+$v^\pi(s)$는 **같은 정책 규칙 $\pi$를 끝까지 유지**한다는 전제의 값이다. 규칙이 상태마다 다른 행동을 내는 것은 정의 그 자체이며, "첫 스텝만 $a$를 하고 이후 $\pi$"는 별도의 양 $Q^\pi(s,a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^\pi(s')$이다. (첫 절의 $J(a)$가 바로 이 양이다.)
 
 # 정책 평가 방정식
 
@@ -511,6 +673,8 @@ $$
 (\mathcal{T}^\pi v)(s):=\sum_a\pi(a\mid s)\Big(r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v(s')\Big),\qquad v^\pi=\mathcal{T}^\pi v^\pi
 $$
 
+벡터로 쓰면 $\mathcal{T}^\pi v=R^\pi+\gamma P^\pi v$ (affine 사상)이다.
+
 ::: {.callout-important title="핵심"}
 좌변에 $v^\pi$, 우변이 $v^\pi$를 연산자에 넣은 출력이므로 **연산자 $\mathcal{T}^\pi$의 고정점(fixed point)을 구하는 문제**로 귀결된다.
 :::
@@ -518,11 +682,56 @@ $$
 - $v^\pi$는 **값**(특정 벡터), $\mathcal{T}^\pi$는 **기계**($\mathbb{R}^{|S|}\to\mathbb{R}^{|S|}$).
 - 직관: "다음 상태 가치가 $v$라고 가정했을 때 지금 상태의 가치"로 갱신. 참값이면 갱신해도 변하지 않는다.
 
-**γ-수축 (contraction)**: $\mathcal{T}^\pi v-\mathcal{T}^\pi w=\gamma P^\pi(v-w)$이고 $P^\pi$는 확률행렬이므로
+::: {.callout-tip title="첨자 $\pi$의 의미"}
+$\mathcal{T}^\pi$의 $\pi$는 **"행동을 어느 정책으로 평균내는 연산자인가"**를 나타낸다. 정책이 바뀌면 $R^\pi,\ P^\pi$가 바뀌므로 **연산자 자체가 다른 것**이 되고, 그 고정점 $v^\pi$도 달라진다. $v^\pi$의 첨자도 같은 의미("정책 $\pi$의 가치")다. 첨자가 없는 $\mathcal{T}$는 평균 대신 $\max$를 쓰는 Bellman 최적 연산자로, 특정 정책에 묶이지 않는다 (@sec-bellman).
+:::
+
+### Banach 고정점 정리
+
+::: {.callout-note title="정리 (Banach 고정점 정리)"}
+완비 거리공간 $(X,d)$에서 $T:X\to X$가 **$\gamma$-수축사상(contraction)**, 즉 어떤 $0\le\gamma<1$에 대해
+
+$$
+d(Tx,Ty)\le\gamma\,d(x,y)\qquad\forall x,y\in X
+$$
+
+이면,
+
+1. **존재·유일**: $x^*=Tx^*$인 고정점이 정확히 하나 존재한다.
+2. **수렴**: 임의의 $x_0$에서 $x_{k+1}=Tx_k$를 반복하면 $d(x_k,x^*)\le\gamma^k\,d(x_0,x^*)$로 $x^*$에 수렴한다.
+:::
+
+**직관.** 임의의 두 점이 한 번 적용할 때마다 거리가 $\gamma$배 이하로 줄어든다면, 반복하는 동안 모든 점이 한 점으로 모일 수밖에 없다. 축소 복사를 반복하면 결국 한 점이 되는 것과 같다.
+
+**증명.**
+
+- **유일성**: 고정점이 둘($x^*,y^*$)이면 $d(x^*,y^*)=d(Tx^*,Ty^*)\le\gamma\,d(x^*,y^*)$. $\gamma<1$이므로 $d(x^*,y^*)=0$.
+- **존재**: $d(x_{k+1},x_k)\le\gamma^kd(x_1,x_0)$이므로 $m>n$일 때
+$$
+d(x_m,x_n)\le\sum_{j=n}^{m-1}\gamma^jd(x_1,x_0)\le\frac{\gamma^n}{1-\gamma}d(x_1,x_0)\xrightarrow{n\to\infty}0.
+$$
+반복열이 Cauchy열이므로 완비성에 의해 극한 $x^*$가 존재하고, 수축사상은 연속이므로 $x^*=\lim x_{k+1}=\lim Tx_k=Tx^*$.
+- **수렴 속도**: $d(x_k,x^*)=d(Tx_{k-1},Tx^*)\le\gamma\,d(x_{k-1},x^*)\le\cdots\le\gamma^kd(x_0,x^*)$.
+
+**두 조건이 모두 필요하다.** 공간의 완비성(극한이 공간 안에 있어야 함)과 **엄밀히 $\gamma<1$**. $\gamma=1$이면 비확장(nonexpansive)일 뿐이라 유일성·수렴이 보장되지 않는다. 할인율 $\gamma<1$이 알고리즘 수렴을 보장하는 이유가 이것이다.
+
+### $\mathcal{T}^\pi$는 $\gamma$-수축이다
+
+공간은 $(\mathbb{R}^{|S|},\|\cdot\|_\infty)$ (유한차원이므로 완비). 두 벡터 $v,w$에 대해 $R^\pi$가 상쇄되어
+
+$$
+\mathcal{T}^\pi v-\mathcal{T}^\pi w=\gamma P^\pi(v-w).
+$$
+
+$P^\pi$의 각 행은 확률분포이므로 $(P^\pi u)(s)$는 $u$의 **가중평균**이고, 가중평균은 최대 절댓값을 넘지 못한다: $\|P^\pi u\|_\infty\le\|u\|_\infty$. 따라서
+
 $$
 \|\mathcal{T}^\pi v-\mathcal{T}^\pi w\|_\infty\le\gamma\|v-w\|_\infty.
 $$
-Banach 고정점 정리 → 고정점 **존재·유일**, 반복 $v_{k+1}=\mathcal{T}^\pi v_k$가 $\|v_k-v^\pi\|_\infty\le\gamma^k\|v_0-v^\pi\|_\infty$로 수렴.
+
+Banach 고정점 정리 → 고정점 **존재·유일**, 반복 $v_{k+1}=\mathcal{T}^\pi v_k$가 $\|v_k-v^\pi\|_\infty\le\gamma^k\|v_0-v^\pi\|_\infty$로 수렴 (iterative policy evaluation이 항상 수렴하는 이유).
+
+(선형대수로도 확인된다: $P^\pi$의 스펙트럼 반경이 1이므로 $\gamma<1$이면 $I-\gamma P^\pi$가 가역이고 $v^\pi=(I-\gamma P^\pi)^{-1}R^\pi$가 유일하다.)
 
 ::: {.callout-note title="예: 반복 정책 평가 ($\pi(s_1)=a_{1,2}$, $\gamma=0.9$)"}
 $\mathcal{T}^\pi v=(10+0.9v(s_2),\ -1+0.9v(s_2))$
@@ -531,7 +740,9 @@ $\mathcal{T}^\pi v=(10+0.9v(s_2),\ -1+0.9v(s_2))$
 |---|---|---|---|---|---|---|
 | $v_k$ | (0, 0) | (10, −1) | (9.1, −1.9) | (8.29, −2.71) | ⋯ | **(1, −10)** |
 
-$s_2$ 오차가 9, 8.1, 7.29, …로 정확히 0.9배씩 감소.
+- 고정점: $v(s_2)=-1+0.9v(s_2)\Rightarrow v(s_2)=-10$, $v(s_1)=10+0.9(-10)=1$.
+- $s_2$ 오차가 $10\to9\to8.1\to7.29\to\cdots$로 **정확히 0.9배씩** 감소 — 수렴 경계 $\gamma^k\|v_0-v^\pi\|_\infty$가 이 예에서는 등식으로 성립한다.
+- $s_1$은 $s_2$의 값에만 의존하므로 한 스텝 늦게 따라간다.
 :::
 
 # 최적 가치 함수
@@ -546,6 +757,38 @@ $$
 **현재 상태 $s$에서 출발했을 때, 어떤 정책을 쓰든 앞으로 얻을 수 있는 누적 보상 기댓값의 최대치.** 즉 $v^*$는 **낼 수 있는 최선의 성능(best possible performance)**을 규정한다.
 :::
 
+## 두 연산자와 증명 도구 {#sec-tools}
+
+이 장과 다음 장에서는 두 연산자를 함께 쓴다.
+
+$$
+q_v(s,a):=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v(s'),\qquad
+(\mathcal{T}^\pi v)(s)=\sum_a\pi(a\mid s)\,q_v(s,a),\qquad
+(\mathcal{T}v)(s)=\max_a q_v(s,a)
+$$
+
+$q_v(s,a)$는 "다음 상태 가치가 $v$라고 할 때 $s$에서 $a$를 하는 가치"이고, 두 연산자의 **차이는 행동에 대해 $\pi$로 평균내느냐, $\max$를 취하느냐뿐**이다.
+
+| | $\mathcal{T}^\pi$ (기대 연산자) | $\mathcal{T}$ (최적 연산자) |
+|---|---|---|
+| 행동 처리 | $\pi$로 가중평균 | $\max$ |
+| 형태 | affine: $R^\pi+\gamma P^\pi v$ | 비선형 |
+| 고정점 | $v^\pi$ (정책 평가) | $v^*$ (최적 가치) |
+| 수축성 | $\gamma$-수축 | $\gamma$-수축 |
+
+::: {.callout-note title="도구 (두 연산자 공통)"}
+- **(M) 단조성**: $v\le w\Rightarrow\mathcal{T}^\pi v\le\mathcal{T}^\pi w,\ \mathcal{T}v\le\mathcal{T}w$.
+  $q_v$는 $v$의 비음수 계수 결합이라 $q_v\le q_w$이고, 가중평균과 $\max$ 모두 순서를 보존한다.
+- **(S) 상수 이동**: $\mathcal{T}^\pi(v+c\mathbf 1)=\mathcal{T}^\pi v+\gamma c\mathbf 1$, $\mathcal{T}(v+c\mathbf 1)=\mathcal{T}v+\gamma c\mathbf 1$.
+  $P^\pi\mathbf 1=\mathbf 1$이고, $\max_a$ 안의 공통 상수는 그대로 빠진다.
+- **(C) 수축성**: $\|\mathcal{T}v-\mathcal{T}w\|_\infty\le\gamma\|v-w\|_\infty$ ($\mathcal{T}^\pi$는 @sec-contraction).
+  $|\max_ax_a-\max_ay_a|\le\max_a|x_a-y_a|$이고 $|q_v(s,a)-q_w(s,a)|\le\gamma\|v-w\|_\infty$.
+- **(U) 평균 ≤ 최댓값**: 모든 $\pi,v$에 대해 $\mathcal{T}^\pi v\le\mathcal{T}v$.
+- **(G) 탐욕 정책의 일치**: $\pi_v(s)\in\arg\max_aq_v(s,a)$ (탐욕 정책)이면 $\mathcal{T}^{\pi_v}v=\mathcal{T}v$. **이 $v$에서만** 등호이고, 다른 $w$에서는 (U)의 부등호일 뿐이다.
+
+(C)와 Banach 정리에 의해 $\mathcal{T}$의 고정점은 유일하며, 이것이 $v^*$다(@sec-stitching에서 증명).
+:::
+
 ## "최적 가치 함수를 구하면 MDP를 풀었다" — 왜?
 
 순서: **최적 가치 함수 계산 → 최적 정책 추출.**
@@ -554,20 +797,116 @@ $$
 2. **정책 생성기**: $v^*$에서 argmax 한 번으로 정책이 나온다 — Bellman 방정식의 max 값을 구하는 과정에서 argmax 행동이 이미 계산된다.
 3. **상한 달성**: 그 정책 $\pi^*$는 $\mathcal{T}^{\pi^*}v^*=\mathcal{T}v^*=v^*$이므로 고정점의 유일성에 의해 $v^{\pi^*}=v^*$.
 
+::: {.callout-tip title="직관"}
+$v^*$는 **천장**이고, 정책은 그 천장에 닿게 해 주는 **행동 지침**이다. 천장의 높이 $v^*$를 알면 각 상태에서 "한 걸음 가서 천장에 닿는 행동"을 고르면 된다. 한 걸음 앞만 보는 선택(greedy)이 전체 지평에서도 최적인 이유는, $v^*$가 **미래의 모든 효과를 이미 압축해 담고 있기 때문**이다.
+:::
+
+### 항목 3의 등호가 성립하는 이유
+
+$$
+\mathcal{T}^{\pi^*}v^*\ \overset{(1)}{=}\ \mathcal{T}v^*\ \overset{(2)}{=}\ v^*
+$$
+
+**(1) 첫 번째 등호 — 탐욕 정책의 정의.** $\pi^*$를 $v^*$에 대한 탐욕 정책으로 정의했으므로
+
+$$
+\pi^*(s)\in\arg\max_a\Big(r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^*(s')\Big).
+$$
+
+$\pi^*$는 각 상태에서 괄호 안을 최대로 만드는 행동에 확률 1을 준다. 그러면 $\mathcal{T}^{\pi^*}$의 "가중평균"은 최댓값 하나를 고르는 것과 같아진다:
+
+$$
+(\mathcal{T}^{\pi^*}v^*)(s)=\sum_a\pi^*(a\mid s)\,q_{v^*}(s,a)=\max_aq_{v^*}(s,a)=(\mathcal{T}v^*)(s).
+$$
+
+이 일치는 **$v^*$를 기준으로 탐욕 정책을 잡았기 때문에** 성립한다(도구 (G)). 일반적인 정책과 벡터에서는 $\mathcal{T}^\pi v\le\mathcal{T}v$일 뿐이다. 동점이 있어도 어느 argmax를 고르든 값은 같으므로 등호는 유지된다.
+
+**(2) 두 번째 등호 — $v^*$의 정의.** $v^*$는 Bellman 최적 연산자 $\mathcal{T}$의 고정점이다.
+
+**결론의 논리.** $\mathcal{T}^{\pi^*}v^*=v^*$는 "$v^*$가 $\mathcal{T}^{\pi^*}$의 고정점"이라는 뜻이다. $\mathcal{T}^{\pi^*}$는 $\gamma$-수축이라 고정점이 하나뿐이고, 그 유일한 고정점은 정의상 $v^{\pi^*}$이다. 따라서 $v^{\pi^*}=v^*$ — **$v^*$에서 탐욕적으로 뽑은 정책이 실제로 $v^*$만큼의 성능을 낸다.**
+
+### 항목 1(성능 상한)의 증명
+
+임의의 정상 정책 $\pi$에 대해, (U)에 의해 $v^\pi=\mathcal{T}^\pi v^\pi\le\mathcal{T}v^\pi$. 양변에 $\mathcal{T}$를 반복 적용하면 (M)에 의해
+
+$$
+v^\pi\le\mathcal{T}v^\pi\le\mathcal{T}^2v^\pi\le\cdots\le\mathcal{T}^nv^\pi\xrightarrow{n\to\infty}v^*\quad(\text{C와 Banach})
+$$
+
+이므로 $v^\pi\le v^*$. (@sec-stitching의 Step 2와 같은 논증이다.)
+
 | 단계 | 하는 일 | 난이도 |
 |---|---|---|
 | ① 최적 가치 계산 | $v=\mathcal{T}v$의 고정점 | 반복 계산 필요 |
 | ② 정책 추출 | 같은 식의 argmax | 한 번의 비교 |
 
-**왜 가치부터?** $v^\pi$는 정책에 의존하고 정책의 우열은 가치로 판단하는 순환이 있다. $v^*$는 **어떤 정책에도 의존하지 않는 유일한 벡터**라 먼저 구할 수 있다.
+**왜 가치부터?** $v^\pi$는 정책에 의존하고 정책의 우열은 가치로 판단하는 순환이 있다. $v^*$는 **어떤 정책에도 의존하지 않는 유일한 벡터**라 먼저 구할 수 있다. 이 순환을 끊는 열쇠가 평균 대신 쓰는 $\max$다.
 
 **주의**
 
-- 정책 추출에 $r,p$가 필요하다. 모델이 없으면 $\pi^*(s)\in\arg\max_a Q^*(s,a)$, 즉 $Q^*$가 필요하다.
-- $v^*$는 유일하지만 $\pi^*$는 동점이 있으면 여러 개.
-- 근사 $v$의 탐욕 정책 $\pi_v$의 손실: $\|v^{\pi_v}-v^*\|_\infty\le\frac{2\gamma}{1-\gamma}\|v-v^*\|_\infty$.
+- 정책 추출에 $r,p$가 필요하다. 모델이 없으면 $\pi^*(s)\in\arg\max_a Q^*(s,a)$, 즉 $Q^*$가 필요하다. $Q^*$가 있으면 "한 걸음 앞 계산"이 이미 끝나 있기 때문이다.
+- $v^*$는 유일하지만 $\pi^*$는 동점이 있으면 여러 개. 어느 argmax를 골라도 $\mathcal{T}^\pi v^*=\mathcal{T}v^*$이므로 모두 최적이다.
+- 근사 $v$의 탐욕 정책 $\pi_v$의 손실: $\|v^{\pi_v}-v^*\|_\infty\le\frac{2\gamma}{1-\gamma}\|v-v^*\|_\infty$ (아래).
 
-# Bellman 방정식
+## 근사 가치의 탐욕 정책: 손실 경계
+
+::: {.callout-note title="명제"}
+$\varepsilon:=\|v-v^*\|_\infty$, $\pi_v$를 $v$에 대한 탐욕 정책이라 하면
+$$
+0\le v^*-v^{\pi_v}\le\frac{2\gamma\varepsilon}{1-\gamma}\mathbf 1,\qquad\text{즉}\qquad\|v^{\pi_v}-v^*\|_\infty\le\frac{2\gamma}{1-\gamma}\|v-v^*\|_\infty.
+$$
+:::
+
+**증명 (단조성 이용).** $v^*-\varepsilon\mathbf 1\le v\le v^*+\varepsilon\mathbf 1$이고 (G)에 의해 $\mathcal{T}^{\pi_v}v=\mathcal{T}v$이다.
+
+**Step 1. 한 번의 갱신에서 잃는 양**
+
+$$
+\begin{aligned}
+\mathcal{T}^{\pi_v}v^*&\ge\mathcal{T}^{\pi_v}(v-\varepsilon\mathbf 1) &&(v^*\ge v-\varepsilon\mathbf 1,\ \text{M})\\
+&=\mathcal{T}^{\pi_v}v-\gamma\varepsilon\mathbf 1 &&(\text{S})\\
+&=\mathcal{T}v-\gamma\varepsilon\mathbf 1 &&(\text{G})\\
+&\ge\mathcal{T}(v^*-\varepsilon\mathbf 1)-\gamma\varepsilon\mathbf 1 &&(v\ge v^*-\varepsilon\mathbf 1,\ \text{M})\\
+&=v^*-2\gamma\varepsilon\mathbf 1 &&(\text{S},\ \mathcal{T}v^*=v^*)
+\end{aligned}
+$$
+
+**Step 2. 손실이 지평에 걸쳐 누적됨.** $w_0=v^*$, $w_{n+1}=\mathcal{T}^{\pi_v}w_n$이라 하고 $w_n\ge v^*-c_n\mathbf 1$을 귀납으로 보인다. $c_0=0$이고, 가정하에
+
+$$
+w_{n+1}=\mathcal{T}^{\pi_v}w_n\ge\mathcal{T}^{\pi_v}(v^*-c_n\mathbf 1)=\mathcal{T}^{\pi_v}v^*-\gamma c_n\mathbf 1\ge v^*-(2\gamma\varepsilon+\gamma c_n)\mathbf 1.
+$$
+
+따라서 $c_{n+1}=2\gamma\varepsilon+\gamma c_n$, 즉
+
+$$
+c_n=2\gamma\varepsilon\,(1+\gamma+\cdots+\gamma^{n-1})\xrightarrow{n\to\infty}\frac{2\gamma\varepsilon}{1-\gamma}.
+$$
+
+**Step 3. 극한.** Banach 정리로 $w_n\to v^{\pi_v}$이므로 $v^{\pi_v}\ge v^*-\frac{2\gamma\varepsilon}{1-\gamma}\mathbf 1$. 한편 성능 상한에 의해 $v^{\pi_v}\le v^*$. 두 부등식을 합치면 명제가 나온다. $\blacksquare$
+
+::: {.callout-tip title="다른 증명 (삼각부등식)"}
+$v^{\pi_v}=\mathcal{T}^{\pi_v}v^{\pi_v}$, $\mathcal{T}^{\pi_v}v=\mathcal{T}v$, $v^*=\mathcal{T}v^*$를 쓰면
+
+$$
+\|v^{\pi_v}-v^*\|\le\underbrace{\|\mathcal{T}^{\pi_v}v^{\pi_v}-\mathcal{T}^{\pi_v}v\|}_{\le\gamma\|v^{\pi_v}-v\|}+\underbrace{\|\mathcal{T}v-\mathcal{T}v^*\|}_{\le\gamma\|v-v^*\|}
+$$
+
+이고 $\|v^{\pi_v}-v\|\le\|v^{\pi_v}-v^*\|+\|v^*-v\|$이므로 $\|v^{\pi_v}-v^*\|\le\gamma\|v^{\pi_v}-v^*\|+2\gamma\|v-v^*\|$. 좌변으로 묶어 $(1-\gamma)$로 나누면 같은 결과다 ($\|\cdot\|=\|\cdot\|_\infty$).
+:::
+
+**계수 $\frac{2\gamma}{1-\gamma}$의 해석**
+
+$$
+\underbrace{2}_{\text{양쪽 오차}}\cdot\underbrace{\gamma}_{\text{한 스텝 할인}}\cdot\underbrace{\frac{1}{1-\gamma}}_{\text{유효 지평}}\cdot\ \varepsilon
+$$
+
+- **$2\gamma$**: $v$가 $\varepsilon$만큼 틀리면 모든 행동의 가치 추정 $q_v(s,a)$가 최대 $\gamma\varepsilon$ 틀린다. 최적 행동은 $\gamma\varepsilon$ 과소평가, 차선 행동은 $\gamma\varepsilon$ 과대평가될 수 있어 순위가 뒤집히면 **한 스텝 손실이 최대 $2\gamma\varepsilon$** (Step 1).
+- **$\frac{1}{1-\gamma}$**: 이 스텝당 손실이 매 스텝 반복되어 $1+\gamma+\gamma^2+\cdots$로 쌓인다 (Step 2).
+- $v\to v^*$이면 손실도 0 → value iteration 후 탐욕 정책을 뽑는 것이 정당화된다.
+- $\gamma=0.99$이면 계수 $\approx198$. 긴 지평에서는 작은 가치 오차도 크게 증폭될 수 있다. 다만 worst-case 경계이며, 중요한 것은 $v$의 절대 오차가 아니라 **행동 순위가 유지되는가**다 (Value Iteration 예 참고).
+
+# Bellman 방정식 {#sec-bellman}
 
 ::: {.callout-note title="정리 (Bellman 방정식)"}
 최적 가치 함수 $v^*$는 다음 방정식의 **유일한 해**이다.
@@ -582,7 +921,7 @@ $$
 
 - 최적 가치도 **즉각 보상 + 다음 상태로부터 얻을 누적 보상 기댓값의 최대치**로 쪼갠다. 둘째 항에는 **반드시 $v^*$가 와야 한다** ($v^\pi$가 오면 안 됨).
 - **최적화 변수의 변화**: 원래는 정책(함수) 자체를 최적화했지만, 이제 **현재 시점의 행동 하나**를 최적화하는 문제로 바뀌었다.
-- $\mathcal{T}^\pi$와 $\mathcal{T}$의 차이: 정책으로 **평균** vs 최선 행동으로 **max**. 둘 다 γ-수축.
+- $\mathcal{T}^\pi$와 $\mathcal{T}$의 차이: 정책으로 **평균** vs 최선 행동으로 **max**. 둘 다 γ-수축 (@sec-tools).
 
 ::: {.callout-important title="숨은 복잡도 (hidden complexity)"}
 어려운 문제가 갑자기 쉬워지는 일은 없다. 최적성을 잃지 않으면서 단순해졌다면 대가가 있어야 한다. 그 대가는 **이 최대화를 각 상태 $s$별로 풀어야 한다**는 것이다. 각 상태별로 최대화를 달성하는 행동이 최적 행동으로 정해진다.
@@ -614,13 +953,55 @@ $v^*(s)=\max_\pi v^\pi(s)$는 **상태마다 따로** 최대화한 값이다. �
 
 - 직관 (**최적 꼬리**): Markov 성질 때문에 $s'$에서의 최선은 도착 경로와 무관한 숫자 $v^*(s')$이다. 각 상태의 argmax 선택이 서로를 방해하지 않고 이어 붙여진다.
 
-**증명 스케치** — 도구: 단조성($v\le w\Rightarrow\mathcal{T}v\le\mathcal{T}w$), 수축성.
+::: {.callout-note title="명제"}
+유한한 $S,A$, 유계 보상, $\gamma\in(0,1)$인 MDP에서, 정상 정책들의 가치 $v^\pi$에 대해 **하나의 결정론적 정상 정책 $\hat\pi$**가 존재하여
 
-1. $\hat v=\mathcal{T}\hat v$, $\hat\pi$를 $\hat v$에 대한 탐욕 정책이라 하면 $\mathcal{T}^{\hat\pi}\hat v=\hat v$ → $\hat v=v^{\hat\pi}$.
-2. 임의의 $\pi$: $v^\pi=\mathcal{T}^\pi v^\pi\le\mathcal{T}v^\pi\le\mathcal{T}^2v^\pi\le\cdots\to\hat v$ → $v^\pi\le\hat v$.
-3. 따라서 $\hat v=v^*$이고 탐욕 정책이 모든 상태에서 동시에 최적. ∎
+$$
+v^{\hat\pi}(s)=\max_\pi v^\pi(s)=v^*(s)\qquad\forall s.
+$$
 
-**성립하지 않는 경우**: 위험 민감 목표, 제약 MDP, 부분 관측(POMDP), 비지수 할인.
+또한 $v^*$는 $\mathcal{T}$의 유일한 고정점이다.
+:::
+
+**증명.** 도구는 @sec-tools의 (M), (C), (U), (G)와 Banach 고정점 정리.
+
+**Step 1. 후보 $\hat v$와 $\hat\pi$를 만들고 $\hat v=v^{\hat\pi}$를 보인다.**
+$\mathcal{T}$는 $\gamma$-수축(C)이므로 Banach 정리에 의해 고정점 $\hat v=\mathcal{T}\hat v$가 유일하게 존재한다. 이 시점의 $\hat v$는 어떤 정책의 가치가 아니라 **연산자 $\mathcal{T}$의 고정점일 뿐**이다.
+$\hat\pi(s)\in\arg\max_aq_{\hat v}(s,a)$로 탐욕 정책을 정의하면($A$가 유한하므로 argmax 존재), (G)에 의해
+
+$$
+\mathcal{T}^{\hat\pi}\hat v=\mathcal{T}\hat v=\hat v.
+$$
+
+즉 $\hat v$는 $\mathcal{T}^{\hat\pi}$의 고정점이다. $\mathcal{T}^{\hat\pi}$의 고정점은 유일하며 그것이 $v^{\hat\pi}$이므로 $\hat v=v^{\hat\pi}$ — **$\hat v$는 실제로 달성 가능한 값**이다.
+
+**Step 2. 임의의 정상 정책 $\pi$에 대해 $v^\pi\le\hat v$를 보인다.**
+(U)에 의해 $v^\pi=\mathcal{T}^\pi v^\pi\le\mathcal{T}v^\pi$. 양변에 $\mathcal{T}$를 적용하면 (M)에 의해 부등호 방향이 유지되어
+
+$$
+v^\pi\le\mathcal{T}v^\pi\le\mathcal{T}^2v^\pi\le\cdots\le\mathcal{T}^nv^\pi\qquad\forall n.
+$$
+
+Banach 정리의 수렴 부분(시작점 $v^\pi$)에 의해 $\mathcal{T}^nv^\pi\to\hat v$이고, 성분별 부등식은 극한에서 보존되므로 $v^\pi\le\hat v$.
+
+**Step 3. 결론.** 모든 정상 정책 $\pi$와 모든 $s$에서 $v^\pi(s)\le\hat v(s)=v^{\hat\pi}(s)$. 따라서 $\hat v(s)=\max_\pi v^\pi(s)=v^*(s)$이고, **같은 $\hat\pi$가 모든 상태에서 동시에 최대를 달성**한다. $\blacksquare$
+
+::: {.callout-tip title="왜 Pareto 문제가 생기지 않는가"}
+여러 목적 $v(s_1),v(s_2),\dots$를 동시에 최대화하면 일반적으로 트레이드오프가 생긴다. MDP에서 이것이 피해지는 이유는 Step 1의 $\mathcal{T}^{\hat\pi}\hat v=\mathcal{T}\hat v$에 있다.
+
+- 상태 $s'$에서의 최선 $\hat v(s')$는 **어떻게 $s'$에 도달했는가와 무관한 숫자**다 (Markov 성질).
+- 그래서 $(\mathcal{T}\hat v)(s)$의 $\max$는 상태마다 **독립적으로** 계산되고, 한 상태의 선택이 다른 상태에서 쓸 수 있는 최선을 방해하지 않는다.
+- 상태별 argmax를 이어 붙인 정책이 곧 모든 상태에서 동시에 최적인 정책이다.
+:::
+
+**성립하지 않는 경우** — 증명의 기둥 "$\mathcal{T}$-재귀 + 단조성 + 수축성" 중 하나가 무너진다.
+
+| 경우 | 깨지는 부분 |
+|---|---|
+| 위험 민감 목표 | 기댓값의 선형성·tower property가 없어 $P^\pi$의 가중평균 구조와 재귀식이 사라진다 |
+| 제약 MDP | 제약이 상태들을 가로질러 결합되어 상태별 argmax를 독립적으로 이어 붙일 수 없다 (최적 정책이 확률적이거나 $\mu_0$에 의존할 수 있음) |
+| 부분 관측 (POMDP) | 관측만으로는 Markov가 아니어서 "$s'$의 최선은 경로와 무관한 수"라는 전제가 깨진다 |
+| 비지수 할인 | $v^\pi=\mathcal{T}^\pi v^\pi$ 형태의 재귀가 없어 미래에서 본 문제가 현재의 하위 문제와 달라진다 (시간 비일관성) |
 
 # 최적 정책
 
@@ -675,7 +1056,7 @@ $v_{k+1}=\mathcal{T}v_k$ ($a_{2,2}$를 추가한 MDP, $\gamma=0.9$, $v_0=0$):
 | 5 | 21.40 | 12.01 | ✓ |
 | ∞ | 43.16 | 36.84 | ✓ |
 
-가치는 아직 멀어도 **행동 간 순서만 맞으면 정책은 이미 최적**이다.
+가치는 아직 멀어도 **행동 간 순서만 맞으면 정책은 이미 최적**이다. 손실 경계 $\frac{2\gamma}{1-\gamma}\|v-v^*\|_\infty$는 worst-case이며, 이 예처럼 실제 손실은 0일 수 있다.
 
 ```python
 import numpy as np
@@ -715,28 +1096,36 @@ $$
 | | MC | TD(0) |
 |---|---|---|
 | 목표값 | $G_t$ | $r_t+\gamma V(s_{t+1})$ |
+| 포함된 무작위성 | 궤적 전체 | 한 스텝 |
 | 편향 | 없음 | 있음 ($V\ne v^\pi$ 동안) |
 | 분산 | 지평 전체 | 한 스텝 |
 | 갱신 | 에피소드 후 | 매 스텝 |
 
 예 ($\pi(s_1)=a_{1,1}$, $V=v^\pi$일 때): TD target 분산 $0.25(5.818+4)^2\approx24.1$ vs MC 리턴 분산 $40.5$.
 
-$Q$로 확장하면 SARSA, $\max$를 쓰면 Q-learning($\mathcal{T}$의 표본 버전).
+$n$-step 리턴이나 $\lambda$-리턴은 두 극단 사이를 연속적으로 보간한다. $Q$로 확장하면 SARSA, $\max$를 쓰면 Q-learning($\mathcal{T}$의 표본 버전).
 
 # 핵심 정리
 
 | 질문 | 답 |
 |---|---|
 | 행동은 왜 장기 효과를 갖나 | 행동이 다음 상태의 분포(→ 이후 궤적)를 바꾸기 때문 |
+| $J(a)$ 전개의 $(P^\pi)^{k-1}$ | 첫 전이는 $p_a$, 남은 $k-1$번 전이는 정책을 따른 $P^\pi$ |
+| bandit으로 퇴화 | 전이가 행동과 무관하면 미래 항이 상쇄되어 즉각 보상만으로 결정 |
+| $\mu_0$ | 초기 상태 분포 (환경이 정함), $J(\pi)=\sum_s\mu_0(s)v^\pi(s)$ |
 | 왜 지도학습이 안 되나 | 보상은 즉각 이득만 측정, 미래 이득을 담지 못함 → 정답 레이블 없음 |
 | 왜 시퀀스가 아니라 정책 | 불확실성 때문에 미리 정한 시퀀스는 최적이 아닐 수 있음. 정책은 바뀐 상태에 대응할 행동을 이미 앎 |
 | MDP 문제는 왜 어렵나 | 변수가 함수라 gradient·수치 최적화 적용이 불분명 (+조합 폭발, 결정 얽힘) |
-| Monte Carlo의 장단점 | 불편추정량 / 분산이 매우 커서 많은 샘플 필요 |
+| Monte Carlo의 장단점 | 가치의 정의를 그대로 표본평균 → 불편 / 지평 전체의 우연이 누적 → 분산이 매우 큼 |
 | $v^\pi(s)$의 의미 | $s$에서 출발해 $\pi$를 계속 쓸 때 얻을 누적 보상의 기댓값 |
 | 왜 시작 시간이 무관한가 | 무한 지평 + $\gamma^{\tau-t}$의 시간 이동 |
 | 정책 평가 방정식 | $v^\pi=R^\pi+\gamma P^\pi v^\pi=\mathcal{T}^\pi v^\pi$ (선형 → 역행렬, 연산자 → 고정점) |
+| Banach 고정점 정리 | 완비공간의 수축사상은 고정점이 유일하고, 반복이 $\gamma^k$ 속도로 수렴 |
+| $\mathcal{T}^\pi$의 첨자 | 행동을 어느 정책으로 평균내는가 — 정책마다 다른 연산자, 다른 고정점 |
 | $v^*(s)$의 의미 | $s$에서 낼 수 있는 최선의 성능 |
-| 왜 $v^*$를 구하면 풀린 것인가 | argmax로 최적 정책이 바로 나오고 $v^{\pi^*}=v^*$ |
+| 왜 $v^*$를 구하면 풀린 것인가 | 탐욕 정책이 $\mathcal{T}^{\pi^*}v^*=\mathcal{T}v^*=v^*$를 만족 → 고정점 유일성으로 $v^{\pi^*}=v^*$ |
+| 근사 가치의 탐욕 정책 | 손실 $\le\frac{2\gamma}{1-\gamma}\varepsilon$: 순위 역전의 한 스텝 손실 $2\gamma\varepsilon$이 지평 $\frac1{1-\gamma}$만큼 누적 |
+| 상태별 이어 붙이기 | $\mathcal{T}$의 max가 상태마다 독립 → 하나의 탐욕 정책이 모든 상태에서 동시에 최적 |
 | Bellman 방정식이 말하는 것 | 즉각 보상 희생 vs 장기 이득을 $\gamma$ 가중합으로 비교 |
 | Bellman의 숨은 복잡도 | 최대화를 **모든 상태별로** 풀어야 함 |
 | 확률적 최적 정책 | argmax 동점 행동들 사이에서 임의의 확률로 섞기 |
