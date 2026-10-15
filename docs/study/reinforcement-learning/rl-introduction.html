@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko" xml:lang="ko"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.36">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Introduction to Reinforcement Learning – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-845c23b38eaddc0f92fda52bfe77a8c8.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-da17d83626a3727898eb25bb9d1cdf08.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "일치 없음",
+    "search-matching-documents-text": "일치된 문서",
+    "search-copy-link-title": "검색 링크 복사",
+    "search-hide-matches-text": "추가 검색 결과 숨기기",
+    "search-more-match-text": "추가 검색결과",
+    "search-more-matches-text": "추가 검색결과",
+    "search-clear-button-title": "제거",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "취소",
+    "search-submit-button-title": "검색",
+    "search-label": "검색"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="검색"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="탐색 전환" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../study/math/index.html">
+ <span class="dropdown-text">Math</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/reinforcement-learning/index.html">
+ <span class="dropdown-text">Reinforcement Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/random-signal-theory/index.html">
+ <span class="dropdown-text">Random Signal Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/algorithm/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-network/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../study/data-science/index.html">
+ <span class="dropdown-text">Data Science</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../docs/research/papers/index.html">
+ <span class="dropdown-text">Paper Reviews</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../research/logs/index.qmd">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">목차</h2>
+   
+  <ul class="collapse">
+  <li><a href="#sec-howto" id="toc-sec-howto" class="nav-link active" data-scroll-target="#sec-howto"><span class="header-section-number">1</span> 사용법</a></li>
+  <li><a href="#sec-tree" id="toc-sec-tree" class="nav-link" data-scroll-target="#sec-tree"><span class="header-section-number">2</span> 전체 트리</a></li>
+  <li><a href="#sec-part0" id="toc-sec-part0" class="nav-link" data-scroll-target="#sec-part0"><span class="header-section-number">3</span> 0. 출발점</a>
+  <ul class="collapse">
+  <li><a href="#sec-rl0" id="toc-sec-rl0" class="nav-link" data-scroll-target="#sec-rl0"><span class="header-section-number">3.1</span> 강화학습은 어떤 문제인가</a></li>
+  </ul></li>
+  <li><a href="#sec-partI" id="toc-sec-partI" class="nav-link" data-scroll-target="#sec-partI"><span class="header-section-number">4</span> I. 두 뿌리와 결합</a>
+  <ul class="collapse">
+  <li><a href="#sec-rl1" id="toc-sec-rl1" class="nav-link" data-scroll-target="#sec-rl1"><span class="header-section-number">4.1</span> 최적 제어는 무엇을 풀고, DP는 어디서 막히는가</a></li>
+  <li><a href="#sec-rl2" id="toc-sec-rl2" class="nav-link" data-scroll-target="#sec-rl2"><span class="header-section-number">4.2</span> 시행착오 학습은 무엇을 말하는가</a></li>
+  <li><a href="#sec-rl3" id="toc-sec-rl3" class="nav-link" data-scroll-target="#sec-rl3"><span class="header-section-number">4.3</span> 두 뿌리를 합치면 무엇이 되는가</a></li>
+  </ul></li>
+  <li><a href="#sec-partII" id="toc-sec-partII" class="nav-link" data-scroll-target="#sec-partII"><span class="header-section-number">5</span> II. RL의 다섯 특징</a>
+  <ul class="collapse">
+  <li><a href="#sec-rl4" id="toc-sec-rl4" class="nav-link" data-scroll-target="#sec-rl4"><span class="header-section-number">5.1</span> RL은 지도학습과 무엇이 다른가</a></li>
+  </ul></li>
+  <li><a href="#sec-partIII" id="toc-sec-partIII" class="nav-link" data-scroll-target="#sec-partIII"><span class="header-section-number">6</span> III. 정식화</a>
+  <ul class="collapse">
+  <li><a href="#sec-rl5" id="toc-sec-rl5" class="nav-link" data-scroll-target="#sec-rl5"><span class="header-section-number">6.1</span> RL 문제의 구성 요소와 정책은 무엇인가</a></li>
+  </ul></li>
+  <li><a href="#sec-partIV" id="toc-sec-partIV" class="nav-link" data-scroll-target="#sec-partIV"><span class="header-section-number">7</span> IV. RL 문제</a>
+  <ul class="collapse">
+  <li><a href="#sec-rl6" id="toc-sec-rl6" class="nav-link" data-scroll-target="#sec-rl6"><span class="header-section-number">7.1</span> RL 문제는 무엇이고, 어떤 방식으로 접근하는가</a></li>
+  </ul></li>
+  <li><a href="#sec-partV" id="toc-sec-partV" class="nav-link" data-scroll-target="#sec-partV"><span class="header-section-number">8</span> V. 알고리즘 분류</a>
+  <ul class="collapse">
+  <li><a href="#sec-rl7" id="toc-sec-rl7" class="nav-link" data-scroll-target="#sec-rl7"><span class="header-section-number">8.1</span> RL 알고리즘은 무엇을 기준으로 나누는가</a></li>
+  </ul></li>
+  <li><a href="#sec-partVI" id="toc-sec-partVI" class="nav-link" data-scroll-target="#sec-partVI"><span class="header-section-number">9</span> VI. 정리</a>
+  <ul class="collapse">
+  <li><a href="#sec-rl8" id="toc-sec-rl8" class="nav-link" data-scroll-target="#sec-rl8"><span class="header-section-number">9.1</span> 한 장 요약</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Introduction to Reinforcement Learning</h1>
+<p class="subtitle lead">최적 제어 + 시행착오 학습 → RL의 특징 → 모델 없는 MDP 문제 → 알고리즘 분류</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="sec-howto" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 사용법</h1>
+<p>각 노드는 다음 순서로 되어 있다.</p>
+<ol type="1">
+<li><strong>질문</strong>: 노드 제목.</li>
+<li><strong>먼저 떠올릴 질문</strong>: 답을 보기 전에 스스로 답해 볼 물음.</li>
+<li><strong>답</strong>: 한두 문장 또는 짧은 식.</li>
+<li><strong>근거 / 유도</strong>: 접혀 있다. 먼저 스스로 써 본 뒤 펼친다.</li>
+<li><strong>의의</strong>: 접혀 있다. 이 결과가 이후 단계에서 무엇을 가능하게 하는지.</li>
+<li><strong>↓ 내려가기 / ↑ 올라가기</strong>: 하위·상위 노드.</li>
+</ol>
+<p>✍ 표시가 있는 노드는 안내 질문을 먼저 두고, 풀이를 따로 접어 두었다.</p>
+<p>공통 표기: 상태 <span class="math inline">\(s_t\in S\)</span>, 행동 <span class="math inline">\(a_t\in A\)</span>, 보상 <span class="math inline">\(r(s,a)\)</span>, 전이 확률 <span class="math inline">\(p(s'\mid s,a)\)</span>, 할인율 <span class="math inline">\(\gamma\in[0,1)\)</span>. <span class="math display">\[
+(Tv)(s)=\max_{a}\Big[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v(s')\Big],\qquad
+Q^*(s,a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^*(s').
+\]</span></p>
+</section>
+<section id="sec-tree" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> 전체 트리</h1>
+<ul>
+<li><strong>0. 출발점</strong>: RL은 불확실한 환경과 상호작용하는 목표 지향 에이전트의 문제 → <a href="#sec-rl0" class="quarto-xref">섹션&nbsp;3.1</a>
+<ul>
+<li>데이터 → 정보 → 의사결정 → <a href="#sec-rl0a" class="quarto-xref">섹션&nbsp;3.1.1</a></li>
+</ul></li>
+<li><strong>I. 두 뿌리와 결합</strong>
+<ul>
+<li>최적 제어와 DP의 두 한계 → <a href="#sec-rl1" class="quarto-xref">섹션&nbsp;4.1</a>
+<ul>
+<li>차원의 저주를 숫자로 → <a href="#sec-rl1a" class="quarto-xref">섹션&nbsp;4.1.1</a></li>
+<li>모델 의존은 어디에 숨어 있는가 → <a href="#sec-rl1b" class="quarto-xref">섹션&nbsp;4.1.2</a></li>
+</ul></li>
+<li>시행착오 학습 → <a href="#sec-rl2" class="quarto-xref">섹션&nbsp;4.2</a></li>
+<li>결합: 시행착오로 최적 제어를 푼다 → <a href="#sec-rl3" class="quarto-xref">섹션&nbsp;4.3</a></li>
+</ul></li>
+<li><strong>II. RL의 다섯 특징</strong> → <a href="#sec-rl4" class="quarto-xref">섹션&nbsp;5.1</a>
+<ul>
+<li>✍ 보상은 왜 label이 아닌가 → <a href="#sec-rl4a" class="quarto-xref">섹션&nbsp;5.1.1</a></li>
+<li>지연 피드백과 비 i.i.d. 데이터 → <a href="#sec-rl4b" class="quarto-xref">섹션&nbsp;5.1.2</a></li>
+<li>행동이 데이터 분포를 바꾼다 → <a href="#sec-rl4c" class="quarto-xref">섹션&nbsp;5.1.3</a></li>
+<li>탐색–활용 트레이드오프 → <a href="#sec-rl4d" class="quarto-xref">섹션&nbsp;5.1.4</a></li>
+</ul></li>
+<li><strong>III. 정식화</strong>
+<ul>
+<li>상태·행동·보상·정책 → <a href="#sec-rl5" class="quarto-xref">섹션&nbsp;6.1</a></li>
+<li>✍ 행동은 왜 장기 효과를 갖고, 즉각 보상은 어떻게 희생하는가 → <a href="#sec-rl5a" class="quarto-xref">섹션&nbsp;6.1.1</a></li>
+<li>MDP 문제는 왜 풀기 어려운가 → <a href="#sec-rl5b" class="quarto-xref">섹션&nbsp;6.1.2</a></li>
+</ul></li>
+<li><strong>IV. RL 문제</strong>: 모델 <span class="math inline">\((p,r)\)</span>을 모를 때 MDP를 푼다 → <a href="#sec-rl6" class="quarto-xref">섹션&nbsp;7.1</a>
+<ul>
+<li>무엇을 모른다고 가정하는가 → <a href="#sec-rl6a" class="quarto-xref">섹션&nbsp;7.1.1</a></li>
+<li>왜 유용하고 왜 어려운가 → <a href="#sec-rl6b" class="quarto-xref">섹션&nbsp;7.1.2</a></li>
+</ul></li>
+<li><strong>V. 알고리즘 분류</strong> → <a href="#sec-rl7" class="quarto-xref">섹션&nbsp;8.1</a></li>
+<li><strong>VI. 정리</strong> → <a href="#sec-rl8" class="quarto-xref">섹션&nbsp;9.1</a></li>
+</ul>
+</section>
+<section id="sec-part0" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> 0. 출발점</h1>
+<section id="sec-rl0" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="sec-rl0"><span class="header-section-number">3.1</span> 강화학습은 어떤 문제인가</h2>
+<p><strong>먼저 떠올릴 질문.</strong> 지금까지 다룬 MDP에서는 <span class="math inline">\(p\)</span>와 <span class="math inline">\(r\)</span>이 주어져 있었다. 에이전트가 환경과 <strong>주고받는</strong> 것은 무엇이고, 그 주고받음으로부터 무엇을 얻는가?</p>
+<p><strong>답.</strong> 강화학습은 <strong>불확실한 환경과 상호작용하는 목표 지향 에이전트</strong>의 문제다. 에이전트는 행동(의사결정)을 보내고, 환경은 다음 상태와 보상(피드백)을 돌려준다. 이 상호작용을 통해 에이전트는 환경에 대해 배우는 동시에 더 나은 정책을 배운다. 즉</p>
+<p><span class="math display">\[
+\text{interaction}\ \Longrightarrow\ \text{adaptation}.
+\]</span></p>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-1" class="callout-1-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<ul>
+<li>“목표 지향”은 목적함수(기대 누적 보상)가 있다는 뜻이다. 이것이 최적 제어 쪽 뿌리다 → <a href="#sec-rl1" class="quarto-xref">섹션&nbsp;4.1</a></li>
+<li>“상호작용을 통한 적응”은 시행착오 학습 쪽 뿌리다 → <a href="#sec-rl2" class="quarto-xref">섹션&nbsp;4.2</a></li>
+<li>대부분의 model-free 방법은 상호작용에서 환경의 모델 <span class="math inline">\(p\)</span>를 <strong>명시적으로</strong> 추정하지 않는다. 가치나 정책을 직접 갱신한다 → <a href="#sec-rl7" class="quarto-xref">섹션&nbsp;8.1</a></li>
+</ul>
+</div>
+</div>
+</div>
+<p><strong>↓ 내려가기</strong>: <a href="#sec-rl0a" class="quarto-xref">섹션&nbsp;3.1.1</a></p>
+<section id="sec-rl0a" class="level3" data-number="3.1.1">
+<h3 data-number="3.1.1" class="anchored" data-anchor-id="sec-rl0a"><span class="header-section-number">3.1.1</span> 지능형 시스템을 데이터 → 정보 → 의사결정으로 보면, RL은 어디를 담당하는가</h3>
+<p><strong>답.</strong> 자율주행차를 예로 들면, 지능화는 두 단계로 나눌 수 있다.</p>
+<p><span class="math display">\[
+\underbrace{\text{Data}\to\text{Information}}_{\text{센서 데이터에서 주변 차량·보행자 정보 추출}}
+\qquad
+\underbrace{\text{Information}\to\text{Decision}}_{\text{교통 상황에 맞는 주행 판단}}
+\]</span></p>
+<p>보통은 두 부분을 따로 설계하지만, RL은 데이터에서 의사결정까지 <strong>end-to-end</strong>로 학습하는 알고리즘이 될 수도 있다. 이런 시스템은 다른 차량·사람, 날씨, 도로 공사, 승객 같은 불확실성에 적응해야 한다.</p>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-rl0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+</section>
+</section>
+</section>
+<section id="sec-partI" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> I. 두 뿌리와 결합</h1>
+<section id="sec-rl1" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="sec-rl1"><span class="header-section-number">4.1</span> 최적 제어는 무엇을 풀고, DP는 어디서 막히는가</h2>
+<p><strong>먼저 떠올릴 질문.</strong> 앞에서 VI·PI를 적용할 때 (i) 반드시 알고 있어야 했던 것은 무엇이고, (ii) 계산량은 무엇에 비례했는가?</p>
+<p><strong>답.</strong> 최적 제어는 <strong>어떤 시간 구간 전체(유한 또는 무한)</strong> 에 걸친 동적 시스템의 성능을 최대화하는 제어기를 설계하는 문제다. 한 시점의 성능이 아니라 구간 전체의 성능이 목적이라는 점이 핵심이다. 1950년대 Bellman의 dynamic programming이 이 문제의 기초를 놓았지만, DP에는 두 한계가 있다.</p>
+<ol type="1">
+<li><strong>모델 지식</strong>: <span class="math inline">\(p\)</span>(와 <span class="math inline">\(r\)</span>)를 완전히 알아야 Bellman 연산자를 적용할 수 있다 → <a href="#sec-rl1b" class="quarto-xref">섹션&nbsp;4.1.2</a></li>
+<li><strong>확장성</strong>: 상태 공간이 차원에 대해 지수적으로 커진다(차원의 저주) → <a href="#sec-rl1a" class="quarto-xref">섹션&nbsp;4.1.1</a></li>
+</ol>
+<p>RL은 (stochastic) 최적 제어의 이 두 문제를 해결하려는 시도다. 모델 없이도 쓸 수 있고, 정확한 최적해 대신 tractable한 근사해를 구한다.</p>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의: 목표가 해를 정한다">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의: 목표가 해를 정한다
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-2" class="callout-2-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>출발점에서 목적지까지의 경로 문제에서, 목표가 시간 단축이면 한 경로가, 연료 최소화면 다른 경로가 최적이 된다. 최적 제어에서 “최적”은 목적함수에 대해서만 의미가 있다. RL에서 보상 설계가 결과 정책을 결정하는 것도 같은 이유다.</p>
+</div>
+</div>
+</div>
+<p><strong>↓ 내려가기</strong>: <a href="#sec-rl1a" class="quarto-xref">섹션&nbsp;4.1.1</a> · <a href="#sec-rl1b" class="quarto-xref">섹션&nbsp;4.1.2</a> <strong>↑ 올라가기</strong>: <a href="#sec-rl0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+<section id="sec-rl1a" class="level3" data-number="4.1.1">
+<h3 data-number="4.1.1" class="anchored" data-anchor-id="sec-rl1a"><span class="header-section-number">4.1.1</span> 차원의 저주를 숫자로 쓰면</h3>
+<p><strong>먼저 떠올릴 질문.</strong> 상태가 <span class="math inline">\(d\)</span>개의 성분으로 이루어지고 각 성분을 <span class="math inline">\(k\)</span>단계로 이산화한다면 <span class="math inline">\(|S|\)</span>는? VI 한 번의 비용은?</p>
+<p><strong>답.</strong> <span class="math display">\[
+|S|=k^d,\qquad
+\text{VI 1회 비용}=O\big(|S|^2|A|\big)=O\big(k^{2d}|A|\big),\qquad
+\text{결정적 stationary 정책 수}=|A|^{|S|}=|A|^{k^d}.
+\]</span></p>
+<div class="callout callout-style-default callout-note callout-titled" title="근거">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-3-contents" aria-controls="callout-3" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>근거
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-3" class="callout-3-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>VI 1회</strong>: 모든 <span class="math inline">\((s,a)\)</span>에 대해 <span class="math inline">\(\sum_{s'}p(s'\mid s,a)v(s')\)</span>를 계산한다. <span class="math inline">\((s,a)\)</span>가 <span class="math inline">\(|S||A|\)</span>개, 각각 <span class="math inline">\(|S|\)</span>항의 합이므로 <span class="math inline">\(|S|^2|A|\)</span>.</li>
+<li><strong>정책 수</strong>: 각 상태마다 행동 하나를 독립적으로 고르므로 <span class="math inline">\(|A|^{|S|}\)</span>. MDP 이론에서 결정적 stationary 정책으로 충분함을 보였으므로 탐색 공간은 유한하지만, 그 크기가 <span class="math inline">\(|S|\)</span>의 지수다.</li>
+<li>예: <span class="math inline">\(d=10\)</span>, <span class="math inline">\(k=10\)</span>이면 <span class="math inline">\(|S|=10^{10}\)</span>. <span class="math inline">\(v\)</span>를 저장하는 것만으로도 원소 <span class="math inline">\(10^{10}\)</span>개가 필요하다.</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(v\)</span>나 <span class="math inline">\(Q\)</span>를 <strong>표(tabular)</strong> 로 정확히 다루는 한 이 비용은 피할 수 없다. 그래서 RL은 처음부터 정확해를 포기하고 함수 근사(선형 feature, 신경망)로 표현을 줄인다. 그 대가가 “제한된 표현”이라는 어려움이다 → <a href="#sec-rl6b" class="quarto-xref">섹션&nbsp;7.1.2</a></p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-rl1" class="quarto-xref">섹션&nbsp;4.1</a></p>
+</section>
+<section id="sec-rl1b" class="level3" data-number="4.1.2">
+<h3 data-number="4.1.2" class="anchored" data-anchor-id="sec-rl1b"><span class="header-section-number">4.1.2</span> 모델 의존은 VI·PI의 어디에 숨어 있는가</h3>
+<p><strong>답.</strong> 세 군데다.</p>
+<p><span class="math display">\[
+\begin{aligned}
+\text{VI}:\quad&amp; v_{k+1}=Tv_k &amp;&amp;\leftarrow\ T\text{ 안의 }\textstyle\sum_{s'}p(s'\mid s,a)v(s')\\
+\text{PI 평가}:\quad&amp; v^{\pi}=T^{\pi}v^{\pi}\ \Leftrightarrow\ (I-\gamma P^\pi)v^\pi=R^\pi &amp;&amp;\leftarrow\ P^\pi\\
+\text{PI 향상}:\quad&amp; \pi'(s)\in\arg\max_a\Big[r(s,a)+\gamma\textstyle\sum_{s'}p(s'\mid s,a)v^\pi(s')\Big] &amp;&amp;\leftarrow\ p
+\end{aligned}
+\]</span></p>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<ul>
+<li>PI의 향상 단계는 <span class="math inline">\(Q^\pi\)</span>를 쓰면 <span class="math inline">\(\pi'(s)\in\arg\max_aQ^\pi(s,a)\)</span>가 되어 모델이 사라진다. 남는 것은 “기댓값 <span class="math inline">\(\sum_{s'}p(\cdot)\)</span>를 모델 없이 어떻게 계산하느냐”이다.</li>
+<li>이 질문에 대한 답이 다음 주제인 stochastic approximation이다. 기댓값을 샘플로 대체하고, 샘플의 잡음이 장기적으로 사라지도록 step size를 줄여 간다.</li>
+</ul>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-rl1" class="quarto-xref">섹션&nbsp;4.1</a></p>
+</section>
+</section>
+<section id="sec-rl2" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="sec-rl2"><span class="header-section-number">4.2</span> 시행착오 학습은 무엇을 말하는가</h2>
+<p><strong>답.</strong> 심리학 쪽 뿌리다.</p>
+<ul>
+<li><strong>Thorndike (1911), 효과의 법칙(Law of Effect)</strong>: 같은 상황에서 나온 여러 반응 가운데, 만족을 동반한 반응은 그 상황과의 연결이 강해져 그 상황이 다시 올 때 더 잘 나타나고, 불편을 동반한 반응은 연결이 약해져 덜 나타난다.</li>
+<li><strong>Klopf (1972)</strong>: 이 아이디어를 시행착오 학습과 연결하고, 동물 학습 심리학의 방대한 실험 데이터와 관련지었다.</li>
+<li><strong>Sutton &amp; Barto (1970–80년대)</strong>: 이를 알고리즘으로 만든 것이 temporal-difference(TD) 학습이다.</li>
+</ul>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의: 효과의 법칙을 확률적 정책으로 읽으면">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의: 효과의 법칙을 확률적 정책으로 읽으면
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-6" class="callout-6-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>“만족을 동반한 반응이 더 잘 나타난다”는 것은 확률적 정책 <span class="math inline">\(\pi(a\mid s)\)</span>에서 보상이 큰 행동의 확률을 키우는 갱신으로 읽을 수 있다. 이것은 policy gradient의 직관과 같은 방향이다. 반면 “상황과 반응의 연결 강도”를 수치로 저장하고 갱신하는 쪽으로 읽으면 <span class="math inline">\(Q(s,a)\)</span>를 갱신하는 value-based 방법의 직관이 된다 → <a href="#sec-rl7" class="quarto-xref">섹션&nbsp;8.1</a></p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-rl0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+</section>
+<section id="sec-rl3" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="sec-rl3"><span class="header-section-number">4.3</span> 두 뿌리를 합치면 무엇이 되는가</h2>
+<p><strong>답.</strong> 한 줄로 쓰면</p>
+<p><span class="math display">\[
+\text{RL}=\text{시행착오 학습으로 최적 제어(MDP) 문제를 푸는 방법}.
+\]</span></p>
+<p>대표 알고리즘 계열은 다음과 같다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>계열</th>
+<th>대표</th>
+<th>연도</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>value-based</td>
+<td>Q-learning (Watkins)</td>
+<td>1989</td>
+</tr>
+<tr class="even">
+<td>policy-based</td>
+<td>policy gradient (Williams; Marbach &amp; Tsitsiklis)</td>
+<td>1987; 1998</td>
+</tr>
+<tr class="odd">
+<td>둘의 결합</td>
+<td>actor-critic (Witten, Barto, Sutton, Degris, White 등)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-7-contents" aria-controls="callout-7" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-7" class="callout-7-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<ul>
+<li>2010년 무렵까지 응용은 Tetris·체스 같은 게임과 일부 로보틱스 정도로, 대부분 toy 수준이었다. 표현의 한계(<a href="#sec-rl1a" class="quarto-xref">섹션&nbsp;4.1.1</a>)가 주된 이유다.</li>
+<li>2010년대 이후 딥러닝과 계산 자원이 발전하면서 신경망으로 가치·정책을 표현하는 deep RL이 실용적인 문제로 확장되었다.</li>
+</ul>
+</div>
+</div>
+</div>
+<p><strong>↓ 내려가기</strong>: <a href="#sec-rl7" class="quarto-xref">섹션&nbsp;8.1</a> <strong>↑ 올라가기</strong>: <a href="#sec-rl0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+</section>
+</section>
+<section id="sec-partII" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> II. RL의 다섯 특징</h1>
+<section id="sec-rl4" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="sec-rl4"><span class="header-section-number">5.1</span> RL은 지도학습과 무엇이 다른가</h2>
+<p><strong>답.</strong></p>
+<ol type="1">
+<li>지도자(supervisor)가 없고 <strong>보상 신호</strong>만 있다 → <a href="#sec-rl4a" class="quarto-xref">섹션&nbsp;5.1.1</a></li>
+<li>피드백이 즉각적이지 않고 <strong>지연</strong>된다 → <a href="#sec-rl4b" class="quarto-xref">섹션&nbsp;5.1.2</a></li>
+<li>시간이 중요하다. <strong>순차적</strong> 의사결정이고 데이터가 i.i.d.가 아니다 → <a href="#sec-rl4b" class="quarto-xref">섹션&nbsp;5.1.2</a></li>
+<li>에이전트의 행동이 <strong>이후에 받을 데이터</strong>에 영향을 준다 → <a href="#sec-rl4c" class="quarto-xref">섹션&nbsp;5.1.3</a></li>
+<li><strong>탐색(exploration)과 활용(exploitation)</strong> 사이에 트레이드오프가 있다 → <a href="#sec-rl4d" class="quarto-xref">섹션&nbsp;5.1.4</a></li>
+</ol>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-8-contents" aria-controls="callout-8" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-8" class="callout-8-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>4가 가장 근본적이다. 지도학습에서 데이터 분포는 학습자와 무관하게 고정되어 있다. RL에서는 학습자가 정책을 바꾸면 데이터 분포가 바뀐다. 5는 4의 직접적인 귀결이다. 어떤 데이터를 볼지를 스스로 정해야 하므로, 지금 좋아 보이는 행동과 정보를 더 주는 행동 사이에서 골라야 한다.</p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-rl0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+<section id="sec-rl4a" class="level3" data-number="5.1.1">
+<h3 data-number="5.1.1" class="anchored" data-anchor-id="sec-rl4a"><span class="header-section-number">5.1.1</span> ✍ 보상은 왜 정답 label 역할을 하지 못하는가</h3>
+<p>안내 질문:</p>
+<ol type="1">
+<li>상태 <span class="math inline">\(s\)</span>에서 “정답 행동”을 지도학습의 label로 주려면 무엇을 알아야 하는가? 그것을 <span class="math inline">\(Q^*\)</span>로 쓰면?</li>
+<li><span class="math inline">\(r(s,a)\)</span>와 <span class="math inline">\(Q^*(s,a)\)</span>의 차이는 무엇인가? <span class="math inline">\(\arg\max_ar(s,a)=\arg\max_aQ^*(s,a)\)</span>가 항상 성립하는가?</li>
+<li><span class="math inline">\(\gamma=0\)</span>이면 <span class="math inline">\(Q^*=r\)</span>이다. 그러면 RL은 지도학습이 되는가?</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled" title="풀이">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-9-contents" aria-controls="callout-9" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>풀이
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-9" class="callout-9-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><strong>1.</strong> 정답 행동은 <span class="math inline">\(\pi^*(s)\in\arg\max_aQ^*(s,a)\)</span>이다. 즉 label이 되려면 <strong>장기 이득</strong> <span class="math inline">\(Q^*(s,a)\)</span>를 알아야 한다.</p>
+<p><strong>2.</strong> <span class="math display">\[
+Q^*(s,a)-r(s,a)=\gamma\sum_{s'}p(s'\mid s,a)\,v^*(s').
+\]</span> 이 차이는 <span class="math inline">\(a\)</span>에 따라 다르다(행동이 다음 상태 분포를 바꾸므로). 따라서 즉각 보상의 argmax와 장기 이득의 argmax는 일반적으로 다르다. 반례는 <a href="#sec-rl5a" class="quarto-xref">섹션&nbsp;6.1.1</a>의 예제에 있다. 보상은 <strong>당장의 이득만</strong> 측정하므로 정답 label이 아니다.</p>
+<p><strong>3.</strong> 아니다. <span class="math inline">\(\gamma=0\)</span>이면 지연 문제는 사라지지만, 관측되는 것은 <strong>선택한 행동 하나의 보상</strong>뿐이다. 선택하지 않은 행동의 보상은 보이지 않으므로 “어느 행동이 정답이었는가”는 여전히 주어지지 않는다(bandit feedback). 지도학습에서는 입력마다 정답이 주어지지만, 여기서는 고른 행동에 대한 점수만 주어진다. 그래서 <span class="math inline">\(\gamma=0\)</span>이어도 탐색 문제(<a href="#sec-rl4d" class="quarto-xref">섹션&nbsp;5.1.4</a>)는 남는다.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-10-contents" aria-controls="callout-10" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-10" class="callout-10-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>보상이 지도학습 label이 되지 못하는 이유는 두 가지로 나뉜다. (i) <strong>시간적</strong>: 보상이 장기 이득을 반영하지 않는다(<span class="math inline">\(\gamma&gt;0\)</span>일 때). (ii) <strong>반사실적</strong>: 고르지 않은 행동의 결과가 관측되지 않는다(<span class="math inline">\(\gamma=0\)</span>이어도). RL 알고리즘은 (i)을 Bellman 방정식으로, (ii)를 탐색으로 다룬다.</p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-rl4" class="quarto-xref">섹션&nbsp;5.1</a></p>
+</section>
+<section id="sec-rl4b" class="level3" data-number="5.1.2">
+<h3 data-number="5.1.2" class="anchored" data-anchor-id="sec-rl4b"><span class="header-section-number">5.1.2</span> 피드백은 왜 지연되고, 데이터는 왜 i.i.d.가 아닌가</h3>
+<p><strong>먼저 떠올릴 질문.</strong> stationary 정책 <span class="math inline">\(\pi\)</span>를 따를 때, 시점 <span class="math inline">\(t\)</span>의 상태 분포를 초기 분포와 전이로 써 보라.</p>
+<p><strong>답.</strong> <span class="math inline">\(P^\pi(s,s'):=\sum_a\pi(a\mid s)\,p(s'\mid s,a)\)</span>, 상태 분포를 행벡터 <span class="math inline">\(\mu_t\)</span>로 두면 <span class="math display">\[
+\mu_{t+1}=\mu_tP^\pi\quad\Longrightarrow\quad\mu_t=\mu_0(P^\pi)^t,\qquad
+(s_t,a_t)\sim\mu_t(s)\,\pi(a\mid s).
+\]</span></p>
+<ul>
+<li><strong>i.i.d.가 아니다</strong>: <span class="math inline">\(s_{t+1}\)</span>은 <span class="math inline">\(s_t\)</span>에 의존하므로 독립이 아니고, <span class="math inline">\(\mu_t\)</span>가 <span class="math inline">\(t\)</span>에 따라 변하므로 동일 분포도 아니다.</li>
+<li><strong>피드백이 지연된다</strong>: 행동 <span class="math inline">\(a_t\)</span>는 <span class="math inline">\(s_{t+1}\)</span>의 분포를 바꾸고, 그것이 <span class="math inline">\(\mu_{t+2},\mu_{t+3},\dots\)</span>로 전파된다. <span class="math inline">\(a_t\)</span>의 결과는 <span class="math inline">\(r_t\)</span> 하나가 아니라 이후 보상 전체에 걸쳐 나타난다. 지금의 선택이 이후에 택할 수 있는 경로 자체를 바꾼다.</li>
+</ul>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-11-contents" aria-controls="callout-11" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-11" class="callout-11-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<ul>
+<li>지도학습의 수렴 논리(i.i.d. 표본 평균)를 그대로 쓸 수 없다. 이후 수렴 분석에서 잡음에 “조건부” 평균 <span class="math inline">\(0\)</span> 조건(과거 history <span class="math inline">\(\mathcal{F}_k\)</span>에 대한 조건부)을 두는 이유가 여기 있다.</li>
+<li>딥 RL에서 experience replay로 표본 간 상관을 줄이는 것도 같은 문제를 겨냥한다.</li>
+</ul>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-rl4" class="quarto-xref">섹션&nbsp;5.1</a></p>
+</section>
+<section id="sec-rl4c" class="level3" data-number="5.1.3">
+<h3 data-number="5.1.3" class="anchored" data-anchor-id="sec-rl4c"><span class="header-section-number">5.1.3</span> 행동이 데이터 분포를 바꾼다는 것은 정확히 무슨 뜻인가</h3>
+<p><strong>답.</strong> <a href="#sec-rl4b" class="quarto-xref">섹션&nbsp;5.1.2</a>의 식에서 데이터 <span class="math inline">\((s_t,a_t,r_t,s_{t+1})\)</span>의 분포는 <span class="math inline">\(\mu_0(P^\pi)^t\)</span>와 <span class="math inline">\(\pi\)</span>를 통해 <strong>정책 <span class="math inline">\(\pi\)</span>의 함수</strong>다. 학습 중 정책이 <span class="math inline">\(\pi_k\to\pi_{k+1}\)</span>로 바뀌면 다음에 모이는 데이터의 분포도 바뀐다.</p>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-12-contents" aria-controls="callout-12" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-12" class="callout-12-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<ul>
+<li>지도학습: 데이터 분포 고정 → 모델 학습. 한 방향이다.</li>
+<li>RL: 정책 → 데이터 분포 → 정책 갱신 → 데이터 분포 … 되먹임 고리가 있다.</li>
+</ul>
+<p>처음 보는 환경에서, 지금 가진 정보(또는 belief)로 가장 좋아 보이는 경로를 고를지, 아는 것이 적으니 정보를 더 주는 행동을 고를지는 상황에 따라 다르다. 이 둘을 <strong>최적으로</strong> 균형 잡는 방법은 일반적으로 알려져 있지 않다 → <a href="#sec-rl4d" class="quarto-xref">섹션&nbsp;5.1.4</a></p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-rl4" class="quarto-xref">섹션&nbsp;5.1</a></p>
+</section>
+<section id="sec-rl4d" class="level3" data-number="5.1.4">
+<h3 data-number="5.1.4" class="anchored" data-anchor-id="sec-rl4d"><span class="header-section-number">5.1.4</span> 탐색–활용 트레이드오프는 왜 생기고, 탐색이 없으면 무엇이 잘못되는가</h3>
+<p><strong>먼저 떠올릴 질문.</strong> 현재 추정치 <span class="math inline">\(\hat Q\)</span>에 대해 항상 greedy 행동 <span class="math inline">\(\arg\max_a\hat Q(s,a)\)</span>만 고르면, 한 번 낮게 추정된 행동의 추정치는 어떻게 되는가?</p>
+<p><strong>답.</strong> 갱신되지 않는다. 고르지 않으므로 새 데이터가 오지 않기 때문이다. 그래서 초기 추정이 운 나쁘게 틀리면 영원히 suboptimal에 머물 수 있다.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="예: greedy가 확률 0.3 이상으로 실패하는 경우">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-13-contents" aria-controls="callout-13" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>예: greedy가 확률 0.3 이상으로 실패하는 경우
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-13" class="callout-13-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>행동 두 개, 상태 하나(<span class="math inline">\(\gamma=0\)</span>인 bandit).</p>
+<ul>
+<li>행동 A: 보상이 항상 <span class="math inline">\(0.5\)</span>.</li>
+<li>행동 B: 보상이 확률 <span class="math inline">\(0.7\)</span>로 <span class="math inline">\(1\)</span>, <span class="math inline">\(0.3\)</span>으로 <span class="math inline">\(0\)</span>. 기댓값 <span class="math inline">\(0.7\)</span>이므로 B가 최적이다.</li>
+</ul>
+<p>각 행동을 한 번씩 시도해 표본 평균을 추정치로 쓰고, 이후 greedy로 고른다.</p>
+<ul>
+<li>B의 첫 보상이 <span class="math inline">\(0\)</span>이면(확률 <span class="math inline">\(0.3\)</span>) <span class="math inline">\(\hat Q(B)=0&lt;0.5=\hat Q(A)\)</span>. 이후 항상 A를 고르고, A의 추정치는 <span class="math inline">\(0.5\)</span>로 유지되며, B는 다시 시도되지 않는다. 영원히 A에 머문다.</li>
+<li>B의 첫 보상이 <span class="math inline">\(1\)</span>이어도, 이후 B의 표본 평균이 운 나쁘게 <span class="math inline">\(0.5\)</span> 아래로 내려가면 같은 일이 일어난다.</li>
+</ul>
+<p>따라서 실패 확률은 <strong>적어도 <span class="math inline">\(0.3\)</span></strong>이다. 데이터를 아무리 오래 모아도 줄지 않는다.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-14-contents" aria-controls="callout-14" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-14" class="callout-14-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<ul>
+<li>트레이드오프의 원인은 환경 모델(<span class="math inline">\(p\)</span>, <span class="math inline">\(r\)</span>)을 모른다는 것이다. 모델을 알면 탐색할 이유가 없다. 그래서 RL에만 있는 문제가 아니라, 모델을 모르는 모든 순차적 의사결정 문제의 문제다.</li>
+<li>당장의 이득(greedy)을 조금 포기하더라도 정보를 더 주는 행동을 택하는 것이 장기적으로 유리할 수 있다. 가장 간단한 구현이 <span class="math inline">\(\varepsilon\)</span>-greedy이다(<span class="math inline">\(1-\varepsilon\)</span> 확률로 greedy, <span class="math inline">\(\varepsilon\)</span> 확률로 무작위).</li>
+<li>Q-learning의 수렴 정리가 “모든 <span class="math inline">\((s,a)\)</span>를 무한히 자주 방문”을 가정하는 것도 이 예에서 보인 실패를 배제하기 위해서다.</li>
+</ul>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-rl4" class="quarto-xref">섹션&nbsp;5.1</a></p>
+</section>
+</section>
+</section>
+<section id="sec-partIII" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> III. 정식화</h1>
+<section id="sec-rl5" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="sec-rl5"><span class="header-section-number">6.1</span> RL 문제의 구성 요소와 정책은 무엇인가</h2>
+<p><strong>답.</strong></p>
+<ul>
+<li><strong>상태</strong> <span class="math inline">\(s_t\in S\)</span>: 환경(시스템)의 상태.</li>
+<li><strong>행동</strong> <span class="math inline">\(a_t\in A\)</span>: 에이전트가 정하며, 상태에 영향을 준다.</li>
+<li><strong>보상</strong> <span class="math inline">\(r(s_t,a_t)\)</span>: 상태와 행동의 이득을 평가한다.</li>
+<li><strong>정책</strong> <span class="math inline">\(\pi\)</span>: 상태에서 행동으로 가는 사상. 최적화의 대상이다. <span class="math display">\[
+\text{결정적: }\ \pi(s_t)=a_t,\qquad
+\text{확률적: }\ \pi(a\mid s)=\Pr(a_t=a\mid s_t=s).
+\]</span></li>
+</ul>
+<p>순차적 의사결정의 목표는 <strong>기대 누적 보상</strong>을 최대화하도록 시간에 걸쳐 행동을 고르는 것이다.</p>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의: 왜 확률적 정책도 쓰는가">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-15-contents" aria-controls="callout-15" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의: 왜 확률적 정책도 쓰는가
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-15" class="callout-15-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>MDP의 최적 정책은 결정적 stationary 정책 중에 존재하므로, 최적성만 보면 확률적 정책이 필요 없다. 그런데 RL 알고리즘에서는 확률적 정책이 쓸모가 있다.</p>
+<ul>
+<li>탐색을 정책 자체에 넣을 수 있다(<span class="math inline">\(\varepsilon\)</span>-greedy, Boltzmann) → <a href="#sec-rl4d" class="quarto-xref">섹션&nbsp;5.1.4</a></li>
+<li><span class="math inline">\(\pi_\theta(a\mid s)\)</span>가 <span class="math inline">\(\theta\)</span>에 대해 미분 가능하므로 policy gradient를 쓸 수 있다. 결정적 정책의 argmax는 미분 가능하지 않다 → <a href="#sec-rl7" class="quarto-xref">섹션&nbsp;8.1</a></li>
+</ul>
+</div>
+</div>
+</div>
+<p><strong>↓ 내려가기</strong>: <a href="#sec-rl5a" class="quarto-xref">섹션&nbsp;6.1.1</a> · <a href="#sec-rl5b" class="quarto-xref">섹션&nbsp;6.1.2</a> <strong>↑ 올라가기</strong>: <a href="#sec-rl0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+<section id="sec-rl5a" class="level3" data-number="6.1.1">
+<h3 data-number="6.1.1" class="anchored" data-anchor-id="sec-rl5a"><span class="header-section-number">6.1.1</span> ✍ 행동은 왜 장기 효과를 갖고, 즉각 보상은 어떻게 희생하는가</h3>
+<p>안내 질문:</p>
+<ol type="1">
+<li><span class="math inline">\(a_t\)</span>가 <span class="math inline">\(r_t\)</span> 말고 무엇을 바꾸는가? 그것이 <span class="math inline">\(r_{t+1},r_{t+2},\dots\)</span>에 어떻게 이어지는가?</li>
+<li>“즉각 보상을 희생한다”를 식으로 쓰면, 근시안적 선택 <span class="math inline">\(\arg\max_ar(s,a)\)</span>와 최적 선택은 각각 무엇인가?</li>
+<li>아래 MDP에서 두 선택을 비교하라.</li>
+</ol>
+<p>설정: <span class="math inline">\(S=\{0,1\}\)</span>, <span class="math inline">\(A=\{\text{stay},\text{move}\}\)</span>, <span class="math inline">\(\gamma=0.9\)</span>, 전이는 결정적이다.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><span class="math inline">\((s,a)\)</span></th>
+<th><span class="math inline">\(r\)</span></th>
+<th>다음 상태</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\((0,\text{stay})\)</span></td>
+<td>1</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\((0,\text{move})\)</span></td>
+<td>0</td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\((1,\text{stay})\)</span></td>
+<td>2</td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\((1,\text{move})\)</span></td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-note callout-titled" title="풀이">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-16-contents" aria-controls="callout-16" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>풀이
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-16" class="callout-16-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><strong>1.</strong> <span class="math inline">\(a_t\)</span>는 <span class="math inline">\(p(\cdot\mid s_t,a_t)\)</span>를 통해 <span class="math inline">\(s_{t+1}\)</span>의 분포를 바꾼다. 이후 보상은 이후 상태에 의존하므로, <span class="math inline">\(a_t\)</span>의 효과는 <a href="#sec-rl4b" class="quarto-xref">섹션&nbsp;5.1.2</a>의 식처럼 <span class="math inline">\(\mu_{t+1},\mu_{t+2},\dots\)</span>를 거쳐 모든 미래 보상에 전파된다.</p>
+<p><strong>2.</strong> <span class="math display">\[
+\text{근시안: }\ \arg\max_a\,r(s,a),\qquad
+\text{최적: }\ \arg\max_a\Big[\underbrace{r(s,a)}_{\text{즉각}}+\underbrace{\gamma\textstyle\sum_{s'}p(s'\mid s,a)\,v^*(s')}_{\text{장기}}\Big]=\arg\max_aQ^*(s,a).
+\]</span> 즉각 항이 작아도 장기 항이 충분히 크면 그 행동이 최적이다. Bellman 방정식이 이 비교를 정확하게 해 준다.</p>
+<p><strong>3.</strong> 상태 1에서 stay를 반복하면 <span class="math inline">\(2/(1-0.9)=20\)</span>. move는 <span class="math inline">\(0.9\,v(0)\le0.9\times20\)</span>이므로 stay가 낫다. <span class="math inline">\(v^*(1)=20\)</span>.</p>
+<p>상태 0에서: <span class="math display">\[
+Q^*(0,\text{stay})=\frac{1}{1-0.9}=10,\qquad
+Q^*(0,\text{move})=0+0.9\times20=18.
+\]</span> 근시안적 선택은 stay(<span class="math inline">\(r=1&gt;0\)</span>)이고 가치는 <span class="math inline">\(10\)</span>이다. 최적 선택은 move이다. 당장의 보상 <span class="math inline">\(1\)</span>을 포기하고 <span class="math inline">\(0\)</span>을 받지만, 보상이 큰 상태 1로 옮겨 가 가치가 <span class="math inline">\(18\)</span>이 된다. <span class="math inline">\(v^*=(18,20)\)</span>.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-17-contents" aria-controls="callout-17" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-17" class="callout-17-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>이 예는 <a href="#sec-rl4a" class="quarto-xref">섹션&nbsp;5.1.1</a>의 반례이기도 하다. 상태 0에서 <span class="math inline">\(\arg\max_ar(0,a)=\text{stay}\)</span>, <span class="math inline">\(\arg\max_aQ^*(0,a)=\text{move}\)</span>이다. 보상을 label로 쓰면 틀린 행동을 배운다.</p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-rl5" class="quarto-xref">섹션&nbsp;6.1</a></p>
+</section>
+<section id="sec-rl5b" class="level3" data-number="6.1.2">
+<h3 data-number="6.1.2" class="anchored" data-anchor-id="sec-rl5b"><span class="header-section-number">6.1.2</span> MDP 문제는 왜 풀기 어려운가</h3>
+<p><span class="math display">\[
+\max_{\pi\in\Pi}\ \mathbb{E}^\pi\Big[\sum_{t=0}^\infty\gamma^tr(s_t,a_t)\Big].
+\]</span></p>
+<p><strong>먼저 떠올릴 질문.</strong> 결정 변수, 목적함수의 계산, 탐색 공간의 크기를 각각 보라.</p>
+<p><strong>답.</strong> 세 겹으로 어렵다.</p>
+<ol type="1">
+<li><strong>결정 변수가 함수다.</strong> 최적화 대상은 숫자가 아니라 정책, 즉 <span class="math inline">\(S\to A\)</span>(또는 <span class="math inline">\(S\to\Delta(A)\)</span>) 사상이다. 결정적 stationary 정책으로 좁혀도 후보가 <span class="math inline">\(|A|^{|S|}\)</span>개다 → <a href="#sec-rl1a" class="quarto-xref">섹션&nbsp;4.1.1</a></li>
+<li><strong>목적함수 하나를 계산하는 데도 모델이 필요하다.</strong> 정책 하나의 값 <span class="math inline">\(\mathbb{E}^\pi[\cdot]\)</span>는 무한 개 시점의 궤적 분포에 대한 기댓값이고, 그 분포가 <span class="math inline">\(p\)</span>와 <span class="math inline">\(\pi\)</span>로 정해진다. 계산하려면 <span class="math inline">\((I-\gamma P^\pi)v^\pi=R^\pi\)</span>를 풀어야 하고, 여기에 <span class="math inline">\(p\)</span>가 들어간다 → <a href="#sec-rl1b" class="quarto-xref">섹션&nbsp;4.1.2</a></li>
+<li><strong>규모.</strong> 정확히 풀어도 비용이 <span class="math inline">\(|S|\)</span>에 대해 다항식이고, <span class="math inline">\(|S|\)</span> 자체가 상태 차원에 대해 지수적이다.</li>
+</ol>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-18-contents" aria-controls="callout-18" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-18" class="callout-18-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>MDP 이론은 1의 어려움을 Bellman 방정식과 축약 사상으로 해결했다. 정책 공간을 직접 탐색하는 대신 가치 공간에서 고정점을 찾았다. 남은 것이 2(모델)와 3(규모)이고, 이것이 정확히 DP의 두 한계(<a href="#sec-rl1" class="quarto-xref">섹션&nbsp;4.1</a>)다. RL은 2를 샘플로, 3을 근사로 다룬다.</p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-rl5" class="quarto-xref">섹션&nbsp;6.1</a></p>
+</section>
+</section>
+</section>
+<section id="sec-partIV" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> IV. RL 문제</h1>
+<section id="sec-rl6" class="level2" data-number="7.1">
+<h2 data-number="7.1" class="anchored" data-anchor-id="sec-rl6"><span class="header-section-number">7.1</span> RL 문제는 무엇이고, 어떤 방식으로 접근하는가</h2>
+<p><strong>답.</strong></p>
+<ul>
+<li><strong>목표</strong>: 모델 <span class="math inline">\((p,r)\)</span>을 모를 때 MDP 문제 <a href="#sec-rl5b" class="quarto-xref">섹션&nbsp;6.1.2</a>를 푼다.</li>
+<li><strong>접근</strong>: 시행착오. 에이전트가 행동하며 경험(데이터)을 쌓고, 그 데이터로 가치나 정책을 점점 갱신한다. 데이터의 기본 단위는 전이 샘플 <span class="math inline">\((s_t,a_t,r_t,s_{t+1})\)</span>이다.</li>
+</ul>
+<p><strong>↓ 내려가기</strong>: <a href="#sec-rl6a" class="quarto-xref">섹션&nbsp;7.1.1</a> · <a href="#sec-rl6b" class="quarto-xref">섹션&nbsp;7.1.2</a> <strong>↑ 올라가기</strong>: <a href="#sec-rl0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+<section id="sec-rl6a" class="level3" data-number="7.1.1">
+<h3 data-number="7.1.1" class="anchored" data-anchor-id="sec-rl6a"><span class="header-section-number">7.1.1</span> 무엇을 모른다고 가정하는가</h3>
+<p><strong>답.</strong> 대부분의 경우 <strong><span class="math inline">\(p\)</span>만 모른다</strong>고 가정한다. 보상 함수는 사용자가 설계하므로 아는 경우가 많다.</p>
+<p>그러나 수학적으로는 <span class="math inline">\(r\)</span>도 모르는 경우까지 다룰 수 있다. <span class="math inline">\((s_t,a_t)\)</span>를 넣으면 신호 <span class="math inline">\(r_t\)</span>만 나오는 블랙박스(예: 전문가가 채점)로 보고, 그 신호가 잡음으로 오염되어 있다고 가정해도 된다. <span class="math display">\[
+r_t=r(s_t,a_t)+\eta_t,\qquad\mathbb{E}[\eta_t\mid s_t,a_t]=0.
+\]</span></p>
+<div class="callout callout-style-default callout-note callout-titled" title="근거: 잡음 섞인 보상이 문제를 바꾸지 않는 이유">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-19-contents" aria-controls="callout-19" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>근거: 잡음 섞인 보상이 문제를 바꾸지 않는 이유
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-19" class="callout-19-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>목적함수는 기댓값이다. <span class="math display">\[
+\mathbb{E}^\pi\Big[\sum_t\gamma^t r_t\Big]=\sum_t\gamma^t\,\mathbb{E}^\pi\big[\mathbb{E}[r(s_t,a_t)+\eta_t\mid s_t,a_t]\big]=\mathbb{E}^\pi\Big[\sum_t\gamma^tr(s_t,a_t)\Big].
+\]</span> 조건부 평균이 <span class="math inline">\(0\)</span>인 잡음은 tower property로 사라진다(보상이 유계이고 <span class="math inline">\(\gamma&lt;1\)</span>이라 합과 기댓값의 교환이 가능하다고 둔다). 따라서 최적 정책도 같다. 잡음은 학습을 느리게 할 뿐 목표를 바꾸지 않는다.</p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-rl6" class="quarto-xref">섹션&nbsp;7.1</a></p>
+</section>
+<section id="sec-rl6b" class="level3" data-number="7.1.2">
+<h3 data-number="7.1.2" class="anchored" data-anchor-id="sec-rl6b"><span class="header-section-number">7.1.2</span> RL은 왜 유용하고, 왜 어려운가</h3>
+<p><strong>답.</strong></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>유용한 이유</th>
+<th>어려운 이유</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>유연성</strong>: 모델 정보 없이 쓸 수 있다</td>
+<td><strong>제한된 지식</strong>: 모델 정보가 없다</td>
+</tr>
+<tr class="even">
+<td><strong>적응성</strong>: 고정된 모델에 의존하지 않으므로 환경이 바뀌어도 계속 갱신할 수 있다</td>
+<td><strong>탐색 vs 활용</strong>: 무엇을 시도해야 할지 불분명하다 → <a href="#sec-rl4d" class="quarto-xref">섹션&nbsp;5.1.4</a></td>
+</tr>
+<tr class="odd">
+<td><strong>확장성</strong>: 정확해를 처음부터 포기하고 근사해를 tractable하게 구하므로 대규모 문제에 쓸 수 있다</td>
+<td><strong>제한된 표현</strong>: 복잡한 문제의 가치·정책을 어떤 함수 형태로 근사해야 할지 불분명하다</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의: 표의 각 행은 같은 성질의 양면이다">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-20-contents" aria-controls="callout-20" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의: 표의 각 행은 같은 성질의 양면이다
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-20" class="callout-20-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<ul>
+<li>“모델이 없다”는 사실이 1행에서는 유연성, 오른쪽에서는 제한된 지식이 된다. 양날의 검이다.</li>
+<li>2행: 고정 모델에 의존하지 않으니 적응할 수 있지만, 바로 그래서 무엇을 시도할지 스스로 정해야 한다.</li>
+<li>3행: 근사를 택했으니 대규모 문제에 쓸 수 있지만, 근사의 형태를 잘못 고르면 최적 근처에도 못 간다.</li>
+</ul>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-rl6" class="quarto-xref">섹션&nbsp;7.1</a></p>
+</section>
+</section>
+</section>
+<section id="sec-partV" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> V. 알고리즘 분류</h1>
+<section id="sec-rl7" class="level2" data-number="8.1">
+<h2 data-number="8.1" class="anchored" data-anchor-id="sec-rl7"><span class="header-section-number">8.1</span> RL 알고리즘은 무엇을 기준으로 나누는가</h2>
+<p><strong>먼저 떠올릴 질문.</strong> 알고리즘이 학습해서 들고 있는 대상이 (a) 가치 함수뿐인가, (b) 정책뿐인가, (c) 둘 다인가?</p>
+<p><strong>답.</strong> 가치 함수를 쓰는 집합과 정책을 쓰는 집합, 두 원의 관계로 나눈다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>분류</th>
+<th>학습 대상</th>
+<th>정책을 얻는 방식</th>
+<th>대표</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>value-based</td>
+<td>가치 함수만 (<span class="math inline">\(Q\)</span>)</td>
+<td><span class="math inline">\(\pi(s)\in\arg\max_aQ(s,a)\)</span> (암묵적)</td>
+<td>Q-learning</td>
+</tr>
+<tr class="even">
+<td>policy-based</td>
+<td>정책만 (<span class="math inline">\(\pi_\theta\)</span>)</td>
+<td>정책을 직접 매개변수화</td>
+<td>policy gradient</td>
+</tr>
+<tr class="odd">
+<td>actor-critic</td>
+<td>둘 다</td>
+<td>actor(<span class="math inline">\(\pi_\theta\)</span>)를 critic(가치)으로 평가하며 갱신</td>
+<td>actor-critic</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-note callout-titled" title="value-based가 $v$가 아니라 $Q$를 학습하는 이유">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-21-contents" aria-controls="callout-21" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>value-based가 <span class="math inline">\(v\)</span>가 아니라 <span class="math inline">\(Q\)</span>를 학습하는 이유
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-21" class="callout-21-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(v^*\)</span>를 모델 없이 학습했다고 하자. 정책을 꺼내려면 <span class="math display">\[
+\pi^*(s)\in\arg\max_a\Big[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^*(s')\Big]
+\]</span> 에서 다시 <span class="math inline">\(p\)</span>가 필요하다. <span class="math inline">\(Q^*\)</span>를 학습하면 <span class="math inline">\(\pi^*(s)\in\arg\max_aQ^*(s,a)\)</span>로 모델 없이 꺼낼 수 있다. 대가는 학습 대상이 <span class="math inline">\(|S|\)</span>에서 <span class="math inline">\(|S||A|\)</span>로 커진다는 것이다.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-22-contents" aria-controls="callout-22" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-22" class="callout-22-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<ul>
+<li>이후 순서는 value-based(stochastic approximation → TD → Q-learning) → policy-based(policy gradient) → actor-critic이다.</li>
+<li>이 분류와 별개로 model-based / model-free 축이 있다. 대부분의 model-free 방법은 <span class="math inline">\(p\)</span>를 명시적으로 추정하지 않고 가치나 정책을 직접 갱신한다.</li>
+<li>확률적 정책이 policy-based에서 필수인 이유는 <a href="#sec-rl5" class="quarto-xref">섹션&nbsp;6.1</a>의 의의에 있다.</li>
+</ul>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-rl3" class="quarto-xref">섹션&nbsp;4.3</a></p>
+</section>
+</section>
+<section id="sec-partVI" class="level1" data-number="9">
+<h1 data-number="9"><span class="header-section-number">9</span> VI. 정리</h1>
+<section id="sec-rl8" class="level2" data-number="9.1">
+<h2 data-number="9.1" class="anchored" data-anchor-id="sec-rl8"><span class="header-section-number">9.1</span> 한 장 요약</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>질문</th>
+<th>답</th>
+<th>노드</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>RL은 어떤 문제인가</td>
+<td>불확실한 환경과 상호작용하는 목표 지향 에이전트의 문제</td>
+<td><a href="#sec-rl0" class="quarto-xref">섹션&nbsp;3.1</a></td>
+</tr>
+<tr class="even">
+<td>DP의 두 한계</td>
+<td>모델 지식, 차원의 저주</td>
+<td><a href="#sec-rl1" class="quarto-xref">섹션&nbsp;4.1</a></td>
+</tr>
+<tr class="odd">
+<td>RL 한 줄 요약</td>
+<td>시행착오 학습으로 최적 제어를 푼다</td>
+<td><a href="#sec-rl3" class="quarto-xref">섹션&nbsp;4.3</a></td>
+</tr>
+<tr class="even">
+<td>보상이 label이 아닌 이유</td>
+<td>장기 이득을 반영하지 않음 + 고르지 않은 행동의 결과가 안 보임</td>
+<td><a href="#sec-rl4a" class="quarto-xref">섹션&nbsp;5.1.1</a></td>
+</tr>
+<tr class="odd">
+<td>데이터가 i.i.d.가 아닌 이유</td>
+<td><span class="math inline">\(\mu_t=\mu_0(P^\pi)^t\)</span>: 시점·정책에 따라 분포가 변하고 서로 의존</td>
+<td><a href="#sec-rl4b" class="quarto-xref">섹션&nbsp;5.1.2</a></td>
+</tr>
+<tr class="even">
+<td>탐색이 필요한 이유</td>
+<td>greedy는 한 번 낮게 추정된 행동을 다시 시도하지 않음</td>
+<td><a href="#sec-rl4d" class="quarto-xref">섹션&nbsp;5.1.4</a></td>
+</tr>
+<tr class="odd">
+<td>즉각 보상을 희생하는 이유</td>
+<td><span class="math inline">\(\arg\max_ar\ne\arg\max_aQ^*\)</span>일 수 있음</td>
+<td><a href="#sec-rl5a" class="quarto-xref">섹션&nbsp;6.1.1</a></td>
+</tr>
+<tr class="even">
+<td>MDP가 어려운 이유</td>
+<td>결정 변수가 함수, 목적값 계산에 모델 필요, 규모</td>
+<td><a href="#sec-rl5b" class="quarto-xref">섹션&nbsp;6.1.2</a></td>
+</tr>
+<tr class="odd">
+<td>RL 문제</td>
+<td><span class="math inline">\((p,r)\)</span>을 모를 때 MDP를 데이터로 푼다</td>
+<td><a href="#sec-rl6" class="quarto-xref">섹션&nbsp;7.1</a></td>
+</tr>
+<tr class="even">
+<td>분류</td>
+<td>value-based / policy-based / actor-critic</td>
+<td><a href="#sec-rl7" class="quarto-xref">섹션&nbsp;8.1</a></td>
+</tr>
+</tbody>
+</table>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-tree" class="quarto-xref">섹션&nbsp;2</a></p>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "복사완료!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "복사완료!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
