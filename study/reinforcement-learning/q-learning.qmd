@@ -1,0 +1,766 @@
+---
+title: "Q-Learning"
+subtitle: "Q-function → Bellman 방정식과 축약 → Q-VI → stochastic approximation → off-policy → 탐색 → 수렴"
+lang: ko
+date: "2026-10-16"
+number: "8"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    html-math-method: mathjax
+    callout-appearance: default
+---
+
+# 사용법 {#sec-howto}
+
+각 노드는 다음 순서로 되어 있다.
+
+1. **질문**: 노드 제목.
+2. **먼저 떠올릴 질문**: 답을 보기 전에 스스로 답해 볼 물음.
+3. **답**: 한두 문장 또는 짧은 식.
+4. **근거 / 유도**: 접혀 있다. 먼저 스스로 써 본 뒤 펼친다.
+5. **의의**: 접혀 있다. 이 결과가 이후 단계에서 무엇을 가능하게 하는지.
+6. **↓ 내려가기 / ↑ 올라가기**: 하위·상위 노드.
+
+✍ 표시가 있는 노드는 안내 질문을 먼저 두고, 풀이를 따로 접어 두었다.
+
+이 주제의 중심 질문은 하나다. **최적성 방정식을 모델 없이, 전이 하나마다 풀려면 무엇을 학습해야 하고, 그 학습은 어떤 고정점 방정식에 Robbins–Monro를 적용한 것인가.** 알고리즘은 TD(0)만큼 단순하다. 옛 추정치에 $1-\alpha$, Bellman 방정식 우변의 단일 샘플 추정치에 $\alpha$의 가중치를 둔다. 이해의 무게는 세 곳에 둔다. (i) 왜 $v^*$가 아니라 $Q^*$인가, (ii) 왜 행동을 아무 정책으로 골라도 되는가(off-policy), (iii) 그런데도 왜 탐색이 문제인가. 수렴 정리는 **결과와 증명 아이디어** 수준으로 다룬다.
+
+공통 표기:
+
+- discounted MDP $\langle S,A,p,r,\gamma\rangle$, $S$와 $A$는 유한, $\gamma\in(0,1)$.
+- $Q^*$: 최적 Q-function. $Q$: 학습 중인 추정치(상태-행동 lookup table).
+- 전이 데이터 $(s_t,a_t,r_t,s_{t+1})$, $r_t=r(s_t,a_t)$, $s_{t+1}\sim p(\cdot\mid s_t,a_t)$.
+- $T$: Q-function에 대한 Bellman 연산자. $\mathcal F_t$: 시점 $t$까지의 history(행동 $a_t$ 포함).
+- $\alpha_t(s,a)$: 칸 $(s,a)$의 step size. 시점 $t$에 갱신하지 않는 칸은 $0$.
+- $\|Q\|_\infty:=\max_{s,a}|Q(s,a)|$. 보상은 유계, $|r|\le R_{\max}$.
+- $\varepsilon$: ε-greedy의 탐색 확률. $\tau>0$: Boltzmann 탐색의 온도(연산자 $T$와 구분하려고 $\tau$로 쓴다).
+
+# 전체 트리 {#sec-tree}
+
+- **0. 출발점**: 최적성 방정식을 모델 없이 풀 수 있는가 → [@sec-ql0]
+- **I. Q-function과 그 Bellman 방정식**
+  - $Q^*$란 무엇인가 → [@sec-ql1]
+    - ✍ $Q^\pi$와 $v^\pi$의 관계 → [@sec-ql1a]
+  - $Q^*$의 Bellman 방정식 → [@sec-ql2]
+    - ✍ 유도: $Q^*=r+\gamma Pv^*$와 $v^*=\max Q^*$ → [@sec-ql2a]
+    - $v$의 방정식과 무엇이 다른가: max의 위치 → [@sec-ql2b]
+  - $T$의 단조성과 축약 → [@sec-ql3]
+    - ✍ 증명 → [@sec-ql3a]
+  - 모델을 알 때: Q-function으로 하는 value iteration → [@sec-ql4]
+- **II. Q-learning**
+  - Stochastic approximation으로 VI를 샘플화 → [@sec-ql5]
+    - ✍ SA 틀에 맞추기 → [@sec-ql5a]
+  - 알고리즘과 성격 → [@sec-ql6]
+  - 정책 추출: 왜 $v$가 아니라 $Q$인가 → [@sec-ql7]
+    - ✍ $v^*$만 학습했다면 → [@sec-ql7a]
+  - Off-policy → [@sec-ql8]
+    - ✍ 왜 행동을 아무렇게나 골라도 되는가 → [@sec-ql8a]
+- **III. 탐색**
+  - Greedy 정책의 문제 → [@sec-ql9]
+    - ✍ 두 행동 예시 → [@sec-ql9a]
+    - Exploitation–exploration trade-off → [@sec-ql9b]
+  - ε-greedy와 다른 방법 → [@sec-ql10]
+    - ε 스케줄링 → [@sec-ql10a]
+    - ✍ Boltzmann 탐색의 두 극한 → [@sec-ql10b]
+- **IV. 수렴**
+  - 수렴 정리 → [@sec-ql11]
+    - ✍ 증명 아이디어: 축약과 잡음 조건 → [@sec-ql11a]
+    - 정리가 현실에서 뜻하는 것 → [@sec-ql11b]
+- **V. 정리** → [@sec-ql12]
+
+# 0. 출발점 {#sec-part0}
+
+## 최적성 방정식을 모델 없이 풀 수 있는가 {#sec-ql0}
+
+**먼저 떠올릴 질문.** TD(0)는 정책 평가 방정식 $v=T^\pi v$의 기댓값을 샘플 하나로 바꿔 얻었다. 같은 동작을 최적성 방정식 $v=Tv$에 그대로 하면 무엇이 걸리는가? 그리고 설령 $v^*$를 얻더라도, 정책을 뽑을 때 다시 무엇이 필요한가?
+
+**답.** 풀려는 문제는
+
+$$
+\max_\pi\ \mathbb{E}^\pi\Big[\sum_{t=0}^\infty\gamma^tr(s_t,a_t)\Big]
+$$
+
+이고, 최적화 대상은 **정책**이다. 원하는 것은 VI·PI의 model-free 변형이다. $v=Tv$에는 두 가지 걸림돌이 있다.
+
+1. **max가 기댓값 바깥에 있다.** $v(s)=\max_a\big[r(s,a)+\gamma\,\mathbb{E}[v(s')\mid s,a]\big]$. 샘플 하나로는 "행동마다의 기댓값을 비교한 최댓값"을 편향 없이 만들 수 없다 → [@sec-ql2b]
+2. **정책 추출에 모델이 다시 필요하다.** $\pi^*(s)\in\arg\max_a[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^*(s')]$ → [@sec-ql7a]
+
+두 문제를 한 번에 푸는 것이 **상태-행동 가치 함수 $Q^*$를 학습하는 것**이다. $Q^*$의 Bellman 방정식에서는 max가 기댓값 안으로 들어가고, 정책 추출은 $\arg\max_aQ^*(s,a)$로 모델 없이 된다.
+
+::: {.callout-tip collapse="true" title="의의"}
+Q-learning은 앞으로 볼 RL 알고리즘 중 첫 번째이자 가장 대표적인 것이고, DQN 등 많은 알고리즘의 근간이다. 그런데 새로 등장하는 아이디어는 거의 없다. "Bellman 방정식을 기댓값 형태로 쓰고, 기댓값을 샘플로 바꾼다"는 TD의 동작을 $Q^*$의 방정식에 적용한 것이 전부다. 새로운 것은 **무엇에** 적용하느냐의 선택이다.
+:::
+
+# I. Q-function과 그 Bellman 방정식 {#sec-partI}
+
+## $Q^*$란 무엇인가 {#sec-ql1}
+
+**먼저 떠올릴 질문.** $v^*(s)$는 "상태 $s$에서 출발해 최선을 다했을 때의 기대 누적 보상"이다. 첫 행동까지 $a$로 묶어 두면 어떤 양이 되는가? 그것을 $a$에 대해 최대화하면?
+
+**답.** 최적 Q-function은 상태 $s$에서 출발하고 **첫 행동을 $a$로 고정한 뒤** 얻을 수 있는 최대 기대 누적 보상이다.
+
+$$
+Q^*(s,a):=\max_\pi Q^\pi(s,a)=\max_\pi\ \mathbb{E}^\pi\Big[\sum_{t=0}^\infty\gamma^tr(s_t,a_t)\,\Big|\,s_0=s,\ a_0=a\Big].
+$$
+
+인자는 상태 하나가 아니라 (상태, 행동) 쌍이다. 정책 $\pi$는 $t\ge1$의 행동만 결정하고, $a_0=a$는 강제된다. 정의에서 곧바로
+
+$$
+\boxed{\,v^*(s)=\max_{a\in A}Q^*(s,a).\,}
+$$
+
+첫 행동을 고정했을 때의 최선값을 첫 행동에 대해 다시 최대화하면, 첫 행동까지 자유로운 최선값이 된다 → [@sec-ql2a]
+
+**↓ 내려가기**: [@sec-ql1a]
+**↑ 올라가기**: [@sec-ql0]
+
+### ✍ $Q^\pi$와 $v^\pi$의 관계 {#sec-ql1a}
+
+정상 결정적 정책 $\pi$에 대해 $Q^\pi(s,a):=\mathbb{E}^\pi[\sum_t\gamma^tr_t\mid s_0=s,a_0=a]$이다.
+
+안내 질문:
+
+1. $Q^\pi(s,\pi(s))$와 $v^\pi(s)$는 어떤 관계인가?
+2. $Q^\pi(s,a)$를 즉각 보상과 다음 상태의 가치로 분해하라.
+3. 표의 크기를 비교하라. $v^\pi$와 $Q^\pi$는 각각 몇 개의 숫자인가?
+
+::: {.callout-note collapse="true" title="풀이"}
+**1.** 첫 행동을 $\pi$가 고를 행동으로 고정하면 정책을 그대로 따른 것과 같다.
+$$
+Q^\pi(s,\pi(s))=v^\pi(s).
+$$
+
+**2.** 첫 스텝의 보상 $r(s,a)$는 $(s,a)$가 정해지면 결정된다. 그 뒤 $s_1\sim p(\cdot\mid s,a)$이고, $s_1$부터는 $\pi$를 따르므로 Markov 성질에 의해 그 꼬리의 조건부 기댓값이 $v^\pi(s_1)$이다.
+$$
+Q^\pi(s,a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^\pi(s').
+$$
+가치 분해와 같은 구조다. 차이는 첫 행동이 $\pi(s)$가 아니라 임의의 $a$라는 점뿐이다.
+
+**3.** $v^\pi$는 $|S|$개, $Q^\pi$는 $|S||A|$개다. $Q$가 더 많은 정보를 담는다. 그만큼 학습에 샘플이 더 든다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+2번 식이 다음 노드의 출발점이다. $\pi$ 자리에 최적 정책을 넣으면 $Q^*=r+\gamma Pv^*$가 된다 → [@sec-ql2a]
+:::
+
+**↑ 올라가기**: [@sec-ql1]
+
+## $Q^*$의 Bellman 방정식 {#sec-ql2}
+
+**먼저 떠올릴 질문.** $Q^*(s,a)$에 가치 분해를 적용하면, 즉각 보상 부분은 무엇에 의해 고정되고 나머지는 무엇이 되는가? 그 나머지를 다시 $Q^*$로 쓸 수 있는가?
+
+**답.** 행동 $a$가 고정되어 있으므로 즉각 보상 $r(s,a)$는 고정된다. 나머지는 다음 상태로부터의 최적 가치의 기댓값이고, $v^*(s')=\max_{a'}Q^*(s',a')$이므로
+
+$$
+Q^*(s,a)=\underbrace{r(s,a)}_{\text{immediate reward}}+\gamma\sum_{s'\in S}p(s'\mid s,a)\underbrace{v^*(s')}_{\text{optimal value of next state}}
+=r(s,a)+\gamma\sum_{s'\in S}p(s'\mid s,a)\max_{a'\in A}Q^*(s',a').
+$$
+
+우변 전체를 연산자로 정의한다.
+
+$$
+(TQ)(s,a):=r(s,a)+\gamma\sum_{s'\in S}p(s'\mid s,a)\max_{a'\in A}Q(s',a').
+$$
+
+그러면 Bellman 방정식은 고정점 문제다.
+
+$$
+\boxed{\,Q=TQ.\,}
+$$
+
+**↓ 내려가기**: [@sec-ql2a] · [@sec-ql2b]
+**↑ 올라가기**: [@sec-ql0]
+
+### ✍ 유도: $Q^*=r+\gamma Pv^*$와 $v^*=\max Q^*$ {#sec-ql2a}
+
+안내 질문:
+
+1. [@sec-ql1a]의 분해에서 $\max_\pi$를 취하라. 왜 $\le r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^*(s')$인가?
+2. 등호는 왜 성립하는가? MDP 이론의 어떤 결과가 필요한가?
+3. 1–2의 결과를 $a$에 대해 최대화하면 $v^*=\max_aQ^*$가 나옴을 보여라. 최적성 방정식 $v^*=Tv^*$를 써라.
+4. 두 결과를 합쳐 $Q^*=TQ^*$를 얻어라.
+
+::: {.callout-note collapse="true" title="풀이"}
+**1.** 모든 $\pi$와 $s'$에 대해 $v^\pi(s')\le v^*(s')$이므로
+$$
+Q^\pi(s,a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^\pi(s')\le r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^*(s').
+$$
+$\max_\pi$를 취해도 부등식은 유지된다.
+
+**2.** 할인 MDP에는 **모든 상태에서 동시에** $v^{\pi^*}=v^*$인 정상 결정적 최적 정책 $\pi^*$가 존재한다. 첫 행동만 $a$로 고정하고 $s_1$부터 $\pi^*$를 따르면 위 상한에 정확히 도달한다. 따라서
+$$
+Q^*(s,a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^*(s').
+$$
+"동시에"가 핵심이다. 다음 상태가 어디가 되든 같은 정책 하나로 그 상태의 최선값을 얻을 수 있어야 기댓값 안의 각 항을 동시에 $v^*(s')$로 올릴 수 있다.
+
+**3.** 2의 결과를 $a$에 대해 최대화하면
+$$
+\max_aQ^*(s,a)=\max_a\Big[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^*(s')\Big]=(Tv^*)(s)=v^*(s).
+$$
+마지막 등호가 최적성 방정식이다.
+
+**4.** 3을 $s'$에서 쓰면 $v^*(s')=\max_{a'}Q^*(s',a')$이다. 이를 2에 대입하면 $Q^*=TQ^*$다.
+:::
+
+**↑ 올라가기**: [@sec-ql2]
+
+### $v$의 방정식과 무엇이 다른가: max의 위치 {#sec-ql2b}
+
+**먼저 떠올릴 질문.** 두 방정식에서 $\max$는 각각 어디에 있는가? 그 위치가 샘플 기반 학습에 왜 결정적인가?
+
+**답.**
+
+$$
+\begin{aligned}
+v^*(s)&=\max_a\Big[r(s,a)+\gamma\,\mathbb{E}\big[v^*(s')\mid s,a\big]\Big]&&\text{max가 기댓값 \textbf{밖}},\\
+Q^*(s,a)&=r(s,a)+\gamma\,\mathbb{E}\Big[\max_{a'}Q^*(s',a')\,\Big|\,s,a\Big]&&\text{max가 기댓값 \textbf{안}}.
+\end{aligned}
+$$
+
+$v$의 방정식은 지금 상태에서 행동을 고르는 최대화가 전체에 걸려 있다. $Q$의 방정식에서는 지금 행동이 이미 $a$로 고정되어 있으므로, 남은 최대화는 **다음 상태에서 다음 행동을 어떻게 최적으로 고를지**다. 그 선택은 도착한 $s'$를 본 뒤에 하므로 $\max$가 $s'$에 대한 기댓값 안에 들어간다.
+
+::: {.callout-note collapse="true" title="근거: 샘플 하나로 무엇을 편향 없이 만들 수 있나"}
+관측 $(s,a,r,s')$ 하나가 주어졌다고 하자.
+
+- $Q$ 쪽: $r+\gamma\max_{a'}Q(s',a')$는 $s'\sim p(\cdot\mid s,a)$의 함수이므로, 그 조건부 기댓값이 정확히 $(TQ)(s,a)$다. **편향 없는 단일 샘플 추정치**다.
+- $v$ 쪽: $\max_a\mathbb{E}[\,\cdot\mid s,a]$를 추정하려면 행동마다 기댓값이 필요하다. 그런데 한 번에 관측하는 것은 행동 하나의 결과뿐이다. 행동마다 샘플을 하나씩 뽑아 $\max_a(\text{샘플}_a)$로 대신하면, Jensen에 의해
+$$
+\mathbb{E}\big[\max_a X_a\big]\ \ge\ \max_a\mathbb{E}[X_a]
+$$
+이므로 위로 편향된다. 기댓값과 max의 순서를 바꿀 수 없다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+max가 기댓값 안에 있기 때문에 $Q^*$의 방정식은 "기댓값 = 샘플의 평균" 꼴이 되고, Robbins–Monro를 그대로 적용할 수 있다 → [@sec-ql5]. $v^*$ 대신 $Q^*$를 학습하는 첫 번째 이유다. 두 번째 이유는 정책 추출이다 → [@sec-ql7]
+:::
+
+**↑ 올라가기**: [@sec-ql2]
+
+## $T$의 단조성과 축약 {#sec-ql3}
+
+**먼저 떠올릴 질문.** $v$에 대한 $T$가 단조이고 $\gamma$-축약이었던 근거는 무엇이었나? $Q$에 대한 $T$에서도 같은 근거가 통하는가? 새로 필요한 부등식은?
+
+**답.** Q-function에 대한 Bellman 연산자도 **단조**이고 $\|\cdot\|_\infty$에서 **$\gamma$-축약**이다.
+
+$$
+Q\le Q'\ \Rightarrow\ TQ\le TQ',\qquad
+\|TQ-TQ'\|_\infty\le\gamma\|Q-Q'\|_\infty.
+$$
+
+Banach 고정점 정리에 의해 $T$의 고정점은 유일하고, 그것이 $Q^*$다. 새로 필요한 부등식은 하나다.
+
+$$
+\Big|\max_af(a)-\max_ag(a)\Big|\le\max_a|f(a)-g(a)|.
+$$
+
+**↓ 내려가기**: [@sec-ql3a]
+**↑ 올라가기**: [@sec-ql0]
+
+### ✍ 증명 {#sec-ql3a}
+
+안내 질문:
+
+1. 위의 max 부등식을 증명하라. $f$의 최대점 $a_1$을 잡아 보라.
+2. 단조성을 보여라.
+3. 축약을 보여라. $r(s,a)$는 어디로 가는가? $\sum_{s'}p(s'\mid s,a)=1$은 어디에 쓰이는가?
+
+::: {.callout-note collapse="true" title="풀이"}
+**1.** $a_1\in\arg\max_af(a)$로 잡으면
+$$
+\max_af-\max_ag\le f(a_1)-g(a_1)\le\max_a|f(a)-g(a)|.
+$$
+$f$와 $g$의 역할을 바꾸면 반대 방향도 같다.
+
+**2.** $Q\le Q'$이면 각 $s'$에서 $\max_{a'}Q(s',a')\le\max_{a'}Q'(s',a')$이다. $p\ge0$이므로 가중합도 순서를 보존한다. 따라서 $TQ\le TQ'$.
+
+**3.** 보상 항은 차이에서 소거된다.
+$$
+\big|(TQ)(s,a)-(TQ')(s,a)\big|
+=\gamma\Big|\sum_{s'}p(s'\mid s,a)\Big(\max_{a'}Q(s',a')-\max_{a'}Q'(s',a')\Big)\Big|
+\le\gamma\sum_{s'}p(s'\mid s,a)\,\|Q-Q'\|_\infty=\gamma\|Q-Q'\|_\infty.
+$$
+부등호에서 삼각부등식과 1번을 쓰고, 마지막에 $\sum_{s'}p=1$을 쓴다. 좌변의 $(s,a)$에 대해 최대를 취하면 끝이다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+축약성은 두 곳에서 쓰인다. 모델을 알 때는 Q-VI의 수렴을 보장하고 → [@sec-ql4], 모델이 없을 때는 Q-learning을 SA로 보았을 때 수렴 정리의 첫 번째 축이 된다 → [@sec-ql11a]
+:::
+
+**↑ 올라가기**: [@sec-ql3]
+
+## 모델을 알 때: Q-function으로 하는 value iteration {#sec-ql4}
+
+**먼저 떠올릴 질문.** $Q=TQ$가 축약 고정점 문제라면, 가장 단순한 풀이법은? 그 반복의 어느 부분이 전이 확률을 쓰는가?
+
+**답.** 임의의 $Q_0$에서 출발해 $T$를 반복 적용한다.
+
+1. $Q_0$를 초기화한다.
+2. 모든 $(s,a)$에 대해 $Q_{k+1}(s,a)\leftarrow r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\max_{a'}Q_k(s',a')$.
+3. $k\leftarrow k+1$. 수렴할 때까지 반복한다.
+
+$T$의 축약성에 의해 $\|Q_k-Q^*\|_\infty\le\gamma^k\|Q_0-Q^*\|_\infty$이고, 수렴한 Q-function은 최적이다. 매 반복마다 **모든** $(s,a)$를 갱신한다(synchronous).
+
+문제는 2단계의 $\sum_{s'}p(s'\mid s,a)(\cdot)$, 즉 기댓값 계산에 전이 확률이 필요하다는 것이다.
+
+$$
+\textbf{Q: How can we perform VI using samples?}
+$$
+
+::: {.callout-note collapse="true" title="근거: 상태 가치 VI와 같은 반복이다"}
+$v_k:=\max_aQ_k(\cdot,a)$로 두면
+$$
+v_{k+1}(s)=\max_a\Big[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v_k(s')\Big]=(Tv_k)(s).
+$$
+Q-VI는 상태 가치 VI에 "행동별 중간값"을 저장해 둔 것일 뿐이다.
+:::
+
+**↑ 올라가기**: [@sec-ql0]
+
+# II. Q-learning {#sec-partII}
+
+## Stochastic approximation으로 VI를 샘플화 {#sec-ql5}
+
+**먼저 떠올릴 질문.** Q-VI의 2단계에서 기댓값 $\sum_{s'}p(s'\mid s,a)\max_{a'}Q(s',a')$를 샘플 하나로 바꾸려면, 전이 데이터 $(s_t,a_t,r_t,s_{t+1})$ 중 무엇을 넣으면 되는가? 그 샘플로 어느 칸을 고칠 수 있는가?
+
+**답.** 관측한 $s_{t+1}$을 그대로 넣는다. 옛 추정치에 $1-\alpha$, 새 추정치(보상 신호 $r_t$와 기댓값 전체의 단일 샘플 추정치)에 $\alpha$의 가중치를 둔다.
+
+$$
+Q(s_t,a_t):=(1-\alpha)\,Q(s_t,a_t)+\alpha\Big[r_t+\gamma\max_{a'\in A}Q(s_{t+1},a')\Big].
+$$
+
+$\alpha$로 묶으면
+
+$$
+\boxed{\,Q(s_t,a_t):=Q(s_t,a_t)+\alpha\Big[\underbrace{r_t+\gamma\max_{a'\in A}Q(s_{t+1},a')}_{\text{new estimate}}-\underbrace{Q(s_t,a_t)}_{\text{old estimate}}\Big].\,}
+$$
+
+괄호 안은 TD(0)의 temporal difference와 같은 모양의 학습 방향이다. 필요한 샘플은 전이 **하나**뿐이므로 완전히 online이다. 고칠 수 있는 칸은 샘플이 나온 $(s_t,a_t)$ 하나다.
+
+::: {.callout-important title="갱신의 전부"}
+옛 Q 추정치에 $1-\alpha$, Q-function Bellman 방정식 우변의 단일 샘플 추정치에 $\alpha$의 가중치를 둔다.
+:::
+
+**↓ 내려가기**: [@sec-ql5a]
+**↑ 올라가기**: [@sec-ql0]
+
+### ✍ SA 틀에 맞추기 {#sec-ql5a}
+
+SA 반복은 $x_{k+1}(i)=(1-\alpha_k(i))x_k(i)+\alpha_k(i)\big[(Hx_k)(i)+w_k(i)\big]$였다.
+
+안내 질문:
+
+1. $x$, 좌표 $i$, $H$, $w_t$는 각각 무엇인가?
+2. 갱신되지 않는 칸은 SA 틀에서 어떻게 표현되는가?
+3. $\mathbb{E}[w_t\mid\mathcal F_t]=0$을 보여라. 조건 $\mathcal F_t$에 $a_t$가 들어 있어야 하는 이유는?
+4. TD(0)와 비교하라. 무엇이 같고 무엇이 다른가?
+
+::: {.callout-note collapse="true" title="풀이"}
+**1.** $x=Q\in\mathbb{R}^{|S||A|}$, 좌표 $i=(s,a)$, $H=T$이고
+$$
+w_t:=\gamma\Big(\max_{a'}Q(s_{t+1},a')-\sum_{s'}p(s'\mid s_t,a_t)\max_{a'}Q(s',a')\Big).
+$$
+그러면 $(TQ)(s_t,a_t)+w_t=r_t+\gamma\max_{a'}Q(s_{t+1},a')$이다.
+
+**2.** 칸별 step size를 $\alpha_t(s,a):=\alpha_t\,\mathbb{1}\{(s,a)=(s_t,a_t)\}$로 두면 된다. 나머지 칸은 $\alpha_t(s,a)=0$이라 $Q_{t+1}(s,a)=Q_t(s,a)$다. SA 틀이 처음부터 좌표별 step size를 허용했으므로, 한 번에 한 칸만 고치는 비동기 갱신도 같은 틀 안에 들어온다.
+
+**3.** $\mathcal F_t$가 주어지면 $s_t$, $a_t$, 현재 $Q$가 고정되고, 무작위인 것은 $s_{t+1}\sim p(\cdot\mid s_t,a_t)$뿐이다. 따라서
+$$
+\mathbb{E}\Big[\max_{a'}Q(s_{t+1},a')\,\Big|\,\mathcal F_t\Big]=\sum_{s'}p(s'\mid s_t,a_t)\max_{a'}Q(s',a'),\qquad \mathbb{E}[w_t\mid\mathcal F_t]=0.
+$$
+$a_t$를 조건에 넣어야 $s_{t+1}$의 분포가 $p(\cdot\mid s_t,a_t)$로 정해진다. 행동이 무작위 정책으로 골라졌어도, 일단 고른 뒤에는 그 값으로 조건을 건다.
+
+**4.**
+
+| | TD(0) | Q-learning |
+|---|---|---|
+| 학습 대상 | $v^\pi$ | $Q^*$ |
+| 고정점 방정식 | $v=T^\pi v$ | $Q=TQ$ |
+| 목표값 | $r_t+\gamma v(s_{t+1})$ | $r_t+\gamma\max_{a'}Q(s_{t+1},a')$ |
+| 갱신 칸 | $s_t$ | $(s_t,a_t)$ |
+| 행동 $a_t$ | 반드시 $\pi(s_t)$ | 임의 → [@sec-ql8] |
+
+구조는 같다. 다른 것은 고정점 방정식, 그리고 그에 따른 행동 선택의 자유도다.
+:::
+
+**↑ 올라가기**: [@sec-ql5]
+
+## 알고리즘과 성격 {#sec-ql6}
+
+**답.**
+
+**Q-learning 알고리즘**
+
+1. $Q\equiv0$으로 초기화하고 $t\leftarrow0$. (유한 상태·행동이므로 임의의 테이블로 초기화해도 되지만 보통 0으로 둔다.)
+2. 시점 $t$의 상태 $s_t$에서 **임의의** 행동 $a_t$를 고르고 시스템을 $t+1$까지 진행한다.
+3. 샘플 $(s_t,a_t,r_t,s_{t+1})$로 $(s_t,a_t)$ 칸을 갱신한다.
+$$
+Q(s_t,a_t)\leftarrow Q(s_t,a_t)+\alpha_t\Big[r_t+\gamma\max_{a'\in A}Q(s_{t+1},a')-Q(s_t,a_t)\Big].
+$$
+4. $t\leftarrow t+1$로 두고 2단계로 간다.
+
+수렴한 뒤 정책은 $\pi^*(s)\in\arg\max_{a\in A}Q(s,a)$로 만든다 → [@sec-ql7]
+
+성격:
+
+- **Model-free, fully online.** 전이 하나마다 한 번 갱신한다.
+- **완전히 incremental하다.** 한 번에 $(s_t,a_t)$ 한 칸만 바뀐다. 상태-행동 공간이 커지면 모든 칸을 충분히 방문하는 데 매우 오래 걸린다. 큰 문제에서 이런 naive tabular 버전은 쓸 수 없고, 함수 근사가 필요하다.
+- **행동 선택에 자유도가 있다.** 2단계의 "임의의 행동"이 off-policy 성질이다 → [@sec-ql8]
+
+::: {.callout-tip collapse="true" title="의의"}
+"Q-function에 DP를 적용해 Bellman 방정식을 얻는다 → 거기에 SA를 적용한다"는 두 단계만으로 model-free, fully online 알고리즘이 나온다. 나머지 이야기(정책 추출, off-policy, 탐색, 수렴)는 모두 이 단순한 갱신식이 왜 그리고 언제 작동하는지에 대한 것이다.
+:::
+
+**↑ 올라가기**: [@sec-ql0]
+
+## 정책 추출: 왜 $v$가 아니라 $Q$인가 {#sec-ql7}
+
+**먼저 떠올릴 질문.** 충분히 좋은 $Q$를 얻었다. 정책을 만들 때 전이 확률이 필요한가? 같은 방식으로 $v^*$를 학습했다면?
+
+**답.** 현재 상태에서 $Q$를 최대화하는 행동을 고르면 된다.
+
+$$
+\pi^*(s)\in\arg\max_{a\in A}Q(s,a).
+$$
+
+이 단계에서 **전이 확률을 쓰지 않는다.** 정책 추출까지 완전히 model-free다. 이것이 $Q$를 학습하는 결정적인 이유다.
+
+$v^*$를 학습했다면 정책 추출에 모델이 다시 필요하다 → [@sec-ql7a]. 대가도 있다. $Q^*$는 $|S||A|$개의 숫자로 $v^*$보다 많은 정보를 담으므로, 학습이 더 어렵고 샘플이 더 든다.
+
+**↓ 내려가기**: [@sec-ql7a]
+**↑ 올라가기**: [@sec-ql0]
+
+### ✍ $v^*$만 학습했다면 {#sec-ql7a}
+
+안내 질문:
+
+1. $v^*$에서 최적 정책을 뽑는 식을 써라. 어디에 모델이 들어가는가?
+2. 그 식의 대괄호 안은 무엇과 같은가?
+3. $\arg\max_aQ^*(s,a)$가 실제로 최적 정책임을 보여라.
+
+::: {.callout-note collapse="true" title="풀이"}
+**1.**
+$$
+\pi^*(s)\in\arg\max_a\Big[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^*(s')\Big].
+$$
+$r(s,a)$와 $p(s'\mid s,a)$가 모두 필요하다. $v^*$를 애써 model-free로 학습해도 마지막에 모델이 다시 필요해진다.
+
+**2.** [@sec-ql2a]의 2번 결과에 의해 대괄호 안은 정확히 $Q^*(s,a)$다. $Q^*$는 "모델로 한 스텝 내다보는 계산"을 미리 해서 저장해 둔 것이다.
+
+**3.** 결정적 정책 $\pi(s)\in\arg\max_aQ^*(s,a)$에 대해
+$$
+(T^\pi v^*)(s)=r(s,\pi(s))+\gamma\sum_{s'}p(s'\mid s,\pi(s))v^*(s')=Q^*(s,\pi(s))=\max_aQ^*(s,a)=v^*(s).
+$$
+즉 $v^*=T^\pi v^*$다. $T^\pi$는 축약이고 고정점이 $v^\pi$로 유일하므로 $v^\pi=v^*$다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+[@sec-ql2b]와 합치면 $Q^*$를 학습하는 이유는 두 가지다. (i) max가 기댓값 안에 있어 단일 샘플 추정치가 편향 없다. (ii) 정책 추출에 모델이 필요 없다. 둘 다 "모델로 한 스텝 내다보는 부분"을 $Q$ 안에 흡수했기 때문이다.
+:::
+
+**↑ 올라가기**: [@sec-ql7]
+
+## Off-policy {#sec-ql8}
+
+**먼저 떠올릴 질문.** 2단계에서 행동 $a_t$를 고르는 정책과, 학습이 목표로 하는 정책($Q^*$에 대한 greedy)은 같아야 하는가?
+
+**답.** 같지 않아도 된다. **행동을 만드는 데 어떤 정책을 써도** Q-learning은 제대로 학습한다. 이것을 **off-policy** 알고리즘이라 한다.
+
+$$
+Q(s_t,a_t)\leftarrow Q(s_t,a_t)+\alpha_t\Big[r_t+\gamma\max_{a'\in A}Q(s_{t+1},a')-Q(s_t,a_t)\Big].
+$$
+
+목표값에 들어가는 것은 실제로 다음에 취할 행동이 아니라 $\max_{a'}$, 즉 학습 목표인 최적 정책의 선택이다. 그래서 행동을 만드는 정책이 목표값에 나타나지 않는다.
+
+결과:
+
+- 유연성이 매우 높다. greedy, ε-greedy, Boltzmann 등 어떤 방식으로 행동을 골라도 된다.
+- 이미 모은 샘플을 다시 써서 갱신할 수 있다. 큰 문제로 확장할 때(DQN) 이 성질을 이용한 것이 **experience replay**이고, 샘플 효율을 높인다.
+
+**↓ 내려가기**: [@sec-ql8a]
+**↑ 올라가기**: [@sec-ql0]
+
+### ✍ 왜 행동을 아무렇게나 골라도 되는가 {#sec-ql8a}
+
+안내 질문:
+
+1. [@sec-ql5a]의 잡음 조건 $\mathbb{E}[w_t\mid\mathcal F_t]=0$에서, $a_t$를 고른 정책은 어디에 등장하는가?
+2. 그렇다면 행동 정책은 학습에 아무 영향도 없는가? 무엇에 영향을 주는가?
+3. 목표값의 $\max_{a'}Q(s_{t+1},a')$를 실제로 다음에 취한 행동 $a_{t+1}$의 $Q(s_{t+1},a_{t+1})$로 바꾸면, 어떤 고정점 방정식에 대한 SA가 되는가?
+4. 옛날에 모은 $(s,a,r,s')$를 재사용해도 되는 이유는?
+
+::: {.callout-note collapse="true" title="풀이"}
+**1.** 등장하지 않는다. 조건부 기댓값은 $a_t$가 **어떤 값인지**에만 의존하고, 그 값을 **어떻게 골랐는지**에는 의존하지 않는다. $s_{t+1}$의 분포는 $p(\cdot\mid s_t,a_t)$뿐이고, $T$의 정의에도 행동 정책이 없다. 그래서 어떤 행동 정책을 쓰든 SA가 향하는 고정점은 같은 $Q^*$다.
+
+**2.** 영향은 있다. 행동 정책은 **어느 칸이 얼마나 자주 갱신되는지**를 정한다. 고정점은 바꾸지 않지만, (i) 각 칸의 step size 합 $\sum_t\alpha_t(s,a)$가 발산하는지(무한 방문 조건) → [@sec-ql11a], (ii) 수렴 속도를 정한다. 어떤 칸을 영원히 안 고르는 행동 정책이면 그 칸은 초기값에 머문다. 이것이 탐색 문제다 → [@sec-ql9]
+
+**3.** $a_{t+1}\sim\mu(\cdot\mid s_{t+1})$로 고른다면
+$$
+\mathbb{E}\big[Q(s_{t+1},a_{t+1})\mid\mathcal F_t\big]=\sum_{s'}p(s'\mid s_t,a_t)\sum_{a'}\mu(a'\mid s')Q(s',a').
+$$
+이것은 행동 정책 $\mu$에 대한 Bellman 연산자 $T^\mu$이고, 고정점은 $Q^\mu$다. 이 경우 학습 대상이 데이터를 만든 정책 자신의 가치가 된다(on-policy). Q-learning이 off-policy인 이유는 정확히 목표값의 $\max$ 하나다.
+
+**4.** 저장된 $(s,a,r,s')$에서 $s'$는 여전히 $p(\cdot\mid s,a)$의 샘플이다. 목표값 $r+\gamma\max_{a'}Q(s',a')$는 **현재의** $Q$로 다시 계산하면 되고, 그 조건부 기댓값은 현재 $Q$에 대한 $(TQ)(s,a)$다. 데이터가 언제, 어떤 정책으로 만들어졌는지는 상관없다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+off-policy는 "데이터를 모으는 일"과 "무엇을 학습할지"를 분리한다. 그 덕분에 데이터 수집 정책을 탐색에 전념하게 설계할 수 있다. 다만 분리되었다고 탐색이 해결되는 것은 아니다. 학습 목표는 행동 정책과 무관해도, 학습이 실제로 일어나는 칸은 행동 정책이 방문한 칸뿐이다.
+:::
+
+**↑ 올라가기**: [@sec-ql8]
+
+# III. 탐색 {#sec-partIII}
+
+## Greedy 정책의 문제 {#sec-ql9}
+
+**먼저 떠올릴 질문.** 학습 중에도 현재 $Q$에 대한 greedy 행동만 쓰면 어떤 칸이 갱신되지 않는가? 갱신되지 않은 칸이 있으면 수렴 정리의 어느 가정이 깨지는가?
+
+**답.** Greedy 정책은 현재 $Q$로 가장 이득이 되어 보이는 행동을 고른다(exploitation).
+
+$$
+\pi(s)\in\arg\max_{a\in A}Q(s,a),\qquad a_t=\pi(s_t).
+$$
+
+$Q$가 최적이라면 greedy 정책이 최적이다. 하지만 학습 초기에 $Q$가 최적 근처일 가능성은 매우 낮다.
+
+**문제는 탐색이다.** greedy 정책만 쓰면 일부 상태-행동 쌍은 한 번도 방문되지 않을 수 있다. 그러면 그 칸의 정보는 영원히 얻을 수 없고, 최적 Q-factor로의 수렴이 보장되지 않는다. 모든 상태를 방문하더라도, 이득이 되는 특정 **행동**이 한 번도 시도되지 않을 수 있다.
+
+**↓ 내려가기**: [@sec-ql9a] · [@sec-ql9b]
+**↑ 올라가기**: [@sec-ql0]
+
+### ✍ 두 행동 예시 {#sec-ql9a}
+
+상태가 하나($s$)이고 행동이 두 개다. 어떤 행동을 해도 $s$로 돌아온다. 보상은 결정적으로 $r(s,a_1)=1$, $r(s,a_2)=2$. $Q\equiv0$에서 시작하고, 동점이면 $a_1$을 고르는 greedy 정책을 쓴다. $\alpha_t\in(0,1]$.
+
+안내 질문:
+
+1. $Q^*(s,a_1)$, $Q^*(s,a_2)$와 최적 행동은?
+2. 첫 갱신 뒤 $Q(s,a_1)$의 부호는? 그다음부터 greedy 정책은 무엇을 고르는가?
+3. $Q(s,a_2)$는 어떻게 되는가? $Q(s,a_1)$은 어디로 수렴하는가?
+4. 학습이 끝난 뒤의 greedy 정책은 최적인가?
+
+::: {.callout-note collapse="true" title="풀이"}
+**1.** $v^*=\max_aQ^*(s,a)$이고 $Q^*(s,a)=r(s,a)+\gamma v^*$이다. 항상 $a_2$를 고르면 $v^*=2/(1-\gamma)$이므로
+$$
+Q^*(s,a_2)=\frac{2}{1-\gamma},\qquad Q^*(s,a_1)=1+\frac{2\gamma}{1-\gamma}.
+$$
+$Q^*(s,a_2)-Q^*(s,a_1)=1>0$이므로 최적 행동은 $a_2$다.
+
+**2.** 동점이므로 $a_1$을 고르고, $Q(s,a_1)\leftarrow0+\alpha_0(1+\gamma\cdot0-0)=\alpha_0>0$. 이제 $Q(s,a_1)>0=Q(s,a_2)$이므로 greedy는 계속 $a_1$을 고른다. 이후 $Q(s,a_1)$은 줄지 않는다(아래 3번의 갱신은 $Q<1/(1-\gamma)$인 동안 증가시킨다).
+
+**3.** $a_2$는 한 번도 선택되지 않으므로 $Q(s,a_2)=0$에 영원히 머문다. $Q(s,a_1)$의 갱신은
+$$
+Q(s,a_1)\leftarrow Q(s,a_1)+\alpha_t\big[1+\gamma\max\{Q(s,a_1),0\}-Q(s,a_1)\big]=Q(s,a_1)+\alpha_t\big[1+(\gamma-1)Q(s,a_1)\big]
+$$
+이고, 고정점은 $Q=1+\gamma Q$, 즉 $1/(1-\gamma)$다. 적절한 step size에서 $Q(s,a_1)\to1/(1-\gamma)$.
+
+**4.** 학습된 $Q$에서 greedy는 $a_1$이다. 최적이 아니다. 게다가 **이미 방문한 칸의 값도 틀렸다**. $1/(1-\gamma)<Q^*(s,a_1)$이다. 목표값 $\max_{a'}Q(s,a')$ 안에 방문하지 않은 칸의 틀린 값($Q(s,a_2)=0$)이 섞여 있기 때문이다. 탐색 실패의 피해는 방문하지 않은 칸에서 그치지 않고 bootstrapping을 통해 퍼진다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+행동을 고르는 정책이 목표값에 등장하지 않는다는 off-policy 성질이 이 예시에서 깨지지 않았다는 점이 중요하다. Q-learning의 고정점은 여전히 $Q^*$다. 잘못된 것은 고정점이 아니라, $(s,a_2)$ 칸의 $\sum_t\alpha_t(s,a_2)=0$이라 수렴 정리의 가정이 깨졌다는 것이다 → [@sec-ql11a]
+:::
+
+**↑ 올라가기**: [@sec-ql9]
+
+### Exploitation–exploration trade-off {#sec-ql9b}
+
+**답.**
+
+- Q-learning으로 좋은(near-optimal) 정책을 얻으려면, 잠재적으로 이득이 되는 상태-행동 쌍을 **모두** 탐색해 정보를 얻어야 한다.
+- 매 갱신에 greedy 정책을 쓰면, 모든 상태를 탐색하더라도 이득이 되는 특정 행동이 절대 시도되지 않을 수 있다.
+- 이를 극복하려면 greedy 선택으로 지금 얻을 수 있는 즉각적 이득을 일부 **희생**하고 충분히 탐색해야 한다.
+- 이 trade-off는 시스템 동역학과 보상 구조에 대한 **지식이 없어서** 생긴다. 그 지식을 얻으려면 지금의 이득 대신 탐색을 해야 한다.
+
+::: {.callout-tip collapse="true" title="의의"}
+모델을 알면 탐색이 필요 없다. VI는 모든 $(s,a)$를 매번 계산한다. 탐색 문제는 model-free라서 치르는 대가이고, RL에 국한되지 않고 모델을 모르는 모든 순차 의사결정 문제에서 생긴다. 이 문제는 이후 엔트로피 정규화 같은 방식으로 다시 다루게 된다.
+:::
+
+**↑ 올라가기**: [@sec-ql9]
+
+## ε-greedy와 다른 방법 {#sec-ql10}
+
+**먼저 떠올릴 질문.** greedy 정책을 조금만 고쳐서 모든 행동이 계속 시도되게 하려면?
+
+**답.**
+
+**ε-greedy.** 확률 $1-\varepsilon$으로 greedy 행동, 확률 $\varepsilon$으로 무작위 행동을 고른다. 즉 $\varepsilon$의 확률만큼 탐색한다.
+
+$$
+\Pr(a_t=a\mid s_t=s)=
+\begin{cases}
+1-\varepsilon+\dfrac{\varepsilon}{|A|}, & a=\arg\max_{a'}Q(s,a')\ (\text{유일하다면}),\\[6pt]
+\dfrac{\varepsilon}{|A|}, & \text{그 밖}.
+\end{cases}
+$$
+
+다른 방법:
+
+- **구간 전환.** (i) 탐색 구간과 (ii) greedy 구간을 번갈아 둔다. 탐색 구간에서는 무작위로, greedy 구간에서는 greedy 행동을 쓴다.
+- **Boltzmann 탐색.** 상태 $s$에서 행동 $a$를 확률
+$$
+\frac{\exp\big(Q(s,a)/\tau\big)}{\sum_{a'\in A}\exp\big(Q(s,a')/\tau\big)}
+$$
+로 고른다. $\tau>0$은 온도 파라미터다 → [@sec-ql10b]
+
+Q-learning에서는 ε-greedy를 가장 많이 쓴다. 효율적이어서가 아니라 **간편하고, ε을 스케줄링할 수 있어서**다.
+
+::: {.callout-note collapse="true" title="근거: ε-greedy는 방문한 상태에서 모든 행동을 무한히 시도한다"}
+어떤 상태 $s$가 무한히 자주 방문된다고 하자. 방문할 때마다, 과거와 무관하게 각 행동이 선택될 조건부 확률은 적어도 $\varepsilon/|A|>0$이다. 조건부 확률의 합이 발산하므로(Borel–Cantelli 보조정리의 조건부 판본), 각 행동은 확률 1로 무한히 선택된다.
+
+단, 이것은 "상태가 무한히 방문된다면"의 이야기다. 모든 상태가 무한히 방문되는지는 MDP의 연결 구조에 달려 있다.
+:::
+
+**↓ 내려가기**: [@sec-ql10a] · [@sec-ql10b]
+**↑ 올라가기**: [@sec-ql0]
+
+### ε 스케줄링 {#sec-ql10a}
+
+**먼저 떠올릴 질문.** 학습 초기와 후기에 $Q$의 품질은 어떻게 다른가? 큰 ε에서 시작해야 하는가, 작은 ε에서 시작해야 하는가?
+
+**답.** **큰 ε에서 시작해 점점 줄인다.**
+
+- 초기: 아는 정보가 거의 없으므로, 탐색을 집중적으로 해서 $Q$의 품질을 높인다.
+- 후기: $Q$를 믿을 만해지면 ε을 줄여 greedy 행동을 더 많이 쓴다.
+
+ε을 처음부터 끝까지 고정해 쓸 수도 있다.
+
+::: {.callout-note collapse="true" title="근거: 너무 빨리 줄이면"}
+ε을 줄이는 속도에도 "줄어야 하지만 너무 빨리 줄면 안 된다"는 SA step size와 같은 긴장이 있다. 어떤 상태의 $k$번째 방문에서의 탐색 확률을 $\varepsilon_k$라 하면, 무한 탐색에는 $\sum_k\varepsilon_k=\infty$가 필요하다. 예컨대 $\varepsilon_k=1/k$는 충분하지만 $\varepsilon_k=1/k^2$이면 확률 1로 유한 번만 탐색할 수 있다(Borel–Cantelli). 탐색이 무한히 계속되면서도 결국 greedy에 가까워지도록 하는 것이 스케줄 설계의 목표다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+"정보가 쌓일수록 자기 추정치를 더 믿는다"는 원리다. TD(λ)에서 큰 λ로 시작해 줄이는 것과 같은 방향의 설계다.
+:::
+
+**↑ 올라가기**: [@sec-ql10]
+
+### ✍ Boltzmann 탐색의 두 극한 {#sec-ql10b}
+
+안내 질문:
+
+1. $\tau\to0^+$이면 확률은 어떻게 되는가? $\arg\max$가 유일하다고 가정하라.
+2. $\tau\to\infty$이면?
+3. 모든 $Q(s,\cdot)$에 같은 상수 $c$를 더하면 확률은 바뀌는가? ε-greedy와 비교해 어떤 점이 다른가?
+
+::: {.callout-note collapse="true" title="풀이"}
+**1.** $a^*:=\arg\max_aQ(s,a)$, $\Delta_a:=Q(s,a^*)-Q(s,a)$로 두고 분자·분모를 $\exp(Q(s,a^*)/\tau)$로 나누면
+$$
+\Pr(a)=\frac{e^{-\Delta_a/\tau}}{\sum_{a'}e^{-\Delta_{a'}/\tau}}.
+$$
+$\tau\to0^+$이면 $a\ne a^*$에서 $e^{-\Delta_a/\tau}\to0$이므로 $\Pr(a^*)\to1$. greedy 정책이다.
+
+**2.** 모든 지수가 0으로 가므로 $\Pr(a)\to1/|A|$. 균등 무작위다.
+
+**3.** 분자·분모에서 $e^{c/\tau}$가 소거되므로 바뀌지 않는다. 확률은 $Q$ 값의 **차이** $\Delta_a$에만 의존한다. ε-greedy는 greedy가 아닌 행동을 모두 같은 확률 $\varepsilon/|A|$로 고르지만, Boltzmann은 차이가 작은(거의 좋은) 행동을 더 자주, 차이가 큰 행동을 덜 고른다. 모든 행동의 확률이 항상 양수이므로 탐색은 계속된다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+$\tau$는 ε과 같은 역할의 손잡이다. 큰 $\tau$로 시작해 줄이면 탐색에서 활용으로 넘어간다.
+:::
+
+**↑ 올라가기**: [@sec-ql10]
+
+# IV. 수렴 {#sec-partIV}
+
+## 수렴 정리 {#sec-ql11}
+
+**답.**
+
+::: {.callout-important title="정리 (Q-learning의 수렴)"}
+각 상태-행동 쌍이 무한히 많이 방문되고
+$$
+\sum_{t=0}^\infty\alpha_t(s,a)=+\infty,\qquad\sum_{t=0}^\infty\alpha_t^2(s,a)<+\infty
+$$
+이면, 각 $(s,a)$에 대해 $Q(s,a)$는 **확률 1로** $Q^*(s,a)$로 수렴한다.
+:::
+
+증명 아이디어는 SA 수렴 정리의 두 축이다.
+
+- $T$가 축약 사상이다 → [@sec-ql3a]
+- 잡음 항이 조건부 평균·조건부 분산 조건을 만족한다.
+
+**↓ 내려가기**: [@sec-ql11a] · [@sec-ql11b]
+**↑ 올라가기**: [@sec-ql0]
+
+### ✍ 증명 아이디어: 축약과 잡음 조건 {#sec-ql11a}
+
+안내 질문:
+
+1. SA 수렴 정리의 네 조건을 써라. Q-learning에서 각각은 가정인가, 증명할 것인가?
+2. "각 쌍을 무한히 방문"은 step size 조건 중 어디에 숨어 있는가?
+3. 잡음의 조건부 분산이 $C_0+C_1\|Q\|_\infty^2$ 꼴로 유계임을 보여라.
+4. 흔히 쓰는 step size $\alpha_t(s,a)=1/N_t(s,a)$($N_t(s,a)$: 시점 $t$까지 $(s,a)$의 방문 횟수)는 조건을 만족하는가?
+
+::: {.callout-note collapse="true" title="풀이"}
+**1.**
+
+| 조건 | Q-learning에서 |
+|---|---|
+| $H$가 축약 | $H=T$, $\gamma$-축약 → 증명함 [@sec-ql3a] |
+| $\sum_t\alpha_t(s,a)=\infty$, $\sum_t\alpha_t^2(s,a)<\infty$ | 가정 |
+| $\mathbb{E}[w_t\mid\mathcal F_t]=0$ | 증명함 [@sec-ql5a] |
+| $\mathbb{E}[w_t^2\mid\mathcal F_t]\le C_0+C_1\Vert Q_t\Vert^2$ | 아래 3번 |
+
+**2.** $\alpha_t(s,a)=\alpha_t\mathbb{1}\{(s_t,a_t)=(s,a)\}$이므로, $(s,a)$를 유한 번만 방문하면 $\sum_t\alpha_t(s,a)$는 유한 개 항의 합이라 유한하다. 따라서 $\sum_t\alpha_t(s,a)=\infty$는 무한 방문을 **함의한다**. 정리에서 무한 방문을 따로 적는 것은 이 조건이 행동 정책(탐색)에 달려 있음을 강조하기 위해서다.
+
+**3.** $|\max_{a'}Q(s',a')|\le\|Q\|_\infty$이고 가중평균도 같은 상한을 가지므로
+$$
+|w_t|\le\gamma\big(\|Q_t\|_\infty+\|Q_t\|_\infty\big)=2\gamma\|Q_t\|_\infty,\qquad
+\mathbb{E}[w_t^2\mid\mathcal F_t]\le4\gamma^2\|Q_t\|_\infty^2.
+$$
+$C_0=0$, $C_1=4\gamma^2$이다. 보상이 확률적이면 보상의 분산이 $C_0$에 더해진다.
+
+**4.** 만족한다. 각 칸이 무한히 방문되면, 그 칸의 step size 수열은 방문할 때마다 $1,\tfrac12,\tfrac13,\dots$이므로 $\sum1/k=\infty$, $\sum1/k^2<\infty$다. 단 이것도 무한 방문을 전제로 한다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+TD(λ)의 수렴과 같은 구조다. 다른 것은 연산자뿐이다($T^\pi$ 또는 multi-step $H$ 대신 $T$). Q-learning만의 새로운 점은 2번이다. step size 조건이 **행동 정책에 대한 조건**이 된다. 정책 평가에서는 정책이 고정되어 방문 분포가 정해져 있었지만, Q-learning에서는 행동을 고르는 방식이 수렴 여부를 직접 좌우한다. 탐색이 이론적으로도 필수인 이유다 → [@sec-ql9a]
+:::
+
+**↑ 올라가기**: [@sec-ql11]
+
+### 정리가 현실에서 뜻하는 것 {#sec-ql11b}
+
+**답.** 이론적 보장이 있다는 사실과 그 구조(축약 + 잡음 조건)를 알아 두면 충분하다. 간단한 문제에서 tabular Q-learning을 돌려도 $Q^*$를 완벽하게 학습하기는 매우 어렵다.
+
+- 핵심 가정인 "모든 상태-행동 쌍을 **무한히** 방문"은 현실적으로 만족시킬 수 없다.
+- ε-greedy를 쓰고 ε 스케줄링을 아무리 잘해도 탐색 문제를 완벽히 해결하지 못한다. ε-greedy는 간편하지만 효율적인 탐색 방법이 아니며, 비효율적임을 이론적으로 보일 수 있다.
+- 갱신이 한 칸씩 일어나므로, 상태-행동 공간이 조금만 커져도 모든 칸을 충분히 방문하는 데 드는 시간이 감당할 수 없게 된다.
+
+::: {.callout-tip collapse="true" title="의의"}
+뒤의 두 항목이 Q-learning의 두 한계, 즉 **탐색**과 **확장성**이다. 확장성 문제는 Q-function을 파라미터화된 구조(가중치 벡터)로 근사하고 그 가중치를 학습하는 approximate Q-learning으로 이어진다.
+:::
+
+**↑ 올라가기**: [@sec-ql11]
+
+# V. 정리 {#sec-partV}
+
+## 한 장 요약 {#sec-ql12}
+
+| 질문 | 답 | 노드 |
+|---|---|---|
+| 무엇을 풀려는가 | 최적성 방정식을 $p$ 없이, 전이 하나마다 갱신하며. 정책 추출까지 model-free로 | [@sec-ql0] |
+| $Q^*$ | 첫 행동을 $a$로 고정한 최대 기대 누적 보상. $v^*=\max_aQ^*$ | [@sec-ql1] |
+| $Q^\pi$와 $v^\pi$ | $Q^\pi(s,a)=r+\gamma\sum p\,v^\pi$, $Q^\pi(s,\pi(s))=v^\pi(s)$ | [@sec-ql1a] |
+| Bellman 방정식 | $Q^*=r+\gamma\sum_{s'}p\max_{a'}Q^*(s',a')$, 즉 $Q=TQ$ | [@sec-ql2] |
+| 유도의 핵심 | 모든 상태에서 동시에 최적인 정상 정책의 존재 | [@sec-ql2a] |
+| max의 위치 | 기댓값 안 ⇒ 단일 샘플 목표값이 편향 없음 | [@sec-ql2b] |
+| $T$의 성질 | 단조, $\gamma$-축약. 열쇠는 $\lvert\max f-\max g\rvert\le\max\lvert f-g\rvert$ | [@sec-ql3] |
+| Q-VI | $Q_{k+1}=TQ_k$, 모든 칸 갱신, $p$ 필요 | [@sec-ql4] |
+| Q-learning | $Q(s_t,a_t)\leftarrow Q+\alpha_t[r_t+\gamma\max_{a'}Q(s_{t+1},a')-Q]$ | [@sec-ql5] |
+| SA 대응 | $H=T$, $w_t=\gamma(\max Q(s_{t+1},\cdot)-\sum p\max Q)$, 칸별 step size | [@sec-ql5a] |
+| 성격 | model-free, fully online, 한 칸씩 갱신 | [@sec-ql6] |
+| 왜 $Q$인가 | $\pi^*(s)\in\arg\max_aQ(s,a)$에 모델 불필요. 대가: $\lvert S\rvert\lvert A\rvert$개 학습 | [@sec-ql7] |
+| Off-policy | 목표값에 행동 정책이 없음(max). 행동 정책은 방문 빈도만 정함. replay 가능 | [@sec-ql8] |
+| Greedy의 문제 | 일부 칸 미방문 ⇒ 수렴 보장 없음. 오차가 bootstrapping으로 퍼짐 | [@sec-ql9a] |
+| Trade-off | 모델을 몰라서 생김. 즉각 이득을 희생하고 탐색 | [@sec-ql9b] |
+| ε-greedy | $1-\varepsilon$ greedy, $\varepsilon$ 무작위. 큰 ε에서 시작해 줄임 | [@sec-ql10] |
+| Boltzmann | $\propto\exp(Q/\tau)$. $\tau\to0$: greedy, $\tau\to\infty$: 균등 | [@sec-ql10b] |
+| 수렴 | 모든 쌍 무한 방문 + step size 조건 ⇒ 확률 1로 $Q^*$ | [@sec-ql11] |
+| 증명 아이디어 | $T$의 $\gamma$-축약 + 잡음 조건부 평균 0, 분산 $\le4\gamma^2\Vert Q\Vert_\infty^2$ | [@sec-ql11a] |
+| 한계 | 탐색(ε-greedy는 비효율적), 확장성(함수 근사 필요) | [@sec-ql11b] |
+
+**↑ 올라가기**: [@sec-tree]
