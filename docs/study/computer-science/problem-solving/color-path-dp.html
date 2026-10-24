@@ -82,7 +82,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../../../site_libs/bootstrap/bootstrap-7c229a5dd4f0365d728271ebb9451e4e.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-735a1d9e6fc295642842e37b9828bfeb.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -499,70 +499,106 @@ Important
 </section>
 <section id="codes" class="level2">
 <h2 class="anchored" data-anchor-id="codes">6. Codes</h2>
-<p>```cpp #include &lt;stdio.h&gt;</p>
-<p>#define MAX_V (100’000) #define MAX_E (100’000)</p>
-<p>unsigned long long int ans; int n, m, k; int color[MAX_V];</p>
-<p>int edge_u[MAX_E]; int edge_v[MAX_E];</p>
-<p>int deg_[MAX_V]; int head_[MAX_V + 1]; int pos_[MAX_V + 1];</p>
-<p>int adj_list[MAX_E &lt;&lt; 1];</p>
-<p>void build_csr() { for(int i = 0; i &lt; n; ++i) deg_[i] = 0;</p>
-<pre><code>for(int i = 0; i &lt; m; ++i) {
-    ++deg_[edge_u[i]];
-    ++deg_[edge_v[i]];
-}
-
-head_[0] = pos_[0] = 0;
-for(int v = 1; v &lt;= n; ++v) {
-    head_[v] = head_[v - 1] + deg_[v - 1];
-    pos_[v] = head_[v];
-}
-
-for(int i = 0; i &lt; m; ++i) {
-    adj_list[pos_[edge_u[i]]++] = edge_v[i];
-    adj_list[pos_[edge_v[i]]++] = edge_u[i];
-}</code></pre>
-<p>}</p>
-<p>unsigned long long int dp[MAX_V][0b100000][2];</p>
-<p>int main(void) { int t; scanf(“%d”, &amp;t); while(t–) { scanf(“%d%d%d”, &amp;n, &amp;m, &amp;k); for(int i = 0; i &lt; n; ++i) { scanf(“%d”, &amp;color[i]); –color[i]; } for(int i = 0; i &lt; m; ++i) { int u, v; scanf(“%d%d”, &amp;u, &amp;v); –u, –v; edge_u[i] = u; edge_v[i] = v; } build_csr();</p>
-<pre><code>    const int full_mask = (1 &lt;&lt; k) - 1;
-    ans = 0;
-    int cursor = 0;
-
-    for(int v = 0; v &lt; n; ++v) {
-        for(int mask = 0; mask &lt;= full_mask; ++mask)
-            dp[v][mask][cursor] = 0;
-        dp[v][1 &lt;&lt; color[v]][cursor] = 1;
-    }
-
-    for(int len = 1; len &lt; k; ++len) {
-        for(int v = 0; v &lt; n; ++v)
-            for(int mask = 0; mask &lt;= full_mask; ++mask)
-                dp[v][mask][cursor ^ 0x01] = 0;
-
-        for(int v = 0; v &lt; n; ++v) {
-            for(int mask = 0; mask &lt;= full_mask; ++mask) {
-                auto&amp; curr = dp[v][mask][cursor];
-                if(curr == 0) continue;
-
-                for(int i = head_[v]; i &lt; head_[v + 1]; ++i) {
-                    int u = adj_list[i];
-                    int c_bit = color[u];
-                    if(mask &amp; (1 &lt;&lt; c_bit)) continue;
-
-                    dp[u][mask | (1 &lt;&lt; c_bit)][cursor ^ 0x01] += curr;
-                }
-            }
-        }
-
-        for(int v = 0; v &lt; n; ++v)
-            for(int mask = 0; mask &lt;= full_mask; ++mask)
-                ans += dp[v][mask][cursor ^ 0x01];
-
-        cursor ^= 0x01;
-    }
-    printf("%llu\n", ans);
-}</code></pre>
-<p>}</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MAX_V   </span><span class="op">(</span><span class="dv">100'000</span><span class="op">)</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MAX_E   </span><span class="op">(</span><span class="dv">100'000</span><span class="op">)</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">long</span> <span class="dt">long</span> <span class="dt">int</span> ans<span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> n<span class="op">,</span> m<span class="op">,</span> k<span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> color<span class="op">[</span>MAX_V<span class="op">];</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> edge_u<span class="op">[</span>MAX_E<span class="op">];</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> edge_v<span class="op">[</span>MAX_E<span class="op">];</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="va">deg_</span><span class="op">[</span>MAX_V<span class="op">];</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="va">head_</span><span class="op">[</span>MAX_V <span class="op">+</span> <span class="dv">1</span><span class="op">];</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="va">pos_</span><span class="op">[</span>MAX_V <span class="op">+</span> <span class="dv">1</span><span class="op">];</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> adj_list<span class="op">[</span>MAX_E <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">];</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> build_csr<span class="op">()</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>        <span class="va">deg_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> m<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>        <span class="op">++</span><span class="va">deg_</span><span class="op">[</span>edge_u<span class="op">[</span>i<span class="op">]];</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>        <span class="op">++</span><span class="va">deg_</span><span class="op">[</span>edge_v<span class="op">[</span>i<span class="op">]];</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    <span class="va">head_</span><span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">=</span> <span class="va">pos_</span><span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> v <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> v <span class="op">&lt;=</span> n<span class="op">;</span> <span class="op">++</span>v<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>        <span class="va">head_</span><span class="op">[</span>v<span class="op">]</span> <span class="op">=</span> <span class="va">head_</span><span class="op">[</span>v <span class="op">-</span> <span class="dv">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">deg_</span><span class="op">[</span>v <span class="op">-</span> <span class="dv">1</span><span class="op">];</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>        <span class="va">pos_</span><span class="op">[</span>v<span class="op">]</span> <span class="op">=</span> <span class="va">head_</span><span class="op">[</span>v<span class="op">];</span></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> m<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>        adj_list<span class="op">[</span><span class="va">pos_</span><span class="op">[</span>edge_u<span class="op">[</span>i<span class="op">]]++]</span> <span class="op">=</span> edge_v<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>        adj_list<span class="op">[</span><span class="va">pos_</span><span class="op">[</span>edge_v<span class="op">[</span>i<span class="op">]]++]</span> <span class="op">=</span> edge_u<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">long</span> <span class="dt">long</span> <span class="dt">int</span> dp<span class="op">[</span>MAX_V<span class="op">][</span><span class="bn">0b100000</span><span class="op">][</span><span class="dv">2</span><span class="op">];</span></span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span></span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> t<span class="op">;</span></span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>    scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>t<span class="op">);</span></span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span><span class="op">(</span>t<span class="op">--)</span> <span class="op">{</span></span>
+<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>        scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d%d%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>n<span class="op">,</span> <span class="op">&amp;</span>m<span class="op">,</span> <span class="op">&amp;</span>k<span class="op">);</span></span>
+<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>            scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>color<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>            <span class="op">--</span>color<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> m<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> u<span class="op">,</span> v<span class="op">;</span></span>
+<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a>            scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>u<span class="op">,</span> <span class="op">&amp;</span>v<span class="op">);</span></span>
+<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a>            <span class="op">--</span>u<span class="op">,</span> <span class="op">--</span>v<span class="op">;</span></span>
+<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a>            edge_u<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> u<span class="op">;</span></span>
+<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a>            edge_v<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> v<span class="op">;</span></span>
+<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a>        build_csr<span class="op">();</span></span>
+<span id="cb5-61"><a href="#cb5-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-62"><a href="#cb5-62" aria-hidden="true" tabindex="-1"></a>        <span class="at">const</span> <span class="dt">int</span> full_mask <span class="op">=</span> <span class="op">(</span><span class="dv">1</span> <span class="op">&lt;&lt;</span> k<span class="op">)</span> <span class="op">-</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb5-63"><a href="#cb5-63" aria-hidden="true" tabindex="-1"></a>        ans <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb5-64"><a href="#cb5-64" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cursor <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb5-65"><a href="#cb5-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-66"><a href="#cb5-66" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> v <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> v <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>v<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-67"><a href="#cb5-67" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> mask <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> mask <span class="op">&lt;=</span> full_mask<span class="op">;</span> <span class="op">++</span>mask<span class="op">)</span></span>
+<span id="cb5-68"><a href="#cb5-68" aria-hidden="true" tabindex="-1"></a>                dp<span class="op">[</span>v<span class="op">][</span>mask<span class="op">][</span>cursor<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb5-69"><a href="#cb5-69" aria-hidden="true" tabindex="-1"></a>            dp<span class="op">[</span>v<span class="op">][</span><span class="dv">1</span> <span class="op">&lt;&lt;</span> color<span class="op">[</span>v<span class="op">]][</span>cursor<span class="op">]</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb5-70"><a href="#cb5-70" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb5-71"><a href="#cb5-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-72"><a href="#cb5-72" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> len <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> len <span class="op">&lt;</span> k<span class="op">;</span> <span class="op">++</span>len<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-73"><a href="#cb5-73" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> v <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> v <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>v<span class="op">)</span></span>
+<span id="cb5-74"><a href="#cb5-74" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> mask <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> mask <span class="op">&lt;=</span> full_mask<span class="op">;</span> <span class="op">++</span>mask<span class="op">)</span></span>
+<span id="cb5-75"><a href="#cb5-75" aria-hidden="true" tabindex="-1"></a>                    dp<span class="op">[</span>v<span class="op">][</span>mask<span class="op">][</span>cursor <span class="op">^</span> <span class="bn">0x01</span><span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb5-76"><a href="#cb5-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-77"><a href="#cb5-77" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> v <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> v <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>v<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-78"><a href="#cb5-78" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> mask <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> mask <span class="op">&lt;=</span> full_mask<span class="op">;</span> <span class="op">++</span>mask<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-79"><a href="#cb5-79" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">auto</span><span class="op">&amp;</span> curr <span class="op">=</span> dp<span class="op">[</span>v<span class="op">][</span>mask<span class="op">][</span>cursor<span class="op">];</span></span>
+<span id="cb5-80"><a href="#cb5-80" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">if</span><span class="op">(</span>curr <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb5-81"><a href="#cb5-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-82"><a href="#cb5-82" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="va">head_</span><span class="op">[</span>v<span class="op">];</span> i <span class="op">&lt;</span> <span class="va">head_</span><span class="op">[</span>v <span class="op">+</span> <span class="dv">1</span><span class="op">];</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-83"><a href="#cb5-83" aria-hidden="true" tabindex="-1"></a>                        <span class="dt">int</span> u <span class="op">=</span> adj_list<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb5-84"><a href="#cb5-84" aria-hidden="true" tabindex="-1"></a>                        <span class="dt">int</span> c_bit <span class="op">=</span> color<span class="op">[</span>u<span class="op">];</span></span>
+<span id="cb5-85"><a href="#cb5-85" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">if</span><span class="op">(</span>mask <span class="op">&amp;</span> <span class="op">(</span><span class="dv">1</span> <span class="op">&lt;&lt;</span> c_bit<span class="op">))</span> <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb5-86"><a href="#cb5-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-87"><a href="#cb5-87" aria-hidden="true" tabindex="-1"></a>                        dp<span class="op">[</span>u<span class="op">][</span>mask <span class="op">|</span> <span class="op">(</span><span class="dv">1</span> <span class="op">&lt;&lt;</span> c_bit<span class="op">)][</span>cursor <span class="op">^</span> <span class="bn">0x01</span><span class="op">]</span> <span class="op">+=</span> curr<span class="op">;</span></span>
+<span id="cb5-88"><a href="#cb5-88" aria-hidden="true" tabindex="-1"></a>                    <span class="op">}</span></span>
+<span id="cb5-89"><a href="#cb5-89" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
+<span id="cb5-90"><a href="#cb5-90" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb5-91"><a href="#cb5-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-92"><a href="#cb5-92" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> v <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> v <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>v<span class="op">)</span></span>
+<span id="cb5-93"><a href="#cb5-93" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> mask <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> mask <span class="op">&lt;=</span> full_mask<span class="op">;</span> <span class="op">++</span>mask<span class="op">)</span></span>
+<span id="cb5-94"><a href="#cb5-94" aria-hidden="true" tabindex="-1"></a>                    ans <span class="op">+=</span> dp<span class="op">[</span>v<span class="op">][</span>mask<span class="op">][</span>cursor <span class="op">^</span> <span class="bn">0x01</span><span class="op">];</span></span>
+<span id="cb5-95"><a href="#cb5-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-96"><a href="#cb5-96" aria-hidden="true" tabindex="-1"></a>            cursor <span class="op">^=</span> <span class="bn">0x01</span><span class="op">;</span></span>
+<span id="cb5-97"><a href="#cb5-97" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb5-98"><a href="#cb5-98" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">"</span><span class="sc">%llu\n</span><span class="st">"</span><span class="op">,</span> ans<span class="op">);</span></span>
+<span id="cb5-99"><a href="#cb5-99" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-100"><a href="#cb5-100" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 
 
 </section>

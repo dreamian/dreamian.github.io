@@ -82,7 +82,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../../../site_libs/bootstrap/bootstrap-7c229a5dd4f0365d728271ebb9451e4e.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-735a1d9e6fc295642842e37b9828bfeb.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -579,261 +579,295 @@ window.Quarto = {
 </section>
 <section id="codes" class="level2">
 <h2 class="anchored" data-anchor-id="codes">Codes</h2>
-<p>```cpp #include &lt;stdio.h&gt;</p>
-<p>using ull = unsigned long long int;</p>
-<p>#define MAX_N (20’001) #define MAX_GRP (6) #define HCAP (1 &lt;&lt; 17) #define H_EMPTY 0 #define H_OCCUPIED 1 #define H_DELETED 2</p>
-<p>struct Hash { int state[HCAP]; int id_[HCAP]; int grade_[HCAP], gender_[HCAP], score_[HCAP];</p>
-<pre><code>void init() {
-    for (int i = 0; i &lt; HCAP; i++) state[i] = H_EMPTY;
-}
-
-int hslot(int id) {
-    return (int)(((unsigned)id * 2654435761u) &amp; (HCAP - 1));
-}
-
-int find(int id) {
-    int i = hslot(id);
-    while (state[i] != H_EMPTY) {
-        if (id_[i] == id &amp;&amp; state[i] == H_OCCUPIED) return i;
-        i = (i + 1) &amp; (HCAP - 1);
-    }
-    return -1;
-}
-
-void insert(int id, int g, int gen, int sc) {
-    int i = hslot(id);
-    while (state[i] == H_OCCUPIED) {
-        i = (i + 1) &amp; (HCAP - 1);
-    }
-
-    state[i] = H_OCCUPIED;
-    id_[i] = id; grade_[i] = g; gender_[i] = gen; score_[i] = sc;
-}
-
-void erase_slot(int i) {
-    state[i] = H_DELETED;
-}</code></pre>
-<p>} ht;</p>
-<p>struct Treap { int pool_top; int free_top; int free_list[MAX_N];</p>
-<pre><code>ull key_[MAX_N];
-ull pri_[MAX_N];
-int lc_[MAX_N], rc_[MAX_N];
-int root;
-
-ull seed;
-unsigned int pseudo_rand() {
-    seed = seed * 25214903917ULL + 11ULL;
-    return (seed &gt;&gt; 16) &amp; 0x3fffffff;
-}
-
-void init() {
-    pool_top = free_top = 0;
-    root = 0;
-    seed = 6545344357ULL;
-}
-
-int alloc_node(ull k) {
-    int x;
-    if(free_top &gt; 0) x = free_list[--free_top];
-    else x = ++pool_top;
-    key_[x] = k;
-    pri_[x] = pseudo_rand();
-    lc_[x] = rc_[x] = 0;
-
-    return x;
-}
-
-int rotate_left(int p) {
-    int c = rc_[p];
-    rc_[p] = lc_[c];
-    lc_[c] = p;
-    return c;
-}
-
-int rotate_right(int p) {
-    int c = lc_[p];
-    lc_[p] = rc_[c];
-    rc_[c] = p;
-    return c;
-}
-
-void insert(ull k) {
-    int x = alloc_node(k);
-    if (root == 0) {
-        root = x;
-        return;
-    }
-
-    int path[64], pdir[64], top = 0;
-    int cur = root;
-    while (cur) {
-        path[top] = cur;
-        if(k &lt; key_[cur]) {
-            pdir[top] = 0;
-            cur = lc_[cur];
-        }
-        else {
-            pdir[top] = 1;
-            cur = rc_[cur];
-        }
-        ++top;
-    }
-
-    int par = path[top - 1];
-    if(pdir[top - 1] == 0) {
-        lc_[par] = x;
-    }
-    else {
-        rc_[par] = x;
-    }
-
-    while(top &gt; 0 &amp;&amp; pri_[x] &gt; pri_[path[top - 1]]) {
-        int p = path[top - 1];
-        int sub;
-        if(pdir[top - 1] == 0) sub = rotate_right(p);
-        else sub = rotate_left(p);
-
-        --top;
-
-        if(top == 0) {
-            root = sub;
-        }
-        else if (pdir[top - 1] == 0) {
-            lc_[path[top - 1]] = sub;
-        }
-        else {
-            rc_[path[top - 1]] = sub;
-        }
-    }
-}
-
-int erase(ull k) {
-    int cur = root;
-    int par = 0;
-    int dir = 0;
-
-    while(cur &amp;&amp; key_[cur] != k) {
-        par = cur;
-        if(k &lt; key_[cur]) {
-            dir = 0;
-            cur = lc_[cur];
-        }
-        else {
-            dir = 1;
-            cur = rc_[cur];
-        }
-    }
-
-    if(cur == 0) return 0;
-
-    int t = cur;
-    while(lc_[t] &amp;&amp; rc_[t]) {
-        int sub;
-        int t_dir;
-        if(pri_[lc_[t]] &gt; pri_[rc_[t]]) {
-            sub = rotate_right(t);
-            t_dir = 1;
-        }
-        else {
-            sub = rotate_left(t);
-            t_dir = 0;
-        }
-
-        if(par == 0) {
-            root = sub;
-        }
-        else if (dir == 0) {
-            lc_[par] = sub;
-        }
-        else {
-            rc_[par] = sub;
-        }
-
-        par = sub;
-        dir = t_dir;
-    }
-
-    int child = lc_[t] ? lc_[t] : rc_[t];
-    if(par == 0) {
-        root = child;
-    }
-    else if(dir == 0) {
-        lc_[par] = child;
-    }
-    else {
-        rc_[par] = child;
-    }
-
-    free_list[free_top++] = t;
-    return 1;
-}
-
-ull find_min() {
-    if(root == 0) return 0;
-    int cur = root;
-    while(lc_[cur]) cur = lc_[cur];
-    return key_[cur];
-}
-
-ull find_max() {
-    if(root == 0) return 0;
-    int cur = root;
-    while(rc_[cur]) cur = rc_[cur];
-    return key_[cur];
-}
-
-ull lower_bound(ull k) {
-    int cur = root;
-    ull best = 0;
-    while(cur) {
-        if(key_[cur] &gt;= k) {
-            best = key_[cur];
-            cur = lc_[cur];
-        }
-        else {
-            cur = rc_[cur];
-        }
-    }
-
-    return best;
-}</code></pre>
-<p>} treap[MAX_GRP];</p>
-<p>constexpr ull id_filter = ((1 &lt;&lt; 30) - 1);</p>
-<p>void init() { for(int i = 0; i &lt; MAX_GRP; ++i) treap[i].init(); ht.init(); }</p>
-<p>int add(int mId, int mGrade, char mGender[7], int mScore) { int gen = (mGender[0] == ‘m’ ? 0 : 1); int g = ((mGrade - 1) &lt;&lt; 1) + gen; ull k = ((ull)mScore &lt;&lt; 30) | (ull) mId;</p>
-<pre><code>treap[g].insert(k);
-ht.insert(mId, mGrade, gen, mScore);
-
-return treap[g].find_max() &amp; id_filter;</code></pre>
-<p>}</p>
-<p>int remove(int mId) { auto slot = ht.find(mId); if(slot == -1) return 0;</p>
-<pre><code>int g = ((ht.grade_[slot] - 1) &lt;&lt; 1) + ht.gender_[slot];
-ull k = ((ull)ht.score_[slot] &lt;&lt; 30) | (ull) ht.id_[slot];
-
-treap[g].erase(k);
-ht.erase_slot(slot);
-
-auto m = treap[g].find_min();
-if(m == 0) return 0;
-return m &amp; id_filter;</code></pre>
-<p>}</p>
-<p>int query(int mGradeCnt, int mGrade[], int mGenderCnt, char mGender[][7], int mScore) { ull best = 0;</p>
-<pre><code>for(int grd = 0; grd &lt; mGradeCnt; ++grd) {
-    for(int gen = 0; gen &lt; mGenderCnt; ++gen) {
-        int grp = ((mGrade[grd] - 1) &lt;&lt; 1) + (mGender[gen][0] == 'm' ? 0 : 1);
-        auto lb = treap[grp].lower_bound((ull)mScore &lt;&lt; 30);
-        if(lb != 0) {
-            if(best == 0 || lb &lt; best) {
-                best = lb;
-            }
-        }
-    }
-}
-
-if(best == 0) return 0;
-
-return best &amp; id_filter;</code></pre>
-<p>}</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> ull <span class="op">=</span> <span class="dt">unsigned</span> <span class="dt">long</span> <span class="dt">long</span> <span class="dt">int</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MAX_N   </span><span class="op">(</span><span class="dv">20'001</span><span class="op">)</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MAX_GRP </span><span class="op">(</span><span class="dv">6</span><span class="op">)</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="pp">#define HCAP </span><span class="op">(</span><span class="dv">1</span><span class="pp"> </span><span class="op">&lt;&lt;</span><span class="pp"> </span><span class="dv">17</span><span class="op">)</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="pp">#define H_EMPTY    </span><span class="dv">0</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="pp">#define H_OCCUPIED </span><span class="dv">1</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="pp">#define H_DELETED  </span><span class="dv">2</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Hash <span class="op">{</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> state<span class="op">[</span>HCAP<span class="op">];</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="va">id_</span><span class="op">[</span>HCAP<span class="op">];</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="va">grade_</span><span class="op">[</span>HCAP<span class="op">],</span> <span class="va">gender_</span><span class="op">[</span>HCAP<span class="op">],</span> <span class="va">score_</span><span class="op">[</span>HCAP<span class="op">];</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> init<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> HCAP<span class="op">;</span> i<span class="op">++)</span> state<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> H_EMPTY<span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> hslot<span class="op">(</span><span class="dt">int</span> id<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">(</span><span class="dt">int</span><span class="op">)(((</span><span class="dt">unsigned</span><span class="op">)</span>id <span class="op">*</span> <span class="dv">2654435761</span><span class="bu">u</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">(</span>HCAP <span class="op">-</span> <span class="dv">1</span><span class="op">));</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> find<span class="op">(</span><span class="dt">int</span> id<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> i <span class="op">=</span> hslot<span class="op">(</span>id<span class="op">);</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span>state<span class="op">[</span>i<span class="op">]</span> <span class="op">!=</span> H_EMPTY<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span><span class="va">id_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">==</span> id <span class="op">&amp;&amp;</span> state<span class="op">[</span>i<span class="op">]</span> <span class="op">==</span> H_OCCUPIED<span class="op">)</span> <span class="cf">return</span> i<span class="op">;</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>            i <span class="op">=</span> <span class="op">(</span>i <span class="op">+</span> <span class="dv">1</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">(</span>HCAP <span class="op">-</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> insert<span class="op">(</span><span class="dt">int</span> id<span class="op">,</span> <span class="dt">int</span> g<span class="op">,</span> <span class="dt">int</span> gen<span class="op">,</span> <span class="dt">int</span> sc<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> i <span class="op">=</span> hslot<span class="op">(</span>id<span class="op">);</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span>state<span class="op">[</span>i<span class="op">]</span> <span class="op">==</span> H_OCCUPIED<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>            i <span class="op">=</span> <span class="op">(</span>i <span class="op">+</span> <span class="dv">1</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">(</span>HCAP <span class="op">-</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>        state<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> H_OCCUPIED<span class="op">;</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>        <span class="va">id_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> id<span class="op">;</span> <span class="va">grade_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> g<span class="op">;</span> <span class="va">gender_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> gen<span class="op">;</span> <span class="va">score_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> sc<span class="op">;</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> erase_slot<span class="op">(</span><span class="dt">int</span> i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>        state<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> H_DELETED<span class="op">;</span></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> ht<span class="op">;</span></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Treap <span class="op">{</span></span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> pool_top<span class="op">;</span></span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> free_top<span class="op">;</span></span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> free_list<span class="op">[</span>MAX_N<span class="op">];</span></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a>    ull <span class="va">key_</span><span class="op">[</span>MAX_N<span class="op">];</span></span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>    ull <span class="va">pri_</span><span class="op">[</span>MAX_N<span class="op">];</span></span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="va">lc_</span><span class="op">[</span>MAX_N<span class="op">],</span> <span class="va">rc_</span><span class="op">[</span>MAX_N<span class="op">];</span></span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> root<span class="op">;</span></span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a>    ull seed<span class="op">;</span></span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> pseudo_rand<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a>        seed <span class="op">=</span> seed <span class="op">*</span> <span class="dv">25214903917</span><span class="bu">ULL</span> <span class="op">+</span> <span class="dv">11</span><span class="bu">ULL</span><span class="op">;</span></span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">(</span>seed <span class="op">&gt;&gt;</span> <span class="dv">16</span><span class="op">)</span> <span class="op">&amp;</span> <span class="bn">0x3fffffff</span><span class="op">;</span></span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> init<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a>        pool_top <span class="op">=</span> free_top <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a>        root <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a>        seed <span class="op">=</span> <span class="dv">6545344357</span><span class="bu">ULL</span><span class="op">;</span></span>
+<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> alloc_node<span class="op">(</span>ull k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> x<span class="op">;</span></span>
+<span id="cb4-73"><a href="#cb4-73" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>free_top <span class="op">&gt;</span> <span class="dv">0</span><span class="op">)</span> x <span class="op">=</span> free_list<span class="op">[--</span>free_top<span class="op">];</span></span>
+<span id="cb4-74"><a href="#cb4-74" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span> x <span class="op">=</span> <span class="op">++</span>pool_top<span class="op">;</span></span>
+<span id="cb4-75"><a href="#cb4-75" aria-hidden="true" tabindex="-1"></a>        <span class="va">key_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">=</span> k<span class="op">;</span></span>
+<span id="cb4-76"><a href="#cb4-76" aria-hidden="true" tabindex="-1"></a>        <span class="va">pri_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">=</span> pseudo_rand<span class="op">();</span></span>
+<span id="cb4-77"><a href="#cb4-77" aria-hidden="true" tabindex="-1"></a>        <span class="va">lc_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-78"><a href="#cb4-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-79"><a href="#cb4-79" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> x<span class="op">;</span></span>
+<span id="cb4-80"><a href="#cb4-80" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-81"><a href="#cb4-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-82"><a href="#cb4-82" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> rotate_left<span class="op">(</span><span class="dt">int</span> p<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-83"><a href="#cb4-83" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> c <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>p<span class="op">];</span></span>
+<span id="cb4-84"><a href="#cb4-84" aria-hidden="true" tabindex="-1"></a>        <span class="va">rc_</span><span class="op">[</span>p<span class="op">]</span> <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>c<span class="op">];</span></span>
+<span id="cb4-85"><a href="#cb4-85" aria-hidden="true" tabindex="-1"></a>        <span class="va">lc_</span><span class="op">[</span>c<span class="op">]</span> <span class="op">=</span> p<span class="op">;</span></span>
+<span id="cb4-86"><a href="#cb4-86" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> c<span class="op">;</span></span>
+<span id="cb4-87"><a href="#cb4-87" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-88"><a href="#cb4-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-89"><a href="#cb4-89" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> rotate_right<span class="op">(</span><span class="dt">int</span> p<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-90"><a href="#cb4-90" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> c <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>p<span class="op">];</span></span>
+<span id="cb4-91"><a href="#cb4-91" aria-hidden="true" tabindex="-1"></a>        <span class="va">lc_</span><span class="op">[</span>p<span class="op">]</span> <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>c<span class="op">];</span></span>
+<span id="cb4-92"><a href="#cb4-92" aria-hidden="true" tabindex="-1"></a>        <span class="va">rc_</span><span class="op">[</span>c<span class="op">]</span> <span class="op">=</span> p<span class="op">;</span></span>
+<span id="cb4-93"><a href="#cb4-93" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> c<span class="op">;</span></span>
+<span id="cb4-94"><a href="#cb4-94" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-95"><a href="#cb4-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-96"><a href="#cb4-96" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> insert<span class="op">(</span>ull k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-97"><a href="#cb4-97" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> x <span class="op">=</span> alloc_node<span class="op">(</span>k<span class="op">);</span></span>
+<span id="cb4-98"><a href="#cb4-98" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>root <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-99"><a href="#cb4-99" aria-hidden="true" tabindex="-1"></a>            root <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb4-100"><a href="#cb4-100" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb4-101"><a href="#cb4-101" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-102"><a href="#cb4-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-103"><a href="#cb4-103" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> path<span class="op">[</span><span class="dv">64</span><span class="op">],</span> pdir<span class="op">[</span><span class="dv">64</span><span class="op">],</span> top <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-104"><a href="#cb4-104" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cur <span class="op">=</span> root<span class="op">;</span></span>
+<span id="cb4-105"><a href="#cb4-105" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span>cur<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-106"><a href="#cb4-106" aria-hidden="true" tabindex="-1"></a>            path<span class="op">[</span>top<span class="op">]</span> <span class="op">=</span> cur<span class="op">;</span></span>
+<span id="cb4-107"><a href="#cb4-107" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>k <span class="op">&lt;</span> <span class="va">key_</span><span class="op">[</span>cur<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb4-108"><a href="#cb4-108" aria-hidden="true" tabindex="-1"></a>                pdir<span class="op">[</span>top<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-109"><a href="#cb4-109" aria-hidden="true" tabindex="-1"></a>                cur <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-110"><a href="#cb4-110" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-111"><a href="#cb4-111" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-112"><a href="#cb4-112" aria-hidden="true" tabindex="-1"></a>                pdir<span class="op">[</span>top<span class="op">]</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-113"><a href="#cb4-113" aria-hidden="true" tabindex="-1"></a>                cur <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-114"><a href="#cb4-114" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-115"><a href="#cb4-115" aria-hidden="true" tabindex="-1"></a>            <span class="op">++</span>top<span class="op">;</span></span>
+<span id="cb4-116"><a href="#cb4-116" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-117"><a href="#cb4-117" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-118"><a href="#cb4-118" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> par <span class="op">=</span> path<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">];</span></span>
+<span id="cb4-119"><a href="#cb4-119" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>pdir<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">]</span> <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-120"><a href="#cb4-120" aria-hidden="true" tabindex="-1"></a>            <span class="va">lc_</span><span class="op">[</span>par<span class="op">]</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb4-121"><a href="#cb4-121" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-122"><a href="#cb4-122" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-123"><a href="#cb4-123" aria-hidden="true" tabindex="-1"></a>            <span class="va">rc_</span><span class="op">[</span>par<span class="op">]</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb4-124"><a href="#cb4-124" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-125"><a href="#cb4-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-126"><a href="#cb4-126" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span><span class="op">(</span>top <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> <span class="va">pri_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">&gt;</span> <span class="va">pri_</span><span class="op">[</span>path<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">]])</span> <span class="op">{</span></span>
+<span id="cb4-127"><a href="#cb4-127" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> p <span class="op">=</span> path<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">];</span></span>
+<span id="cb4-128"><a href="#cb4-128" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> sub<span class="op">;</span></span>
+<span id="cb4-129"><a href="#cb4-129" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>pdir<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">]</span> <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> sub <span class="op">=</span> rotate_right<span class="op">(</span>p<span class="op">);</span></span>
+<span id="cb4-130"><a href="#cb4-130" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> sub <span class="op">=</span> rotate_left<span class="op">(</span>p<span class="op">);</span></span>
+<span id="cb4-131"><a href="#cb4-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-132"><a href="#cb4-132" aria-hidden="true" tabindex="-1"></a>            <span class="op">--</span>top<span class="op">;</span></span>
+<span id="cb4-133"><a href="#cb4-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-134"><a href="#cb4-134" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>top <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-135"><a href="#cb4-135" aria-hidden="true" tabindex="-1"></a>                root <span class="op">=</span> sub<span class="op">;</span></span>
+<span id="cb4-136"><a href="#cb4-136" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-137"><a href="#cb4-137" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="cf">if</span> <span class="op">(</span>pdir<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">]</span> <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-138"><a href="#cb4-138" aria-hidden="true" tabindex="-1"></a>                <span class="va">lc_</span><span class="op">[</span>path<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">]]</span> <span class="op">=</span> sub<span class="op">;</span></span>
+<span id="cb4-139"><a href="#cb4-139" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-140"><a href="#cb4-140" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-141"><a href="#cb4-141" aria-hidden="true" tabindex="-1"></a>                <span class="va">rc_</span><span class="op">[</span>path<span class="op">[</span>top <span class="op">-</span> <span class="dv">1</span><span class="op">]]</span> <span class="op">=</span> sub<span class="op">;</span></span>
+<span id="cb4-142"><a href="#cb4-142" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-143"><a href="#cb4-143" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-144"><a href="#cb4-144" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-145"><a href="#cb4-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-146"><a href="#cb4-146" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> erase<span class="op">(</span>ull k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-147"><a href="#cb4-147" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cur <span class="op">=</span> root<span class="op">;</span></span>
+<span id="cb4-148"><a href="#cb4-148" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> par <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-149"><a href="#cb4-149" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> dir <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-150"><a href="#cb4-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-151"><a href="#cb4-151" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span><span class="op">(</span>cur <span class="op">&amp;&amp;</span> <span class="va">key_</span><span class="op">[</span>cur<span class="op">]</span> <span class="op">!=</span> k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-152"><a href="#cb4-152" aria-hidden="true" tabindex="-1"></a>            par <span class="op">=</span> cur<span class="op">;</span></span>
+<span id="cb4-153"><a href="#cb4-153" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>k <span class="op">&lt;</span> <span class="va">key_</span><span class="op">[</span>cur<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb4-154"><a href="#cb4-154" aria-hidden="true" tabindex="-1"></a>                dir <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-155"><a href="#cb4-155" aria-hidden="true" tabindex="-1"></a>                cur <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-156"><a href="#cb4-156" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-157"><a href="#cb4-157" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-158"><a href="#cb4-158" aria-hidden="true" tabindex="-1"></a>                dir <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-159"><a href="#cb4-159" aria-hidden="true" tabindex="-1"></a>                cur <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-160"><a href="#cb4-160" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-161"><a href="#cb4-161" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-162"><a href="#cb4-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-163"><a href="#cb4-163" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>cur <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-164"><a href="#cb4-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-165"><a href="#cb4-165" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> t <span class="op">=</span> cur<span class="op">;</span></span>
+<span id="cb4-166"><a href="#cb4-166" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span><span class="op">(</span><span class="va">lc_</span><span class="op">[</span>t<span class="op">]</span> <span class="op">&amp;&amp;</span> <span class="va">rc_</span><span class="op">[</span>t<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb4-167"><a href="#cb4-167" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> sub<span class="op">;</span></span>
+<span id="cb4-168"><a href="#cb4-168" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> t_dir<span class="op">;</span></span>
+<span id="cb4-169"><a href="#cb4-169" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span><span class="va">pri_</span><span class="op">[</span><span class="va">lc_</span><span class="op">[</span>t<span class="op">]]</span> <span class="op">&gt;</span> <span class="va">pri_</span><span class="op">[</span><span class="va">rc_</span><span class="op">[</span>t<span class="op">]])</span> <span class="op">{</span></span>
+<span id="cb4-170"><a href="#cb4-170" aria-hidden="true" tabindex="-1"></a>                sub <span class="op">=</span> rotate_right<span class="op">(</span>t<span class="op">);</span></span>
+<span id="cb4-171"><a href="#cb4-171" aria-hidden="true" tabindex="-1"></a>                t_dir <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-172"><a href="#cb4-172" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-173"><a href="#cb4-173" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-174"><a href="#cb4-174" aria-hidden="true" tabindex="-1"></a>                sub <span class="op">=</span> rotate_left<span class="op">(</span>t<span class="op">);</span></span>
+<span id="cb4-175"><a href="#cb4-175" aria-hidden="true" tabindex="-1"></a>                t_dir <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-176"><a href="#cb4-176" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-177"><a href="#cb4-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-178"><a href="#cb4-178" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>par <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-179"><a href="#cb4-179" aria-hidden="true" tabindex="-1"></a>                root <span class="op">=</span> sub<span class="op">;</span></span>
+<span id="cb4-180"><a href="#cb4-180" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-181"><a href="#cb4-181" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="cf">if</span> <span class="op">(</span>dir <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-182"><a href="#cb4-182" aria-hidden="true" tabindex="-1"></a>                <span class="va">lc_</span><span class="op">[</span>par<span class="op">]</span> <span class="op">=</span> sub<span class="op">;</span></span>
+<span id="cb4-183"><a href="#cb4-183" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-184"><a href="#cb4-184" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-185"><a href="#cb4-185" aria-hidden="true" tabindex="-1"></a>                <span class="va">rc_</span><span class="op">[</span>par<span class="op">]</span> <span class="op">=</span> sub<span class="op">;</span></span>
+<span id="cb4-186"><a href="#cb4-186" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-187"><a href="#cb4-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-188"><a href="#cb4-188" aria-hidden="true" tabindex="-1"></a>            par <span class="op">=</span> sub<span class="op">;</span></span>
+<span id="cb4-189"><a href="#cb4-189" aria-hidden="true" tabindex="-1"></a>            dir <span class="op">=</span> t_dir<span class="op">;</span></span>
+<span id="cb4-190"><a href="#cb4-190" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-191"><a href="#cb4-191" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-192"><a href="#cb4-192" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> child <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>t<span class="op">]</span> <span class="op">?</span> <span class="va">lc_</span><span class="op">[</span>t<span class="op">]</span> <span class="op">:</span> <span class="va">rc_</span><span class="op">[</span>t<span class="op">];</span></span>
+<span id="cb4-193"><a href="#cb4-193" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>par <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-194"><a href="#cb4-194" aria-hidden="true" tabindex="-1"></a>            root <span class="op">=</span> child<span class="op">;</span></span>
+<span id="cb4-195"><a href="#cb4-195" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-196"><a href="#cb4-196" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span> <span class="cf">if</span><span class="op">(</span>dir <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-197"><a href="#cb4-197" aria-hidden="true" tabindex="-1"></a>            <span class="va">lc_</span><span class="op">[</span>par<span class="op">]</span> <span class="op">=</span> child<span class="op">;</span></span>
+<span id="cb4-198"><a href="#cb4-198" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-199"><a href="#cb4-199" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-200"><a href="#cb4-200" aria-hidden="true" tabindex="-1"></a>            <span class="va">rc_</span><span class="op">[</span>par<span class="op">]</span> <span class="op">=</span> child<span class="op">;</span></span>
+<span id="cb4-201"><a href="#cb4-201" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-202"><a href="#cb4-202" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-203"><a href="#cb4-203" aria-hidden="true" tabindex="-1"></a>        free_list<span class="op">[</span>free_top<span class="op">++]</span> <span class="op">=</span> t<span class="op">;</span></span>
+<span id="cb4-204"><a href="#cb4-204" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-205"><a href="#cb4-205" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-206"><a href="#cb4-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-207"><a href="#cb4-207" aria-hidden="true" tabindex="-1"></a>    ull find_min<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-208"><a href="#cb4-208" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>root <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-209"><a href="#cb4-209" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cur <span class="op">=</span> root<span class="op">;</span></span>
+<span id="cb4-210"><a href="#cb4-210" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span><span class="op">(</span><span class="va">lc_</span><span class="op">[</span>cur<span class="op">])</span> cur <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-211"><a href="#cb4-211" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">key_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-212"><a href="#cb4-212" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-213"><a href="#cb4-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-214"><a href="#cb4-214" aria-hidden="true" tabindex="-1"></a>    ull find_max<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-215"><a href="#cb4-215" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span>root <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-216"><a href="#cb4-216" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cur <span class="op">=</span> root<span class="op">;</span></span>
+<span id="cb4-217"><a href="#cb4-217" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span><span class="op">(</span><span class="va">rc_</span><span class="op">[</span>cur<span class="op">])</span> cur <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-218"><a href="#cb4-218" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">key_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-219"><a href="#cb4-219" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-220"><a href="#cb4-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-221"><a href="#cb4-221" aria-hidden="true" tabindex="-1"></a>    ull lower_bound<span class="op">(</span>ull k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-222"><a href="#cb4-222" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cur <span class="op">=</span> root<span class="op">;</span></span>
+<span id="cb4-223"><a href="#cb4-223" aria-hidden="true" tabindex="-1"></a>        ull best <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-224"><a href="#cb4-224" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span><span class="op">(</span>cur<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-225"><a href="#cb4-225" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span><span class="va">key_</span><span class="op">[</span>cur<span class="op">]</span> <span class="op">&gt;=</span> k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-226"><a href="#cb4-226" aria-hidden="true" tabindex="-1"></a>                best <span class="op">=</span> <span class="va">key_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-227"><a href="#cb4-227" aria-hidden="true" tabindex="-1"></a>                cur <span class="op">=</span> <span class="va">lc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-228"><a href="#cb4-228" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-229"><a href="#cb4-229" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-230"><a href="#cb4-230" aria-hidden="true" tabindex="-1"></a>                cur <span class="op">=</span> <span class="va">rc_</span><span class="op">[</span>cur<span class="op">];</span></span>
+<span id="cb4-231"><a href="#cb4-231" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-232"><a href="#cb4-232" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-233"><a href="#cb4-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-234"><a href="#cb4-234" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> best<span class="op">;</span></span>
+<span id="cb4-235"><a href="#cb4-235" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-236"><a href="#cb4-236" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> treap<span class="op">[</span>MAX_GRP<span class="op">];</span></span>
+<span id="cb4-237"><a href="#cb4-237" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-238"><a href="#cb4-238" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> ull id_filter <span class="op">=</span> <span class="op">((</span><span class="dv">1</span> <span class="op">&lt;&lt;</span> <span class="dv">30</span><span class="op">)</span> <span class="op">-</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb4-239"><a href="#cb4-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-240"><a href="#cb4-240" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> init<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-241"><a href="#cb4-241" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> MAX_GRP<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> treap<span class="op">[</span>i<span class="op">].</span>init<span class="op">();</span></span>
+<span id="cb4-242"><a href="#cb4-242" aria-hidden="true" tabindex="-1"></a>    ht<span class="op">.</span>init<span class="op">();</span></span>
+<span id="cb4-243"><a href="#cb4-243" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-244"><a href="#cb4-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-245"><a href="#cb4-245" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> add<span class="op">(</span><span class="dt">int</span> mId<span class="op">,</span> <span class="dt">int</span> mGrade<span class="op">,</span> <span class="dt">char</span> mGender<span class="op">[</span><span class="dv">7</span><span class="op">],</span> <span class="dt">int</span> mScore<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-246"><a href="#cb4-246" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> gen <span class="op">=</span> <span class="op">(</span>mGender<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">==</span> <span class="ch">'m'</span> <span class="op">?</span> <span class="dv">0</span> <span class="op">:</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb4-247"><a href="#cb4-247" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> g <span class="op">=</span> <span class="op">((</span>mGrade <span class="op">-</span> <span class="dv">1</span><span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">)</span> <span class="op">+</span> gen<span class="op">;</span></span>
+<span id="cb4-248"><a href="#cb4-248" aria-hidden="true" tabindex="-1"></a>    ull k <span class="op">=</span>  <span class="op">((</span>ull<span class="op">)</span>mScore <span class="op">&lt;&lt;</span> <span class="dv">30</span><span class="op">)</span> <span class="op">|</span> <span class="op">(</span>ull<span class="op">)</span> mId<span class="op">;</span></span>
+<span id="cb4-249"><a href="#cb4-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-250"><a href="#cb4-250" aria-hidden="true" tabindex="-1"></a>    treap<span class="op">[</span>g<span class="op">].</span>insert<span class="op">(</span>k<span class="op">);</span></span>
+<span id="cb4-251"><a href="#cb4-251" aria-hidden="true" tabindex="-1"></a>    ht<span class="op">.</span>insert<span class="op">(</span>mId<span class="op">,</span> mGrade<span class="op">,</span> gen<span class="op">,</span> mScore<span class="op">);</span></span>
+<span id="cb4-252"><a href="#cb4-252" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-253"><a href="#cb4-253" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> treap<span class="op">[</span>g<span class="op">].</span>find_max<span class="op">()</span> <span class="op">&amp;</span> id_filter<span class="op">;</span></span>
+<span id="cb4-254"><a href="#cb4-254" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-255"><a href="#cb4-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-256"><a href="#cb4-256" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> remove<span class="op">(</span><span class="dt">int</span> mId<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-257"><a href="#cb4-257" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> slot <span class="op">=</span> ht<span class="op">.</span>find<span class="op">(</span>mId<span class="op">);</span></span>
+<span id="cb4-258"><a href="#cb4-258" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span><span class="op">(</span>slot <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-259"><a href="#cb4-259" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-260"><a href="#cb4-260" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> g <span class="op">=</span> <span class="op">((</span>ht<span class="op">.</span><span class="va">grade_</span><span class="op">[</span>slot<span class="op">]</span> <span class="op">-</span> <span class="dv">1</span><span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">)</span> <span class="op">+</span> ht<span class="op">.</span><span class="va">gender_</span><span class="op">[</span>slot<span class="op">];</span></span>
+<span id="cb4-261"><a href="#cb4-261" aria-hidden="true" tabindex="-1"></a>    ull k <span class="op">=</span> <span class="op">((</span>ull<span class="op">)</span>ht<span class="op">.</span><span class="va">score_</span><span class="op">[</span>slot<span class="op">]</span> <span class="op">&lt;&lt;</span> <span class="dv">30</span><span class="op">)</span> <span class="op">|</span> <span class="op">(</span>ull<span class="op">)</span> ht<span class="op">.</span><span class="va">id_</span><span class="op">[</span>slot<span class="op">];</span></span>
+<span id="cb4-262"><a href="#cb4-262" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-263"><a href="#cb4-263" aria-hidden="true" tabindex="-1"></a>    treap<span class="op">[</span>g<span class="op">].</span>erase<span class="op">(</span>k<span class="op">);</span></span>
+<span id="cb4-264"><a href="#cb4-264" aria-hidden="true" tabindex="-1"></a>    ht<span class="op">.</span>erase_slot<span class="op">(</span>slot<span class="op">);</span></span>
+<span id="cb4-265"><a href="#cb4-265" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-266"><a href="#cb4-266" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> m <span class="op">=</span> treap<span class="op">[</span>g<span class="op">].</span>find_min<span class="op">();</span></span>
+<span id="cb4-267"><a href="#cb4-267" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span><span class="op">(</span>m <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-268"><a href="#cb4-268" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> m <span class="op">&amp;</span> id_filter<span class="op">;</span></span>
+<span id="cb4-269"><a href="#cb4-269" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-270"><a href="#cb4-270" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-271"><a href="#cb4-271" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> query<span class="op">(</span><span class="dt">int</span> mGradeCnt<span class="op">,</span> <span class="dt">int</span> mGrade<span class="op">[],</span> <span class="dt">int</span> mGenderCnt<span class="op">,</span> <span class="dt">char</span> mGender<span class="op">[][</span><span class="dv">7</span><span class="op">],</span> <span class="dt">int</span> mScore<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-272"><a href="#cb4-272" aria-hidden="true" tabindex="-1"></a>    ull best <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-273"><a href="#cb4-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-274"><a href="#cb4-274" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> grd <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> grd <span class="op">&lt;</span> mGradeCnt<span class="op">;</span> <span class="op">++</span>grd<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-275"><a href="#cb4-275" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> gen <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> gen <span class="op">&lt;</span> mGenderCnt<span class="op">;</span> <span class="op">++</span>gen<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-276"><a href="#cb4-276" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> grp <span class="op">=</span> <span class="op">((</span>mGrade<span class="op">[</span>grd<span class="op">]</span> <span class="op">-</span> <span class="dv">1</span><span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span>mGender<span class="op">[</span>gen<span class="op">][</span><span class="dv">0</span><span class="op">]</span> <span class="op">==</span> <span class="ch">'m'</span> <span class="op">?</span> <span class="dv">0</span> <span class="op">:</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb4-277"><a href="#cb4-277" aria-hidden="true" tabindex="-1"></a>            <span class="kw">auto</span> lb <span class="op">=</span> treap<span class="op">[</span>grp<span class="op">].</span>lower_bound<span class="op">((</span>ull<span class="op">)</span>mScore <span class="op">&lt;&lt;</span> <span class="dv">30</span><span class="op">);</span></span>
+<span id="cb4-278"><a href="#cb4-278" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>lb <span class="op">!=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-279"><a href="#cb4-279" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span><span class="op">(</span>best <span class="op">==</span> <span class="dv">0</span> <span class="op">||</span> lb <span class="op">&lt;</span> best<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-280"><a href="#cb4-280" aria-hidden="true" tabindex="-1"></a>                    best <span class="op">=</span> lb<span class="op">;</span></span>
+<span id="cb4-281"><a href="#cb4-281" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
+<span id="cb4-282"><a href="#cb4-282" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb4-283"><a href="#cb4-283" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-284"><a href="#cb4-284" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-285"><a href="#cb4-285" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-286"><a href="#cb4-286" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span><span class="op">(</span>best <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-287"><a href="#cb4-287" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-288"><a href="#cb4-288" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> best <span class="op">&amp;</span> id_filter<span class="op">;</span></span>
+<span id="cb4-289"><a href="#cb4-289" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 
 
 </section>

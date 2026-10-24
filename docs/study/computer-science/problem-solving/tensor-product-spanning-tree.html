@@ -28,6 +28,41 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -47,7 +82,7 @@ ul.task-list li input[type="checkbox"] {
 <link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../../../site_libs/bootstrap/bootstrap-7c229a5dd4f0365d728271ebb9451e4e.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-735a1d9e6fc295642842e37b9828bfeb.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -526,54 +561,105 @@ window.Quarto = {
 </section>
 <section id="codes" class="level2">
 <h2 class="anchored" data-anchor-id="codes">Codes</h2>
-<p>```cpp #include &lt;stdio.h&gt;</p>
-<p>#define MAXN 100005 #define MAXM 200005 #define MAXL 100005 #define MAXS 300010</p>
-<p>int eu_[MAXM], ev_[MAXM], ew_[MAXM]; int par_[MAXN], sz_[MAXN], nxt_[MAXN]; int deg_[MAXN], head_[MAXN + 1], pos_[MAXN], adj_[MAXM]; int sa_[MAXS], sb_[MAXS], snext_[MAXS]; int bucket_head_[MAXL + 2]; long long ans_[MAXL + 2];</p>
-<p>int n_, q_, m_, lmax_; int sc_, max_sched_;</p>
-<p>int find_(int x) { while (par_[x] != x) { par_[x] = par_[par_[x]]; x = par_[x]; } return x; }</p>
-<p>void schedule_(int a, int b, int l) { if (l &gt; lmax_) return; sa_[sc_] = a; sb_[sc_] = b; snext_[sc_] = bucket_head_[l]; bucket_head_[l] = sc_; sc_++; if (l &gt; max_sched_) max_sched_ = l; }</p>
-<p>void run_threshold_(int w) { int i, x, l; for (i = 0; i &lt; n_; i++) deg_[i] = 0; for (i = 0; i &lt; m_; i++) if (ew_[i] &lt;= w) deg_[eu_[i]]++; head_[0] = 0; for (i = 0; i &lt; n_; i++) head_[i + 1] = head_[i] + deg_[i]; for (i = 0; i &lt; n_; i++) pos_[i] = head_[i]; for (i = 0; i &lt; m_; i++) if (ew_[i] &lt;= w) { adj_[pos_[eu_[i]]] = ev_[i]; pos_[eu_[i]]++; }</p>
-<pre><code>for (i = 0; i &lt; n_; i++) { par_[i] = i; sz_[i] = 1; }
-sc_ = 0; max_sched_ = 0;
-
-for (x = 0; x &lt; n_; x++) {
-    if (head_[x] == head_[x + 1]) { nxt_[x] = -1; continue; }
-    nxt_[x] = adj_[head_[x]];
-    for (i = head_[x] + 1; i &lt; head_[x + 1]; i++) schedule_(adj_[head_[x]], adj_[i], 2);
-}
-
-int empty_classes = 0;
-for (x = 0; x &lt; n_; x++) if (nxt_[x] == -1) empty_classes++;
-
-long long total_merges = 0, iso_s = 0, iso_prev = empty_classes, size_p;
-int e;
-
-for (l = 2; l &lt;= lmax_; l++) {
-    iso_s += iso_prev;
-    for (e = bucket_head_[l]; e != -1; e = snext_[e]) {
-        int ra = find_(sa_[e]), rb = find_(sb_[e]);
-        if (ra == rb) continue;
-        int na = nxt_[ra], nb = nxt_[rb];
-        int ea = (na == -1), eb = (nb == -1);
-        if (sz_[ra] &lt; sz_[rb]) { int t = ra; ra = rb; rb = t; }
-        par_[rb] = ra; sz_[ra] += sz_[rb];
-        nxt_[ra] = (na != -1) ? na : nb;
-        if (na != -1 &amp;&amp; nb != -1) schedule_(na, nb, l + 1);
-        if (ea || eb) empty_classes--;
-        total_merges++;
-    }
-    bucket_head_[l] = -1;
-    size_p = (long long)n_ - total_merges;
-    ans_[l] += size_p + iso_s;
-    iso_prev = empty_classes;
-    if (l &gt;= max_sched_) {
-        int ll;
-        for (ll = l + 1; ll &lt;= lmax_; ll++) { iso_s += iso_prev; ans_[ll] += size_p + iso_s; }
-        break;
-    }
-}</code></pre>
-<p>}</p>
-<p>int main() { int tc, i, w, l; for (i = 0; i &lt; MAXL + 2; i++) bucket_head_[i] = -1; scanf(“%d”, &amp;tc); while (tc–) { scanf(“%d %d %d”, &amp;n_, &amp;q_, &amp;m_); lmax_ = q_ + 1; for (i = 0; i &lt; m_; i++) { scanf(“%d %d %d”, &amp;eu_[i], &amp;ev_[i], &amp;ew_[i]); eu_[i]–; ev_[i]–; } for (l = 0; l &lt;= lmax_ + 1; l++) ans_[l] = 0; for (w = 0; w &lt; 30; w++) run_threshold_(w); for (l = 2; l &lt;= lmax_; l++) { printf(“%lld”, ans_[l] - 30); if (l &lt; lmax_) printf(” “); } printf(”“); } return 0; }</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MAXN </span><span class="dv">100005</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MAXM </span><span class="dv">200005</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MAXL </span><span class="dv">100005</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MAXS </span><span class="dv">300010</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="va">eu_</span><span class="op">[</span>MAXM<span class="op">],</span> <span class="va">ev_</span><span class="op">[</span>MAXM<span class="op">],</span> <span class="va">ew_</span><span class="op">[</span>MAXM<span class="op">];</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="va">par_</span><span class="op">[</span>MAXN<span class="op">],</span> <span class="va">sz_</span><span class="op">[</span>MAXN<span class="op">],</span> <span class="va">nxt_</span><span class="op">[</span>MAXN<span class="op">];</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="va">deg_</span><span class="op">[</span>MAXN<span class="op">],</span> <span class="va">head_</span><span class="op">[</span>MAXN <span class="op">+</span> <span class="dv">1</span><span class="op">],</span> <span class="va">pos_</span><span class="op">[</span>MAXN<span class="op">],</span> <span class="va">adj_</span><span class="op">[</span>MAXM<span class="op">];</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="va">sa_</span><span class="op">[</span>MAXS<span class="op">],</span> <span class="va">sb_</span><span class="op">[</span>MAXS<span class="op">],</span> <span class="va">snext_</span><span class="op">[</span>MAXS<span class="op">];</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="va">bucket_head_</span><span class="op">[</span>MAXL <span class="op">+</span> <span class="dv">2</span><span class="op">];</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="dt">long</span> <span class="dt">long</span> <span class="va">ans_</span><span class="op">[</span>MAXL <span class="op">+</span> <span class="dv">2</span><span class="op">];</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="va">n_</span><span class="op">,</span> <span class="va">q_</span><span class="op">,</span> <span class="va">m_</span><span class="op">,</span> <span class="va">lmax_</span><span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="va">sc_</span><span class="op">,</span> <span class="va">max_sched_</span><span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="va">find_</span><span class="op">(</span><span class="dt">int</span> x<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(</span><span class="va">par_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">!=</span> x<span class="op">)</span> <span class="op">{</span> <span class="va">par_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">=</span> <span class="va">par_</span><span class="op">[</span><span class="va">par_</span><span class="op">[</span>x<span class="op">]];</span> x <span class="op">=</span> <span class="va">par_</span><span class="op">[</span>x<span class="op">];</span> <span class="op">}</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="va">schedule_</span><span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">,</span> <span class="dt">int</span> l<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>l <span class="op">&gt;</span> <span class="va">lmax_</span><span class="op">)</span> <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="va">sa_</span><span class="op">[</span><span class="va">sc_</span><span class="op">]</span> <span class="op">=</span> a<span class="op">;</span> <span class="va">sb_</span><span class="op">[</span><span class="va">sc_</span><span class="op">]</span> <span class="op">=</span> b<span class="op">;</span> <span class="va">snext_</span><span class="op">[</span><span class="va">sc_</span><span class="op">]</span> <span class="op">=</span> <span class="va">bucket_head_</span><span class="op">[</span>l<span class="op">];</span> <span class="va">bucket_head_</span><span class="op">[</span>l<span class="op">]</span> <span class="op">=</span> <span class="va">sc_</span><span class="op">;</span> <span class="va">sc_</span><span class="op">++;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>l <span class="op">&gt;</span> <span class="va">max_sched_</span><span class="op">)</span> <span class="va">max_sched_</span> <span class="op">=</span> l<span class="op">;</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="va">run_threshold_</span><span class="op">(</span><span class="dt">int</span> w<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> i<span class="op">,</span> x<span class="op">,</span> l<span class="op">;</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span>i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="va">n_</span><span class="op">;</span> i<span class="op">++)</span> <span class="va">deg_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span>i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="va">m_</span><span class="op">;</span> i<span class="op">++)</span> <span class="cf">if</span> <span class="op">(</span><span class="va">ew_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">&lt;=</span> w<span class="op">)</span> <span class="va">deg_</span><span class="op">[</span><span class="va">eu_</span><span class="op">[</span>i<span class="op">]]++;</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    <span class="va">head_</span><span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span>i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="va">n_</span><span class="op">;</span> i<span class="op">++)</span> <span class="va">head_</span><span class="op">[</span>i <span class="op">+</span> <span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="va">head_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">+</span> <span class="va">deg_</span><span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span>i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="va">n_</span><span class="op">;</span> i<span class="op">++)</span> <span class="va">pos_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> <span class="va">head_</span><span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span>i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="va">m_</span><span class="op">;</span> i<span class="op">++)</span> <span class="cf">if</span> <span class="op">(</span><span class="va">ew_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">&lt;=</span> w<span class="op">)</span> <span class="op">{</span> <span class="va">adj_</span><span class="op">[</span><span class="va">pos_</span><span class="op">[</span><span class="va">eu_</span><span class="op">[</span>i<span class="op">]]]</span> <span class="op">=</span> <span class="va">ev_</span><span class="op">[</span>i<span class="op">];</span> <span class="va">pos_</span><span class="op">[</span><span class="va">eu_</span><span class="op">[</span>i<span class="op">]]++;</span> <span class="op">}</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span>i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="va">n_</span><span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span> <span class="va">par_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> i<span class="op">;</span> <span class="va">sz_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    <span class="va">sc_</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="va">max_sched_</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span>x <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> x <span class="op">&lt;</span> <span class="va">n_</span><span class="op">;</span> x<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span><span class="va">head_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">==</span> <span class="va">head_</span><span class="op">[</span>x <span class="op">+</span> <span class="dv">1</span><span class="op">])</span> <span class="op">{</span> <span class="va">nxt_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">=</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span> <span class="cf">continue</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>        <span class="va">nxt_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">=</span> <span class="va">adj_</span><span class="op">[</span><span class="va">head_</span><span class="op">[</span>x<span class="op">]];</span></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span>i <span class="op">=</span> <span class="va">head_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">+</span> <span class="dv">1</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="va">head_</span><span class="op">[</span>x <span class="op">+</span> <span class="dv">1</span><span class="op">];</span> i<span class="op">++)</span> <span class="va">schedule_</span><span class="op">(</span><span class="va">adj_</span><span class="op">[</span><span class="va">head_</span><span class="op">[</span>x<span class="op">]],</span> <span class="va">adj_</span><span class="op">[</span>i<span class="op">],</span> <span class="dv">2</span><span class="op">);</span></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> empty_classes <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span>x <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> x <span class="op">&lt;</span> <span class="va">n_</span><span class="op">;</span> x<span class="op">++)</span> <span class="cf">if</span> <span class="op">(</span><span class="va">nxt_</span><span class="op">[</span>x<span class="op">]</span> <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> empty_classes<span class="op">++;</span></span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    <span class="dt">long</span> <span class="dt">long</span> total_merges <span class="op">=</span> <span class="dv">0</span><span class="op">,</span> iso_s <span class="op">=</span> <span class="dv">0</span><span class="op">,</span> iso_prev <span class="op">=</span> empty_classes<span class="op">,</span> size_p<span class="op">;</span></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> e<span class="op">;</span></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span>l <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> l <span class="op">&lt;=</span> <span class="va">lmax_</span><span class="op">;</span> l<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>        iso_s <span class="op">+=</span> iso_prev<span class="op">;</span></span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span>e <span class="op">=</span> <span class="va">bucket_head_</span><span class="op">[</span>l<span class="op">];</span> e <span class="op">!=</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span> e <span class="op">=</span> <span class="va">snext_</span><span class="op">[</span>e<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> ra <span class="op">=</span> <span class="va">find_</span><span class="op">(</span><span class="va">sa_</span><span class="op">[</span>e<span class="op">]),</span> rb <span class="op">=</span> <span class="va">find_</span><span class="op">(</span><span class="va">sb_</span><span class="op">[</span>e<span class="op">]);</span></span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>ra <span class="op">==</span> rb<span class="op">)</span> <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> na <span class="op">=</span> <span class="va">nxt_</span><span class="op">[</span>ra<span class="op">],</span> nb <span class="op">=</span> <span class="va">nxt_</span><span class="op">[</span>rb<span class="op">];</span></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> ea <span class="op">=</span> <span class="op">(</span>na <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">),</span> eb <span class="op">=</span> <span class="op">(</span>nb <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">);</span></span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span><span class="va">sz_</span><span class="op">[</span>ra<span class="op">]</span> <span class="op">&lt;</span> <span class="va">sz_</span><span class="op">[</span>rb<span class="op">])</span> <span class="op">{</span> <span class="dt">int</span> t <span class="op">=</span> ra<span class="op">;</span> ra <span class="op">=</span> rb<span class="op">;</span> rb <span class="op">=</span> t<span class="op">;</span> <span class="op">}</span></span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>            <span class="va">par_</span><span class="op">[</span>rb<span class="op">]</span> <span class="op">=</span> ra<span class="op">;</span> <span class="va">sz_</span><span class="op">[</span>ra<span class="op">]</span> <span class="op">+=</span> <span class="va">sz_</span><span class="op">[</span>rb<span class="op">];</span></span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>            <span class="va">nxt_</span><span class="op">[</span>ra<span class="op">]</span> <span class="op">=</span> <span class="op">(</span>na <span class="op">!=</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="op">?</span> na <span class="op">:</span> nb<span class="op">;</span></span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>na <span class="op">!=</span> <span class="op">-</span><span class="dv">1</span> <span class="op">&amp;&amp;</span> nb <span class="op">!=</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="va">schedule_</span><span class="op">(</span>na<span class="op">,</span> nb<span class="op">,</span> l <span class="op">+</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>ea <span class="op">||</span> eb<span class="op">)</span> empty_classes<span class="op">--;</span></span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>            total_merges<span class="op">++;</span></span>
+<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a>        <span class="va">bucket_head_</span><span class="op">[</span>l<span class="op">]</span> <span class="op">=</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a>        size_p <span class="op">=</span> <span class="op">(</span><span class="dt">long</span> <span class="dt">long</span><span class="op">)</span><span class="va">n_</span> <span class="op">-</span> total_merges<span class="op">;</span></span>
+<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a>        <span class="va">ans_</span><span class="op">[</span>l<span class="op">]</span> <span class="op">+=</span> size_p <span class="op">+</span> iso_s<span class="op">;</span></span>
+<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a>        iso_prev <span class="op">=</span> empty_classes<span class="op">;</span></span>
+<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>l <span class="op">&gt;=</span> <span class="va">max_sched_</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> ll<span class="op">;</span></span>
+<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> <span class="op">(</span>ll <span class="op">=</span> l <span class="op">+</span> <span class="dv">1</span><span class="op">;</span> ll <span class="op">&lt;=</span> <span class="va">lmax_</span><span class="op">;</span> ll<span class="op">++)</span> <span class="op">{</span> iso_s <span class="op">+=</span> iso_prev<span class="op">;</span> <span class="va">ans_</span><span class="op">[</span>ll<span class="op">]</span> <span class="op">+=</span> size_p <span class="op">+</span> iso_s<span class="op">;</span> <span class="op">}</span></span>
+<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-78"><a href="#cb1-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-80"><a href="#cb1-80" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> tc<span class="op">,</span> i<span class="op">,</span> w<span class="op">,</span> l<span class="op">;</span></span>
+<span id="cb1-81"><a href="#cb1-81" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span>i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> MAXL <span class="op">+</span> <span class="dv">2</span><span class="op">;</span> i<span class="op">++)</span> <span class="va">bucket_head_</span><span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-82"><a href="#cb1-82" aria-hidden="true" tabindex="-1"></a>    scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>tc<span class="op">);</span></span>
+<span id="cb1-83"><a href="#cb1-83" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(</span>tc<span class="op">--)</span> <span class="op">{</span></span>
+<span id="cb1-84"><a href="#cb1-84" aria-hidden="true" tabindex="-1"></a>        scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st"> </span><span class="sc">%d</span><span class="st"> </span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span><span class="va">n_</span><span class="op">,</span> <span class="op">&amp;</span><span class="va">q_</span><span class="op">,</span> <span class="op">&amp;</span><span class="va">m_</span><span class="op">);</span></span>
+<span id="cb1-85"><a href="#cb1-85" aria-hidden="true" tabindex="-1"></a>        <span class="va">lmax_</span> <span class="op">=</span> <span class="va">q_</span> <span class="op">+</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-86"><a href="#cb1-86" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span>i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="va">m_</span><span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb1-87"><a href="#cb1-87" aria-hidden="true" tabindex="-1"></a>            scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st"> </span><span class="sc">%d</span><span class="st"> </span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span><span class="va">eu_</span><span class="op">[</span>i<span class="op">],</span> <span class="op">&amp;</span><span class="va">ev_</span><span class="op">[</span>i<span class="op">],</span> <span class="op">&amp;</span><span class="va">ew_</span><span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb1-88"><a href="#cb1-88" aria-hidden="true" tabindex="-1"></a>            <span class="va">eu_</span><span class="op">[</span>i<span class="op">]--;</span> <span class="va">ev_</span><span class="op">[</span>i<span class="op">]--;</span></span>
+<span id="cb1-89"><a href="#cb1-89" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb1-90"><a href="#cb1-90" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span>l <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> l <span class="op">&lt;=</span> <span class="va">lmax_</span> <span class="op">+</span> <span class="dv">1</span><span class="op">;</span> l<span class="op">++)</span> <span class="va">ans_</span><span class="op">[</span>l<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-91"><a href="#cb1-91" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span>w <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> w <span class="op">&lt;</span> <span class="dv">30</span><span class="op">;</span> w<span class="op">++)</span> <span class="va">run_threshold_</span><span class="op">(</span>w<span class="op">);</span></span>
+<span id="cb1-92"><a href="#cb1-92" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span>l <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> l <span class="op">&lt;=</span> <span class="va">lmax_</span><span class="op">;</span> l<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb1-93"><a href="#cb1-93" aria-hidden="true" tabindex="-1"></a>            printf<span class="op">(</span><span class="st">"</span><span class="sc">%lld</span><span class="st">"</span><span class="op">,</span> <span class="va">ans_</span><span class="op">[</span>l<span class="op">]</span> <span class="op">-</span> <span class="dv">30</span><span class="op">);</span></span>
+<span id="cb1-94"><a href="#cb1-94" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>l <span class="op">&lt;</span> <span class="va">lmax_</span><span class="op">)</span> printf<span class="op">(</span><span class="st">" "</span><span class="op">);</span></span>
+<span id="cb1-95"><a href="#cb1-95" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb1-96"><a href="#cb1-96" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">"</span><span class="sc">\n</span><span class="st">"</span><span class="op">);</span></span>
+<span id="cb1-97"><a href="#cb1-97" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-98"><a href="#cb1-98" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-99"><a href="#cb1-99" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 
 
 </section>

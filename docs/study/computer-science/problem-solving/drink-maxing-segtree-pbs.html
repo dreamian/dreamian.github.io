@@ -82,7 +82,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../../../site_libs/bootstrap/bootstrap-7c229a5dd4f0365d728271ebb9451e4e.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-735a1d9e6fc295642842e37b9828bfeb.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -629,77 +629,123 @@ window.Quarto = {
 </section>
 <section id="codes" class="level2" data-number="8">
 <h2 data-number="8" class="anchored" data-anchor-id="codes"><span class="header-section-number">8</span> Codes</h2>
-<p>```cpp #include &lt;bits/stdc++.h&gt; using namespace std; typedef long long ll;</p>
-<p>const int MAXP = 100001; // prices in [1, MAXP-1]</p>
-<p>struct Node { ll liters; ll cost; }; Node seg[4 * MAXP];</p>
-<p>void update(int node, int l, int r, int idx, ll dl) { if (l == r) { seg[node].liters += dl; seg[node].cost += dl * (ll)l; // l == price at the leaf return; } int mid = (l + r) &gt;&gt; 1; if (idx &lt;= mid) { update(node &lt;&lt; 1, l, mid, idx, dl); } else { update(node &lt;&lt; 1 | 1, mid + 1, r, idx, dl); } seg[node].liters = seg[node &lt;&lt; 1].liters + seg[node &lt;&lt; 1 | 1].liters; seg[node].cost = seg[node &lt;&lt; 1].cost + seg[node &lt;&lt; 1 | 1].cost; }</p>
-<p>// min cost to obtain exactly L liters from active liquids; -1 if pool insufficient ll query(int node, int l, int r, ll L) { if (seg[node].liters &lt; L) { return -1; } if (l == r) { return L * (ll)l; } int mid = (l + r) &gt;&gt; 1; if (seg[node &lt;&lt; 1].liters &gt;= L) { return query(node &lt;&lt; 1, l, mid, L); } else { return seg[node &lt;&lt; 1].cost + query(node &lt;&lt; 1 | 1, mid + 1, r, L - seg[node &lt;&lt; 1].liters); } }</p>
-<p>int main() { int TC; scanf(“%d”, &amp;TC); while (TC–) { int n, m; scanf(“%d %d”, &amp;n, &amp;m);</p>
-<pre><code>    vector&lt;array&lt;int, 3&gt;&gt; liq(n);  // {d, p, l}
-    for (int i = 0; i &lt; n; ++i) {
-        scanf("%d %d %d", &amp;liq[i][0], &amp;liq[i][1], &amp;liq[i][2]);
-    }
-    sort(liq.begin(), liq.end(),
-         [](const array&lt;int,3&gt;&amp; a, const array&lt;int,3&gt;&amp; b) {
-             return a[0] &gt; b[0];   // taste descending
-         });
-
-    vector&lt;ll&gt; G(m), L(m);
-    for (int j = 0; j &lt; m; ++j) {
-        scanf("%lld %lld", &amp;G[j], &amp;L[j]);
-    }
-
-    // Binary search: smallest k in [0, n-1] s.t. feasible(top-(k+1)).
-    // hi = n is the "infeasible" sentinel.
-    vector&lt;int&gt; lo(m, 0), hi(m, n);
-
-    while (true) {
-        vector&lt;vector&lt;int&gt;&gt; bucket(n + 1);
-        bool active = false;
-        for (int j = 0; j &lt; m; ++j) {
-            if (lo[j] &lt; hi[j]) {
-                int mid = (lo[j] + hi[j]) &gt;&gt; 1;
-                bucket[mid].push_back(j);
-                active = true;
-            }
-        }
-        if (!active) {
-            break;
-        }
-
-        memset(seg, 0, sizeof(seg));
-
-        for (int k = 0; k &lt; n; ++k) {
-            int p   = liq[k][1];
-            int lit = liq[k][2];
-            update(1, 1, MAXP - 1, p, lit);
-
-            for (int j : bucket[k]) {
-                ll c = query(1, 1, MAXP - 1, L[j]);
-                if (c != -1 &amp;&amp; c &lt;= G[j]) {
-                    hi[j] = k;
-                } else {
-                    lo[j] = k + 1;
-                }
-            }
-        }
-    }
-
-    for (int j = 0; j &lt; m; ++j) {
-        if (j &gt; 0) {
-            putchar(' ');
-        }
-        int k = lo[j];
-        if (k &gt;= n) {
-            printf("-1");
-        } else {
-            printf("%d", liq[k][0]);
-        }
-    }
-    putchar('\n');
-}
-return 0;</code></pre>
-<p>}</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;bits/stdc++.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> <span class="kw">namespace</span> std<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="dt">long</span> <span class="dt">long</span> ll<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="dt">int</span> MAXP <span class="op">=</span> <span class="dv">100001</span><span class="op">;</span>  <span class="co">// prices in [1, MAXP-1]</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Node <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    ll liters<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    ll cost<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>Node seg<span class="op">[</span><span class="dv">4</span> <span class="op">*</span> MAXP<span class="op">];</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> update<span class="op">(</span><span class="dt">int</span> node<span class="op">,</span> <span class="dt">int</span> l<span class="op">,</span> <span class="dt">int</span> r<span class="op">,</span> <span class="dt">int</span> idx<span class="op">,</span> ll dl<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>l <span class="op">==</span> r<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        seg<span class="op">[</span>node<span class="op">].</span>liters <span class="op">+=</span> dl<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        seg<span class="op">[</span>node<span class="op">].</span>cost   <span class="op">+=</span> dl <span class="op">*</span> <span class="op">(</span>ll<span class="op">)</span>l<span class="op">;</span>   <span class="co">// l == price at the leaf</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> mid <span class="op">=</span> <span class="op">(</span>l <span class="op">+</span> r<span class="op">)</span> <span class="op">&gt;&gt;</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>idx <span class="op">&lt;=</span> mid<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        update<span class="op">(</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">,</span> l<span class="op">,</span> mid<span class="op">,</span> idx<span class="op">,</span> dl<span class="op">);</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        update<span class="op">(</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span> <span class="op">|</span> <span class="dv">1</span><span class="op">,</span> mid <span class="op">+</span> <span class="dv">1</span><span class="op">,</span> r<span class="op">,</span> idx<span class="op">,</span> dl<span class="op">);</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    seg<span class="op">[</span>node<span class="op">].</span>liters <span class="op">=</span> seg<span class="op">[</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">].</span>liters <span class="op">+</span> seg<span class="op">[</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span> <span class="op">|</span> <span class="dv">1</span><span class="op">].</span>liters<span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    seg<span class="op">[</span>node<span class="op">].</span>cost   <span class="op">=</span> seg<span class="op">[</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">].</span>cost   <span class="op">+</span> seg<span class="op">[</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span> <span class="op">|</span> <span class="dv">1</span><span class="op">].</span>cost<span class="op">;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="co">// min cost to obtain exactly L liters from active liquids; -1 if pool insufficient</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>ll query<span class="op">(</span><span class="dt">int</span> node<span class="op">,</span> <span class="dt">int</span> l<span class="op">,</span> <span class="dt">int</span> r<span class="op">,</span> ll L<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>seg<span class="op">[</span>node<span class="op">].</span>liters <span class="op">&lt;</span> L<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>l <span class="op">==</span> r<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> L <span class="op">*</span> <span class="op">(</span>ll<span class="op">)</span>l<span class="op">;</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> mid <span class="op">=</span> <span class="op">(</span>l <span class="op">+</span> r<span class="op">)</span> <span class="op">&gt;&gt;</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>seg<span class="op">[</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">].</span>liters <span class="op">&gt;=</span> L<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> query<span class="op">(</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">,</span> l<span class="op">,</span> mid<span class="op">,</span> L<span class="op">);</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> seg<span class="op">[</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">].</span>cost</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>             <span class="op">+</span> query<span class="op">(</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span> <span class="op">|</span> <span class="dv">1</span><span class="op">,</span> mid <span class="op">+</span> <span class="dv">1</span><span class="op">,</span> r<span class="op">,</span> L <span class="op">-</span> seg<span class="op">[</span>node <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">].</span>liters<span class="op">);</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> TC<span class="op">;</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>    scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>TC<span class="op">);</span></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(</span>TC<span class="op">--)</span> <span class="op">{</span></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> n<span class="op">,</span> m<span class="op">;</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>        scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st"> </span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>n<span class="op">,</span> <span class="op">&amp;</span>m<span class="op">);</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>        vector<span class="op">&lt;</span>array<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="dv">3</span><span class="op">&gt;&gt;</span> liq<span class="op">(</span>n<span class="op">);</span>  <span class="co">// {d, p, l}</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>            scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st"> </span><span class="sc">%d</span><span class="st"> </span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>liq<span class="op">[</span>i<span class="op">][</span><span class="dv">0</span><span class="op">],</span> <span class="op">&amp;</span>liq<span class="op">[</span>i<span class="op">][</span><span class="dv">1</span><span class="op">],</span> <span class="op">&amp;</span>liq<span class="op">[</span>i<span class="op">][</span><span class="dv">2</span><span class="op">]);</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>        sort<span class="op">(</span>liq<span class="op">.</span>begin<span class="op">(),</span> liq<span class="op">.</span>end<span class="op">(),</span></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>             <span class="op">[](</span><span class="at">const</span> array<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span><span class="dv">3</span><span class="op">&gt;&amp;</span> a<span class="op">,</span> <span class="at">const</span> array<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span><span class="dv">3</span><span class="op">&gt;&amp;</span> b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>                 <span class="cf">return</span> a<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">&gt;</span> b<span class="op">[</span><span class="dv">0</span><span class="op">];</span>   <span class="co">// taste descending</span></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>             <span class="op">});</span></span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>        vector<span class="op">&lt;</span>ll<span class="op">&gt;</span> G<span class="op">(</span>m<span class="op">),</span> L<span class="op">(</span>m<span class="op">);</span></span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> j <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> j <span class="op">&lt;</span> m<span class="op">;</span> <span class="op">++</span>j<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>            scanf<span class="op">(</span><span class="st">"</span><span class="sc">%lld</span><span class="st"> </span><span class="sc">%lld</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>G<span class="op">[</span>j<span class="op">],</span> <span class="op">&amp;</span>L<span class="op">[</span>j<span class="op">]);</span></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Binary search: smallest k in [0, n-1] s.t. feasible(top-(k+1)).</span></span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>        <span class="co">// hi = n is the "infeasible" sentinel.</span></span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>        vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> lo<span class="op">(</span>m<span class="op">,</span> <span class="dv">0</span><span class="op">),</span> hi<span class="op">(</span>m<span class="op">,</span> n<span class="op">);</span></span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span><span class="kw">true</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>            vector<span class="op">&lt;</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;&gt;</span> bucket<span class="op">(</span>n <span class="op">+</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>            <span class="dt">bool</span> active <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> j <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> j <span class="op">&lt;</span> m<span class="op">;</span> <span class="op">++</span>j<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> <span class="op">(</span>lo<span class="op">[</span>j<span class="op">]</span> <span class="op">&lt;</span> hi<span class="op">[</span>j<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a>                    <span class="dt">int</span> mid <span class="op">=</span> <span class="op">(</span>lo<span class="op">[</span>j<span class="op">]</span> <span class="op">+</span> hi<span class="op">[</span>j<span class="op">])</span> <span class="op">&gt;&gt;</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a>                    bucket<span class="op">[</span>mid<span class="op">].</span>push_back<span class="op">(</span>j<span class="op">);</span></span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>                    active <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(!</span>active<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>                <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a>            memset<span class="op">(</span>seg<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>seg<span class="op">));</span></span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> k <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> k <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>k<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a>                <span class="dt">int</span> p   <span class="op">=</span> liq<span class="op">[</span>k<span class="op">][</span><span class="dv">1</span><span class="op">];</span></span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a>                <span class="dt">int</span> lit <span class="op">=</span> liq<span class="op">[</span>k<span class="op">][</span><span class="dv">2</span><span class="op">];</span></span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a>                update<span class="op">(</span><span class="dv">1</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> MAXP <span class="op">-</span> <span class="dv">1</span><span class="op">,</span> p<span class="op">,</span> lit<span class="op">);</span></span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> j <span class="op">:</span> bucket<span class="op">[</span>k<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a>                    ll c <span class="op">=</span> query<span class="op">(</span><span class="dv">1</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> MAXP <span class="op">-</span> <span class="dv">1</span><span class="op">,</span> L<span class="op">[</span>j<span class="op">]);</span></span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">if</span> <span class="op">(</span>c <span class="op">!=</span> <span class="op">-</span><span class="dv">1</span> <span class="op">&amp;&amp;</span> c <span class="op">&lt;=</span> G<span class="op">[</span>j<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a>                        hi<span class="op">[</span>j<span class="op">]</span> <span class="op">=</span> k<span class="op">;</span></span>
+<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a>                    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a>                        lo<span class="op">[</span>j<span class="op">]</span> <span class="op">=</span> k <span class="op">+</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a>                    <span class="op">}</span></span>
+<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
+<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> j <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> j <span class="op">&lt;</span> m<span class="op">;</span> <span class="op">++</span>j<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>j <span class="op">&gt;</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a>                putchar<span class="op">(</span><span class="ch">' '</span><span class="op">);</span></span>
+<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a>            <span class="dt">int</span> k <span class="op">=</span> lo<span class="op">[</span>j<span class="op">];</span></span>
+<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>k <span class="op">&gt;=</span> n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a>                printf<span class="op">(</span><span class="st">"-1"</span><span class="op">);</span></span>
+<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a>                printf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> liq<span class="op">[</span>k<span class="op">][</span><span class="dv">0</span><span class="op">]);</span></span>
+<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a>        putchar<span class="op">(</span><span class="ch">'</span><span class="sc">\n</span><span class="ch">'</span><span class="op">);</span></span>
+<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 
 
 </section>
