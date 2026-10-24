@@ -1,0 +1,2018 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko" xml:lang="ko"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Temporal Difference Learning – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-7c229a5dd4f0365d728271ebb9451e4e.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "일치 없음",
+    "search-matching-documents-text": "일치된 문서",
+    "search-copy-link-title": "검색 링크 복사",
+    "search-hide-matches-text": "추가 검색 결과 숨기기",
+    "search-more-match-text": "추가 검색결과",
+    "search-more-matches-text": "추가 검색결과",
+    "search-clear-button-title": "제거",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "취소",
+    "search-submit-button-title": "검색",
+    "search-label": "검색"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="검색"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="탐색 전환" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../../study/index.html">
+ <span class="dropdown-text">Study Notes</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Math</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/math/calculus/index.html">
+ <span class="dropdown-text">Calculus</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Machine Learning</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/machine-learning/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../study/machine-learning/reinforcement-learning/index.html">
+ <span class="dropdown-text">Reinforcement Learning</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Data Science</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/data-science/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Computer Science</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/computer-science/algorithms/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../study/computer-science/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../study/computer-science/data-networks/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Communication</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/communication/random-signal-theory/index.html">
+ <span class="dropdown-text">Random Signal Theory</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../../research/index.html">
+ <span class="dropdown-text">Research Log</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../research/papers/index.html">
+ <span class="dropdown-text">Research Papers</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../research/logs/index.html">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">목차</h2>
+   
+  <ul class="collapse">
+  <li><a href="#sec-howto" id="toc-sec-howto" class="nav-link active" data-scroll-target="#sec-howto"><span class="header-section-number">1</span> 사용법</a></li>
+  <li><a href="#sec-tree" id="toc-sec-tree" class="nav-link" data-scroll-target="#sec-tree"><span class="header-section-number">2</span> 전체 트리</a></li>
+  <li><a href="#sec-part0" id="toc-sec-part0" class="nav-link" data-scroll-target="#sec-part0"><span class="header-section-number">3</span> 0. 출발점</a>
+  <ul class="collapse">
+  <li><a href="#sec-td0" id="toc-sec-td0" class="nav-link" data-scroll-target="#sec-td0"><span class="header-section-number">3.1</span> 정책의 가치를 모델 없이, 온라인으로 구할 수 있는가</a></li>
+  </ul></li>
+  <li><a href="#sec-partI" id="toc-sec-partI" class="nav-link" data-scroll-target="#sec-partI"><span class="header-section-number">4</span> I. Monte Carlo 정책 평가</a>
+  <ul class="collapse">
+  <li><a href="#sec-td1" id="toc-sec-td1" class="nav-link" data-scroll-target="#sec-td1"><span class="header-section-number">4.1</span> 가치의 정의를 그대로 근사하면</a></li>
+  </ul></li>
+  <li><a href="#sec-partII" id="toc-sec-partII" class="nav-link" data-scroll-target="#sec-partII"><span class="header-section-number">5</span> II. TD(0)</a>
+  <ul class="collapse">
+  <li><a href="#sec-td2" id="toc-sec-td2" class="nav-link" data-scroll-target="#sec-td2"><span class="header-section-number">5.1</span> 동기: 전이 하나로 갱신할 수 있는가</a></li>
+  <li><a href="#sec-td3" id="toc-sec-td3" class="nav-link" data-scroll-target="#sec-td3"><span class="header-section-number">5.2</span> 정책 평가 방정식을 기댓값으로 쓰기</a></li>
+  <li><a href="#sec-td4" id="toc-sec-td4" class="nav-link" data-scroll-target="#sec-td4"><span class="header-section-number">5.3</span> TD(0) 갱신식과 temporal difference</a></li>
+  <li><a href="#sec-td5" id="toc-sec-td5" class="nav-link" data-scroll-target="#sec-td5"><span class="header-section-number">5.4</span> TD(0)의 성격</a></li>
+  </ul></li>
+  <li><a href="#sec-partIII" id="toc-sec-partIII" class="nav-link" data-scroll-target="#sec-partIII"><span class="header-section-number">6</span> III. Multi-step 일반화와 TD(λ)</a>
+  <ul class="collapse">
+  <li><a href="#sec-td6" id="toc-sec-td6" class="nav-link" data-scroll-target="#sec-td6"><span class="header-section-number">6.1</span> <span class="math inline">\((\ell+1)\)</span>-step Bellman 방정식</a></li>
+  <li><a href="#sec-td7" id="toc-sec-td7" class="nav-link" data-scroll-target="#sec-td7"><span class="header-section-number">6.2</span> λ-가중평균: TD 오차의 합으로</a></li>
+  <li><a href="#sec-td8" id="toc-sec-td8" class="nav-link" data-scroll-target="#sec-td8"><span class="header-section-number">6.3</span> TD(λ) 알고리즘</a></li>
+  </ul></li>
+  <li><a href="#sec-partIV" id="toc-sec-partIV" class="nav-link" data-scroll-target="#sec-partIV"><span class="header-section-number">7</span> IV. λ의 선택</a>
+  <ul class="collapse">
+  <li><a href="#sec-td9" id="toc-sec-td9" class="nav-link" data-scroll-target="#sec-td9"><span class="header-section-number">7.1</span> Bias–variance trade-off</a></li>
+  </ul></li>
+  <li><a href="#sec-partV" id="toc-sec-partV" class="nav-link" data-scroll-target="#sec-partV"><span class="header-section-number">8</span> V. 수렴</a>
+  <ul class="collapse">
+  <li><a href="#sec-td10" id="toc-sec-td10" class="nav-link" data-scroll-target="#sec-td10"><span class="header-section-number">8.1</span> 수렴 정리</a></li>
+  </ul></li>
+  <li><a href="#sec-partVI" id="toc-sec-partVI" class="nav-link" data-scroll-target="#sec-partVI"><span class="header-section-number">9</span> VI. 정리</a>
+  <ul class="collapse">
+  <li><a href="#sec-td11" id="toc-sec-td11" class="nav-link" data-scroll-target="#sec-td11"><span class="header-section-number">9.1</span> 한 장 요약</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Temporal Difference Learning</h1>
+<p class="subtitle lead">고정점 문제 → Monte Carlo 평가 → TD(0) → multi-step Bellman → TD(λ) → bias–variance → 수렴</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">공개</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2026년 10월 16일</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="sec-howto" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 사용법</h1>
+<p>각 노드는 다음 순서로 되어 있다.</p>
+<ol type="1">
+<li><strong>질문</strong>: 노드 제목.</li>
+<li><strong>먼저 떠올릴 질문</strong>: 답을 보기 전에 스스로 답해 볼 물음.</li>
+<li><strong>답</strong>: 한두 문장 또는 짧은 식.</li>
+<li><strong>근거 / 유도</strong>: 접혀 있다. 먼저 스스로 써 본 뒤 펼친다.</li>
+<li><strong>의의</strong>: 접혀 있다. 이 결과가 이후 단계에서 무엇을 가능하게 하는지.</li>
+<li><strong>↓ 내려가기 / ↑ 올라가기</strong>: 하위·상위 노드.</li>
+</ol>
+<p>✍ 표시가 있는 노드는 안내 질문을 먼저 두고, 풀이를 따로 접어 두었다.</p>
+<p>이 주제의 중심 질문은 하나다. <strong>TD(0)와 TD(λ)는 각각 어떤 고정점 방정식에 Robbins–Monro를 적용한 결과인가.</strong> 알고리즘 자체는 아주 단순하다. 옛 추정치에 <span class="math inline">\(1-\alpha\)</span>, Bellman 방정식 우변의 샘플 추정치에 <span class="math inline">\(\alpha\)</span>의 가중치를 둔다. 이해의 무게는 그 우변을 어떻게 만들었는지(특히 multi-step 방정식의 유도)에 둔다. 수렴 정리는 <strong>결과와 증명 아이디어</strong> 수준으로만 다룬다.</p>
+<p>공통 표기:</p>
+<ul>
+<li><span class="math inline">\(v^\pi\)</span>: 정책 <span class="math inline">\(\pi\)</span>의 가치 함수. <span class="math inline">\(v\)</span>: 학습 중인 추정치(lookup table).</li>
+<li>전이 데이터 <span class="math inline">\((s_t,a_t,r_t,s_{t+1})\)</span>, <span class="math inline">\(a_t=\pi(s_t)\)</span>, <span class="math inline">\(r_t=r(s_t,\pi(s_t))\)</span>.</li>
+<li><span class="math inline">\(d_t:=r_t+\gamma v(s_{t+1})-v(s_t)\)</span>: temporal difference.</li>
+<li><span class="math inline">\(\lambda\in[0,1]\)</span>: TD(λ)의 파라미터. 할인율 <span class="math inline">\(\gamma\in(0,1)\)</span>와 다른 기호다.</li>
+<li><span class="math inline">\(\alpha_t\)</span>: step size(learning rate). <span class="math inline">\(\mathcal F_t\)</span>: 시점 <span class="math inline">\(t\)</span>까지의 history.</li>
+<li>유도에서 쓰는 축약: <span class="math inline">\(r_{t+k}:=r(s_{t+k},a_{t+k})\)</span>, <span class="math inline">\(v_{t+k}:=v(s_{t+k})\)</span>.</li>
+<li>벡터 표기: <span class="math inline">\(R^\pi(s):=r(s,\pi(s))\)</span>, <span class="math inline">\(P^\pi(s,s'):=p(s'\mid s,\pi(s))\)</span>, <span class="math inline">\(\mathbf 1\)</span>: 모든 원소가 1인 벡터.</li>
+</ul>
+</section>
+<section id="sec-tree" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> 전체 트리</h1>
+<ul>
+<li><strong>0. 출발점</strong>: 정책의 가치를 모델 없이, 온라인으로 구할 수 있는가 → <a href="#sec-td0" class="quarto-xref">섹션&nbsp;3.1</a></li>
+<li><strong>I. Monte Carlo 정책 평가</strong> → <a href="#sec-td1" class="quarto-xref">섹션&nbsp;4.1</a>
+<ul>
+<li><span class="math inline">\(c(s,m)\)</span>은 무엇인가: 기댓값이 아니라 샘플 → <a href="#sec-td1a" class="quarto-xref">섹션&nbsp;4.1.1</a></li>
+<li>✍ 반복식 <span class="math inline">\(v\leftarrow v+\alpha_m(c-v)\)</span>와 <span class="math inline">\(\alpha_m=1/m\)</span> → <a href="#sec-td1b" class="quarto-xref">섹션&nbsp;4.1.2</a></li>
+<li>갱신 폭이 <span class="math inline">\(1/m\)</span>로 줄어드는 것의 의미 → <a href="#sec-td1c" class="quarto-xref">섹션&nbsp;4.1.3</a></li>
+</ul></li>
+<li><strong>II. TD(0)</strong>
+<ul>
+<li>동기: 전이 하나로 갱신할 수 있는가 → <a href="#sec-td2" class="quarto-xref">섹션&nbsp;5.1</a></li>
+<li>정책 평가 방정식을 기댓값으로 쓰기 → <a href="#sec-td3" class="quarto-xref">섹션&nbsp;5.2</a>
+<ul>
+<li>✍ 전이 확률은 어디로 갔나 → <a href="#sec-td3a" class="quarto-xref">섹션&nbsp;5.2.1</a></li>
+<li>왜 다음 상태 가치의 기댓값인가 → <a href="#sec-td3b" class="quarto-xref">섹션&nbsp;5.2.2</a></li>
+</ul></li>
+<li>TD(0) 갱신식과 temporal difference → <a href="#sec-td4" class="quarto-xref">섹션&nbsp;5.3</a>
+<ul>
+<li>✍ Stochastic approximation 틀에 맞추기 → <a href="#sec-td4a" class="quarto-xref">섹션&nbsp;5.3.1</a></li>
+</ul></li>
+<li>TD(0)의 성격 → <a href="#sec-td5" class="quarto-xref">섹션&nbsp;5.4</a></li>
+</ul></li>
+<li><strong>III. Multi-step 일반화와 TD(λ)</strong>
+<ul>
+<li><span class="math inline">\((\ell+1)\)</span>-step Bellman 방정식 → <a href="#sec-td6" class="quarto-xref">섹션&nbsp;6.1</a>
+<ul>
+<li><span class="math inline">\(\mathcal F_t\)</span>는 무엇인가 → <a href="#sec-td6a" class="quarto-xref">섹션&nbsp;6.1.1</a></li>
+<li>✍ <span class="math inline">\((\ell+1)\)</span>-step 방정식은 왜 성립하는가 → <a href="#sec-td6b" class="quarto-xref">섹션&nbsp;6.1.2</a></li>
+</ul></li>
+<li>λ-가중평균: TD 오차의 합으로 → <a href="#sec-td7" class="quarto-xref">섹션&nbsp;6.2</a>
+<ul>
+<li>✍ 유도를 한 줄씩 → <a href="#sec-td7a" class="quarto-xref">섹션&nbsp;6.2.1</a></li>
+<li>합의 순서를 기계적으로 바꾸는 법 → <a href="#sec-td7b" class="quarto-xref">섹션&nbsp;6.2.2</a></li>
+<li>이 식은 무엇을 말하는가 → <a href="#sec-td7c" class="quarto-xref">섹션&nbsp;6.2.3</a></li>
+</ul></li>
+<li>TD(λ) 알고리즘 → <a href="#sec-td8" class="quarto-xref">섹션&nbsp;6.3</a>
+<ul>
+<li>✍ 두 극단: λ = 0과 λ = 1 → <a href="#sec-td8a" class="quarto-xref">섹션&nbsp;6.3.1</a></li>
+<li>TD(0)의 “0”은 무엇인가 → <a href="#sec-td8b" class="quarto-xref">섹션&nbsp;6.3.2</a></li>
+</ul></li>
+</ul></li>
+<li><strong>IV. λ의 선택</strong>
+<ul>
+<li>Bias–variance trade-off → <a href="#sec-td9" class="quarto-xref">섹션&nbsp;7.1</a>
+<ul>
+<li>✍ 두 상태 예시 → <a href="#sec-td9a" class="quarto-xref">섹션&nbsp;7.1.1</a></li>
+<li>λ 스케줄링 → <a href="#sec-td9b" class="quarto-xref">섹션&nbsp;7.1.2</a></li>
+</ul></li>
+</ul></li>
+<li><strong>V. 수렴</strong>
+<ul>
+<li>수렴 정리 → <a href="#sec-td10" class="quarto-xref">섹션&nbsp;8.1</a>
+<ul>
+<li>✍ 증명 아이디어: <span class="math inline">\(H\)</span>의 축약과 잡음 조건 → <a href="#sec-td10a" class="quarto-xref">섹션&nbsp;8.1.1</a></li>
+</ul></li>
+</ul></li>
+<li><strong>VI. 정리</strong> → <a href="#sec-td11" class="quarto-xref">섹션&nbsp;9.1</a></li>
+</ul>
+</section>
+<section id="sec-part0" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> 0. 출발점</h1>
+<section id="sec-td0" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="sec-td0"><span class="header-section-number">3.1</span> 정책의 가치를 모델 없이, 온라인으로 구할 수 있는가</h2>
+<p><strong>먼저 떠올릴 질문.</strong> 정책 평가 방정식 <span class="math inline">\(v=T^\pi v\)</span>를 반복으로 풀 때 전이 확률 <span class="math inline">\(p\)</span>는 어디에 쓰이는가? 전이 샘플을 하나 받을 때마다 추정치를 고치려면, 방정식이 어떤 형태여야 하는가?</p>
+<p><strong>답.</strong> 풀어야 할 대상은 두 가지 고정점 문제다.</p>
+<p><span class="math display">\[
+\begin{aligned}
+\text{정책 평가:}\quad &amp; v=T^\pi v
+&amp;&amp;\Longleftrightarrow\quad v(s)=r(s,\pi(s))+\gamma\textstyle\sum_{s'}p(s'\mid s,\pi(s))\,v(s'),\\
+\text{최적성 방정식:}\quad &amp; v=Tv
+&amp;&amp;\Longleftrightarrow\quad v(s)=\max_a\Big[r(s,a)+\gamma\textstyle\sum_{s'}p(s'\mid s,a)\,v(s')\Big].
+\end{aligned}
+\]</span></p>
+<p>두 방정식의 뿌리는 같은 <strong>가치 분해</strong>다. 가치를 즉각 보상과, 다음 상태부터 정책을 따라 얻을 누적 보상으로 나눈다. <span class="math inline">\(T^\pi\)</span>와 <span class="math inline">\(T\)</span>가 축약이라는 사실로 VI·PI를 만들었지만, 연산자를 한 번 적용할 때마다 <span class="math inline">\(p\)</span>가 필요했다.</p>
+<p><span class="math display">\[
+\textbf{Key question: } \text{How can we solve fixed point problems in a model-free manner?}
+\]</span></p>
+<p>여기서는 정책 평가부터 다룬다. 방법을 두 기준으로 구분한다.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>방법</th>
+<th>model-free (<span class="math inline">\(p\)</span>를 쓰지 않음)</th>
+<th>online (전이 하나마다 갱신)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>VI·PI (정책 평가)</td>
+<td>✗</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>Monte Carlo</td>
+<td>✓</td>
+<td>✗</td>
+</tr>
+<tr class="odd">
+<td>TD(0)</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr class="even">
+<td>TD(λ), <span class="math inline">\(0&lt;\lambda\)</span></td>
+<td>✓</td>
+<td>부분적 (궤적 일부가 필요)</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-1" class="callout-1-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>TD 계열은 모두 “가치 분해를 기댓값 형태로 쓰고, 그 기댓값을 샘플로 바꾼다”는 같은 동작에서 나온다. 무엇을 샘플로 바꾸느냐(궤적 전체, 한 스텝, 여러 스텝의 가중평균)에 따라 MC, TD(0), TD(λ)가 갈린다. 최적성 방정식 쪽은 같은 동작을 <span class="math inline">\(Q^*\)</span>에 적용해 Q-learning이 된다.</p>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="sec-partI" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> I. Monte Carlo 정책 평가</h1>
+<section id="sec-td1" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="sec-td1"><span class="header-section-number">4.1</span> 가치의 정의를 그대로 근사하면</h2>
+<p><strong>먼저 떠올릴 질문.</strong> <span class="math inline">\(v^\pi(s)\)</span>는 “할인 누적 보상의 기댓값”이다. 기댓값을 모를 때 가장 먼저 떠오르는 근사는? 그 근사를 계산하려면 데이터가 언제까지 쌓여야 하는가?</p>
+<p><strong>답.</strong> 충분히 큰 <span class="math inline">\(T\)</span>를 잡아 <span class="math inline">\(\gamma^T\)</span>를 무시할 수 있게 한다. 정책 <span class="math inline">\(\pi\)</span>로 궤적 <span class="math inline">\(\{s_t^{(m)}\}_{t=0}^T\)</span>을 <span class="math inline">\(M\)</span>개 생성한다(<span class="math inline">\(m=1,\dots,M\)</span>). <span class="math inline">\(x_0\)</span>에서 출발한 <span class="math inline">\(m\)</span>번째 궤적의 누적 보상은</p>
+<p><span class="math display">\[
+c^\pi(x_0,m):=\sum_{t=0}^{T-1}\gamma^t\,r\big(s_t^{(m)},\pi(s_t^{(m)})\big)
+\]</span></p>
+<p>이고, 가치는 표본평균으로 근사한다.</p>
+<p><span class="math display">\[
+v^\pi(x_0)\approx\frac1M\sum_{m=1}^Mc^\pi(x_0,m).
+\]</span></p>
+<p>같은 값을 반복 알고리즘으로 계산할 수도 있다.</p>
+<ol type="1">
+<li>정책 <span class="math inline">\(\pi\in\Pi\)</span>와 초기 상태 <span class="math inline">\(s\in S\)</span>를 고정한다.</li>
+<li><span class="math inline">\(v(s)\leftarrow0\)</span>으로 초기화한다.</li>
+<li><span class="math inline">\(m=1,\dots,M\)</span>에 대해 <span class="math inline">\(v(s)\leftarrow v(s)+\alpha_m\big(c(s,m)-v(s)\big)\)</span>, <span class="math inline">\(\alpha_m=\dfrac1m\)</span>.</li>
+</ol>
+<p>이 반복은 표본평균을 incremental하게 계산한 것일 뿐이고, 결과는 표본평균과 같다 → <a href="#sec-td1b" class="quarto-xref">섹션&nbsp;4.1.2</a></p>
+<p><span class="math display">\[
+\textbf{Model-free, but not online.}
+\]</span></p>
+<p><span class="math inline">\(c(s,m)\)</span>을 계산하려면 궤적 하나를 끝까지(<span class="math inline">\(T\)</span> 스텝) 얻어야 하기 때문이다. 반복처럼 보여도 갱신은 궤적 하나가 끝날 때마다 한 번뿐이다.</p>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-2" class="callout-2-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>MC는 <span class="math inline">\(p\)</span>를 쓰지 않는다는 점에서 이미 model-free다. 남은 문제는 <strong>온라인성</strong>이다. 질문은 이렇게 바뀐다. 궤적 전체로만 얻을 수 있는 신호 <span class="math inline">\(c(s,m)\)</span> 자리에, 한 스텝 데이터만으로 만들 수 있는 신호를 넣을 수 있는가? 그 답이 TD(0)다 → <a href="#sec-td4" class="quarto-xref">섹션&nbsp;5.3</a></p>
+</div>
+</div>
+</div>
+<p><strong>↓ 내려가기</strong>: <a href="#sec-td1a" class="quarto-xref">섹션&nbsp;4.1.1</a> · <a href="#sec-td1b" class="quarto-xref">섹션&nbsp;4.1.2</a> · <a href="#sec-td1c" class="quarto-xref">섹션&nbsp;4.1.3</a> <strong>↑ 올라가기</strong>: <a href="#sec-td0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+<section id="sec-td1a" class="level3" data-number="4.1.1">
+<h3 data-number="4.1.1" class="anchored" data-anchor-id="sec-td1a"><span class="header-section-number">4.1.1</span> <span class="math inline">\(c(s,m)\)</span>은 무엇인가: 기댓값이 아니라 샘플</h3>
+<p><strong>먼저 떠올릴 질문.</strong> 같은 상태 <span class="math inline">\(s\)</span>에서 두 번 시뮬레이션하면 <span class="math inline">\(c(s,1)\)</span>과 <span class="math inline">\(c(s,2)\)</span>는 같은가? 다르다면 그 차이는 어디서 오는가?</p>
+<p><strong>답.</strong> <span class="math inline">\(c(s,m)\)</span>은 <strong>실현값(숫자 하나)</strong>이다. 출발 상태가 <span class="math inline">\(s\)</span>일 때의 할인 누적 보상을 확률 변수로 쓰면</p>
+<p><span class="math display">\[
+G(s):=\sum_{t=0}^{T-1}\gamma^t\,r\big(s_t,\pi(s_t)\big),\qquad s_0=s.
+\]</span></p>
+<p><span class="math inline">\(r\)</span>과 <span class="math inline">\(\pi\)</span>가 결정적이므로, <span class="math inline">\(G(s)\)</span>의 무작위성은 <strong>전이 <span class="math inline">\(s_{t+1}\sim p(\cdot\mid s_t,\pi(s_t))\)</span> 하나에서만</strong> 온다.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>대상</th>
+<th>성격</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(G(s)\)</span></td>
+<td>확률 변수</td>
+<td>출발 상태 <span class="math inline">\(s\)</span>에서 시뮬레이션하면 나올 누적 보상</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(c(s,m)\)</span></td>
+<td>실현값</td>
+<td><span class="math inline">\(m\)</span>번째 시뮬레이션에서 실제로 나온 <span class="math inline">\(G(s)\)</span>의 값</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(v^\pi(s)\approx\mathbb{E}[G(s)]\)</span></td>
+<td>상수</td>
+<td>추정 대상</td>
+</tr>
+</tbody>
+</table>
+<p>궤적을 서로 독립으로 생성하면 <span class="math inline">\(c(s,1),\dots,c(s,M)\)</span>은 <span class="math inline">\(G(s)\)</span>의 i.i.d. 샘플이다. 그래서 대수의 법칙에 의해 표본평균이 <span class="math inline">\(\mathbb{E}[G(s)]\)</span>로 간다.</p>
+<p>두 인덱스를 구분한다.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>인덱스</th>
+<th>범위</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(m\)</span></td>
+<td><span class="math inline">\(1,\dots,M\)</span></td>
+<td>몇 번째 궤적인가 (궤적 사이의 축)</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(t\)</span></td>
+<td><span class="math inline">\(0,\dots,T-1\)</span></td>
+<td>그 궤적 안의 몇 번째 스텝인가 (궤적 내부의 축)</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math inline">\(c(s,m)\)</span>은 <span class="math inline">\(t\)</span> 방향으로 합한 값이므로 <span class="math inline">\(t\)</span>가 사라지고 <span class="math inline">\(m\)</span>만 남는다. <span class="math inline">\(x_0\)</span>와 <span class="math inline">\(s\)</span>는 같은 출발 상태를 가리킨다.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="근거: ≈에 들어 있는 두 오차">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-3-contents" aria-controls="callout-3" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>근거: ≈에 들어 있는 두 오차
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-3" class="callout-3-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><strong>유한 샘플 오차</strong>: 표본평균의 표준편차는 <span class="math inline">\(O(1/\sqrt M)\)</span>이다.</li>
+<li><strong>절단 오차</strong>: <span class="math inline">\(\mathbb{E}[G(s)]\)</span>는 정확히는 <span class="math inline">\(T\)</span>-스텝 가치다. <span class="math inline">\(|r|\le R_{\max}\)</span>이면 <span class="math display">\[
+\big|v^\pi(s)-\mathbb{E}[G(s)]\big|=\Big|\mathbb{E}\Big[\sum_{t\ge T}\gamma^tr_t\Big]\Big|\le\frac{\gamma^TR_{\max}}{1-\gamma}.
+\]</span> “<span class="math inline">\(\gamma^T\)</span>가 무시할 만하도록 <span class="math inline">\(T\)</span>를 크게 잡는다”는 이 항을 없애는 것이다.</li>
+</ol>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td1" class="quarto-xref">섹션&nbsp;4.1</a></p>
+</section>
+<section id="sec-td1b" class="level3" data-number="4.1.2">
+<h3 data-number="4.1.2" class="anchored" data-anchor-id="sec-td1b"><span class="header-section-number">4.1.2</span> ✍ 반복식 <span class="math inline">\(v\leftarrow v+\alpha_m(c-v)\)</span>와 <span class="math inline">\(\alpha_m=1/m\)</span></h3>
+<p><span class="math inline">\(c_m:=c(s,m)\)</span>, <span class="math inline">\(v_m\)</span>을 <span class="math inline">\(m\)</span>번째 갱신 직후의 값이라 하자.</p>
+<p>안내 질문:</p>
+<ol type="1">
+<li><span class="math inline">\(v_m:=\frac1m\sum_{k=1}^mc_k\)</span>를 <span class="math inline">\(v_{m-1}\)</span>과 <span class="math inline">\(c_m\)</span>으로 표현하라.</li>
+<li>최종 평균은 <span class="math inline">\(M\)</span>으로 나눈 값인데, 왜 <span class="math inline">\(\alpha_m=1/M\)</span>이 아니라 <span class="math inline">\(1/m\)</span>인가? <span class="math inline">\(M=2\)</span>, <span class="math inline">\(c_1=4\)</span>, <span class="math inline">\(c_2=2\)</span>로 두 경우를 계산해 보라.</li>
+<li>초기값 <span class="math inline">\(v_0\)</span>은 결과에 영향을 주는가?</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled" title="풀이">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>풀이
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><strong>1.</strong> 마지막 샘플을 분리하고 <span class="math inline">\(\sum_{k&lt;m}c_k=(m-1)v_{m-1}\)</span>을 쓴다. <span class="math display">\[
+v_m=\frac{(m-1)v_{m-1}+c_m}{m}=\Big(1-\frac1m\Big)v_{m-1}+\frac1mc_m=v_{m-1}+\frac1m\big(c_m-v_{m-1}\big).
+\]</span> <span class="math inline">\(\alpha_m=1/m\)</span>으로 두면 갱신식과 같다.</p>
+<p><strong>2.</strong> 목표는 <span class="math inline">\((4+2)/2=3\)</span>이다.</p>
+<ul>
+<li><span class="math inline">\(\alpha_m=1/m\)</span>: <span class="math inline">\(v_1=0+1\cdot(4-0)=4\)</span>, <span class="math inline">\(v_2=4+\tfrac12(2-4)=3\)</span>. ✓</li>
+<li><span class="math inline">\(\alpha\equiv1/M=1/2\)</span>: <span class="math inline">\(v_1=0+\tfrac12(4-0)=2\)</span>, <span class="math inline">\(v_2=2+\tfrac12(2-2)=2\)</span>. ✗</li>
+</ul>
+<p>갱신식은 괄호 안에서 <span class="math inline">\(v\)</span>를 빼므로, 매 단계 <span class="math inline">\(v\)</span>가 “지금까지 본 샘플의 평균”이어야 한다. <span class="math inline">\(m\)</span>번째 시점에 본 샘플은 <span class="math inline">\(m\)</span>개이므로 <span class="math inline">\(m\)</span>으로 나눈다. 그 결과 <span class="math inline">\(m=M\)</span>에서 자연스럽게 <span class="math inline">\(M\)</span>으로 나눈 값이 된다. 상수 <span class="math inline">\(1/M\)</span>을 쓰면 <span class="math display">\[
+v_M=\Big(1-\tfrac1M\Big)^Mv_0+\sum_{k=1}^M\tfrac1M\Big(1-\tfrac1M\Big)^{M-k}c_k
+\]</span> 가 되어 초기값이 남고 최근 샘플에 가중치가 쏠린다.</p>
+<p>“<span class="math inline">\(M\)</span>으로 나눈다”는 직관이 맞는 식은 따로 있다. <span class="math inline">\(v\leftarrow v+\frac1Mc_m\)</span>처럼 합을 누적하는 식이다. 이 경우 결과는 맞지만 중간값은 평균이 아니고, <span class="math inline">\(M\)</span>을 미리 알아야 한다.</p>
+<p><strong>3.</strong> <span class="math inline">\(\alpha_1=1\)</span>이므로 <span class="math inline">\(v_1=c_1\)</span>이다. 첫 갱신에서 초기값이 지워진다. <span class="math inline">\(v(s)\leftarrow0\)</span>은 편의상의 선택이다.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>둘째 형태 <span class="math inline">\(v_m=(1-\alpha_m)v_{m-1}+\alpha_mc_m\)</span>은 stochastic approximation의 모양 그대로다. <span class="math inline">\(H\)</span>가 상수 사상 <span class="math inline">\(Hv\equiv v^\pi(s)\)</span>이고 관측 신호가 <span class="math inline">\(c_m=v^\pi(s)+w_m\)</span>인 가장 단순한 경우다. MC 표본평균은 Robbins–Monro의 특수한 경우다. TD(0)는 같은 틀에서 신호 <span class="math inline">\(c_m\)</span>을 한 스텝 신호로 바꾼 것이다 → <a href="#sec-td4a" class="quarto-xref">섹션&nbsp;5.3.1</a></p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td1" class="quarto-xref">섹션&nbsp;4.1</a></p>
+</section>
+<section id="sec-td1c" class="level3" data-number="4.1.3">
+<h3 data-number="4.1.3" class="anchored" data-anchor-id="sec-td1c"><span class="header-section-number">4.1.3</span> 갱신 폭이 <span class="math inline">\(1/m\)</span>로 줄어드는 것의 의미</h3>
+<p><strong>먼저 떠올릴 질문.</strong> 시행이 늘수록 한 번의 갱신이 작아진다. 이것은 결함인가, 의도인가?</p>
+<p><strong>답.</strong> 의도다.</p>
+<ul>
+<li><strong>새 샘플의 정당한 몫이 <span class="math inline">\(1/m\)</span>이다.</strong> 표본평균에서는 모든 샘플이 같은 가중치 <span class="math inline">\(1/m\)</span>을 가져야 한다.</li>
+<li><strong>추정치가 안정된다.</strong> 샘플 분산이 <span class="math inline">\(\sigma^2\)</span>이면 <span class="math inline">\(\operatorname{Var}(v_m)=\sigma^2/m\)</span>이다.</li>
+<li><strong>그래도 너무 빨리 줄지 않는다.</strong> <span class="math inline">\(\sum1/m=\infty\)</span>이므로 누적 이동량에 상한이 없어 초기 오차를 결국 지운다. <span class="math inline">\(\sum1/m^2&lt;\infty\)</span>이므로 잡음은 잦아든다. step size가 줄기는 해야 하지만 너무 빨리 줄면 안 된다는 SA 조건을 <span class="math inline">\(1/m\)</span>이 정확히 지킨다.</li>
+</ul>
+<div class="callout callout-style-default callout-note callout-titled" title="근거: 더 빨리 줄이거나 줄이지 않으면">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>근거: 더 빨리 줄이거나 줄이지 않으면
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-6" class="callout-6-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<ul>
+<li><span class="math inline">\(\alpha_m=1/m^2\)</span>: <span class="math inline">\(\sum1/m^2&lt;\infty\)</span>이므로 총 이동 거리가 유계다. 초기값에서 먼 참값에 닿지 못할 수 있다.</li>
+<li><span class="math inline">\(\alpha_m\equiv\alpha\)</span>: 지수 가중평균이 된다. <span class="math inline">\(\sum\alpha^2=\infty\)</span>이므로 분산이 0으로 가지 않고 참값 근처에서 진동한다.</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-7-contents" aria-controls="callout-7" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-7" class="callout-7-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>목표가 고정되어 있으면 <span class="math inline">\(1/m\)</span>이 최적이다. 목표가 움직이면 사정이 다르다. 정책이 바뀌거나, TD처럼 신호 <span class="math inline">\(r_t+\gamma v(s_{t+1})\)</span> 안에 학습 중인 <span class="math inline">\(v\)</span>가 들어 있는 경우다. 이때 <span class="math inline">\(1/m\)</span>은 오래된 샘플까지 똑같이 붙들어 너무 보수적이다. 실제 구현에서 상수 <span class="math inline">\(\alpha\)</span>를 자주 쓰는 이유다. 수렴 조건을 포기하는 대신 추적 능력을 얻는다.</p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td1" class="quarto-xref">섹션&nbsp;4.1</a></p>
+</section>
+</section>
+</section>
+<section id="sec-partII" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> II. TD(0)</h1>
+<section id="sec-td2" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="sec-td2"><span class="header-section-number">5.1</span> 동기: 전이 하나로 갱신할 수 있는가</h2>
+<p><strong>먼저 떠올릴 질문.</strong> 정책 <span class="math inline">\(\pi\)</span>를 따라 움직이며 매 스텝 얻는 데이터는 무엇인가? 그것만으로 <span class="math inline">\(v^\pi\)</span>의 고정점 방정식을 풀려면 무엇이 필요한가?</p>
+<p><strong>답.</strong> 매 스텝 얻는 데이터의 단위는 <strong>전이 데이터</strong>다.</p>
+<p><span class="math display">\[
+\{(s_t,a_t,r_t,s_{t+1})\}\quad(\pi\text{ 하에서}).
+\]</span></p>
+<p>목표는 이 데이터를 받는 즉시 <span class="math inline">\(v^\pi\)</span>의 추정치를 고치는 것, 즉 model-free이면서 online인 방법이다. 핵심 아이디어는 <strong>stochastic approximation</strong>이다. 고정점 문제 <span class="math inline">\(Hx=x\)</span>에서 <span class="math inline">\(Hx\)</span>를 정확히 계산할 수 없고 잡음 섞인 값 <span class="math inline">\(Hx+w\)</span>만 얻을 때 쓰는 반복이다.</p>
+<p><span class="math display">\[
+x_{k+1}(i)=(1-\alpha_k(i))\,x_k(i)+\alpha_k(i)\big[(Hx_k)(i)+w_k(i)\big].
+\]</span></p>
+<p>수렴 조건은 다음과 같다.</p>
+<p><span class="math display">\[
+\sum_k\alpha_k(i)=+\infty,\quad\sum_k\alpha_k(i)^2&lt;+\infty,\qquad
+\mathbb{E}[w_k(i)\mid\mathcal F_k]=0,\quad\mathbb{E}[w_k(i)^2\mid\mathcal F_k]\le C_0+C_1\|x_k\|^2.
+\]</span></p>
+<p>step size는 줄어야 하지만 너무 빨리 줄면 안 된다. 잡음은 조건부로 편향이 없어야 하고, <span class="math inline">\(x_k\)</span>에 비해 지나치게 커지면 안 된다.</p>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-8-contents" aria-controls="callout-8" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-8" class="callout-8-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>SA를 쓰려면 정책 평가 방정식을 “기댓값 = 무엇” 꼴로 써야 한다. 그래야 기댓값 자리에 관측 하나를 넣었을 때 잡음이 조건부 평균 0이 된다 → <a href="#sec-td3" class="quarto-xref">섹션&nbsp;5.2</a></p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+</section>
+<section id="sec-td3" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="sec-td3"><span class="header-section-number">5.2</span> 정책 평가 방정식을 기댓값으로 쓰기</h2>
+<p><strong>먼저 떠올릴 질문.</strong> <span class="math inline">\(v^\pi(s_t)=\mathbb{E}[r(s_t,\pi(s_t))+\gamma v^\pi(s_{t+1})]\)</span>에서 기댓값은 무엇에 대한 것인가? 무엇에 조건을 걸어야 정확한가?</p>
+<p><strong>답.</strong></p>
+<p><span class="math display">\[
+v^\pi(s_t)=\mathbb{E}\big[r(s_t,\pi(s_t))+\gamma v^\pi(s_{t+1})\big].
+\]</span></p>
+<p>정확히 쓰면 시점 <span class="math inline">\(t\)</span>까지의 history <span class="math inline">\(\mathcal F_t\)</span>에 조건을 걸어야 한다. Markov 성질에 의해 이는 <span class="math inline">\(s_t=s\)</span>에 조건을 거는 것과 같다.</p>
+<p><span class="math display">\[
+v^\pi(s)=\mathbb{E}\big[r(s,\pi(s))+\gamma v^\pi(s_{t+1})\,\big|\,s_t=s\big],\qquad s_{t+1}\sim p(\cdot\mid s,\pi(s)).
+\]</span></p>
+<p>기댓값은 <strong><span class="math inline">\(s_{t+1}\)</span>에 대한 것</strong>이다. 기댓값을 풀면 전이 확률이 붙고 다음 상태에 대해 합한 형태, 즉 <span class="math inline">\(v=T^\pi v\)</span>가 된다.</p>
+<p><strong>↓ 내려가기</strong>: <a href="#sec-td3a" class="quarto-xref">섹션&nbsp;5.2.1</a> · <a href="#sec-td3b" class="quarto-xref">섹션&nbsp;5.2.2</a> <strong>↑ 올라가기</strong>: <a href="#sec-td0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+<section id="sec-td3a" class="level3" data-number="5.2.1">
+<h3 data-number="5.2.1" class="anchored" data-anchor-id="sec-td3a"><span class="header-section-number">5.2.1</span> ✍ 전이 확률은 어디로 갔나</h3>
+<p>안내 질문:</p>
+<ol type="1">
+<li>조건 <span class="math inline">\(s_t=s\)</span> 아래에서 무작위인 것은 무엇이고, 그 분포는?</li>
+<li>기댓값을 항별로 풀어 <span class="math inline">\(v=T^\pi v\)</span>와 같음을 보여라.</li>
+<li>같은 식을 합 형태가 아니라 기댓값 형태로 쓰면 무엇이 달라지는가?</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled" title="풀이">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-9-contents" aria-controls="callout-9" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>풀이
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-9" class="callout-9-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><strong>1.</strong> <span class="math inline">\(s_{t+1}\)</span> 하나뿐이고, 분포는 <span class="math inline">\(p(\cdot\mid s,\pi(s))\)</span>다.</p>
+<p><strong>2.</strong> <span class="math inline">\(r(s,\pi(s))\)</span>는 <span class="math inline">\(s\)</span>가 주어지면 상수이므로 기댓값을 통과한다. 둘째 항은 이산 확률 변수 함수의 기댓값 정의에 따라 <span class="math display">\[
+\mathbb{E}\big[v^\pi(s_{t+1})\mid s_t=s\big]=\sum_{s'}p(s'\mid s,\pi(s))\,v^\pi(s').
+\]</span> 합치면 <span class="math inline">\(v^\pi(s)=r(s,\pi(s))+\gamma\sum_{s'}p(s'\mid s,\pi(s))v^\pi(s')\)</span>, 즉 <span class="math inline">\(v=T^\pi v\)</span>다.</p>
+<p><strong>3.</strong> 합 형태 <span class="math inline">\(\sum_{s'}p(\cdot)v(s')\)</span>는 계산하려면 <span class="math inline">\(p\)</span>를 직접 알아야 한다. 기댓값 형태 <span class="math inline">\(\mathbb{E}[v(s_{t+1})]\)</span>는 샘플 하나로 근사할 수 있다. 그리고 그 샘플 <span class="math inline">\(s_{t+1}\)</span>은 <strong>환경이 <span class="math inline">\(p\)</span>에 따라 뽑아서</strong> 준다.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-10-contents" aria-controls="callout-10" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-10" class="callout-10-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(p\)</span>는 여전히 쓰인다. 다만 우리가 계산하는 대신 환경이 샘플링으로 대신 처리한다. 이것이 model-free의 정확한 의미다.</p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td3" class="quarto-xref">섹션&nbsp;5.2</a></p>
+</section>
+<section id="sec-td3b" class="level3" data-number="5.2.2">
+<h3 data-number="5.2.2" class="anchored" data-anchor-id="sec-td3b"><span class="header-section-number">5.2.2</span> 왜 다음 상태 가치의 기댓값인가</h3>
+<p><strong>먼저 떠올릴 질문.</strong> 좌변은 <span class="math inline">\(v(s_t)\)</span>인데 우변 기댓값 안에는 왜 <span class="math inline">\(v(s_{t+1})\)</span>이 있는가?</p>
+<p><strong>답.</strong> 두 항은 다른 시점의 가치다.</p>
+<p><span class="math display">\[
+\underbrace{v^\pi(s)}_{\text{지금 상태의 가치}}=r(s,\pi(s))+\gamma\,\mathbb{E}\big[\underbrace{v^\pi(s_{t+1})}_{\text{다음 상태의 가치}}\,\big|\,s_t=s\big].
+\]</span></p>
+<p>좌변은 <span class="math inline">\(s_t=s\)</span>로 고정되어 무작위성이 없다. 우변에서는 다음에 어디로 갈지가 무작위이므로 도착한 곳의 가치도 확률 변수다. 그래서 평균을 낸다. “기댓값을 취하는 양”은 <span class="math inline">\(v^\pi(s_{t+1})\)</span>이고, “무작위성의 출처”는 <span class="math inline">\(s_{t+1}\)</span>의 분포다.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="유도: 가치의 정의에서">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-11-contents" aria-controls="callout-11" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>유도: 가치의 정의에서
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-11" class="callout-11-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><span class="math display">\[
+v^\pi(s)=\mathbb{E}\Big[\sum_{k\ge0}\gamma^kr_{t+k}\,\Big|\,s_t=s\Big]
+=r(s,\pi(s))+\gamma\,\mathbb{E}\Big[\sum_{k\ge0}\gamma^kr_{t+1+k}\,\Big|\,s_t=s\Big].
+\]</span> 반복 기댓값 법칙으로 <span class="math inline">\(s_{t+1}\)</span>에 먼저 조건을 건다. Markov 성질에 의해 <span class="math inline">\(s_{t+1}\)</span>이 주어지면 그 이후는 <span class="math inline">\(s_t\)</span>와 무관하다. <span class="math display">\[
+\mathbb{E}\Big[\sum_k\gamma^kr_{t+1+k}\,\Big|\,s_t=s\Big]
+=\mathbb{E}\Big[\underbrace{\mathbb{E}\Big[\sum_k\gamma^kr_{t+1+k}\,\Big|\,s_{t+1}\Big]}_{=\,v^\pi(s_{t+1})}\,\Big|\,s_t=s\Big].
+\]</span> 미래 누적 보상의 꼬리를 “다음 상태에서 출발한 가치”로 다시 묶은 것이 가치 분해다.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-12-contents" aria-controls="callout-12" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-12" class="callout-12-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(v^\pi\)</span>가 좌우변에 모두 등장하므로 이 식은 <span class="math inline">\(v^\pi\)</span>에 대한 고정점 방정식이다. 같은 분해를 한 스텝이 아니라 <span class="math inline">\(\ell+1\)</span> 스텝 뒤에서 하면 multi-step 방정식이 된다 → <a href="#sec-td6" class="quarto-xref">섹션&nbsp;6.1</a></p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td3" class="quarto-xref">섹션&nbsp;5.2</a></p>
+</section>
+</section>
+<section id="sec-td4" class="level2" data-number="5.3">
+<h2 data-number="5.3" class="anchored" data-anchor-id="sec-td4"><span class="header-section-number">5.3</span> TD(0) 갱신식과 temporal difference</h2>
+<p><strong>먼저 떠올릴 질문.</strong> 기댓값 <span class="math inline">\(\mathbb{E}[\,r_t+\gamma v^\pi(s_{t+1})\mid s_t\,]\)</span>를 샘플 하나로 바꾼다면, 매 스텝 관측하는 <span class="math inline">\((s_t,a_t,r_t,s_{t+1})\)</span> 중 무엇을 넣으면 되는가?</p>
+<p><strong>답.</strong> 관측한 <span class="math inline">\(s_{t+1}\)</span>을 그대로 넣는다(<strong>단일 샘플 근사</strong>). Robbins–Monro를 적용하면</p>
+<p><span class="math display">\[
+v(s_t)\leftarrow(1-\alpha_t)\,v(s_t)+\alpha_t\big(r_t+\gamma v(s_{t+1})\big).
+\]</span></p>
+<p><span class="math inline">\(\alpha_t\)</span>로 묶으면</p>
+<p><span class="math display">\[
+v(s_t)\leftarrow v(s_t)+\alpha_t\big(\underbrace{r_t+\gamma v(s_{t+1})}_{\text{new estimate}}-\underbrace{v(s_t)}_{\text{old estimate}}\big).
+\]</span></p>
+<p>괄호 안은 학습 방향이다. 새 추정치에서 옛 추정치를 뺀 것이다. 시점 <span class="math inline">\(t+1\)</span>의 정보로 만든 <span class="math inline">\(v(s_t)\)</span> 추정치와 시점 <span class="math inline">\(t\)</span>에 갖고 있던 추정치의 <strong>시간에 따른 차이</strong>를 보정한다는 뜻에서 <strong>temporal difference</strong>라 부른다.</p>
+<p><span class="math display">\[
+d_t:=r_t+\gamma v(s_{t+1})-v(s_t).
+\]</span></p>
+<div class="callout callout-style-default callout-important callout-titled" title="갱신의 전부">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>갱신의 전부
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>옛 추정치에 <span class="math inline">\(1-\alpha_t\)</span>, Bellman 방정식 우변의 단일 샘플 추정치에 <span class="math inline">\(\alpha_t\)</span>의 가중치를 둔다.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled" title="표기 주의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-14-contents" aria-controls="callout-14" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>표기 주의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-14" class="callout-14-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>기댓값 식의 <span class="math inline">\(s_{t+1}\)</span>은 확률 변수이고, 갱신식의 <span class="math inline">\(s_{t+1}\)</span>은 실제로 관측된 값이다. 같은 기호를 편의상 겹쳐 쓴 것이다. 또 갱신식의 <span class="math inline">\(v\)</span>는 참값 <span class="math inline">\(v^\pi\)</span>가 아니라 학습 중인 추정치다.</p>
+</div>
+</div>
+</div>
+<p><strong>↓ 내려가기</strong>: <a href="#sec-td4a" class="quarto-xref">섹션&nbsp;5.3.1</a> <strong>↑ 올라가기</strong>: <a href="#sec-td0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+<section id="sec-td4a" class="level3" data-number="5.3.1">
+<h3 data-number="5.3.1" class="anchored" data-anchor-id="sec-td4a"><span class="header-section-number">5.3.1</span> ✍ Stochastic approximation 틀에 맞추기</h3>
+<p>안내 질문:</p>
+<ol type="1">
+<li>갱신식을 <span class="math inline">\(v(s_t)\leftarrow(1-\alpha_t)v(s_t)+\alpha_t[(Hv)(s_t)+w_t]\)</span> 꼴로 맞추려면 <span class="math inline">\(H\)</span>와 <span class="math inline">\(w_t\)</span>는 각각 무엇인가?</li>
+<li><span class="math inline">\(\mathbb{E}[w_t\mid\mathcal F_t]=0\)</span>을 보여라.</li>
+<li>MC의 신호 <span class="math inline">\(c(s,m)\)</span>과 TD(0)의 신호 <span class="math inline">\(r_t+\gamma v(s_{t+1})\)</span>을 비교하라. 각각 무엇의 추정치이고, 언제 편향이 없는가?</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled" title="풀이">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-15-contents" aria-controls="callout-15" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>풀이
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-15" class="callout-15-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><strong>1.</strong> <span class="math display">\[
+H=T^\pi,\qquad
+w_t:=\gamma\Big(v(s_{t+1})-\sum_{s'}p(s'\mid s_t,\pi(s_t))\,v(s')\Big).
+\]</span> 그러면 <span class="math inline">\((T^\pi v)(s_t)+w_t=r_t+\gamma v(s_{t+1})\)</span>이다.</p>
+<p><strong>2.</strong> <span class="math inline">\(s_t\)</span>와 현재 추정치 <span class="math inline">\(v\)</span>는 <span class="math inline">\(\mathcal F_t\)</span>에 대해 알려져 있고, <span class="math inline">\(s_{t+1}\)</span>은 <span class="math inline">\(p(\cdot\mid s_t,\pi(s_t))\)</span>에서 나온다. 따라서 <span class="math inline">\(\mathbb{E}[v(s_{t+1})\mid\mathcal F_t]=\sum_{s'}p(s'\mid s_t,\pi(s_t))v(s')\)</span>이고 <span class="math inline">\(\mathbb{E}[w_t\mid\mathcal F_t]=0\)</span>이다.</p>
+<p><strong>3.</strong></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>신호</th>
+<th>무엇의 추정치</th>
+<th>편향</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(c(s,m)\)</span></td>
+<td><span class="math inline">\(v^\pi(s)\)</span> 자체</td>
+<td>없음 (절단 무시). 궤적 전체가 필요</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(r_t+\gamma v(s_{t+1})\)</span></td>
+<td><span class="math inline">\((T^\pi v)(s_t)\)</span></td>
+<td><span class="math inline">\(T^\pi v\)</span>에 대해서는 없음. <span class="math inline">\(v\ne v^\pi\)</span>이면 <span class="math inline">\(v^\pi(s_t)\)</span>에 대해서는 편향</td>
+</tr>
+</tbody>
+</table>
+<p>TD(0)의 신호는 현재 추정치 <span class="math inline">\(v\)</span>에 기대어(bootstrapping) 만든 것이다. 그래서 <span class="math inline">\(v^\pi\)</span>의 추정치로서는 편향이 있지만, 한 스텝 데이터로 충분하다.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-16-contents" aria-controls="callout-16" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-16" class="callout-16-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>SA의 잡음 조건 “조건부 평균 0”은 <span class="math inline">\(T^\pi v\)</span>에 대해 성립한다. 편향은 <span class="math inline">\(v\ne v^\pi\)</span>에서 오는데, 이는 SA가 <span class="math inline">\(T^\pi\)</span>의 고정점을 향해 반복하면서 줄여 가는 부분이다. 3번의 대비가 λ 선택의 bias–variance 이야기로 이어진다 → <a href="#sec-td9" class="quarto-xref">섹션&nbsp;7.1</a></p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td4" class="quarto-xref">섹션&nbsp;5.3</a></p>
+</section>
+</section>
+<section id="sec-td5" class="level2" data-number="5.4">
+<h2 data-number="5.4" class="anchored" data-anchor-id="sec-td5"><span class="header-section-number">5.4</span> TD(0)의 성격</h2>
+<p><strong>먼저 떠올릴 질문.</strong> 한 번의 갱신에서 <span class="math inline">\(v\)</span>의 원소 몇 개가 바뀌는가? 한 번 갱신하는 데 필요한 데이터는?</p>
+<p><strong>답.</strong></p>
+<ul>
+<li><strong>완전히 incremental하다.</strong> 방문한 상태 <span class="math inline">\(s_t\)</span>에서만 갱신한다. 상태 <span class="math inline">\(s_t=i\)</span>를 방문하면 그 시점에는 <span class="math inline">\(v\)</span>의 <span class="math inline">\(i\)</span>번째 원소만 바뀐다. 그래서 <strong>lookup table 표현</strong>이 필요하다.</li>
+<li><strong>가장 가볍다(lightest).</strong> 갱신 한 번에 <span class="math inline">\((s_t,a_t,s_{t+1},r_t)\)</span> 하나만 쓴다.</li>
+<li><strong>완전히 online이다.</strong> 전이 샘플이 들어올 때마다 반복을 한 번 할 수 있다.</li>
+</ul>
+<p>대가도 있다. 한 시점에 한 원소만 바뀌므로 전체적으로 갱신이 천천히 퍼진다.</p>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-17-contents" aria-controls="callout-17" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-17" class="callout-17-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>Q-learning도 똑같이 <span class="math inline">\((s_t,a_t)\)</span> 한 칸만 갱신하는 tabular, fully online 방법이다. 상태(-행동) 공간이 커지면 이 방식이 감당할 수 없는 이유, 즉 함수 근사가 필요한 이유가 여기서 이미 보인다.</p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+</section>
+</section>
+<section id="sec-partIII" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> III. Multi-step 일반화와 TD(λ)</h1>
+<section id="sec-td6" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="sec-td6"><span class="header-section-number">6.1</span> <span class="math inline">\((\ell+1)\)</span>-step Bellman 방정식</h2>
+<p><strong>먼저 떠올릴 질문.</strong> 가치 분해를 “즉각 보상 + 다음 상태의 가치”가 아니라 더 뒤에서 자르면 어떤 식이 되는가?</p>
+<p><strong>답.</strong> 위첨자 <span class="math inline">\(\pi\)</span>를 생략하고 쓰면, 각 <span class="math inline">\(\ell\ge0\)</span>에 대해</p>
+<p><span class="math display">\[
+v(s_t)=\mathbb{E}^\pi\Big[\sum_{k=0}^{\ell}\gamma^kr(s_{t+k},a_{t+k})+\gamma^{\ell+1}v(s_{t+\ell+1})\,\Big|\,\mathcal F_t\Big].
+\]</span></p>
+<p>가치를 두 부분으로 쪼개는 시점을 현재가 아니라 <span class="math inline">\(\ell\)</span>스텝 뒤로 미룬 것이다. 시점 <span class="math inline">\(t\)</span>부터 <span class="math inline">\(t+\ell\)</span>까지의 보상은 실제 보상으로 쓰고, 그 뒤는 <span class="math inline">\(t+\ell+1\)</span>의 가치로 대신한다. <span class="math inline">\(\ell=0\)</span>이면 앞의 1-step 방정식이다.</p>
+<p>이 방정식들은 <span class="math inline">\(\ell=0,1,2,\dots\)</span> 모두에 대해 동시에 성립한다. <span class="math inline">\(v^\pi\)</span>를 특징짓는 식이 무한히 많다는 뜻이다.</p>
+<p><strong>↓ 내려가기</strong>: <a href="#sec-td6a" class="quarto-xref">섹션&nbsp;6.1.1</a> · <a href="#sec-td6b" class="quarto-xref">섹션&nbsp;6.1.2</a> <strong>↑ 올라가기</strong>: <a href="#sec-td0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+<section id="sec-td6a" class="level3" data-number="6.1.1">
+<h3 data-number="6.1.1" class="anchored" data-anchor-id="sec-td6a"><span class="header-section-number">6.1.1</span> <span class="math inline">\(\mathcal F_t\)</span>는 무엇인가</h3>
+<p><strong>답.</strong> 시점 <span class="math inline">\(t\)</span>까지 관측된 정보 전체(history)다.</p>
+<p><span class="math display">\[
+\mathcal F_t\ \leftrightarrow\ (s_0,a_0,r_0,\ s_1,a_1,r_1,\ \dots,\ s_t).
+\]</span></p>
+<p>“<span class="math inline">\(\mid\mathcal F_t\)</span>”는 이 값들을 고정된 것으로 보고, 아직 일어나지 않은 미래만 무작위로 보고 평균 낸다는 뜻이다. 위 식에서 <span class="math inline">\(s_t\)</span>와 <span class="math inline">\(r(s_t,a_t)\)</span>는 고정되고, <span class="math inline">\(s_{t+1},\dots,s_{t+\ell+1}\)</span>과 그에 따른 보상이 무작위다. 고정된 정책 아래 Markov 성질에 의해 <span class="math inline">\(\mathbb{E}^\pi[\cdot\mid\mathcal F_t]=\mathbb{E}^\pi[\cdot\mid s_t]\)</span>이다.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="근거: 측도론적 의미">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-18-contents" aria-controls="callout-18" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>근거: 측도론적 의미
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-18" class="callout-18-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(\mathcal F_t=\sigma(s_0,a_0,\dots,s_t)\)</span>, 즉 이 확률 변수들이 생성하는 σ-algebra다. 정보는 쌓이기만 하므로 <span class="math inline">\(\mathcal F_0\subseteq\mathcal F_1\subseteq\cdots\)</span>이고, 이런 증가열을 filtration이라 한다.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-19-contents" aria-controls="callout-19" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-19" class="callout-19-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(s_t\)</span>만으로 충분한데 굳이 <span class="math inline">\(\mathcal F_t\)</span>로 쓰는 이유는 SA의 잡음 조건과 표기를 맞추기 위해서다. 학습 중인 추정치 <span class="math inline">\(v\)</span>는 과거 샘플 전체로 만들어졌으므로, 잡음의 조건부 평균·분산 조건은 history 전체에 대해 서술해야 한다 → <a href="#sec-td10a" class="quarto-xref">섹션&nbsp;8.1.1</a></p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td6" class="quarto-xref">섹션&nbsp;6.1</a></p>
+</section>
+<section id="sec-td6b" class="level3" data-number="6.1.2">
+<h3 data-number="6.1.2" class="anchored" data-anchor-id="sec-td6b"><span class="header-section-number">6.1.2</span> ✍ <span class="math inline">\((\ell+1)\)</span>-step 방정식은 왜 성립하는가</h3>
+<p>안내 질문:</p>
+<ol type="1">
+<li>1-step 방정식을 시점 <span class="math inline">\(t+1\)</span>에서 쓰고, 시점 <span class="math inline">\(t\)</span>의 1-step 방정식에 대입하라. 반복 기댓값 법칙은 어디에 쓰이는가?</li>
+<li>귀납법으로 일반 <span class="math inline">\(\ell\)</span>에 대해 보여라.</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled" title="풀이">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-20-contents" aria-controls="callout-20" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>풀이
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-20" class="callout-20-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><strong>1.</strong> 시점 <span class="math inline">\(t\)</span>와 <span class="math inline">\(t+1\)</span>의 1-step 방정식은 <span class="math display">\[
+v_t=\mathbb{E}^\pi[r_t+\gamma v_{t+1}\mid\mathcal F_t],\qquad
+v_{t+1}=\mathbb{E}^\pi[r_{t+1}+\gamma v_{t+2}\mid\mathcal F_{t+1}].
+\]</span> 둘째 식을 첫째에 대입하고, <span class="math inline">\(\mathcal F_t\subseteq\mathcal F_{t+1}\)</span>이므로 <span class="math inline">\(\mathbb{E}[\mathbb{E}[\cdot\mid\mathcal F_{t+1}]\mid\mathcal F_t]=\mathbb{E}[\cdot\mid\mathcal F_t]\)</span>를 쓰면 <span class="math display">\[
+v_t=\mathbb{E}^\pi[r_t+\gamma r_{t+1}+\gamma^2v_{t+2}\mid\mathcal F_t].
+\]</span></p>
+<p><strong>2.</strong> <span class="math inline">\(\ell\)</span>에서 성립한다고 하자. 마지막 항 <span class="math inline">\(v_{t+\ell+1}\)</span>에 시점 <span class="math inline">\(t+\ell+1\)</span>의 1-step 방정식을 대입하고 같은 반복 기댓값 법칙을 쓰면 <span class="math inline">\(\ell+1\)</span>에서의 식이 나온다.</p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td6" class="quarto-xref">섹션&nbsp;6.1</a></p>
+</section>
+</section>
+<section id="sec-td7" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="sec-td7"><span class="header-section-number">6.2</span> λ-가중평균: TD 오차의 합으로</h2>
+<p><strong>먼저 떠올릴 질문.</strong> 성립하는 방정식이 무한히 많다. 이것들을 하나의 방정식으로 합치려면, 합이 1인 가중치를 어떻게 고르면 계산이 깔끔해지는가?</p>
+<p><strong>답.</strong> 등비급수 성질을 쓴다. <span class="math inline">\(\lambda&lt;1\)</span>에 대해</p>
+<p><span class="math display">\[
+(1-\lambda)\sum_{\ell=m}^\infty\lambda^\ell=\lambda^m,\qquad\text{특히}\quad(1-\lambda)\sum_{\ell=0}^\infty\lambda^\ell=1.
+\]</span></p>
+<p><span class="math inline">\((\ell+1)\)</span>-step 방정식에 가중치 <span class="math inline">\((1-\lambda)\lambda^\ell\)</span>을 주고 가중평균한다.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><span class="math inline">\(\ell\)</span></th>
+<th>방정식</th>
+<th>가중치</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>0</td>
+<td><span class="math inline">\(r_t+\gamma v_{t+1}\)</span></td>
+<td><span class="math inline">\(1-\lambda\)</span></td>
+</tr>
+<tr class="even">
+<td>1</td>
+<td><span class="math inline">\(r_t+\gamma r_{t+1}+\gamma^2v_{t+2}\)</span></td>
+<td><span class="math inline">\((1-\lambda)\lambda\)</span></td>
+</tr>
+<tr class="odd">
+<td>2</td>
+<td>3-step</td>
+<td><span class="math inline">\((1-\lambda)\lambda^2\)</span></td>
+</tr>
+<tr class="even">
+<td>⋮</td>
+<td>⋮</td>
+<td>⋮</td>
+</tr>
+</tbody>
+</table>
+<p>정리하면 temporal difference의 할인합이 남는다.</p>
+<p><span class="math display">\[
+\boxed{\,v(s_t)=\mathbb{E}^\pi\Big[\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k\,\Big|\,\mathcal F_t\Big]+v(s_t),\qquad d_k:=r(s_k,\pi(s_k))+\gamma v(s_{k+1})-v(s_k).\,}
+\]</span></p>
+<p><strong>↓ 내려가기</strong>: <a href="#sec-td7a" class="quarto-xref">섹션&nbsp;6.2.1</a> · <a href="#sec-td7b" class="quarto-xref">섹션&nbsp;6.2.2</a> · <a href="#sec-td7c" class="quarto-xref">섹션&nbsp;6.2.3</a> <strong>↑ 올라가기</strong>: <a href="#sec-td0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+<section id="sec-td7a" class="level3" data-number="6.2.1">
+<h3 data-number="6.2.1" class="anchored" data-anchor-id="sec-td7a"><span class="header-section-number">6.2.1</span> ✍ 유도를 한 줄씩</h3>
+<p>안내 질문:</p>
+<ol type="1">
+<li><span class="math inline">\(v_t=(1-\lambda)\sum_\ell\lambda^\ell v_t\)</span>로 쓴 뒤, <span class="math inline">\(\ell\)</span>번째 조각에 무엇을 대입하는가?</li>
+<li>결과를 보상 부분 <span class="math inline">\(A\)</span>와 가치 부분 <span class="math inline">\(B\)</span>로 나눠라.</li>
+<li><span class="math inline">\(A\)</span>의 이중합 순서를 바꾸고 등비급수 성질을 써라.</li>
+<li><span class="math inline">\(B\)</span>를 두 합으로 나누고, 둘째 합의 인덱스를 한 칸 옮겨라. <span class="math inline">\(v_t\)</span>는 왜 남는가?</li>
+<li>합친 뒤 <span class="math inline">\(\gamma^k\)</span>를 묶고 인덱스를 절대 시점으로 바꿔라.</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled" title="풀이">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-21-contents" aria-controls="callout-21" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>풀이
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-21" class="callout-21-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><strong>1. 양변에 1을 곱한다.</strong> <span class="math display">\[
+v_t=(1-\lambda)\sum_{\ell=0}^\infty\lambda^\ell v_t.
+\]</span> <span class="math inline">\(v_t\)</span>를 무게 <span class="math inline">\((1-\lambda)\lambda^\ell\)</span>인 조각들로 나눈 것이다. <span class="math inline">\(\ell\)</span>번째 조각에 <span class="math inline">\((\ell+1)\)</span>-step 방정식을 대입하고, 기댓값의 선형성으로 합을 안으로 넣는다. <span class="math display">\[
+v_t=(1-\lambda)\,\mathbb{E}^\pi\Big[\sum_{\ell=0}^\infty\lambda^\ell\Big(\sum_{k=0}^\ell\gamma^kr_{t+k}+\gamma^{\ell+1}v_{t+\ell+1}\Big)\,\Big|\,\mathcal F_t\Big].
+\]</span></p>
+<p><strong>2. 두 덩어리로 나눈다.</strong> <span class="math display">\[
+A:=(1-\lambda)\sum_{\ell=0}^\infty\lambda^\ell\sum_{k=0}^\ell\gamma^kr_{t+k},\qquad
+B:=\sum_{\ell=0}^\infty(\lambda^\ell-\lambda^{\ell+1})\gamma^{\ell+1}v_{t+\ell+1}.
+\]</span> <span class="math inline">\(B\)</span>는 <span class="math inline">\((1-\lambda)\)</span>를 안으로 분배만 한 것이다.</p>
+<p><strong>3. <span class="math inline">\(A\)</span>: 합의 순서를 바꾼다.</strong> 범위 <span class="math inline">\(0\le k\le\ell&lt;\infty\)</span>를 <span class="math inline">\(k\)</span> 먼저 읽으면 <span class="math inline">\(k\ge0\)</span>, <span class="math inline">\(\ell\ge k\)</span>다 → <a href="#sec-td7b" class="quarto-xref">섹션&nbsp;6.2.2</a> <span class="math display">\[
+A=(1-\lambda)\sum_{k=0}^\infty\gamma^kr_{t+k}\sum_{\ell=k}^\infty\lambda^\ell=\sum_{k=0}^\infty\lambda^k\gamma^kr_{t+k}.
+\]</span></p>
+<p><strong>4. <span class="math inline">\(B\)</span>: 두 합으로 나누고 인덱스를 옮긴다.</strong> <span class="math display">\[
+B=\underbrace{\sum_{\ell\ge0}\lambda^\ell\gamma^{\ell+1}v_{t+\ell+1}}_{B_1}-\underbrace{\sum_{\ell\ge0}\lambda^{\ell+1}\gamma^{\ell+1}v_{t+\ell+1}}_{B_2}.
+\]</span> <span class="math inline">\(B_1\)</span>은 <span class="math inline">\(\ell\)</span>을 <span class="math inline">\(k\)</span>로 이름만 바꾼다. <span class="math inline">\(B_2\)</span>는 <span class="math inline">\(j=\ell+1\)</span>로 두면 <span class="math inline">\(j\ge1\)</span>이다. <span class="math inline">\(j=0\)</span> 항(<span class="math inline">\(v_t\)</span>)을 더하고 빼서 0부터 시작하게 맞춘다. <span class="math display">\[
+B_2=\sum_{k\ge0}\lambda^k\gamma^kv_{t+k}-v_t.
+\]</span> 따라서 <span class="math display">\[
+B=\sum_{k\ge0}\lambda^k\gamma^{k+1}v_{t+k+1}-\sum_{k\ge0}\lambda^k\gamma^kv_{t+k}+v_t.
+\]</span> 마지막 <span class="math inline">\(v_t\)</span>는 <span class="math inline">\(k=0\)</span> 항 하나가 빠져 있어서 남은 것이다. <span class="math inline">\(v_t\)</span>는 <span class="math inline">\(\mathcal F_t\)</span>가 주어지면 고정되므로 기댓값 밖으로 나온다.</p>
+<p><strong>5. 합치고 묶는다.</strong> 세 합이 같은 <span class="math inline">\(\lambda^k\)</span>를 가지므로 <span class="math display">\[
+v_t=\mathbb{E}^\pi\Big[\sum_{k=0}^\infty\lambda^k\big(\gamma^kr_{t+k}+\gamma^{k+1}v_{t+k+1}-\gamma^kv_{t+k}\big)\,\Big|\,\mathcal F_t\Big]+v_t.
+\]</span> <span class="math inline">\(\gamma^k\)</span>를 꺼내면 <span class="math inline">\(\lambda^k\gamma^k(r_{t+k}+\gamma v_{t+k+1}-v_{t+k})=(\lambda\gamma)^kd_{t+k}\)</span>이다. 절대 시점 <span class="math inline">\(j=t+k\)</span>로 바꾸면(<span class="math inline">\(k=0\leftrightarrow j=t\)</span>) 상자 안의 식이 된다.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled" title="근거: 합의 교환이 정당한 이유">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-22-contents" aria-controls="callout-22" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>근거: 합의 교환이 정당한 이유
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-22" class="callout-22-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>보상이 유계이고 <span class="math inline">\(\gamma&lt;1\)</span>, <span class="math inline">\(\lambda&lt;1\)</span>이면 모든 급수가 절대수렴한다. Fubini–Tonelli 정리에 의해 무한합의 순서 교환과, 합과 기댓값의 교환이 정당하다.</p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td7" class="quarto-xref">섹션&nbsp;6.2</a></p>
+</section>
+<section id="sec-td7b" class="level3" data-number="6.2.2">
+<h3 data-number="6.2.2" class="anchored" data-anchor-id="sec-td7b"><span class="header-section-number">6.2.2</span> 합의 순서를 기계적으로 바꾸는 법</h3>
+<p><strong>먼저 떠올릴 질문.</strong> 그림을 그리지 않고도 <span class="math inline">\(\sum_{\ell=0}^\infty\sum_{k=0}^\ell\)</span>을 <span class="math inline">\(\sum_k\sum_\ell\)</span>로 바꿀 수 있는가?</p>
+<p><strong>답.</strong> 범위를 <strong>부등식 하나로 모은 뒤, 새 바깥 변수부터 다시 읽는다.</strong></p>
+<ol type="1">
+<li><strong>범위를 모은다.</strong> 바깥 범위와 안쪽 범위를 한데 쓴다: <span class="math inline">\(0\le\ell&lt;\infty\)</span>, <span class="math inline">\(0\le k\le\ell\)</span>. 이제 이중합은 “이 부등식을 만족하는 모든 <span class="math inline">\((\ell,k)\)</span>에 대해 더한다”는 뜻일 뿐이다.</li>
+<li><strong>정리한다</strong>: <span class="math inline">\(0\le k\le\ell&lt;\infty\)</span>.</li>
+<li><strong>새 바깥 변수의 범위</strong>: 안쪽 변수 <span class="math inline">\(\ell\)</span>을 지우고 남는 <span class="math inline">\(k\)</span>의 범위. <span class="math inline">\(0\le k&lt;\infty\)</span>.</li>
+<li><strong>새 안쪽 변수의 범위</strong>: <span class="math inline">\(k\)</span>를 상수로 보고 <span class="math inline">\(\ell\)</span>의 하한 중 최댓값부터 상한 중 최솟값까지. <span class="math inline">\(\ell\ge k\)</span>, <span class="math inline">\(\ell\ge0\)</span>, <span class="math inline">\(\ell&lt;\infty\)</span>이므로 <span class="math inline">\(\ell=k,\dots,\infty\)</span>.</li>
+</ol>
+<p><span class="math display">\[
+\sum_{\ell=0}^\infty\sum_{k=0}^\ell f(\ell,k)=\sum_{k=0}^\infty\sum_{\ell=k}^\infty f(\ell,k).
+\]</span></p>
+<p>인덱스 이동도 같은 방식으로 기계적으로 한다. <span class="math inline">\(j=\ell+1\)</span>이면 <span class="math inline">\(\ell=j-1\)</span>을 옛 범위 <span class="math inline">\(\ell\ge0\)</span>에 넣어 <span class="math inline">\(j\ge1\)</span>을 얻고, 합 안의 <span class="math inline">\(\ell\)</span>을 모두 <span class="math inline">\(j-1\)</span>로 바꾼다.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="연습과 검산">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-23-contents" aria-controls="callout-23" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>연습과 검산
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-23" class="callout-23-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><strong>연습.</strong> <span class="math inline">\(\sum_{i=1}^n\sum_{j=i}^nf(i,j)\)</span>의 범위는 <span class="math inline">\(1\le i\le j\le n\)</span>이다. 바깥을 <span class="math inline">\(j\)</span>로 하면 <span class="math inline">\(1\le j\le n\)</span>, 안쪽은 <span class="math inline">\(1\le i\le j\)</span>다. 따라서 <span class="math inline">\(\sum_{j=1}^n\sum_{i=1}^jf(i,j)\)</span>.</p>
+<p><strong>검산.</strong> <span class="math inline">\(\ell\le2\)</span>까지 잘라서 쌍을 나열해 비교한다.</p>
+<ul>
+<li>바꾸기 전: <span class="math inline">\((0,0),\ (1,0),(1,1),\ (2,0),(2,1),(2,2)\)</span></li>
+<li>바꾼 뒤: <span class="math inline">\(k=0\)</span>에서 <span class="math inline">\((0,0),(1,0),(2,0)\)</span>, <span class="math inline">\(k=1\)</span>에서 <span class="math inline">\((1,1),(2,1)\)</span>, <span class="math inline">\(k=2\)</span>에서 <span class="math inline">\((2,2)\)</span></li>
+</ul>
+<p>같은 여섯 쌍이면 맞다.</p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td7" class="quarto-xref">섹션&nbsp;6.2</a></p>
+</section>
+<section id="sec-td7c" class="level3" data-number="6.2.3">
+<h3 data-number="6.2.3" class="anchored" data-anchor-id="sec-td7c"><span class="header-section-number">6.2.3</span> 이 식은 무엇을 말하는가</h3>
+<p><strong>답.</strong> 양변에 <span class="math inline">\(v(s_t)\)</span>가 있으므로, 상자 안의 식은 다음과 같은 말이다.</p>
+<p><span class="math display">\[
+\mathbb{E}^\pi\Big[\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k\,\Big|\,\mathcal F_t\Big]=0.
+\]</span></p>
+<p><span class="math inline">\(v=v^\pi\)</span>이면 각 <span class="math inline">\(d_k\)</span>의 조건부 평균이 이미 0이므로(1-step 방정식과 반복 기댓값 법칙) 자연스러운 결과다. 억지로 만든 형태이긴 하지만, 우변에 <span class="math inline">\(v(s_t)\)</span>를 그대로 둔 형태 <span class="math inline">\(v=(\text{기댓값})+v\)</span>가 SA의 <span class="math inline">\(x=Hx\)</span> 꼴에 정확히 맞는다. 그래서 multi-step Bellman 방정식도 고정점 문제가 된다.</p>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-24-contents" aria-controls="callout-24" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-24" class="callout-24-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>이 고정점 문제의 기댓값 자리를 단일 궤적 샘플로 바꾸면 TD(λ)가 된다 → <a href="#sec-td8" class="quarto-xref">섹션&nbsp;6.3</a>. 고정점 사상 <span class="math inline">\(H\)</span>를 벡터로 쓰면 수렴 증명의 출발점이 된다 → <a href="#sec-td10a" class="quarto-xref">섹션&nbsp;8.1.1</a></p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td7" class="quarto-xref">섹션&nbsp;6.2</a></p>
+</section>
+</section>
+<section id="sec-td8" class="level2" data-number="6.3">
+<h2 data-number="6.3" class="anchored" data-anchor-id="sec-td8"><span class="header-section-number">6.3</span> TD(λ) 알고리즘</h2>
+<p><strong>먼저 떠올릴 질문.</strong> <a href="#sec-td7" class="quarto-xref">섹션&nbsp;6.2</a>의 고정점 문제에 Robbins–Monro를 적용하면 갱신식은? 그 갱신을 하려면 언제까지의 데이터가 필요한가?</p>
+<p><strong>답.</strong> 옛 추정치에 <span class="math inline">\(1-\alpha_t\)</span>, 새 추정치의 단일 샘플 버전에 <span class="math inline">\(\alpha_t\)</span>의 가중치를 둔다.</p>
+<p><span class="math display">\[
+v(s_t)\leftarrow(1-\alpha_t)v(s_t)+\alpha_t\Big(\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k+v(s_t)\Big).
+\]</span></p>
+<p><span class="math inline">\(\alpha_t\)</span>로 묶으면 앞뒤의 <span class="math inline">\(v(s_t)\)</span>가 지워진다.</p>
+<p><span class="math display">\[
+\boxed{\,v(s_t)\leftarrow v(s_t)+\alpha_t\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k\,}
+\]</span></p>
+<p><strong>TD(λ) 알고리즘</strong></p>
+<ol type="1">
+<li>정책 <span class="math inline">\(\pi\in\Pi\)</span>를 고정한다.</li>
+<li><span class="math inline">\(v\equiv0\)</span>으로 초기화한다.</li>
+<li>전이 데이터 <span class="math inline">\(\{(s_t,a_t,s_{t+1},r_t)\}\)</span>로 <span class="math inline">\(v(s_t)\leftarrow v(s_t)+\alpha_t\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k\)</span>, 여기서 <span class="math inline">\(d_k:=r_k+\gamma v(s_{k+1})-v(s_k)\)</span>.</li>
+</ol>
+<p>이것도 정책 평가 방법이고, 매 반복에 한 원소만 갱신한다. 갱신에 <span class="math inline">\(k=t,t+1,\dots\)</span>의 <span class="math inline">\(d_k\)</span>가 필요하므로, TD(0)가 아니면 <strong>완전히 online은 아니다.</strong> 궤적 데이터를 어느 정도 모은 뒤에 갱신할 수 있다.</p>
+<p><strong>↓ 내려가기</strong>: <a href="#sec-td8a" class="quarto-xref">섹션&nbsp;6.3.1</a> · <a href="#sec-td8b" class="quarto-xref">섹션&nbsp;6.3.2</a> <strong>↑ 올라가기</strong>: <a href="#sec-td0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+<section id="sec-td8a" class="level3" data-number="6.3.1">
+<h3 data-number="6.3.1" class="anchored" data-anchor-id="sec-td8a"><span class="header-section-number">6.3.1</span> ✍ 두 극단: λ = 0과 λ = 1</h3>
+<p>안내 질문:</p>
+<ol type="1">
+<li><span class="math inline">\(\lambda=0\)</span>일 때 계수 <span class="math inline">\((\lambda\gamma)^{k-t}\)</span>는 <span class="math inline">\(k=t\)</span>와 <span class="math inline">\(k&gt;t\)</span>에서 각각 무엇인가? 어떤 관례가 필요한가?</li>
+<li><span class="math inline">\(\lambda=1\)</span>, <span class="math inline">\(t=0\)</span>이면 <span class="math inline">\(\sum_k\gamma^kd_k\)</span>는 무엇이 되는가? <span class="math inline">\(\gamma^Kv(s_K)\to0\)</span>을 가정하라.</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled" title="풀이">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-25-contents" aria-controls="callout-25" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>풀이
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-25" class="callout-25-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><strong>1.</strong> 관례 <span class="math inline">\(0^0=1\)</span>을 쓰면 <span class="math inline">\(k=t\)</span>에서 1, <span class="math inline">\(k&gt;t\)</span>에서 0이다. 합에서 <span class="math inline">\(d_t\)</span>만 남는다. <span class="math display">\[
+v(s_t)\leftarrow v(s_t)+\alpha d_t=v(s_t)+\alpha\big[r_t+\gamma v(s_{t+1})-v(s_t)\big].
+\]</span> TD(0)다.</p>
+<p><strong>2.</strong> 망원급수가 된다. <span class="math display">\[
+\sum_{k=0}^\infty\gamma^kd_k=\sum_k\gamma^kr_k+\sum_k\big(\gamma^{k+1}v(s_{k+1})-\gamma^kv(s_k)\big)=\sum_k\gamma^kr_k-v(s_0).
+\]</span> 따라서 갱신은 <span class="math inline">\(v(s_0)\leftarrow v(s_0)+\alpha\big(c-v(s_0)\big)\)</span>, <span class="math inline">\(c=\sum_k\gamma^kr_k\)</span>이다. 이는 <a href="#sec-td1" class="quarto-xref">섹션&nbsp;4.1</a>의 Monte Carlo 반복식과 같은 꼴이다. 중간 가치들은 모두 소거되고 실제 보상만 남는다.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-26-contents" aria-controls="callout-26" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-26" class="callout-26-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>TD(λ)는 TD(0)와 MC를 양 끝으로 하는 연속적인 족이다. λ는 현재 추정치에 얼마나 기댈지(bootstrapping)와 실제 보상을 얼마나 멀리까지 쓸지를 조절한다 → <a href="#sec-td9" class="quarto-xref">섹션&nbsp;7.1</a></p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td8" class="quarto-xref">섹션&nbsp;6.3</a></p>
+</section>
+<section id="sec-td8b" class="level3" data-number="6.3.2">
+<h3 data-number="6.3.2" class="anchored" data-anchor-id="sec-td8b"><span class="header-section-number">6.3.2</span> TD(0)의 “0”은 무엇인가</h3>
+<p><strong>답.</strong> TD(λ)의 파라미터 λ에 0을 넣은 경우라는 뜻이다. λ = 0이면 <a href="#sec-td7" class="quarto-xref">섹션&nbsp;6.2</a>의 가중치가 모두 1-step 방정식(<span class="math inline">\(\ell=0\)</span>)에 몰린다.</p>
+<p>“0”은 내다보는 스텝 수가 아니다. TD(0)는 보상 하나를 관측하고 한 스텝 뒤 상태의 가치를 쓰는 <strong>1-step</strong> 방법이다. 스텝 수를 직접 지정하는 n-step TD 표기에서는 TD(0)가 1-step TD에 해당한다.</p>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td8" class="quarto-xref">섹션&nbsp;6.3</a></p>
+</section>
+</section>
+</section>
+<section id="sec-partIV" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> IV. λ의 선택</h1>
+<section id="sec-td9" class="level2" data-number="7.1">
+<h2 data-number="7.1" class="anchored" data-anchor-id="sec-td9"><span class="header-section-number">7.1</span> Bias–variance trade-off</h2>
+<p><strong>먼저 떠올릴 질문.</strong> TD(0)의 목표값 <span class="math inline">\(r_t+\gamma v(s_{t+1})\)</span>과 MC의 목표값 <span class="math inline">\(\sum_k\gamma^kr_k\)</span>에서, 편향은 어디서 오고 분산은 어디서 오는가?</p>
+<p><strong>답.</strong></p>
+<p><span class="math display">\[
+\textbf{큰 }\lambda\textbf{: 작은 bias, 큰 variance}\qquad\qquad
+\textbf{작은 }\lambda\textbf{: 큰 bias, 작은 variance}
+\]</span></p>
+<ul>
+<li>큰 λ는 MC에 가깝다. MC는 실제 보상만 쓰므로 편향이 없다. 하지만 긴 궤적의 무작위 보상과 전이를 모두 더하므로 분산이 크다.</li>
+<li>작은 λ는 TD(0)에 가깝다. 단일 샘플과 현재 추정치 <span class="math inline">\(v(s_{t+1})\)</span>로 근사하므로, <span class="math inline">\(v\)</span>가 부정확한 동안에는 편향이 크다. 대신 무작위 요소가 한 스텝뿐이라 분산이 작다.</li>
+</ul>
+<div class="callout callout-style-default callout-note callout-titled" title="근거: 목표값의 비교">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-27-contents" aria-controls="callout-27" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>근거: 목표값의 비교
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-27" class="callout-27-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>TD(λ)의 갱신은 <span class="math inline">\(v(s_t)\)</span>를 다음 목표값 쪽으로 옮기는 것이다. <span class="math display">\[
+v(s_t)+\sum_{k\ge t}(\lambda\gamma)^{k-t}d_k.
+\]</span></p>
+<ul>
+<li><span class="math inline">\(\lambda=1\)</span>: 망원급수로 <span class="math inline">\(\sum_k\gamma^{k-t}r_k\)</span>, 즉 실제 할인 누적 보상이다. 무작위 항이 궤적 길이만큼 쌓인다.</li>
+<li><span class="math inline">\(\lambda=0\)</span>: <span class="math inline">\(r_t+\gamma v(s_{t+1})\)</span>. 무작위 항은 <span class="math inline">\(s_{t+1}\)</span> 하나뿐이다. 그 대신 <span class="math inline">\(v\)</span>의 오차가 그대로 목표값에 들어간다.</li>
+</ul>
+</div>
+</div>
+</div>
+<p><strong>↓ 내려가기</strong>: <a href="#sec-td9a" class="quarto-xref">섹션&nbsp;7.1.1</a> · <a href="#sec-td9b" class="quarto-xref">섹션&nbsp;7.1.2</a> <strong>↑ 올라가기</strong>: <a href="#sec-td0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+<section id="sec-td9a" class="level3" data-number="7.1.1">
+<h3 data-number="7.1.1" class="anchored" data-anchor-id="sec-td9a"><span class="header-section-number">7.1.1</span> ✍ 두 상태 예시</h3>
+<p>Markov chain에서 두 상태 1, 2가 인접해 있고 <span class="math inline">\(p_{12}&gt;0\)</span>, <span class="math inline">\(p_{21}=0\)</span>이다. 각 궤적은 상태 1을 한 번만 방문한다.</p>
+<p>안내 질문:</p>
+<ol type="1">
+<li>궤적 <span class="math inline">\(m\)</span>에서 상태 1부터의 누적 보상 <span class="math inline">\(c(1,m)\)</span>은 <span class="math inline">\(v^\pi(1)\)</span>의 불편추정량인가? 이 표본평균을 쓰는 것은 어떤 TD(λ)에 해당하는가?</li>
+<li><span class="math inline">\(v^\pi(2)\)</span>의 정확한 추정치가 이미 있다고 하자. TD(1)은 이 정보를 <span class="math inline">\(v^\pi(1)\)</span> 학습에 쓸 수 있는가?</li>
+<li>1→2 전이가 일어났을 때 TD(0)의 목표값과 MC의 목표값을 비교하라. 어느 쪽 분산이 작은가?</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled" title="풀이">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-28-contents" aria-controls="callout-28" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>풀이
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-28" class="callout-28-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><strong>1.</strong> 한 번만 방문하므로 <span class="math inline">\(c(1,m)\)</span>은 정의상 <span class="math inline">\(G(1)\)</span>의 독립 샘플이고 <span class="math inline">\(\mathbb{E}[c(1,m)]=v^\pi(1)\)</span>이다(절단 무시). 표본평균을 쓰는 것은 TD(1)에 해당한다.</p>
+<p><strong>2.</strong> 쓰지 못한다. TD(1)의 목표값은 실제 보상의 합뿐이고, 어떤 상태의 가치 추정치도 들어가지 않는다 → <a href="#sec-td8a" class="quarto-xref">섹션&nbsp;6.3.1</a></p>
+<p><strong>3.</strong> 1→2 전이에서 보상을 <span class="math inline">\(r_1\)</span>이라 하자.</p>
+<ul>
+<li>TD(0): <span class="math inline">\(r_1+\gamma v^\pi(2)\)</span>. 무작위성은 <span class="math inline">\(r_1\)</span>뿐이다(이 노트의 모델처럼 보상이 결정적이면 0).</li>
+<li>MC: <span class="math inline">\(r_1+\gamma G(2)\)</span>. Markov 성질에 의해 상태 2 이후의 미래는 <span class="math inline">\(r_1\)</span>과 독립이므로 <span class="math display">\[
+\operatorname{Var}\big(r_1+\gamma G(2)\big)=\operatorname{Var}(r_1)+\gamma^2\operatorname{Var}\big(G(2)\big).
+\]</span></li>
+</ul>
+<p>TD(0)는 <span class="math inline">\(\gamma^2\operatorname{Var}(G(2))\)</span>만큼의 분산을 없앤다. 상태 2에서 출발하는 미래 전체의 잡음을 정확한 추정치 하나로 대신했기 때문이다.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-29-contents" aria-controls="callout-29" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-29" class="callout-29-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>TD(0)는 이미 학습된 가치 정보를 매우 효율적으로 활용하고 보상 샘플의 잡음도 줄인다. 다만 그 효율은 <span class="math inline">\(v(2)\)</span>가 정확할 때의 이야기다. <span class="math inline">\(v(2)\)</span>가 틀리면 그 오차가 그대로 <span class="math inline">\(v(1)\)</span>로 옮겨 간다. 이것이 bias 쪽의 대가다.</p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td9" class="quarto-xref">섹션&nbsp;7.1</a></p>
+</section>
+<section id="sec-td9b" class="level3" data-number="7.1.2">
+<h3 data-number="7.1.2" class="anchored" data-anchor-id="sec-td9b"><span class="header-section-number">7.1.2</span> λ 스케줄링</h3>
+<p><strong>먼저 떠올릴 질문.</strong> 학습 초기와 후기에 <span class="math inline">\(v\)</span>의 품질은 어떻게 다른가? 그에 따라 어느 쪽 오차를 더 걱정해야 하는가?</p>
+<p><strong>답.</strong> <strong>큰 λ에서 시작해 0으로 줄인다.</strong></p>
+<ul>
+<li>초기: <span class="math inline">\(v\)</span>의 품질이 나쁘므로, <span class="math inline">\(v\)</span>에 기대면 편향이 크다. 큰 λ로 실제 보상을 많이 써서 편향을 줄인다.</li>
+<li>후기: TD(λ)는 수렴하므로 진행될수록 <span class="math inline">\(v\)</span>의 품질이 좋아진다. 이제 <span class="math inline">\(v\)</span>에 기대도 편향이 작다. 작은 λ로 이미 가진 가치 정보를 활용해 분산을 줄이며 빠르게 갱신한다.</li>
+</ul>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-30-contents" aria-controls="callout-30" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-30" class="callout-30-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>“믿을 만한 정보가 쌓일수록 자기 추정치에 더 기댄다”는 원리다. 탐색 확률을 크게 시작해 줄여 가는 ε 스케줄과 같은 방향의 설계다.</p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td9" class="quarto-xref">섹션&nbsp;7.1</a></p>
+</section>
+</section>
+</section>
+<section id="sec-partV" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> V. 수렴</h1>
+<section id="sec-td10" class="level2" data-number="8.1">
+<h2 data-number="8.1" class="anchored" data-anchor-id="sec-td10"><span class="header-section-number">8.1</span> 수렴 정리</h2>
+<p><strong>답.</strong></p>
+<div class="callout callout-style-default callout-important callout-titled" title="정리 (TD(λ)의 수렴)">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">중요</span>정리 (TD(λ)의 수렴)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>각 상태가 무한히 자주 방문되고 <span class="math display">\[
+\sum_{t=0}^\infty\alpha_t=+\infty,\qquad\sum_{t=0}^\infty\alpha_t^2&lt;+\infty
+\]</span> 이면, 주어진 정책 <span class="math inline">\(\pi\in\Pi\)</span>에 대해 TD(λ)가 생성하는 <span class="math inline">\(v(s)\)</span>는 각 <span class="math inline">\(s\in S\)</span>에서 <strong>확률 1로</strong> <span class="math inline">\(v^\pi(s)\)</span>로 수렴한다.</p>
+</div>
+</div>
+<p>TD(λ)는 stochastic approximation이므로 SA의 수렴 정리를 그대로 적용한다. step size 조건 두 개는 가정이고, 남은 두 가지는 증명할 수 있다.</p>
+<ul>
+<li>multi-step Bellman 연산자 <span class="math inline">\(H\)</span>가 축약이다.</li>
+<li>잡음이 조건부 평균 0, 조건부 분산 유계 조건을 만족한다.</li>
+</ul>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-32-contents" aria-controls="callout-32" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-32" class="callout-32-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>이 정리는 결과와 증명 아이디어 수준으로 알아 두면 충분하다. 실제로는 “모든 상태를 무한히 자주 방문”과 step size 조건을 맞추기가 매우 까다롭다. 이론적 보장이 존재한다는 사실과, 그것이 SA의 두 축(축약 + 잡음 조건)에서 나온다는 구조를 기억한다.</p>
+</div>
+</div>
+</div>
+<p><strong>↓ 내려가기</strong>: <a href="#sec-td10a" class="quarto-xref">섹션&nbsp;8.1.1</a> <strong>↑ 올라가기</strong>: <a href="#sec-td0" class="quarto-xref">섹션&nbsp;3.1</a></p>
+<section id="sec-td10a" class="level3" data-number="8.1.1">
+<h3 data-number="8.1.1" class="anchored" data-anchor-id="sec-td10a"><span class="header-section-number">8.1.1</span> ✍ 증명 아이디어: <span class="math inline">\(H\)</span>의 축약과 잡음 조건</h3>
+<p>안내 질문:</p>
+<ol type="1">
+<li><a href="#sec-td7" class="quarto-xref">섹션&nbsp;6.2</a>의 고정점 방정식을 벡터로 쓰면 <span class="math inline">\(v=Hv\)</span>의 <span class="math inline">\(H\)</span>는 무엇인가? 상수항을 구하라.</li>
+<li><span class="math inline">\(H\)</span>가 <span class="math inline">\(\|\cdot\|_\infty\)</span>에서 축약임을 보이고 계수를 구하라. λ = 0과 λ → 1에서 계수는?</li>
+<li>잡음 <span class="math inline">\(w_t\)</span>를 정의하고 조건부 평균 0을 확인하라. 조건부 분산은 왜 유계인가?</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled" title="풀이">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-33-contents" aria-controls="callout-33" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">노트</span>풀이
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-33" class="callout-33-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><strong>1.</strong> <span class="math inline">\((\ell+1)\)</span>-step 방정식을 벡터로 쓰면 <span class="math inline">\(v=\sum_{k=0}^\ell(\gamma P^\pi)^kR^\pi+(\gamma P^\pi)^{\ell+1}v\)</span>이다. 가중치 <span class="math inline">\((1-\lambda)\lambda^\ell\)</span>로 평균하면 <span class="math display">\[
+v^\pi=\underbrace{(1-\lambda)\sum_{\ell=0}^\infty\lambda^\ell\sum_{k=0}^\ell(\gamma P^\pi)^kR^\pi}_{\text{상수항}}+(1-\lambda)\sum_{\ell=0}^\infty\lambda^\ell(\gamma P^\pi)^{\ell+1}v^\pi=:Hv^\pi.
+\]</span> 상수항은 <a href="#sec-td7a" class="quarto-xref">섹션&nbsp;6.2.1</a>의 <span class="math inline">\(A\)</span>와 같은 순서 교환으로 정리된다. <span class="math display">\[
+(1-\lambda)\sum_{k\ge0}(\gamma P^\pi)^kR^\pi\sum_{\ell\ge k}\lambda^\ell=\sum_{k=0}^\infty(\lambda\gamma P^\pi)^kR^\pi.
+\]</span> λ = 0일 때만 <span class="math inline">\(R^\pi\)</span>와 같다. 상수항은 <span class="math inline">\(Hv-Hu\)</span>에서 소거되므로 축약 여부와 무관하다. 상수항을 <span class="math inline">\(R^\pi\)</span>로 간단히 적어도 증명 아이디어에는 영향이 없다.</p>
+<p><strong>2.</strong> <span class="math inline">\(P^\pi\)</span>는 확률 행렬이므로 <span class="math inline">\(\|(P^\pi)^nx\|_\infty\le\|x\|_\infty\)</span>이다. 따라서 <span class="math display">\[
+\|Hv-Hu\|_\infty\le(1-\lambda)\sum_{\ell=0}^\infty\lambda^\ell\gamma^{\ell+1}\|v-u\|_\infty=\frac{\gamma(1-\lambda)}{1-\lambda\gamma}\|v-u\|_\infty.
+\]</span> <span class="math inline">\(\gamma&lt;1\)</span>이면 <span class="math inline">\(\gamma-\lambda\gamma&lt;1-\lambda\gamma\)</span>이므로 계수는 1보다 작다.</p>
+<ul>
+<li>λ = 0: 계수 <span class="math inline">\(\gamma\)</span>. <span class="math inline">\(H=T^\pi\)</span>다.</li>
+<li>λ → 1: 계수 → 0. <span class="math inline">\(H\)</span>가 <span class="math inline">\(v\)</span>에 거의 의존하지 않고 MC 목표값이 된다.</li>
+</ul>
+<p><strong>3.</strong> <span class="math display">\[
+w_t:=\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k-\mathbb{E}^\pi\Big[\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k\,\Big|\,\mathcal F_t\Big].
+\]</span> 관측 신호 <span class="math inline">\(\sum_k(\lambda\gamma)^{k-t}d_k+v(s_t)\)</span>의 조건부 기댓값이 <span class="math inline">\((Hv)(s_t)\)</span>이므로, 신호는 <span class="math inline">\((Hv)(s_t)+w_t\)</span>다. 정의상 <span class="math inline">\(\mathbb{E}[w_t\mid\mathcal F_t]=0\)</span>이다. <span class="math inline">\(|r|\le R_{\max}\)</span>이면 <span class="math inline">\(|d_k|\le R_{\max}+(1+\gamma)\|v\|_\infty\)</span>이므로 <span class="math display">\[
+\Big|\sum_k(\lambda\gamma)^{k-t}d_k\Big|\le\frac{R_{\max}+2\|v\|_\infty}{1-\lambda\gamma}.
+\]</span> 따라서 조건부 분산은 <span class="math inline">\(C_0+C_1\|v\|^2\)</span> 꼴로 유계다.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled" title="의의">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-34-contents" aria-controls="callout-34" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">힌트</span>의의
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-34" class="callout-34-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(v^\pi\)</span>는 모든 <span class="math inline">\((\ell+1)\)</span>-step 방정식을 만족하므로 <span class="math inline">\(H\)</span>의 고정점이다. <span class="math inline">\(H\)</span>가 축약이므로 고정점은 유일하다. 축약 계수 <span class="math inline">\(\gamma(1-\lambda)/(1-\lambda\gamma)\)</span>는 λ가 클수록 작아진다. 결정적인 반복으로 보면 큰 λ가 더 빨리 수축하지만, 그 대가로 잡음(분산)이 커진다. <a href="#sec-td9" class="quarto-xref">섹션&nbsp;7.1</a>의 trade-off를 연산자 쪽에서 본 모습이다.</p>
+</div>
+</div>
+</div>
+<p><strong>↑ 올라가기</strong>: <a href="#sec-td10" class="quarto-xref">섹션&nbsp;8.1</a></p>
+</section>
+</section>
+</section>
+<section id="sec-partVI" class="level1" data-number="9">
+<h1 data-number="9"><span class="header-section-number">9</span> VI. 정리</h1>
+<section id="sec-td11" class="level2" data-number="9.1">
+<h2 data-number="9.1" class="anchored" data-anchor-id="sec-td11"><span class="header-section-number">9.1</span> 한 장 요약</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>질문</th>
+<th>답</th>
+<th>노드</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>무엇을 풀려는가</td>
+<td><span class="math inline">\(v=T^\pi v\)</span>를 <span class="math inline">\(p\)</span> 없이, 전이 하나마다 갱신하며</td>
+<td><a href="#sec-td0" class="quarto-xref">섹션&nbsp;3.1</a></td>
+</tr>
+<tr class="even">
+<td>Monte Carlo</td>
+<td><span class="math inline">\(c(s,m)\)</span>의 표본평균. model-free, but not online</td>
+<td><a href="#sec-td1" class="quarto-xref">섹션&nbsp;4.1</a></td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(c(s,m)\)</span></td>
+<td>기댓값이 아니라 <span class="math inline">\(G(s)\)</span>의 실현값. <span class="math inline">\(m\)</span>은 궤적 인덱스</td>
+<td><a href="#sec-td1a" class="quarto-xref">섹션&nbsp;4.1.1</a></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(\alpha_m=1/m\)</span></td>
+<td>표본평균의 점화식. <span class="math inline">\(1/M\)</span>이 아닌 이유: 매 단계 평균 유지</td>
+<td><a href="#sec-td1b" class="quarto-xref">섹션&nbsp;4.1.2</a></td>
+</tr>
+<tr class="odd">
+<td>기댓값 형태</td>
+<td><span class="math inline">\(v^\pi(s)=\mathbb{E}[r+\gamma v^\pi(s_{t+1})\mid s_t=s]\)</span>. <span class="math inline">\(p\)</span>는 <span class="math inline">\(s_{t+1}\)</span>의 분포에 숨음</td>
+<td><a href="#sec-td3a" class="quarto-xref">섹션&nbsp;5.2.1</a></td>
+</tr>
+<tr class="even">
+<td>TD(0)</td>
+<td><span class="math inline">\(v(s_t)\leftarrow v(s_t)+\alpha_td_t\)</span>, <span class="math inline">\(d_t=r_t+\gamma v(s_{t+1})-v(s_t)\)</span></td>
+<td><a href="#sec-td4" class="quarto-xref">섹션&nbsp;5.3</a></td>
+</tr>
+<tr class="odd">
+<td>SA 대응</td>
+<td><span class="math inline">\(H=T^\pi\)</span>, <span class="math inline">\(w_t=\gamma(v(s_{t+1})-\sum p\,v)\)</span>, 조건부 평균 0</td>
+<td><a href="#sec-td4a" class="quarto-xref">섹션&nbsp;5.3.1</a></td>
+</tr>
+<tr class="even">
+<td>TD(0)의 성격</td>
+<td>incremental, lookup table, lightest, fully online</td>
+<td><a href="#sec-td5" class="quarto-xref">섹션&nbsp;5.4</a></td>
+</tr>
+<tr class="odd">
+<td>multi-step</td>
+<td><span class="math inline">\((\ell+1)\)</span>스텝 뒤에서 가치를 분해. 모든 <span class="math inline">\(\ell\)</span>에서 성립</td>
+<td><a href="#sec-td6" class="quarto-xref">섹션&nbsp;6.1</a></td>
+</tr>
+<tr class="even">
+<td>λ-가중평균</td>
+<td>가중치 <span class="math inline">\((1-\lambda)\lambda^\ell\)</span> ⇒ <span class="math inline">\(v=\mathbb{E}[\sum(\lambda\gamma)^{k-t}d_k\mid\mathcal F_t]+v\)</span></td>
+<td><a href="#sec-td7" class="quarto-xref">섹션&nbsp;6.2</a></td>
+</tr>
+<tr class="odd">
+<td>TD(λ)</td>
+<td><span class="math inline">\(v(s_t)\leftarrow v(s_t)+\alpha_t\sum_{k\ge t}(\lambda\gamma)^{k-t}d_k\)</span>. 궤적 일부가 필요</td>
+<td><a href="#sec-td8" class="quarto-xref">섹션&nbsp;6.3</a></td>
+</tr>
+<tr class="even">
+<td>극단</td>
+<td>λ = 0 → TD(0), λ = 1 → MC (망원급수)</td>
+<td><a href="#sec-td8a" class="quarto-xref">섹션&nbsp;6.3.1</a></td>
+</tr>
+<tr class="odd">
+<td>bias–variance</td>
+<td>큰 λ: 작은 bias, 큰 variance. 작은 λ: 반대</td>
+<td><a href="#sec-td9" class="quarto-xref">섹션&nbsp;7.1</a></td>
+</tr>
+<tr class="even">
+<td>λ 스케줄</td>
+<td>큰 λ에서 시작해 0으로</td>
+<td><a href="#sec-td9b" class="quarto-xref">섹션&nbsp;7.1.2</a></td>
+</tr>
+<tr class="odd">
+<td>수렴</td>
+<td>모든 상태 무한 방문 + step size 조건 ⇒ 확률 1로 <span class="math inline">\(v^\pi\)</span></td>
+<td><a href="#sec-td10" class="quarto-xref">섹션&nbsp;8.1</a></td>
+</tr>
+<tr class="even">
+<td>증명 아이디어</td>
+<td><span class="math inline">\(H\)</span>는 계수 <span class="math inline">\(\gamma(1-\lambda)/(1-\lambda\gamma)\)</span>의 축약 + 잡음 조건</td>
+<td><a href="#sec-td10a" class="quarto-xref">섹션&nbsp;8.1.1</a></td>
+</tr>
+</tbody>
+</table>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "복사완료!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "복사완료!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

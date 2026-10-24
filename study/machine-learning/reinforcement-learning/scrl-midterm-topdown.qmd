@@ -1,0 +1,1278 @@
+---
+title: "SCRL 중간고사: Top-down 질문 트리"
+aliases:
+  - "/study/reinforcement-learning/scrl-midterm-topdown.html"
+subtitle: "명제 → 왜? → 증명 → 의의, 한 단계씩 내려가기"
+lang: ko
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    html-math-method: mathjax
+    callout-appearance: default
+---
+
+# 사용법 {#sec-howto}
+
+각 노드는 다음 순서로 되어 있다.
+
+1. **질문**: 노드 제목.
+2. **답**: 한두 문장. 이 답이 다시 질문을 낳는다.
+3. **증명**: 접혀 있다. 먼저 스스로 써 본 뒤 펼친다.
+4. **의의**: 접혀 있다. 이 명제가 없으면 무엇이 무너지는지.
+5. **↓ 내려가기**: 답에 쓰인 개념의 노드. 끝까지 내려가면 정의나 기초 사실에 닿는다.
+6. **↑ 올라가기**: 이 노드를 쓰는 상위 노드.
+
+✍ 표시가 있는 노드는 답을 비워 둔 칸이다. 안내 질문만 있으니 직접 채운다.
+
+공통 표기: $S=\{1,\dots,n\}$, $A=\{1,\dots,m\}$, $\|\cdot\|=\|\cdot\|_\infty$. 벡터 부등식 $v\le w$는 원소별로 성립한다는 뜻이다.
+
+# 전체 트리 {#sec-tree}
+
+- **0. 출발점**: MDP 문제는 무엇이고 왜 직접 풀기 어려운가 → [@sec-r0]
+- **I. 유한 horizon**: BI가 $v_t^*$와 $\pi_t^*$를 정확히 준다 → [@sec-a0]
+  - 종단 조건 → [@sec-a1]
+  - 정책 평가 재귀 → [@sec-a2] → tower와 Markov → [@sec-a2a]
+  - 최적성 원리 → [@sec-a3]
+  - greedy 정책의 최적성 → [@sec-a4]
+  - 확률적 최적 정책, 다중성 → [@sec-a5]
+  - γ 생략 → [@sec-a6]
+  - 연속 제어와 차원의 저주 → [@sec-a7]
+  - 정식화(전이확률 유도) → [@sec-a8]
+- **II. 무한 할인: 정책 평가**: $v^\pi$의 두 가지 계산법 → [@sec-b0]
+  - 분해식 → [@sec-b1]
+  - 벡터형 → [@sec-b2]
+  - $I-\gamma P^\pi$의 가역성 → [@sec-b3]
+  - $T^\pi$의 축약 → [@sec-b4]
+- **III. 무한 할인: 최적성**: $v=Tv$의 유일해는 $v^*$ → [@sec-c0]
+  - 유일성 → [@sec-c1]
+    - $T$의 축약 → [@sec-c1a] → max 차이 부등식 → [@sec-c1b]
+    - Banach 고정점 정리 → [@sec-c1c] → 증명 [@sec-c1d], 의의 [@sec-c1e]
+  - 그 해가 $v^*$ → [@sec-c2]
+    - 비교 보조정리 → [@sec-c2a]
+    - 단조성 → [@sec-c2b]
+    - 비음 행렬의 순서 보존 → [@sec-c2c]
+  - $T$를 행동 max로 쓰는 이유 → [@sec-c3]
+  - greedy 정책의 최적성 → [@sec-c4] → greedy 등식 [@sec-c4a]
+- **IV. 알고리즘**: VI와 PI 모두 최적에 도달 → [@sec-d0]
+  - VI → [@sec-d1]
+  - PI 단조 향상 → [@sec-d2]
+  - PI 수렴 → [@sec-d3] → 단조수렴과 유계성 [@sec-d3a]
+  - VI vs PI → [@sec-d4]
+  - RL 계보 → [@sec-d5]
+- **V. LP**: $\min c^\top v$ s.t. $v\ge Tv$의 유일해는 $v^*$ → [@sec-e0]
+  - 증명 → [@sec-e1]
+  - LP로의 변환 → [@sec-e2]
+  - $c$의 역할 → [@sec-e3]
+  - 정책 평가 LP → [@sec-e4]
+  - dual → [@sec-e5] → 흐름 보존 ✍ [@sec-e5a], weak duality ✍ [@sec-e5b]
+  - Q-함수 → [@sec-e6] → 왜 Q인가 [@sec-e6a], Q-LP [@sec-e6b], Q 기반 PI [@sec-e6c]
+- **VI. 확률 근사(SA)**: 모델 없이 고정점 방정식을 푼다 → [@sec-f0]
+  - 왜 VI·PI를 그대로 못 쓰나 → [@sec-f1]
+  - SA의 형태 → [@sec-f2]
+  - Robbins–Monro → [@sec-f3]
+  - step size 조건 → [@sec-f4]
+  - 노이즈 조건과 수렴 정리 → [@sec-f5]
+- **VII. TD 학습**: TD(λ)는 모델 프리로 $v^\pi$를 추정 → [@sec-g0]
+  - Monte Carlo → [@sec-g1]
+  - TD(0) → [@sec-g2]
+  - 다단계 Bellman 식 → [@sec-g3]
+  - TD(λ) 갱신식 → [@sec-g4]
+  - λ의 두 극단 → [@sec-g5]
+  - bias–variance → [@sec-g6]
+  - 수렴 ✍ → [@sec-g7]
+- **VIII. Q-learning**: 조건 하에서 $Q\to Q^*$, 모델 프리, off-policy → [@sec-h0]
+  - $T_Q$의 축약 → [@sec-h1]
+  - SA에서 갱신식으로 → [@sec-h2]
+  - 손계산 절차 → [@sec-h3]
+  - 정책 추출 → [@sec-h4]
+  - off-policy → [@sec-h5]
+  - 탐색 → [@sec-h6] → ε-greedy 확률 [@sec-h6a]
+  - 수렴 증명 구조 ✍ → [@sec-h7]
+
+# 0. 출발점 {#sec-part0}
+
+## MDP 문제는 무엇이고, 왜 직접 풀기 어려운가 {#sec-r0}
+
+**답.** 목표는 $\max_\pi\mathbb{E}^\pi\big[\sum_{t\ge0}\gamma^tr(s_t,a_t)\big]$이다. 최적화 변수 $\pi$는 상태에서 행동(분포)으로 가는 **함수**다. 그래서 이 목적함수의 $\pi$에 대한 gradient가 무엇인지 분명하지 않고, 통상의 수치 최적화를 바로 적용할 수 없다. 해법은 동적 계획법(DP)이다. 어려운 문제 하나를 상태별 행동 최적화라는 쉬운 문제 여러 개로 쪼갠다.
+
+::: {.callout-tip collapse="true" title="의의: 왜 행동 시퀀스가 아니라 정책을 최적화하나"}
+전이가 확률적이므로 다음 상태를 미리 알 수 없다. 미리 최적화한 행동 시퀀스는 예상과 다른 상태에 도달하면 더 이상 최적이 아니다. 정책은 도달할 수 있는 **모든** 상태에 대한 대응을 미리 담고 있다.
+:::
+
+::: {.callout-tip collapse="true" title="의의: 왜 지도학습으로 풀 수 없나"}
+보상 $r(s,a)$는 현재 상태와 행동의 즉각적 이득만 측정하고 미래 이득은 측정하지 못한다. 따라서 "이 상태에서 정답 행동은 이것"이라는 label이 존재하지 않는다.
+:::
+
+::: {.callout-tip collapse="true" title="의의: 행동이 장기 효과를 갖는다는 것, 당장의 보상을 희생한다는 것"}
+지금의 행동이 앞으로 거칠 상태 궤적 자체를 바꾼다. 그래서 즉각 보상이 작더라도 장기 이득이 크다면 그 행동을 택해야 한다. 이 문장을 정확히 수식으로 쓴 것이 Bellman 방정식이다. 최적 행동은 "즉각 보상 + γ × 다음 상태의 최적 가치"를 최대화하는 행동이다.
+:::
+
+**하위 질문.**
+
+- $v^\pi(s)$란? 상태 $s$에서 출발해 $\pi$를 계속 따를 때 얻는 누적 보상의 기댓값.
+- $v^*(s)$란? 상태 $s$에서 출발했을 때 어떤 정책으로든 얻을 수 있는 누적 보상 기댓값의 최대치, 즉 그 MDP의 최선의 성능.
+- 왜 "$v^*$를 구하면 MDP가 풀린다"고 하나? $v^*$만 있으면 상태별 argmax로 최적 정책을 바로 만들 수 있기 때문이다 → [@sec-c4]
+- 정책 평가를 Monte Carlo로 하면? 불편추정량이지만 분산이 크고, 시작 상태마다 따로 반복해야 한다. 그래서 가치 함수를 두 부분으로 쪼개는 DP를 쓴다 → [@sec-g1]
+
+**↓ 내려가기**: [@sec-a0] 유한 horizon · [@sec-b0] 무한 정책 평가 · [@sec-c0] 무한 최적성
+
+# I. 유한 horizon MDP {#sec-partA}
+
+## 왜 backward induction이 $v_t^*$와 $\pi_t^*$를 정확히 주는가 {#sec-a0}
+
+**답.** 두 사실이 합쳐지기 때문이다.
+
+1. $v_t^*$는 Bellman 재귀 $v_t^*(s)=\max_a\big[r_t(s,a)+\sum_{s'}p(s'\mid s,a)\,v_{t+1}^*(s')\big]$를 만족하고(최적성 원리), 종단값 $v_T^*=r_T$가 정해져 있다. 그래서 $t=T-1,\dots,0$ 역순으로 유일하게 결정된다.
+2. 각 단계의 argmax로 만든 deterministic Markov 정책은 최적이다.
+
+알고리즘은 다음과 같다.
+$$
+v_T^*:=r_T;\quad t=T-1{:}-1{:}0:\ \ v_t^*(s):=\max_a[\cdots],\ \ \pi_t^*(s)\in\arg\max_a[\cdots]\ \ \forall s.
+$$
+
+::: {.callout-tip collapse="true" title="의의"}
+- $v_t^*$와 $\pi_t^*$는 둘 다 $t+1$의 정보만 필요하므로 같은 루프에서 함께 갱신된다.
+- **숨은 복잡도**: 매 시점, **모든 상태마다** 행동에 대한 최대화를 풀어야 한다. 대규모 문제에서 이것이 병목이다.
+- finite MDP에서는 deterministic Markov 정책만 고려해도 최적을 잃지 않는다.
+:::
+
+**↓ 내려가기**: [@sec-a1] 종단 조건 · [@sec-a3] 최적성 원리 · [@sec-a4] argmax 정책의 최적성 · [@sec-a5] 다중성
+**↑ 올라가기**: [@sec-r0]
+
+## $v_T^\pi(s)$와 $v_T^*(s)$는 무엇인가 {#sec-a1}
+
+**답.** 둘 다 $r_T(s)$이다.
+
+::: {.callout-note collapse="true" title="증명"}
+$v_t^\pi(s):=\mathbb{E}^\pi\big[\sum_{\tau=t}^{T-1}r_\tau(s_\tau,a_\tau)+r_T(s_T)\ \big|\ s_t=s\big]$에서 $t=T$를 넣으면 합 $\sum_{\tau=T}^{T-1}$은 비어 있다. 남는 것은 $r_T(s_T)$이고, 조건이 $s_T=s$이므로 $v_T^\pi(s)=r_T(s)$이다.
+
+정책은 $\pi_0,\dots,\pi_{T-1}$만 포함하므로 시점 $T$의 값은 어떤 정책에도 의존하지 않는다. 따라서 $v_T^*(s)=\max_\pi v_T^\pi(s)=r_T(s)$이다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+- 종단 항이 $r_T(s_T,a_T)$가 아니라 $r_T(s_T)$인 이유: 관심 있는 궤적은 $s_T$까지다. $T$ 시점의 행동은 $s_{T+1}$에만 영향을 주므로 관심 밖이다.
+- 유한 horizon의 특징 두 가지가 여기서 나온다: (1) 가치 함수가 시간에 의존한다. (2) 종단 조건이 있다. 이 종단 조건이 역순 계산의 출발점이다. 무한 horizon에는 둘 다 없다.
+:::
+
+**↑ 올라가기**: [@sec-a0], [@sec-a2]
+
+## 정책 평가 재귀식은 왜 성립하는가 {#sec-a2}
+
+**명제.** 확률적 Markov 정책 $\pi=(\pi_0,\dots,\pi_{T-1})$에 대해 $v_T^\pi=r_T$이고
+$$
+v_t^\pi(s)=\sum_a\pi_t(a\mid s)\Big[r_t(s,a)+\sum_{s'}p(s'\mid s,a)\,v_{t+1}^\pi(s')\Big].
+$$
+
+**답.** 가치 함수를 "현재 보상 + 다음 시점부터의 누적 보상"으로 쪼갠 뒤, 둘째 항에 tower rule과 Markov 성질을 차례로 적용하기 때문이다.
+
+::: {.callout-note collapse="true" title="증명"}
+$G_t:=\sum_{\tau=t}^{T-1}r_\tau(s_\tau,a_\tau)+r_T(s_T)$로 두면 $G_t=r_t(s_t,a_t)+G_{t+1}$이다.
+
+1. **선형성**: $v_t^\pi(s)=\mathbb{E}^\pi[r_t(s_t,a_t)\mid s_t=s]+\mathbb{E}^\pi[G_{t+1}\mid s_t=s]$.
+2. **tower**: $\mathbb{E}^\pi[G_{t+1}\mid s_t=s]=\mathbb{E}^\pi\big[\mathbb{E}^\pi[G_{t+1}\mid h_{t+1}]\mid s_t=s\big]$, $h_{t+1}=(s_0,a_0,\dots,s_t,a_t,s_{t+1})$.
+3. **Markov**: $\mathbb{E}^\pi[G_{t+1}\mid h_{t+1}]=v_{t+1}^\pi(s_{t+1})$.
+4. **결합분포 전개**: $s_t=s$일 때 $(a_t,s_{t+1})$의 분포는 $\pi_t(a\mid s)\,p(s'\mid s,a)$이다. 첫 항은 $\sum_a\pi_t(a\mid s)\,r_t(s,a)$이고, 둘째 항은 $\sum_a\pi_t(a\mid s)\sum_{s'}p(s'\mid s,a)\,v_{t+1}^\pi(s')$이다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+- 계산 순서는 $T$에서 $0$으로 역순이다. 한 시점의 **모든** 상태를 끝내야 이전 시점으로 넘어갈 수 있다.
+- deterministic 정책이면 $\pi_t(\cdot\mid s)$가 한 점에 몰려 $r_t(s,\pi_t(s))+\sum_{s'}p(s'\mid s,\pi_t(s))\,v_{t+1}^\pi(s')$가 된다.
+- 확률적 정책에서는 즉각 보상뿐 아니라 다음 가치 항에도 행동 분포를 곱해야 한다.
+:::
+
+**↓ 내려가기**: [@sec-a2a]
+**↑ 올라가기**: [@sec-a3], [@sec-a4], [@sec-a5]
+
+### tower rule과 Markov 성질은 각각 어디에 쓰이는가 {#sec-a2a}
+
+**답.**
+
+- **Tower rule**: $\mathcal{G}_1\subset\mathcal{G}_2$이면 $\mathbb{E}[X\mid\mathcal{G}_1]=\mathbb{E}[\mathbb{E}[X\mid\mathcal{G}_2]\mid\mathcal{G}_1]$. 조건을 한 겹 더 씌우는 단계에만 쓰인다.
+- **Markov 성질**: 안쪽 조건부 기댓값 $\mathbb{E}[G_{t+1}\mid h_{t+1}]$가 과거와 무관하게 $s_{t+1}$만의 함수, 즉 $v_{t+1}^\pi(s_{t+1})$가 되게 한다. 이를 위해 전이도 Markov이고 정책 $\pi_{t+1},\dots$도 Markov여야 한다.
+
+::: {.callout-tip collapse="true" title="의의"}
+답안에서는 두 근거를 다른 줄에 쓴다. 정책이 history-dependent이면 3단계가 깨진다. 무한 horizon에서는 여기에 stationarity가 추가로 필요하다 → [@sec-b1]
+:::
+
+**↑ 올라가기**: [@sec-a2], [@sec-a3], [@sec-b1]
+
+## 최적성 원리: $v_t^*$는 왜 Bellman 재귀를 만족하는가 {#sec-a3}
+
+**명제.** $v_t^*(s)=\max_a\big[r_t(s,a)+\sum_{s'}p(s'\mid s,a)\,v_{t+1}^*(s')\big]$, $v_T^*=r_T$.
+
+**답.** (≤)와 (≥)를 따로 보이면 등호가 된다.
+
+- (≤): 다음 시점 이후의 가치를 최적 가치로 위에서 누른다.
+- (≥): 현재 행동을 아무거나 고정하고 이후를 최적으로 두면 허용되는 정책이 된다.
+
+::: {.callout-note collapse="true" title="증명 (≤)"}
+$$
+\begin{aligned}
+v_t^*(s)&=\max_\pi\mathbb{E}^\pi\big[r_t(s_t,a_t)+G_{t+1}\mid s_t=s\big]\\
+&=\max_\pi\mathbb{E}^\pi\big[r_t+\mathbb{E}^\pi[G_{t+1}\mid h_{t+1}]\mid s_t=s\big] &&\text{(tower)}\\
+&=\max_\pi\mathbb{E}^\pi\big[r_t+v^\pi_{t+1}(s_{t+1})\mid s_t=s\big] &&\text{(Markov)}\\
+&\le\max_\pi\mathbb{E}^\pi\big[r_t+v^*_{t+1}(s_{t+1})\mid s_t=s\big] &&(v^\pi_{t+1}\le v^*_{t+1},\ \text{기댓값의 단조성})\\
+&=\max_\pi\sum_a\pi_t(a\mid s)\Big[r_t(s,a)+\sum_{s'}p(s'\mid s,a)\,v^*_{t+1}(s')\Big]\\
+&=\max_a\Big[r_t(s,a)+\sum_{s'}p(s'\mid s,a)\,v^*_{t+1}(s')\Big] &&(\text{볼록결합} \le \max,\ \text{Dirac에서 등호})
+\end{aligned}
+$$
+:::
+
+::: {.callout-note collapse="true" title="증명 (≥): 두 가지 논법"}
+**논법 (a), 임의 정책 + Dirac 분포.** 임의의 $\pi$에 대해 정책 평가 재귀([@sec-a2])로부터
+$$v_t^*(s)\ge v_t^\pi(s)=\sum_a\pi_t(a\mid s)\Big[r_t(s,a)+\sum_{s'}p\,v_{t+1}^\pi(s')\Big].$$
+우변에서 $\pi_{t+1},\dots,\pi_{T-1}$는 임의이므로 최적 정책의 꼬리로 바꿀 수 있다. 그러면 $v_{t+1}^\pi$ 자리에 $v_{t+1}^*$가 들어간다. 이제 $\pi_t(\cdot\mid s)$도 임의이므로 각 행동에 질량이 몰린 Dirac 분포를 넣으면 모든 $a$에 대한 부등식이 나오고, $\max_a$를 취하면 끝난다.
+
+**논법 (b), 허용 정책.** 시점 $t$에 행동 $a$를 취하고 $t+1$부터 최적 정책을 따르는 정책은 허용 정책이다. 그 가치는 $r_t(s,a)+\sum_{s'}p\,v^*_{t+1}(s')$이므로 이 값은 $v_t^*(s)$를 넘지 못한다. 모든 $a$에 대해 성립하므로 $\max_a$를 취한다.
+
+두 논법 모두 **최적 정책의 존재**를 쓴다. 존재가 보장되지 않으면 ε-최적 정책으로 같은 논증을 하되 ε 오차를 관리해야 한다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+- 정책(함수 $T$개)에 대한 최적화가, 각 $(t,s)$에서 행동 하나에 대한 최적화로 바뀌었다. 대가는 그 최대화를 모든 상태마다 풀어야 한다는 것이다.
+- Bellman 식의 쓰임은 네 가지다: 최적 가치 계산, 어떤 정책이 최적인지 검증, 효율적 계산 절차, 최적 정책의 구조 분석.
+:::
+
+**↓ 내려가기**: [@sec-a2], [@sec-a2a]
+**↑ 올라가기**: [@sec-a0]
+
+## argmax로 만든 deterministic Markov 정책은 왜 최적인가 {#sec-a4}
+
+**명제.** $\pi_t^*(s)\in\arg\max_a\big[r_t(s,a)+\sum_{s'}p\,v_{t+1}^*(s')\big]$이면 모든 $t$에서 $v_t^{\pi^*}=v_t^*$.
+
+**답.** (≤)는 정의에서 바로 나온다. (≥)는 $t=T$에서 출발하는 역순 귀납법으로 보인다.
+
+::: {.callout-note collapse="true" title="증명"}
+(≤): $v^*$의 정의에 의해 $v_t^{\pi^*}\le v_t^*$.
+
+(≥) 귀납법.
+
+- **기저**: $t=T$에서 $v_T^{\pi^*}=r_T=v_T^*$.
+- **귀납 단계**: $v_{t+1}^{\pi^*}\ge v_{t+1}^*$라고 가정한다.
+  1. 전이확률은 비음 가중치이므로 $\sum_{s'}p(s'\mid s,\pi_t^*(s))\,v_{t+1}^{\pi^*}(s')\ge\sum_{s'}p(s'\mid s,\pi_t^*(s))\,v_{t+1}^*(s')$.
+  2. argmax의 정의에 의해, 모든 $a$에 대해 $r_t(s,\pi_t^*(s))+\sum p(\cdot\mid s,\pi_t^*(s))\,v_{t+1}^*\ge r_t(s,a)+\sum p(\cdot\mid s,a)\,v_{t+1}^*$.
+  3. 1과 2를 결합하면, 모든 $a$에 대해 $r_t(s,\pi_t^*(s))+\sum p(\cdot\mid s,\pi^*_t(s))\,v^{\pi^*}_{t+1}\ge r_t(s,a)+\sum p(\cdot\mid s,a)\,v^*_{t+1}$.
+  4. 좌변은 정책 평가 재귀([@sec-a2])에 의해 $v_t^{\pi^*}(s)$이다. 우변에 $\max_a$를 취하면 최적성 원리([@sec-a3])에 의해 $v_t^*(s)$이다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+finite MDP에서는 deterministic Markov 정책만으로 충분하다. 다만 결정 규칙은 **시점마다 다를 수 있다**. 유한 horizon 정책은 $\pi_t^*$로 시점별로 답해야 한다.
+:::
+
+**↓ 내려가기**: [@sec-a2], [@sec-a3], [@sec-c2c]
+**↑ 올라가기**: [@sec-a0]
+
+## 확률적 최적 정책은 어떻게 만들고, 최적 정책은 왜 여러 개일 수 있는가 {#sec-a5}
+
+**명제.** $\bar\pi_t(a\mid s)>0\Rightarrow a\in A_t^*(s):=\arg\max_a[\cdots]$이면 $\bar\pi$는 최적이다.
+
+**답.** argmax 집합의 원소가 여러 개이면, 그 행동들은 괄호 안 값이 모두 같다. 따라서 그들 사이에 확률을 어떻게 나눠도 같은 값이 나온다. 최적 정책은 여러 개일 수 있지만 최적 가치 $v^*$는 정의상 유일하다.
+
+::: {.callout-note collapse="true" title="증명"}
+역순 귀납법으로 보인다. $v_T^{\bar\pi}=r_T=v_T^*$이다. $v_{t+1}^{\bar\pi}=v_{t+1}^*$를 가정하면 정책 평가 재귀에 의해
+$$v_t^{\bar\pi}(s)=\sum_a\bar\pi_t(a\mid s)\Big[r_t(s,a)+\sum_{s'}p\,v_{t+1}^*(s')\Big].$$
+지지집합 안의 $a$에 대해서는 괄호가 $v_t^*(s)$와 같다. 따라서 $v_t^{\bar\pi}(s)=v_t^*(s)\sum_a\bar\pi_t(a\mid s)=v_t^*(s)$이다.
+:::
+
+**↑ 올라가기**: [@sec-a0]
+
+## 유한 horizon Bellman 식에는 왜 γ가 없어도 되는가 {#sec-a6}
+
+**답.** 보상이 시간에 의존할 수 있으므로 $r_t(s,a):=\gamma^tr(s,a)$로 정의하면 할인이 $r_t$ 안에 흡수된다. 반대로, $r_t$를 따로 정의하지 않은 채 Bellman 식에 $\gamma$를 쓰는 것은 혼동의 원인이다.
+
+**↑ 올라가기**: [@sec-a0]
+
+## 연속 상태·행동으로 확장하면 무엇이 달라지는가 {#sec-a7}
+
+**답.** 시스템 모델 $s_{t+1}=f(s_t,a_t,w_t)$와 $w$의 분포 $p_w$가 주어지면 다음이 성립한다.
+$$p(s'\mid s,a)=p_w(w)\,\mathbf{1}\{s'=f(s,a,w)\},\qquad v_t(s)=\sup_a\Big[r(s,a)+\int v_{t+1}(f(s,a,w))\,p_w(dw)\Big].$$
+전이확률을 명시적으로 구하지 않아도 Bellman 식을 쓸 수 있다. 대신 세 가지 문제가 생긴다.
+
+1. argmax가 존재하지 않을 수 있다. 이때는 ε-최적 정책을 쓴다.
+2. 연속 행동에 대한 최대화 자체가 어렵다.
+3. 상태 공간 전체에서 갱신할 수 없으므로 이산화가 필요하다. 축당 $N$개 점이면 $d$차원에서 $N^d$개 점이 되어 **차원의 저주**가 생긴다.
+
+::: {.callout-tip collapse="true" title="의의"}
+이 한계가 함수 근사(가중치 학습)와 deep RL로 넘어가는 동기다. DP는 어려운 문제를 쉬운 문제 여러 개로 쪼개지만, 그 쉬운 문제의 개수가 지수적으로 늘어난다.
+:::
+
+**↑ 올라가기**: [@sec-a0]
+
+## 서술형 문제에서 전이확률을 어떻게 유도하는가 {#sec-a8}
+
+**답.** 동역학 $s'=g(s,a,W)$를 쓰고, $s'$가 될 수 있는 영역을 **경우별로** 나눈다. 경우는 셋이다: 내부, 경계(포화되는 max/min), 불가능(확률 0). 마지막에 모든 $(s,a)$에서 $\sum_{s'}p=1$인지 확인한다.
+
+::: {.callout-note collapse="true" title="예: 재고 관리 $s_{t+1}=\max\{s_t+a_t-D_t,0\}$, $p_j=\Pr(D=j)$"}
+기본 설정은 $S=\{0,\dots,M\}$, $A_s=\{0,\dots,M-s\}$이다. $A_s$의 상한은 보관 용량 때문이다.
+
+전이확률은 세 경우로 나뉜다.
+
+- $s+a<s'\le M$: 다음 재고가 주문 후 재고보다 클 수 없으므로 $p(s'\mid s,a)=0$.
+- $0<s'\le s+a$: 수요가 정확히 $D=s+a-s'$여야 하므로 $p(s'\mid s,a)=p_{s+a-s'}$.
+- $s'=0$: 초과 수요는 판매되지 못하고 사라진다(lost). 수요가 재고 이상인 모든 경우를 더하므로 $p(0\mid s,a)=\sum_{j\ge s+a}p_j$.
+:::
+
+::: {.callout-tip collapse="true" title="의의: 답안에 반드시 들어갈 칸"}
+- $S$, $A$(또는 $A_s$), $p(s'\mid s,a)$ (경계 포함), $r_t(s,a)$ 또는 $c_t(s,a)$.
+- 종단 $r_T$: 명시가 없으면 "$r_T\equiv0$"이라고 근거와 함께 쓴다.
+- 목적함수: $\min\mathbb{E}[\sum c]\Leftrightarrow\max\mathbb{E}[\sum(-c)]$.
+- 한 기간 안의 사건 순서(결정 → 비용 발생 → 확률적 변화)를 비용식과 전이식에 그대로 반영한다.
+:::
+
+**↑ 올라가기**: [@sec-a0]
+
+# II. 무한 할인 MDP: 정책 평가 {#sec-partB}
+
+## $v^\pi$는 어떻게 계산하는가 {#sec-b0}
+
+**답.** 두 가지 방법이 있다.
+
+1. **역행렬**: $v^\pi=(I-\gamma P^\pi)^{-1}R^\pi$.
+2. **고정점 반복**: $v_{k+1}=T^\pi v_k$, $v_k\to v^\pi$.
+
+둘 다 분해식 $v^\pi=R^\pi+\gamma P^\pi v^\pi$에서 나온다.
+
+::: {.callout-tip collapse="true" title="의의"}
+역행렬은 $O(n^3)$이고 메모리도 커서 소규모 문제용이다. 대규모 문제에서는 반복을 쓴다. 반복의 정당성은 $T^\pi$의 축약과 Banach 정리에서 온다.
+
+반복의 숨은 복잡도: 한 번 반복할 때 모든 상태를 갱신해야 한다. 다만 정책이 고정되어 있으므로 **행동에 대한 최대화는 없다**.
+:::
+
+**↓ 내려가기**: [@sec-b1] 분해 · [@sec-b2] 벡터형 · [@sec-b3] 가역성 · [@sec-b4] 축약
+**↑ 올라가기**: [@sec-r0]
+
+## 무한 horizon 분해식은 왜 성립하고, 왜 시간 첨자가 없는가 {#sec-b1}
+
+**명제.** $v^\pi(s)=\sum_a\pi(a\mid s)\big[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^\pi(s')\big]$.
+
+**답.** 유한 horizon과 같은 tower → Markov 논증에 stationarity가 더해진다. $r$, $p$, $\pi$가 모두 시간 불변이면, $t+1$에서 시작한 과정은 $0$에서 시작한 과정과 분포가 같다. 그래서 다음 상태의 가치가 같은 함수 $v^\pi$가 된다.
+
+::: {.callout-note collapse="true" title="증명"}
+$$
+\begin{aligned}
+v^\pi(s)&=\mathbb{E}^\pi\Big[r(s_t,a_t)+\gamma\sum_{\tau\ge t+1}\gamma^{\tau-t-1}r(s_\tau,a_\tau)\ \Big|\ s_t=s\Big]\\
+&=\mathbb{E}^\pi\Big[r(s_t,a_t)+\gamma\,\mathbb{E}^\pi\Big[\sum_{\tau\ge t+1}\gamma^{\tau-t-1}r_\tau\ \Big|\ s_{t+1}\Big]\ \Big|\ s_t=s\Big]&&(\text{tower, Markov})\\
+&=\mathbb{E}^\pi\big[r(s_t,a_t)+\gamma\,v^\pi(s_{t+1})\mid s_t=s\big]&&(\text{stationarity})\\
+&=\sum_a\pi(a\mid s)\Big[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^\pi(s')\Big].
+\end{aligned}
+$$
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+유한 horizon에서는 우변이 $t+1$, 좌변이 $t$였으므로 역순 계산이 가능했다. 무한 horizon에서는 **양변에 같은 함수** $v^\pi$가 있다. 그래서 역순 계산은 불가능하고, 이 식을 방정식(또는 고정점 문제)으로 풀어야 한다.
+:::
+
+**↓ 내려가기**: [@sec-a2a]
+**↑ 올라가기**: [@sec-b0]
+
+## 벡터형 $v^\pi=R^\pi+\gamma P^\pi v^\pi$의 각 원소는 무엇인가 {#sec-b2}
+
+**답.**
+
+- $R^\pi(i)=\sum_a\pi(a\mid i)\,r(i,a)$: 상태 $i$에서 $\pi$를 따를 때의 즉각 보상 기댓값.
+- $P^\pi_{ij}=\sum_a\pi(a\mid i)\,p(j\mid i,a)$: 상태 $i$에서 $\pi$를 따를 때 다음 상태가 $j$일 확률.
+
+deterministic 정책이면 $R^\pi(i)=r(i,\pi(i))$, $P^\pi_{ij}=p(j\mid i,\pi(i))$이다. 상태별 방정식 $n$개를 한 줄로 쓴 것이다.
+
+::: {.callout-tip collapse="true" title="의의: 계산 문제의 표준 흐름"}
+1. $R^\pi$, $P^\pi$를 만든다.
+2. $(I-\gamma P^\pi)v=R^\pi$를 푼다.
+3. $Q^\pi(s,a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^\pi(s')$를 계산한다.
+4. $v^\pi(s)=\sum_a\pi(a\mid s)\,Q^\pi(s,a)$로 검산한다.
+:::
+
+**↑ 올라가기**: [@sec-b0]
+
+## $I-\gamma P^\pi$는 왜 항상 가역인가 {#sec-b3}
+
+**답.** $P^\pi$의 고유값은 절댓값이 1 이하이고 $\gamma<1$이다. 따라서 $I-\gamma P^\pi$의 고유값 $1-\gamma\mu$는 0이 될 수 없다.
+
+::: {.callout-note collapse="true" title="증명"}
+**1단계: $|\mu|\le1$.** $P^\pi x=\mu x$, $x\ne0$라 하고, $|x_i|=\|x\|_\infty$인 $i$를 고른다. 그러면
+$$|\mu|\,|x_i|=\Big|\sum_jP^\pi_{ij}x_j\Big|\le\sum_jP^\pi_{ij}|x_j|\le\|x\|_\infty\sum_jP^\pi_{ij}=\|x\|_\infty$$
+이다. 비음성과 행합 1을 썼다. 따라서 $|\mu|\le1$.
+
+**2단계: 가역성.** $(I-\gamma P^\pi)x=0$이면 $P^\pi x=\gamma^{-1}x$이다. 그런데 $\gamma^{-1}>1$인 고유값은 1단계와 모순이다. 따라서 $x=0$이고 $I-\gamma P^\pi$는 가역이다.
+
+**3단계: 급수 표현.** $\|\gamma P^\pi\|_\infty=\gamma<1$이므로 Neumann 급수가 수렴한다.
+$$(I-\gamma P^\pi)^{-1}=\sum_{t\ge0}(\gamma P^\pi)^t.$$
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+- $v^\pi=\sum_t(\gamma P^\pi)^tR^\pi$에서 $t$번째 항은 "$t$스텝 뒤 기대 보상의 할인값"이다. 그래서 가치 함수의 정의와 정확히 일치한다.
+- $\gamma=1$이면 $P^\pi\mathbf{1}=\mathbf{1}$이므로 $I-P^\pi$는 특이행렬이다.
+- 각 항이 비음이므로 $(I-\gamma P^\pi)^{-1}\ge0$이다 → [@sec-c2c]
+:::
+
+**↑ 올라가기**: [@sec-b0]
+
+## $T^\pi$는 왜 $\gamma$-축약인가 {#sec-b4}
+
+**명제.** $\|T^\pi v-T^\pi w\|_\infty\le\gamma\|v-w\|_\infty$.
+
+**답.** $T^\pi v-T^\pi w=\gamma P^\pi(v-w)$이고, $P^\pi$의 각 행은 확률분포이므로 가중평균은 최댓값을 넘지 못한다.
+
+::: {.callout-note collapse="true" title="증명"}
+$$|(T^\pi v-T^\pi w)(s)|=\gamma\Big|\sum_{s'}P^\pi_{ss'}(v-w)(s')\Big|\le\gamma\sum_{s'}P^\pi_{ss'}\|v-w\|_\infty=\gamma\|v-w\|_\infty.$$
+$s$에 대해 max를 취하면 끝난다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+Banach 정리([@sec-c1c])를 적용하면 두 가지가 나온다. (1) $v^\pi$는 $T^\pi$의 유일한 고정점이다. (2) 임의의 $v_0$에서 $T^\pi$를 반복하면 $v^\pi$로 수렴한다. 이것이 정책 평가용 반복 알고리즘이다. 유일성 덕분에 "수렴하면 그것이 $v^\pi$"라고 말할 수 있다.
+:::
+
+**↓ 내려가기**: [@sec-c1c]
+**↑ 올라가기**: [@sec-b0], [@sec-c4]
+
+# III. 무한 할인 MDP: 최적성 {#sec-partC}
+
+## Bellman 방정식 $v=Tv$는 유일한 해를 가지며, 그 해는 $v^*$이다 {#sec-c0}
+
+$$(Tv)(s)=\max_a\Big[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v(s')\Big].$$
+
+**답.** 두 주장으로 나뉜다.
+
+- **유일하다**: $T$가 $\gamma$-축약이므로 Banach 고정점 정리의 (1)에 의해.
+- **그 해가 $v^*$이다**: 비교 보조정리 "$v\ge Tv\Rightarrow v\ge v^*$, $v\le Tv\Rightarrow v\le v^*$"에 의해. 해 $v$는 두 부등식을 동시에 만족하므로 $v=v^*$이다.
+
+::: {.callout-tip collapse="true" title="의의"}
+- 최적 제어와 RL의 근간이 되는 정리다.
+- "유일하다"와 "$v^*$와 같다"는 다른 주장이고, 근거도 다르다. 답안에서 섞지 않는다.
+- 유일성이 있어야 VI의 수렴점이 $v^*$라고 말할 수 있고, LP와 SA의 극한도 같은 대상을 가리킨다.
+:::
+
+**↓ 내려가기**: [@sec-c1] 유일성 · [@sec-c2] 그 해가 $v^*$ · [@sec-c3] $T$의 형태 · [@sec-c4] 최적 정책
+**↑ 올라가기**: [@sec-r0]
+
+## 왜 유일한가 {#sec-c1}
+
+**답.** $T$가 $\|\cdot\|_\infty$에 대해 $\gamma$-축약이고([@sec-c1a]), 축약 사상은 Banach 고정점 정리의 첫째 성질에 의해 유일한 고정점을 갖기 때문이다([@sec-c1c]).
+
+**↓ 내려가기**: [@sec-c1a], [@sec-c1c]
+**↑ 올라가기**: [@sec-c0]
+
+### $T$는 왜 $\gamma$-축약인가 {#sec-c1a}
+
+**명제.** $\|Tv-Tw\|_\infty\le\gamma\|v-w\|_\infty$.
+
+**답.** 상태별로 max를 벗기는 부등식([@sec-c1b])을 쓰면, 남는 것은 전이확률 가중평균의 차이다. 이 차이는 $\gamma\|v-w\|_\infty$를 넘지 않는다.
+
+::: {.callout-note collapse="true" title="증명"}
+$q_v(s,a):=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v(s')$로 두면 $(Tv)(s)=\max_aq_v(s,a)$이다.
+$$
+\begin{aligned}
+|(Tv)(s)-(Tw)(s)|&\le\max_a|q_v(s,a)-q_w(s,a)| &&\text{(max 차이 부등식)}\\
+&=\max_a\gamma\Big|\sum_{s'}p(s'\mid s,a)(v-w)(s')\Big|\\
+&\le\gamma\max_a\sum_{s'}p(s'\mid s,a)\,|v(s')-w(s')|\le\gamma\|v-w\|_\infty.
+\end{aligned}
+$$
+$s$에 대해 max를 취하면 끝난다.
+:::
+
+::: {.callout-note collapse="true" title="다른 증명: 단조성 + 상수 이동"}
+$\delta=\|v-w\|_\infty$이면 $w-\delta\mathbf{1}\le v\le w+\delta\mathbf{1}$이다. $T$는 단조이고([@sec-c2b]) $T(w+c\mathbf{1})=Tw+\gamma c\mathbf{1}$이므로
+$$Tw-\gamma\delta\mathbf{1}\le Tv\le Tw+\gamma\delta\mathbf{1}.$$
+max의 구조를 직접 다루지 않아 Q-연산자에도 그대로 옮겨진다.
+:::
+
+**↓ 내려가기**: [@sec-c1b]
+**↑ 올라가기**: [@sec-c1], [@sec-h1]
+
+### max 차이 부등식은 왜 성립하는가 {#sec-c1b}
+
+**명제.** $\left|\max_ax_a-\max_ay_a\right|\le\max_a|x_a-y_a|$.
+
+::: {.callout-note collapse="true" title="증명"}
+모든 $a$에 대해 $x_a\le y_a+|x_a-y_a|\le\max_by_b+\max_b|x_b-y_b|$이다. 좌변에 $\max_a$를 취하면 $\max x-\max y\le\max|x-y|$. $x$와 $y$의 역할을 바꾸면 반대 방향도 나온다.
+:::
+
+**↑ 올라가기**: [@sec-c1a]
+
+### Banach 고정점 정리란 무엇인가 {#sec-c1c}
+
+**명제.** 완비 노름공간(여기서는 $(\mathbb{R}^n,\|\cdot\|_\infty)$) 위에서 $T$가 $\gamma$-축약이면 다음 두 가지가 성립한다.
+
+1. $T$는 유일한 고정점 $v^\star$를 갖는다: $v^\star=Tv^\star$.
+2. 임의의 $v_0$에서 $v_{k+1}=Tv_k$로 정의하면 $v_k\to v^\star$이다.
+
+**답.** (2)의 반복 수열이 Cauchy 수열임을 보이면 극한이 존재한다. 그 극한이 고정점이므로 고정점의 **존재**가 나온다. **유일성**은 축약 부등식 한 줄로 나온다.
+
+**↓ 내려가기**: [@sec-c1d] 증명 · [@sec-c1e] 의의
+**↑ 올라가기**: [@sec-c1], [@sec-b4], [@sec-d1]
+
+### Banach 정리의 각 명제는 어떻게 증명하는가 {#sec-c1d}
+
+::: {.callout-note collapse="true" title="(2) 수렴, 그리고 (1)의 존재 부분"}
+**① 연속 차이.** $\|v_{k+1}-v_k\|=\|Tv_k-Tv_{k-1}\|\le\gamma\|v_k-v_{k-1}\|\le\cdots\le\gamma^k\|v_1-v_0\|$.
+
+**② Cauchy.** $m>n$에 대해, 망원합과 삼각부등식으로
+$$\|v_m-v_n\|\le\sum_{k=n}^{m-1}\|v_{k+1}-v_k\|\le\sum_{k=n}^{\infty}\gamma^k\|v_1-v_0\|=\frac{\gamma^n}{1-\gamma}\|v_1-v_0\|\xrightarrow{n\to\infty}0.$$
+
+**③ 극한 존재.** 공간이 완비이므로 Cauchy 수열은 극한 $v^\star$를 가진다.
+
+**④ 극한이 고정점.**
+$$\|Tv^\star-v^\star\|\le\|Tv^\star-Tv_k\|+\|v_{k+1}-v^\star\|\le\gamma\|v^\star-v_k\|+\|v_{k+1}-v^\star\|\to0.$$
+:::
+
+::: {.callout-note collapse="true" title="(1) 유일성"}
+$v^\star$와 $\tilde v$가 모두 고정점이면
+$$\|v^\star-\tilde v\|=\|Tv^\star-T\tilde v\|\le\gamma\|v^\star-\tilde v\|$$
+이므로 $(1-\gamma)\|v^\star-\tilde v\|\le0$이다. $1-\gamma>0$이므로 $v^\star=\tilde v$.
+:::
+
+::: {.callout-note collapse="true" title="수렴 속도"}
+$\|v_k-v^\star\|=\|Tv_{k-1}-Tv^\star\|\le\gamma\|v_{k-1}-v^\star\|\le\cdots\le\gamma^k\|v_0-v^\star\|$. 기하 수렴이다.
+:::
+
+**↑ 올라가기**: [@sec-c1c]
+
+### Banach 정리의 의의는 무엇인가 {#sec-c1e}
+
+::: {.callout-tip collapse="true" title="의의"}
+- **(1) 유일성**: 반복으로 어떤 고정점에 도달했을 때 그것이 **구하려던 대상**($v^\pi$ 또는 $v^*$)임을 보장한다. 고정점이 여러 개였다면 수렴점이 무엇인지 알 수 없다. 이론적으로뿐 아니라 실용적으로도 핵심이다.
+- **(2) 반복 수렴**: 모델을 알면 VI라는 단순한 반복 알고리즘이 나온다. 그 모델 프리 버전이 SA 기반 알고리즘(TD, Q-learning)이다.
+- **속도 $\gamma^k\|v_0-v^\star\|$**: 반복 횟수는 초기화가 고정점에 얼마나 가까운지에 의존한다. 유한 horizon처럼 반복 횟수가 $T$로 정해져 있지 않다.
+- 같은 정리를 $T^\pi$, $T$, $T_Q$, 그리고 TD(λ)의 다단계 연산자에 모두 쓴다. 바꿔야 하는 것은 "그 연산자가 축약인가"뿐이다.
+:::
+
+**↑ 올라가기**: [@sec-c1c]
+
+## 그 유일한 해는 왜 $v^*$인가 {#sec-c2}
+
+**답.** 비교 보조정리([@sec-c2a]) 때문이다. $v=Tv$이면 $v\ge Tv$와 $v\le Tv$를 동시에 만족하므로 $v\ge v^*$와 $v\le v^*$가 함께 성립한다. 따라서 $v=v^*$이다.
+
+**↓ 내려가기**: [@sec-c2a]
+**↑ 올라가기**: [@sec-c0]
+
+### 비교 보조정리: $v\ge Tv\Rightarrow v\ge v^*$, $v\le Tv\Rightarrow v\le v^*$ {#sec-c2a}
+
+**답.**
+
+- (≥ 쪽): 임의의 정책 $\pi$를 고정하고 $v\ge Tv\ge T^\pi v$를 자기 자신에 반복 대입하면 $v\ge v^\pi$이다. 모든 $\pi$에 대해 성립하므로 $v\ge v^*$.
+- (≤ 쪽): $v$에 대한 greedy 정책을 쓰면 $v\le Tv=T^{\pi_v}v$이다. 단조성으로 반복하면 $v\le v^{\pi_v}\le v^*$.
+
+::: {.callout-note collapse="true" title="증명 (v ≥ Tv ⇒ v ≥ v*)"}
+임의의 stationary $\pi$에 대해 $T$의 정의에 의해 $Tv\ge T^\pi v=R^\pi+\gamma P^\pi v$이다. 따라서
+$$v\ge R^\pi+\gamma P^\pi v\ge R^\pi+\gamma P^\pi(R^\pi+\gamma P^\pi v)\ge\cdots\ge\sum_{t=0}^{n-1}(\gamma P^\pi)^tR^\pi+(\gamma P^\pi)^nv.$$
+각 단계에서 $\gamma P^\pi\ge0$을 곱해도 부등식이 유지된다([@sec-c2c]). $\|(\gamma P^\pi)^nv\|_\infty\le\gamma^n\|v\|_\infty\to0$이므로 $n\to\infty$에서 $v\ge\sum_t(\gamma P^\pi)^tR^\pi=v^\pi$이다([@sec-b3]). 양변에 $\max_\pi$를 취하면 $v\ge v^*$.
+
+*정밀화.* 비정상 Markov 정책 $(\pi_0,\pi_1,\dots)$에 대해서도, 각 단계에서 $Tv\ge T^{\pi_t}v$를 쓰면 같은 반복으로 $v\ge T^{\pi_0}\cdots T^{\pi_{n-1}}v\to v^{(\pi_0,\pi_1,\dots)}$를 얻는다.
+:::
+
+::: {.callout-note collapse="true" title="증명 (v ≤ Tv ⇒ v ≤ v*)"}
+$\pi_v(s)\in\arg\max_a[r(s,a)+\gamma\sum p\,v]$로 두면 $Tv=T^{\pi_v}v$이다([@sec-c4a]). 그러면 $v\le T^{\pi_v}v$이고, $T^{\pi_v}$의 단조성으로 반복하면
+$$v\le(T^{\pi_v})^nv\xrightarrow{n\to\infty}v^{\pi_v}\le v^*.$$
+극한은 $T^{\pi_v}$의 축약([@sec-b4])에서 오고, 마지막 부등식은 $v^*$의 정의에서 온다. (이 방향을 "$T^nv\to$ $T$의 고정점"으로 증명하면, 그 고정점이 $v^*$라는 것을 이미 가정하는 셈이라 순환 논법이 된다.)
+:::
+
+**↓ 내려가기**: [@sec-c2b], [@sec-c2c], [@sec-c4a]
+**↑ 올라가기**: [@sec-c2], [@sec-e1]
+
+### $T$는 왜 단조인가 {#sec-c2b}
+
+**명제.** $v\le w\Rightarrow Tv\le Tw$. $T^\pi$도 마찬가지다.
+
+::: {.callout-note collapse="true" title="증명"}
+$p\ge0$이므로 모든 $(s,a)$에서 $\sum_{s'}p(s'\mid s,a)\,v(s')\le\sum_{s'}p(s'\mid s,a)\,w(s')$이다. 따라서 $q_v(s,a)\le q_w(s,a)$이고, 양변에 $\max_a$를 취하면 $(Tv)(s)\le(Tw)(s)$이다.
+:::
+
+**↑ 올라가기**: [@sec-c2a], [@sec-c1a], [@sec-d2]
+
+### 비음 행렬은 왜 원소별 순서를 보존하는가 {#sec-c2c}
+
+**명제.** $B\ge0$(원소별)이고 $v\le w$이면 $Bv\le Bw$이다.
+
+::: {.callout-note collapse="true" title="증명"}
+$d=w-v\ge0$이면 $(Bd)(i)=\sum_jB_{ij}d_j\ge0$이다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+- $\gamma P^\pi$, $(\gamma P^\pi)^n$, $(I-\gamma P^\pi)^{-1}$은 모두 비음이므로 순서를 보존한다.
+- 반면 $I-\gamma P^\pi$ 자체는 음수 원소가 있어 순서를 보존하지 않는다. 부등식 양변에 곱하면 안 된다.
+- 원소별 순서는 부분 순서다. $v\not\le w$가 $v>w$를 뜻하지 않는다.
+:::
+
+**↑ 올라가기**: [@sec-c2a], [@sec-a4], [@sec-e1]
+
+## $T$를 정책 max가 아니라 행동 max로 쓸 수 있는 이유는 무엇인가 {#sec-c3}
+
+**명제.** $\max_\pi\sum_a\pi(a\mid s)\,q(s,a)=\max_aq(s,a)$.
+
+**답.** 왼쪽은 $q(s,\cdot)$의 볼록결합이므로 $\max_aq$를 넘지 못한다. argmax 행동에 질량을 몰아준 Dirac 분포에서 등호가 성립한다.
+
+::: {.callout-tip collapse="true" title="의의"}
+- 이 max 때문에 $T$는 $v$에 대해 **비선형**이다. $T^\pi$는 affine이다.
+- 그래서 정책 평가는 역행렬로 풀 수 있지만, 최적 가치는 역행렬로 풀 수 없다. 반복(VI), LP, PI를 쓴다.
+:::
+
+**↑ 올라가기**: [@sec-c0]
+
+## $v^*$에 대한 greedy 정책은 왜 최적이고, 왜 stationary로 충분한가 {#sec-c4}
+
+**명제.** $S$와 $A$가 유한이면 deterministic stationary 최적 정책이 존재한다. 다음이 그 예다.
+$$\pi^*(s)\in\arg\max_a\Big[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^*(s')\Big]$$
+
+**답.** $T^{\pi^*}v^*=Tv^*=v^*$이므로 $v^*$는 $T^{\pi^*}$의 고정점이다. $T^{\pi^*}$의 고정점은 유일하게 $v^{\pi^*}$이므로 $v^{\pi^*}=v^*$이다.
+
+::: {.callout-note collapse="true" title="증명 (각 등호의 근거)"}
+- $T^{\pi^*}v^*=Tv^*$: $\pi^*$가 $v^*$에 대해 greedy이기 때문이다([@sec-c4a]).
+- $Tv^*=v^*$: $v^*$는 Bellman 방정식의 해다([@sec-c0]).
+- $v^*=v^{\pi^*}$: $T^{\pi^*}$는 축약이므로 고정점이 유일하고, 그것은 $v^{\pi^*}$다([@sec-b4]).
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+- 무한 할인 설정에서 stationary 정책만 고려해도 된다는 근거다. 매 시점 같은 결정 규칙을 써도 최적이다. 다만 상태가 바뀌므로 매 시점 행동은 바뀐다.
+- $v^*$만 있으면 최적 정책을 바로 구할 수 있다. "$v^*$를 구하면 MDP가 풀린다"는 말의 정확한 뜻이다.
+- 숨은 복잡도: 정책을 추출할 때도 모든 상태마다 argmax를 풀어야 하고, 여기에 **모델 $p$가 필요**하다 → [@sec-e6a]
+:::
+
+**↓ 내려가기**: [@sec-c4a], [@sec-b4]
+**↑ 올라가기**: [@sec-c0]
+
+### greedy 등식 $T^{\pi_v}v=Tv$는 왜 성립하는가 {#sec-c4a}
+
+**답.** $\pi_v(s)$가 괄호 $q_v(s,\cdot)$의 argmax이므로 $(T^{\pi_v}v)(s)=q_v(s,\pi_v(s))=\max_aq_v(s,a)=(Tv)(s)$이다.
+
+::: {.callout-tip collapse="true" title="의의 및 함정"}
+- 이 등식은 **그 $v$를 넣었을 때만** 성립한다. 일반적으로 $T^{\pi_v}w\ne Tw$이다.
+- 반대로 임의의 $\pi$에 대해 $T^\pi v\le Tv$는 항상 성립한다.
+- PI의 단조 향상과 수렴 증명이 모두 이 등식 위에 서 있다.
+:::
+
+**↑ 올라가기**: [@sec-c4], [@sec-c2a], [@sec-d2], [@sec-d3]
+
+# IV. 알고리즘: VI와 PI {#sec-partD}
+
+## VI와 PI는 왜 모두 최적에 도달하는가 {#sec-d0}
+
+**답.**
+
+- **VI**: $T$가 축약이므로 Banach 정리 (2)에 의해 $v_k\to v^*$이다.
+- **PI**: 정책 향상이 가치를 단조 증가시킨다. 가치는 유계이므로 극한이 존재하고, 그 극한에서 얻은 정책의 가치가 Bellman 방정식의 해가 된다.
+
+**↓ 내려가기**: [@sec-d1] VI · [@sec-d2] PI 단조 향상 · [@sec-d3] PI 수렴 · [@sec-d4] 비교 · [@sec-d5] RL 계보
+**↑ 올라가기**: [@sec-c0]
+
+## VI: $v_{k+1}=Tv_k$는 왜 수렴하고, 무엇이 비용인가 {#sec-d1}
+
+**답.** Banach 정리 (2)와 [@sec-c0]에 의해 $v_k\to v^*$이다. 수렴 속도는 $\|v_k-v^*\|\le\gamma^k\|v_0-v^*\|$이다.
+
+::: {.callout-tip collapse="true" title="의의"}
+- 정책 평가 반복과 템플릿이 같다. 차이는 $T^\pi$ 대신 $T$를 쓴다는 것 하나다.
+- 그래서 매 반복, 모든 상태에서 **행동 최대화**가 추가된다.
+- 유한 horizon과의 차이: 종단 조건이 없으므로 출발점도 반복 횟수도 정해져 있지 않다. 수렴할 때까지 돌리며, 반복 횟수는 초기화에 의존한다. 최적 가치의 모양은 직관적이지 않으므로 보통 0이나 임의 벡터로 초기화한다.
+- 수렴 후 정책은 $v^*$에 대한 greedy로 얻는다([@sec-c4]). 가치가 아직 수렴하지 않았어도 greedy 정책은 먼저 최적에 도달해 있을 수 있다.
+:::
+
+**↓ 내려가기**: [@sec-c1c], [@sec-c1d]
+**↑ 올라가기**: [@sec-d0]
+
+## PI: 왜 $v^{\pi_k}\le v^{\pi_{k+1}}$인가 {#sec-d2}
+
+PI는 두 단계를 반복한다.
+
+- **정책 평가**: $v^{\pi_k}=T^{\pi_k}v^{\pi_k}$.
+- **정책 향상**: $\pi_{k+1}(s)\in\arg\max_a\big[r+\gamma\sum p\,v^{\pi_k}\big]$.
+
+**답.** 새 정책의 연산자를 옛 가치에 한 번 적용하면 옛 가치보다 크다. 이것을 단조성으로 무한히 반복하면 그 극한이 새 가치다.
+
+::: {.callout-note collapse="true" title="증명"}
+세 사실을 결합한다.
+
+- (a) 평가 단계: $v^{\pi_k}=T^{\pi_k}v^{\pi_k}$.
+- (b) 향상 단계: $\pi_{k+1}$이 $v^{\pi_k}$에 대해 greedy이므로 $T^{\pi_{k+1}}v^{\pi_k}=Tv^{\pi_k}$ ([@sec-c4a]).
+- (c) $T$의 정의: $T^{\pi_k}v^{\pi_k}\le Tv^{\pi_k}$.
+
+따라서 $v^{\pi_k}=T^{\pi_k}v^{\pi_k}\le Tv^{\pi_k}=T^{\pi_{k+1}}v^{\pi_k}$이다.
+
+$T^{\pi_{k+1}}$의 단조성([@sec-c2b])으로 양변에 반복 적용하면 $v^{\pi_k}\le(T^{\pi_{k+1}})^\ell v^{\pi_k}$가 모든 $\ell$에 대해 성립한다. $T^{\pi_{k+1}}$의 축약([@sec-b4])에 의해 $\ell\to\infty$에서 우변은 $v^{\pi_{k+1}}$로 수렴한다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+"향상"이 정책의 성능, 즉 가치 함수의 원소별 증가라는 의미로 정당화된다. 핵심은 (b) 단계의 해석이다. $v^{\pi_k}$가 최적 가치인 것처럼 Bellman 우변에 넣고 그 argmax를 정책으로 꺼낸 것이다.
+:::
+
+**↑ 올라가기**: [@sec-d0]
+
+## PI는 왜 최적 정책으로 수렴하는가 {#sec-d3}
+
+**답.** 다섯 단계로 이어진다.
+
+1. 가치 수열이 단조 비감소이다([@sec-d2]).
+2. 가치는 유계이다([@sec-d3a]).
+3. 단조수렴 정리에 의해 극한 $\bar v$가 존재한다.
+4. $\bar v$에 대한 greedy 정책을 $\bar\pi$라 하면 $v^{\bar\pi}=Tv^{\bar\pi}$가 성립한다.
+5. 따라서 [@sec-c0]에 의해 $v^{\bar\pi}=v^*$이다.
+
+::: {.callout-note collapse="true" title="증명"}
+$\bar\pi(s)\in\arg\max_a[r+\gamma\sum p\,\bar v]$로 두면
+$$v^{\bar\pi}=T^{\bar\pi}v^{\bar\pi}=T^{\bar\pi}\bar v=T\bar v=Tv^{\bar\pi}.$$
+
+- 첫째 등호는 정책 평가의 정의다.
+- 둘째와 넷째 등호는 $\bar v=v^{\bar\pi}$를 쓴다.
+- 셋째 등호는 greedy 등식이다.
+
+**$\bar v=v^{\bar\pi}$의 근거.** deterministic stationary 정책은 $m^n$개뿐이다. 그래서 PI는 유한 번 안에 $\pi_{k+1}=\pi_k$인 지점에 도달하고, 그때 $\bar v=v^{\pi_k}$, $\bar\pi=\pi_k$이다. 이를 위해 동률 처리 규칙이 필요하다: 현재 행동이 argmax에 있으면 유지한다. 그렇지 않으면 동등하게 최적인 정책들 사이를 순환할 수 있다.
+:::
+
+**↓ 내려가기**: [@sec-d3a], [@sec-c4a]
+**↑ 올라가기**: [@sec-d0]
+
+### 단조수렴 정리와 가치의 유계성 {#sec-d3a}
+
+**답.**
+
+- **단조수렴 정리**: 단조 비감소이고 유계인 실수 벡터 수열은 유한한 극한을 갖는다.
+- **유계성**: $S$와 $A$가 유한이므로 $|r(s,a)|\le M$이다. 따라서
+$$|v^\pi(s)|\le\sum_t\gamma^tM=\frac{M}{1-\gamma}.$$
+
+::: {.callout-tip collapse="true" title="의의"}
+무한 할인 설정의 세 가정이 모두 여기서 쓰인다: stationary한 $r$과 $p$, 유한한 $S$와 $A$(그래서 보상 유계), $\gamma<1$. 누적 보상이 발산할 걱정이 없는 깔끔한 설정이다.
+:::
+
+**↑ 올라가기**: [@sec-d3]
+
+## VI와 PI는 무엇이 다르고, 어느 쪽이 빠른가 {#sec-d4}
+
+**답.**
+
+| | VI | PI |
+|---|---|---|
+| 초기화 | 가치 $v_0$ | 정책 $\pi_0$ |
+| 이동하는 공간 | 가치 공간만 | 가치와 정책을 번갈아 |
+| 행동 max의 위치 | 매 반복, 모든 상태 | 향상 단계에만 |
+| 평가 단계의 반복 | 없음 | max 없는 반복이라 빠르다 |
+| 어느 쪽이 빠른가 | VI가 더 단순 | PI가 흔히 빠르지만 항상은 아님 |
+
+둘 다 초기화에 따라 속도가 크게 달라진다. 최적값이나 최적 정책을 미리 모르므로, 실제로 해 봐야 안다.
+
+**↑ 올라가기**: [@sec-d0]
+
+## VI와 PI는 RL 알고리즘과 어떻게 이어지는가 {#sec-d5}
+
+**답.**
+
+- VI에서 value-based 방법(Q-learning, DQN)이 나온다.
+- PI에서 actor-critic이 나온다. critic이 정책 평가, actor가 정책 향상 역할이다.
+- 정책만 쓰는 방법은 policy gradient이다.
+
+VI와 PI를 RL에 그대로 쓸 수 없는 이유는 둘 다 전이확률 $p$를 필요로 하기 때문이다 → [@sec-f1]
+
+**↑ 올라가기**: [@sec-d0]
+
+# V. Linear programming 접근 {#sec-partE}
+
+## 왜 $\min_v c^\top v$ s.t. $v\ge Tv$ ($c>0$)의 유일한 최적해가 $v^*$인가 {#sec-e0}
+
+**답.** 세 줄로 끝난다.
+
+1. 모든 feasible $v$는 $v\ge v^*$이다(비교 보조정리).
+2. $v^*$ 자신이 feasible이다.
+3. $c>0$이므로 목적값이 같으면 원소별로 같아야 한다.
+
+**↓ 내려가기**: [@sec-e1] 증명 · [@sec-e2] LP로 변환 · [@sec-e3] $c$ · [@sec-e4] 정책 평가 LP · [@sec-e5] dual · [@sec-e6] Q-함수
+**↑ 올라가기**: [@sec-c0]
+
+## 증명 {#sec-e1}
+
+::: {.callout-note collapse="true" title="증명"}
+임의의 최적해 $v_{\rm opt}$를 잡는다.
+
+**(i)** $v_{\rm opt}\ge Tv_{\rm opt}$이다. 단조성으로 $T$를 반복 적용하면
+$$v_{\rm opt}\ge Tv_{\rm opt}\ge T^2v_{\rm opt}\ge\cdots\to v^*$$
+이므로 $v_{\rm opt}\ge v^*$이다. 극한은 Banach 정리에서 온다. (비교 보조정리 [@sec-c2a]를 직접 써도 된다.)
+
+**(ii)** $v^*=Tv^*$이므로 $v^*$는 feasible이다. $v_{\rm opt}$가 최소화 해이므로 $c^\top v^*\ge c^\top v_{\rm opt}$.
+
+**(iii)** (i)과 $c>0$에서 $c^\top v_{\rm opt}\ge c^\top v^*$. (ii)와 합치면 $c^\top(v_{\rm opt}-v^*)=0$이다. $v_{\rm opt}-v^*\ge0$이고 $c>0$이므로 $v_{\rm opt}=v^*$.
+
+(i)의 논리는 모든 feasible $v$에 적용된다. 따라서 최적해의 존재도 함께 보장된다.
+:::
+
+**↓ 내려가기**: [@sec-c2a], [@sec-c2c]
+**↑ 올라가기**: [@sec-e0]
+
+## 이 문제는 어떻게 LP가 되는가 {#sec-e2}
+
+**답.** 제약 $v(s)\ge\max_a[\cdots]$는 max 때문에 비선형이다. 그런데 이것은 "모든 $a$에 대해 $v(s)\ge r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v(s')$"와 **동치**이다. 이렇게 쓰면 양변이 $v$에 대해 affine이므로 LP가 된다.
+
+::: {.callout-tip collapse="true" title="의의"}
+- 변수는 $n$개 그대로, 제약은 $n$개에서 $nm$개로 늘어난다.
+- LP는 interior-point, simplex 같은 성숙한 솔버로 빠르게 풀린다.
+- 대규모 문제에서는 제약 수가 부담이다.
+:::
+
+**↑ 올라가기**: [@sec-e0]
+
+## $c$의 역할은 무엇인가 {#sec-e3}
+
+**답.** $c_i$는 가치의 $i$번째 원소에 두는 가중치다. $c_i$를 키우면 $v_i$를 더 줄이는 방향으로 탐색한다. 최적 가치에 대한 사전 지식이 없으면 $c=\mathbf{1}$로 둔다.
+
+::: {.callout-tip collapse="true" title="의의 (정밀화)"}
+정확한 LP에서는 $c>0$이기만 하면 해가 항상 $v^*$로 같다([@sec-e1]). 즉 $c$는 해를 바꾸지 않고 수치 효율에만 영향을 준다. $c$가 해를 바꾸는 것은 근사 LP처럼 $v^*$를 정확히 표현할 수 없을 때이고, 그때 $c$는 상태별 근사 오차의 가중치가 된다.
+:::
+
+**↑ 올라가기**: [@sec-e0]
+
+## 정책 평가 LP는 왜 제약이 $n$개뿐인가 {#sec-e4}
+
+**답.** $\min c^\top v$ s.t. $v\ge T^\pi v$의 해는 $v^\pi$이다. $T^\pi$에는 max가 없으므로, 제약은 상태당 하나씩 $v(s)\ge r(s,\pi(s))+\gamma\sum p(\cdot\mid s,\pi(s))\,v$로 $n$개뿐이다.
+
+**↑ 올라가기**: [@sec-e0]
+
+## dual LP는 어떻게 유도되고, 왜 선호되는가 {#sec-e5}
+
+**명제.**
+$$\max_{\lambda\ge0}\sum_{s,a}\lambda(s,a)\,r(s,a)\quad\text{s.t.}\quad c(s')+\gamma\sum_{s,a}\lambda(s,a)\,p(s'\mid s,a)-\sum_a\lambda(s',a)=0\ \ \forall s'.$$
+
+**답.** Lagrangian을 $v(s')$의 계수별로 정리하면, 계수가 0이 아닐 때 $\min_vL=-\infty$이다. 그래서 "계수 = 0"이 dual의 제약이 되고, 남는 항 $\sum\lambda r$이 dual의 목적 함수가 된다.
+
+::: {.callout-note collapse="true" title="유도"}
+Lagrangian은 다음과 같다.
+$$L(v,\lambda)=\sum_sc(s)\,v(s)+\sum_{s,a}\lambda(s,a)\Big[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v(s')-v(s)\Big],\quad\lambda\ge0.$$
+$v$에 대해 정리하면
+$$L=\sum_{s,a}\lambda r+\sum_{s'}v(s')\Big[c(s')+\gamma\sum_{s,a}\lambda(s,a)\,p(s'\mid s,a)-\sum_a\lambda(s',a)\Big].$$
+대괄호가 0이 아닌 $s'$이 있으면 $v(s')$를 한쪽으로 보내 $L\to-\infty$가 된다. 따라서 $g(\lambda)=\min_vL=\sum\lambda r$이고, 그 조건은 대괄호 $=0$이다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+- dual도 LP다(λ에 대해 선형).
+- duality gap이 없다. dual을 풀어도 정확한 최적값을 얻는다.
+- 변수는 $nm$개로 늘지만 제약은 $n$개로 준다. LP에서는 제약이 적은 쪽이 보통 계산상 선호된다.
+:::
+
+**↓ 내려가기**: [@sec-e5a], [@sec-e5b]
+**↑ 올라가기**: [@sec-e0]
+
+### ✍ dual 제약은 왜 "흐름 보존"이고, 정책의 점유 측도는 왜 feasible인가 {#sec-e5a}
+
+안내 질문:
+
+1. 제약을 "$\sum_a\lambda(s',a)=c(s')+\gamma\sum_{s,a}p(s'\mid s,a)\,\lambda(s,a)$"로 옮겨 쓰면, 좌변·우변 첫째 항·우변 둘째 항은 각각 무엇을 세는가?
+2. 고정된 stationary 정책 $\pi$와 초기분포가 주어졌을 때, $\Pr^\pi(s_{t+1}=s')$를 $\Pr^\pi(s_t=\cdot,a_t=\cdot)$로 쓰는 한 스텝 재귀는 무엇인가?
+3. 그 재귀에 $\gamma^{t+1}$을 곱해 $t\ge0$에 대해 더하고, $t=0$ 항을 따로 떼면 어떤 식이 나오는가? 정규화 상수 $(1-\gamma)$는 어디에 붙는가?
+4. 제약을 $s'$에 대해 모두 더하면 $\lambda$의 총질량은 얼마인가? $c=(1-\gamma)d_0$이면 어떻게 되는가?
+
+**↑ 올라가기**: [@sec-e5]
+
+### ✍ weak duality: primal 목적값 ≥ dual 목적값 {#sec-e5b}
+
+안내 질문:
+
+1. primal 제약 $v(s)\ge r(s,a)+\gamma\sum p\,v$에 $\lambda(s,a)\ge0$을 곱해도 부등호 방향이 유지되는 이유는?
+2. 모든 $(s,a)$에 대해 더한 뒤, $v$가 들어 있는 두 항을 $\sum_{s'}v(s')[\cdots]$ 꼴로 모으면 대괄호는 무엇인가?
+3. 흐름 보존식을 대입하면 그 대괄호는 무엇으로 바뀌는가?
+
+**↑ 올라가기**: [@sec-e5]
+
+## Q-함수는 무엇이고, 어떤 Bellman 방정식을 만족하는가 {#sec-e6}
+
+**답.** 두 정의와 두 관계식이다.
+
+- 정의: $Q^*(s,a)=\max_\pi\mathbb{E}^\pi[\sum\gamma^tr\mid s_0=s,a_0=a]$. 현재 행동까지 $a$로 고정한 뒤 얻는 누적 보상 기댓값의 최대치다.
+- 관계: $v^*(s)=\max_aQ^*(s,a)$.
+- Bellman 방정식:
+$$Q^*(s,a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^*(s')=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\max_{a'}Q^*(s',a').$$
+- 연산자 $T_Q$는 단조이고 축약이며, $Q^*=T_QQ^*$이다.
+
+::: {.callout-tip collapse="true" title="의의: v의 Bellman 식과 구조가 다르다"}
+- $v$ 식: max가 **합 바깥**에 있다(현재 행동을 고른다).
+- $Q$ 식: max가 **합 안**에 있다(다음 상태의 다음 행동을 고른다).
+
+이 차이가 LP 제약 수의 차이를 만든다 → [@sec-e6b]
+:::
+
+**↓ 내려가기**: [@sec-e6a], [@sec-e6b], [@sec-e6c], [@sec-h1]
+**↑ 올라가기**: [@sec-e0]
+
+### 왜 RL은 $v$가 아니라 $Q$를 학습하는가 {#sec-e6a}
+
+**답.** 정책을 추출하는 식을 비교하면 된다.
+
+- $v^*$에서: $\pi^*(s)\in\arg\max_a[r+\gamma\sum p\,v^*]$. **모델 $p$와 $r$이 필요**하다.
+- $Q^*$에서: $\pi^*(s)\in\arg\max_aQ^*(s,a)$. **모델이 필요 없다**.
+
+$v^*$를 모델 프리로 열심히 학습해도 정책을 만들 때 다시 모델이 필요하다. 그래서 정보가 더 많은 $Q$를 학습한다. 대가는 학습 대상이 $n$에서 $nm$으로 커져 표본이 더 필요하다는 것이다.
+
+**↑ 올라가기**: [@sec-e6], [@sec-h4]
+
+### Q-LP는 왜 비효율적인가 {#sec-e6b}
+
+**답.** $\min\sum c(s,a)\,Q(s,a)$ s.t. $Q\ge T_QQ$의 해는 $Q^*$이다. 그런데 max가 합 안의 $a'$에 걸려 있으므로, max를 풀려면 모든 $(s,a,a')$에 대한 제약 $Q(s,a)\ge r+\gamma\sum_{s'}p\,Q(s',a')$를 써야 한다. 제약이 $nm^2$개로 늘어난다.
+
+**↑ 올라가기**: [@sec-e6]
+
+### Q 기반 PI는 어디까지 모델 프리가 되는가 {#sec-e6c}
+
+**답.**
+
+- **평가**: $Q^\pi$를 LP로 구한다. 제약 $Q(s,a)\ge r+\gamma\sum_{s'}p\,Q(s',\pi(s'))$에는 max가 없으므로 $nm$개로 충분하다.
+- **향상**: $\pi(s)\in\arg\max_aQ(s,a)$. **모델이 필요 없다**. 기존 PI의 향상 단계는 대괄호 $r+\gamma\sum p\,v^{\pi_k}$에 모델이 필요했는데, 그 대괄호 전체가 바로 $Q^{\pi_k}(s,a)$이기 때문이다.
+- **데이터 기반 평가**: 각 $(s,a)$에서 전이 샘플 $(s,a,r,s')$을 모으고, 기댓값을 표본 평균 $\frac1{|D|}\sum_{s'\in D}Q(s',\pi(s'))$로 근사한다. 그러면 평가 단계까지 모델 프리가 된다.
+
+**↑ 올라가기**: [@sec-e6]
+
+# VI. 확률 근사(SA) {#sec-partF}
+
+## 모델 없이 고정점 방정식을 어떻게 푸는가 {#sec-f0}
+
+**답.** $Hx=x$에서 $Hx$를 정확히 계산할 수 없어도, 잡음 섞인 값 $Hx_k+w_k$를 관측할 수 있다고 하자. 그러면 다음 반복을 쓴다.
+$$x_{k+1}=(1-\alpha_k)x_k+\alpha_k(Hx_k+w_k)$$
+step size와 노이즈가 적절한 조건을 만족하면 장기적으로 노이즈의 영향이 사라져 $x_k\to x^*$이다.
+
+::: {.callout-tip collapse="true" title="의의"}
+value-based RL 알고리즘의 이론적 틀이다. TD와 Q-learning은 모두 "Bellman 고정점 방정식 + 표본 하나로 만든 잡음 섞인 우변"이라는 같은 구조다.
+:::
+
+**↓ 내려가기**: [@sec-f1] 동기 · [@sec-f2] 형태 · [@sec-f3] Robbins–Monro · [@sec-f4] step size · [@sec-f5] 노이즈와 수렴
+**↑ 올라가기**: [@sec-d5]
+
+## 왜 VI·PI를 RL 설정에 그대로 쓸 수 없는가 {#sec-f1}
+
+**답.** VI의 $T$ 정의 안에, PI의 평가($P^\pi$)와 향상($\sum p\,v$)에 모두 전이확률 $p$가 들어 있다. RL에서는 $p$(때로는 $r$도)를 모르고, 시행착오로 얻은 전이 샘플만 있다.
+
+::: {.callout-tip collapse="true" title="의의 및 함정"}
+- 확률적 전이 **자체**는 문제가 아니다. VI는 확률적 전이를 기댓값으로 정확히 처리한다. 문제는 그 기댓값을 계산할 **모델이 없다**는 것이다.
+- DP의 두 한계: 모델에 대한 지식, 확장성(차원의 저주).
+- RL이 유용한 이유: 유연성(모델 불필요), 적응성(고정된 모델에 의존하지 않음), 확장성(처음부터 근사해를 목표로 함).
+- RL이 어려운 이유: 제한된 지식, exploration–exploitation, 제한된 표현력.
+- RL의 특징: 지도자가 없다, 피드백이 지연된다, 데이터가 i.i.d.가 아니다, 행동이 이후 데이터를 바꾼다, exploration–exploitation trade-off.
+:::
+
+**↑ 올라가기**: [@sec-f0]
+
+## SA의 형태: $\alpha$와 스텝 방향의 의미는 무엇인가 {#sec-f2}
+
+**답.** 좌표별 형태는 다음과 같다.
+$$x_{k+1}(i)=(1-\alpha_k(i))\,x_k(i)+\alpha_k(i)\big[(Hx_k)(i)+w_k(i)\big]$$
+$\alpha$는 learning rate 또는 innovation rate로, 옛 추정치에 $1-\alpha$, 새 추정치에 $\alpha$의 가중치를 준다. 정리하면 $x_{k+1}(i)=x_k(i)+\alpha_k(i)\big[(Hx_k)(i)-x_k(i)+w_k(i)\big]$이므로 스텝 방향은 $(Hx_k)(i)-x_k(i)+w_k(i)$이다. 가정: 각 $i$에 대해 $\alpha_k(i)>0$인 $k$가 무한히 많다.
+
+**↑ 올라가기**: [@sec-f0]
+
+## Robbins–Monro는 SA의 어떤 특수한 경우인가 {#sec-f3}
+
+**답.** Bellman 방정식을 $x=\mathbb{E}[f(x,\xi)]$로 본다. 매 스텝 $N$개 표본의 평균을 쓰면 계산과 데이터가 비효율적이다. 대신 **표본 하나**만 쓰는 것이 Robbins–Monro이다.
+$$x_{k+1}=(1-\alpha_k)x_k+\alpha_kf(x_k,\hat\xi).$$
+SA로 대응시키면 다음과 같다.
+$$Hx_k=\mathbb{E}[f(x_k,\xi)],\qquad w_k=f(x_k,\hat\xi)-\mathbb{E}[f(x_k,\xi)].$$
+
+::: {.callout-tip collapse="true" title="의의"}
+- 노이즈 $w_k$는 평균이 0이다. 그래서 노이즈 조건의 첫째(조건부 평균 0)가 자연스럽게 만족된다.
+- TD(0), TD(λ), Q-learning이 모두 이 형태다. 알고리즘마다 "무엇이 $f$이고 무엇이 $\hat\xi$인가"만 지목하면 된다.
+:::
+
+**↑ 올라가기**: [@sec-f0], [@sec-g2], [@sec-h2]
+
+## step size 조건 $\sum\alpha=\infty$, $\sum\alpha^2<\infty$는 왜 필요한가 {#sec-f4}
+
+**답.** 각 조건이 하나의 실패 모드를 막는다.
+
+::: {.callout-note collapse="true" title="Option I: 상수 step size → 수렴 실패"}
+$w_k(i)$의 분산을 $\sigma^2$이라 하고 $x_k$와 독립이라 하자.
+$$\mathrm{Var}(x_{k+1}(i))=\mathrm{Var}\big((1-\alpha)x_k(i)+\alpha(Hx_k)(i)\big)+\alpha^2\sigma^2\ \ge\ \alpha^2\sigma^2.$$
+분산이 사라지지 않는다. 그래서 $x^*$ 근방까지는 가도 그 안에서 무작위로 움직인다. 노이즈의 영향이 결국 줄어들려면 step size가 줄어야 한다. 이 실패를 막는 것이 $\sum\alpha^2<\infty$이다.
+:::
+
+::: {.callout-note collapse="true" title="Option II: 너무 빨리 줄어드는 step size → 탈출 실패"}
+$\sum\alpha_k$가 유한하고 스텝 방향이 유계라고 하자.
+$$|x_k(i)-x_0(i)|\le\sum_{\tau<k}\alpha_\tau(i)\,\big|(Hx_\tau)(i)-x_\tau(i)+w_\tau(i)\big|\le\text{상수}.$$
+$x_k$는 $x_0$ 중심의 고정된 반경을 벗어나지 못한다. $x^*$가 그 밖에 있으면 도달할 수 없다. 이 실패를 막는 것이 $\sum\alpha=\infty$이다.
+:::
+
+::: {.callout-tip collapse="true" title="예"}
+| step size | $\sum\alpha=\infty$ | $\sum\alpha^2<\infty$ | 판정 |
+|---|---|---|---|
+| $1/n$ | ✓ (조화급수) | ✓ ($\pi^2/6$) | 수렴 조건 만족 |
+| 상수 | ✓ | ✗ | 진동 |
+| $1/n^2$ | ✗ | ✓ | 탈출 실패 |
+| $1/\sqrt n$ | ✓ | ✗ | 진동 |
+:::
+
+**↑ 올라가기**: [@sec-f0], [@sec-h7]
+
+## 노이즈 조건은 무엇이고, 수렴 정리는 무엇을 말하는가 {#sec-f5}
+
+**답.** $\mathcal{F}_k$를 $k$단계까지의 history($x_0,\dots,x_k$, $w_0,\dots,w_{k-1}$, step size)라 하자. 노이즈 조건은 두 가지다.
+
+1. 조건부 평균 0: $\mathbb{E}[w_k(i)\mid\mathcal{F}_k]=0$.
+2. 조건부 분산 한계: $\mathbb{E}[w_k(i)^2\mid\mathcal{F}_k]\le C_0+C_1\|x_k\|^2$.
+
+수렴 정리는 두 가지다.
+
+- **정리 1 (축약)**: step size 조건 + 노이즈 조건 + $H$가 축약 ⇒ 확률 1로 $x_k\to x^*$.
+- **정리 2 (단조)**: 세 가정 아래에서 $x_k$가 확률 1로 유계이면 확률 1로 $x_k\to x^*$. 세 가정은 다음과 같다.
+  - $H$가 단조이다.
+  - 고정점이 유일하다.
+  - 모든 $\eta>0$에 대해 $Hx-\eta\mathbf{1}\le H(x-\eta\mathbf{1})\le H(x+\eta\mathbf{1})\le Hx+\eta\mathbf{1}$.
+
+::: {.callout-tip collapse="true" title="의의"}
+- 정리 자체의 증명보다, 알고리즘마다 **가정을 검증하는 순서**가 중요하다. 순서는 이렇다: $H$ 명시 → 목표가 $H$의 고정점 → $H$의 축약 → $w$의 정의와 조건부 평균 0 → 2차 모멘트 한계 → step size와 방문 조건. TD(λ)와 Q-learning의 수렴 증명이 모두 이 순서를 따른다.
+- 직관: 노이즈가 조건부로 unbiased이고 분산이 적절히 유계여야, 반복 속에서 노이즈의 영향이 지속되지 않는다.
+:::
+
+**↑ 올라가기**: [@sec-f0], [@sec-g7], [@sec-h7]
+
+# VII. Temporal difference 학습 {#sec-partG}
+
+## 고정된 $\pi$에 대해 TD(λ)는 모델 프리로 $v^\pi$를 추정한다 {#sec-g0}
+
+**답.** $v^\pi$가 만족하는 (다단계) Bellman 방정식에 Robbins–Monro SA를 적용한 것이 TD(λ)이다. $\lambda=0$이면 한 스텝 TD(0), $\lambda=1$이면 Monte Carlo가 된다.
+
+**↓ 내려가기**: [@sec-g1] MC · [@sec-g2] TD(0) · [@sec-g3] 다단계 식 · [@sec-g4] TD(λ) · [@sec-g5] 극단 · [@sec-g6] bias–variance · [@sec-g7] 수렴
+**↑ 올라가기**: [@sec-f0]
+
+## Monte Carlo 정책 평가: 무엇이 장점이고 무엇이 한계인가 {#sec-g1}
+
+**답.** $\gamma^T$가 무시할 만한 길이 $T$의 궤적을 $M$개 생성한다. 궤적별 누적 보상 $c^\pi(x_0,m)=\sum_{t<T}\gamma^tr\big(s^{(m)}_t,\pi(s^{(m)}_t)\big)$의 표본 평균으로 $v^\pi(x_0)$를 추정한다. 증분형으로는 $v(s)\leftarrow v(s)+\alpha_m\big(c(s,m)-v(s)\big)$, $\alpha_m=1/m$이다.
+
+::: {.callout-note collapse="true" title="증분형이 표본 평균과 같은 이유"}
+$v_m=v_{m-1}+\frac1m(c_m-v_{m-1})=\frac{(m-1)v_{m-1}+c_m}{m}$이다. 귀납적으로 $v_m=\frac1m\sum_{j\le m}c_j$.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+- 장점: 불편추정량이다.
+- 한계: 분산이 크다. 궤적이 끝나야 $c$를 계산할 수 있으므로 모델 프리이지만 **온라인이 아니다**.
+:::
+
+**↑ 올라가기**: [@sec-g0], [@sec-g5]
+
+## TD(0)는 어떻게 나오는가 {#sec-g2}
+
+**답.** 정책 평가 방정식 $v^\pi(s_t)=\mathbb{E}\big[r(s_t,\pi(s_t))+\gamma v^\pi(s_{t+1})\big]$의 기댓값을, 관측된 다음 상태 하나로 대체한다(Robbins–Monro).
+$$v(s_t)\leftarrow(1-\alpha_t)\,v(s_t)+\alpha_t\big(r_t+\gamma v(s_{t+1})\big)=v(s_t)+\alpha_t\underbrace{\big(r_t+\gamma v(s_{t+1})-v(s_t)\big)}_{d_t\ (\text{temporal difference})}.$$
+
+::: {.callout-tip collapse="true" title="의의"}
+- $d_t$는 "새 추정치 − 옛 추정치"이다. 시점 $t+1$에서 본 추정과 $t$에서의 추정의 차이이므로 temporal difference라 부른다.
+- **완전히 증분적**이다. 방문한 상태 한 칸만 갱신하므로 lookup table이 필요하고, 전체 학습은 느리다.
+- **가장 가볍다**. 전이 샘플 하나 $(s_t,a_t,r_t,s_{t+1})$만 필요하다.
+- **완전히 온라인**이다. 샘플이 들어올 때마다 갱신한다.
+- 표기 주의: 기댓값 식의 $s_{t+1}$은 확률변수이고, 갱신식의 $s_{t+1}$은 관측된 표본이다.
+- 종료 상태가 있는 에피소드형에서는 이어지는 항을 0으로 둔다: 목표값 $r_t+\gamma(1-\text{done})\,v(s_{t+1})$.
+:::
+
+**↓ 내려가기**: [@sec-f3]
+**↑ 올라가기**: [@sec-g0]
+
+## 다단계 Bellman 식은 어떻게 TD 형태로 바뀌는가 {#sec-g3}
+
+**명제.** $d_k=r_k+\gamma v(s_{k+1})-v(s_k)$로 두면
+$$v(s_t)=\mathbb{E}^\pi\Big[\sum_{k\ge t}(\lambda\gamma)^{k-t}d_k\ \Big|\ \mathcal{F}_t\Big]+v(s_t).$$
+
+**답.** $(\ell+1)$-스텝 Bellman 식 $v(s_t)=\mathbb{E}\big[\sum_{k=0}^{\ell}\gamma^kr_{t+k}+\gamma^{\ell+1}v(s_{t+\ell+1})\mid\mathcal{F}_t\big]$들을 가중치 $(1-\lambda)\lambda^\ell$로 평균한다. 그다음 합의 순서를 바꿔 정리한다.
+
+::: {.callout-note collapse="true" title="유도"}
+아래에서 $r_{t+k}=r(s_{t+k},a_{t+k})$이다.
+
+**1단계.** $(1-\lambda)\sum_{\ell\ge0}\lambda^\ell=1$을 곱한다.
+$$v(s_t)=(1-\lambda)\,\mathbb{E}\Big[\sum_{\ell\ge0}\lambda^\ell\Big(\sum_{k=0}^{\ell}\gamma^kr_{t+k}+\gamma^{\ell+1}v(s_{t+\ell+1})\Big)\ \Big|\ \mathcal{F}_t\Big].$$
+
+**2단계 (보상 항).** 합의 순서를 바꾸면 안쪽 합이 $\ell=k$부터 시작한다. $(1-\lambda)\sum_{\ell\ge k}\lambda^\ell=\lambda^k$를 쓰면
+$$(1-\lambda)\sum_{\ell\ge0}\lambda^\ell\sum_{k=0}^{\ell}\gamma^kr_{t+k}=\sum_{k\ge0}\lambda^k\gamma^kr_{t+k}.$$
+
+**3단계 (가치 항).** $(1-\lambda)\lambda^\ell=\lambda^\ell-\lambda^{\ell+1}$로 쪼갠다.
+$$\sum_{\ell\ge0}(\lambda^\ell-\lambda^{\ell+1})\gamma^{\ell+1}v(s_{t+\ell+1})=\sum_{k\ge0}\lambda^k\gamma^{k+1}v(s_{t+k+1})-\sum_{k\ge1}\lambda^k\gamma^kv(s_{t+k}).$$
+뒤의 합을 $k\ge0$부터로 바꾸면 $v(s_t)$ 한 항을 다시 더해야 한다.
+
+**4단계 (합치기).**
+$$v(s_t)=\mathbb{E}\Big[\sum_{k\ge0}(\lambda\gamma)^k\big(r_{t+k}+\gamma v(s_{t+k+1})-v(s_{t+k})\big)\ \Big|\ \mathcal{F}_t\Big]+v(s_t).$$
+지수를 $k\to k-t$로 옮기면 명제가 된다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+다소 인위적이지만 이것도 **고정점 방정식**이다. 그래서 SA를 적용할 수 있다.
+:::
+
+**↑ 올라가기**: [@sec-g0]
+
+## TD(λ) 갱신식은 어떻게 나오는가 {#sec-g4}
+
+**답.** [@sec-g3]의 우변에 Robbins–Monro를 적용한다.
+$$v(s_t)\leftarrow(1-\alpha_t)\,v(s_t)+\alpha_t\Big(\sum_{k\ge t}(\lambda\gamma)^{k-t}d_k+v(s_t)\Big)\ \Longrightarrow\ v(s_t)\leftarrow v(s_t)+\alpha_t\sum_{k\ge t}(\lambda\gamma)^{k-t}d_k.$$
+$\alpha$로 묶는 과정에서 앞뒤의 $v(s_t)$가 상쇄된다.
+
+::: {.callout-tip collapse="true" title="의의"}
+- 여전히 한 번에 한 칸만 갱신한다.
+- $k\ge t$의 미래 TD 오차가 필요하므로, $\lambda>0$이면 어느 정도 궤적을 모은 뒤 갱신한다. TD(0)만 완전히 온라인이다.
+:::
+
+**↑ 올라가기**: [@sec-g0]
+
+## λ=0과 λ=1에서 TD(λ)는 각각 무엇이 되는가 {#sec-g5}
+
+**답.**
+
+- $\lambda=0$: $0^0=1$ 관례로 $v(s_t)\leftarrow v(s_t)+\alpha\,d_t$. TD(0)이다.
+- $\lambda=1$: $t=0$에서 $v(s_0)\leftarrow v(s_0)+\alpha\sum_k\gamma^kd_k$. Monte Carlo에 대응한다.
+
+::: {.callout-note collapse="true" title="λ=1이 Monte Carlo인 이유 (망원합)"}
+$$\sum_{k\ge0}\gamma^kd_k=\sum_k\gamma^kr_k+\sum_k\big(\gamma^{k+1}v(s_{k+1})-\gamma^kv(s_k)\big)=\sum_k\gamma^kr_k-v(s_0)\quad(\gamma^Kv(s_K)\to0).$$
+따라서 $v(s_0)\leftarrow v(s_0)+\alpha\,(c-v(s_0))$이고, $c=\sum\gamma^kr_k$이다. 이것은 Monte Carlo 증분식([@sec-g1])과 같다.
+:::
+
+**↓ 내려가기**: [@sec-g1]
+**↑ 올라가기**: [@sec-g0]
+
+## λ는 어떻게 고르는가 {#sec-g6}
+
+**답.**
+
+- 큰 λ(MC 쪽): bias가 작고 분산이 크다.
+- 작은 λ(TD(0) 쪽): bias가 크고 분산이 작다.
+
+보통 큰 λ에서 시작해 0으로 줄인다. TD(λ)는 수렴하므로 진행될수록 $v$의 품질이 오르고, 그러면 기존 추정치를 재사용하는 작은 λ가 유리해진다.
+
+::: {.callout-tip collapse="true" title="의의: 두 상태 예"}
+상태 1과 2가 있고 $p_{12}>0$, $p_{21}=0$이며, 각 궤적이 1을 한 번만 방문한다고 하자.
+
+- TD(1)의 누적 보상 $c(1,m)$은 $v^\pi(1)$의 불편추정량이다.
+- 그런데 $v^\pi(2)$의 정확한 추정치가 이미 있다고 하자. TD(1)은 이 정보를 $v^\pi(1)$ 학습에 쓰지 못한다. TD(0)는 이 정보를 효율적으로 쓰면서 $r_t$ 표본의 노이즈도 줄인다.
+
+같은 축으로 학습 곡선을 해석할 수 있다. TD(1)은 궤적 전체의 표본 수익을 써서 분산이 크다. TD(0)는 한 스텝 표본과 현재 추정치를 써서 분산이 작지만, 초기 추정이 틀리면 bias가 있다.
+:::
+
+**↑ 올라가기**: [@sec-g0]
+
+## ✍ TD(λ)는 왜 $v^\pi$로 수렴하는가 {#sec-g7}
+
+**명제.** 각 상태가 무한히 자주 갱신되고 $\sum\alpha_t=\infty$, $\sum\alpha_t^2<\infty$이면, 확률 1로 $v(s)\to v^\pi(s)$이다.
+
+**답의 구조.** SA 정리 1([@sec-f5])의 가정을 검증한다.
+
+안내 질문:
+
+1. 다단계 Bellman 식을 벡터 연산자 $H$로 쓰면 무엇인가? (한 스텝 연산자 $T^\pi$의 거듭제곱을 λ-가중 평균한 형태를 생각한다.)
+2. $v^\pi$는 왜 $H$의 고정점인가? (각 거듭제곱 $(T^\pi)^n$의 고정점은 무엇인가?)
+3. $H$의 축약 계수는 얼마인가? ($(T^\pi)^n$의 축약 계수를 먼저 구하고, 가중 평균한다.)
+4. 갱신을 $(1-\alpha)v+\alpha(Hv+w)$ 꼴로 쓸 때 $w_t$는 무엇이고, 왜 $\mathbb{E}[w_t\mid\mathcal{F}_t]=0$인가?
+5. 보상 유계와 유한 상태로부터 $\mathbb{E}[w_t^2\mid\mathcal{F}_t]\le C_0+C_1\|v_t\|^2$를 어떻게 보이는가?
+
+**↓ 내려가기**: [@sec-f5], [@sec-c1c]
+**↑ 올라가기**: [@sec-g0]
+
+# VIII. Q-learning {#sec-partH}
+
+## Q-learning은 조건 하에서 $Q^*$로 수렴하는 모델 프리, off-policy 알고리즘이다 {#sec-h0}
+
+**답.** $Q^*=T_QQ^*$에 Robbins–Monro SA를 적용한 것이다. 갱신식은 다음과 같다.
+$$Q(s_t,a_t)\leftarrow Q(s_t,a_t)+\alpha_t\Big[r_t+\gamma\max_{a'}Q(s_{t+1},a')-Q(s_t,a_t)\Big]$$
+수렴 조건은 모든 $(s,a)$의 무한 방문과 step size 조건이다. 행동은 임의의 정책으로 골라도 된다(off-policy).
+
+::: {.callout-tip collapse="true" title="의의: 요약"}
+- Q에 대한 Bellman 방정식만 유도하면, SA로 완전 온라인·모델 프리 알고리즘이 바로 나온다.
+- off-policy이므로 표본을 재사용할 수 있다(experience replay, DQN의 기반).
+- 한계 1, exploration: ε-greedy로 완전히 해결되지 않는다. 간편하지만 효율적이지 않다.
+- 한계 2, 확장성: 한 칸씩 갱신하므로 상태-행동이 조금만 많아져도 학습이 매우 느리다. 함수 근사가 필요하다.
+:::
+
+**↓ 내려가기**: [@sec-h1] $T_Q$ · [@sec-h2] 갱신식 · [@sec-h3] 손계산 · [@sec-h4] 정책 추출 · [@sec-h5] off-policy · [@sec-h6] 탐색 · [@sec-h7] 수렴
+**↑ 올라가기**: [@sec-f0], [@sec-d5]
+
+## $T_Q$는 왜 단조이고 축약인가 {#sec-h1}
+
+**명제.** $(T_QQ)(s,a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\max_{a'}Q(s',a')$는 단조이고 $\|\cdot\|_\infty$에 대해 $\gamma$-축약이다.
+
+**답.** max가 합 안에 있으므로, 다음 상태별로 max 차이 부등식을 쓴 뒤 전이확률로 평균한다.
+
+::: {.callout-note collapse="true" title="증명"}
+**축약.**
+$$|(T_QQ)(s,a)-(T_QQ')(s,a)|\le\gamma\sum_{s'}p(s'\mid s,a)\Big|\max_{a'}Q(s',a')-\max_{a'}Q'(s',a')\Big|\le\gamma\sum_{s'}p\,\max_{a'}|Q-Q'|(s',a')\le\gamma\|Q-Q'\|_\infty.$$
+$(s,a)$에 대해 max를 취하면 끝난다.
+
+**단조.** $Q\le Q'$이면 각 $s'$에서 $\max_{a'}Q\le\max_{a'}Q'$이고, $p\ge0$이므로 가중합도 순서를 보존한다.
+:::
+
+**↓ 내려가기**: [@sec-c1b], [@sec-c2c]
+**↑ 올라가기**: [@sec-h0], [@sec-h7]
+
+## 모델 기반 Q-VI에서 Q-learning 갱신식으로 어떻게 넘어가는가 {#sec-h2}
+
+**답.** 모델을 알면 Q-VI는 $Q_{k+1}=T_QQ_k$이며, 매 반복 모든 $(s,a)$를 갱신하고 $p$를 쓴다. 모델이 없으면 $T_Q$의 $\sum_{s'}p\max Q$를 관측된 $s_{t+1}$ 하나로 대체한다(Robbins–Monro).
+$$Q(s_t,a_t)\leftarrow(1-\alpha)\,Q(s_t,a_t)+\alpha\Big[r_t+\gamma\max_{a'}Q(s_{t+1},a')\Big].$$
+
+::: {.callout-tip collapse="true" title="의의"}
+- 필요한 것은 전이 샘플 하나 $(s_t,a_t,r_t,s_{t+1})$뿐이므로 온라인이다.
+- 한 번에 한 칸만 갱신하므로 완전히 증분적이다.
+- 아이디어의 전부: 옛 추정치에 $1-\alpha$, Bellman 우변의 단일 표본 추정치에 $\alpha$의 가중치.
+:::
+
+**↓ 내려가기**: [@sec-f3]
+**↑ 올라가기**: [@sec-h0]
+
+## Q-learning을 손으로 계산하는 절차는 무엇인가 {#sec-h3}
+
+**답.** 전이 하나마다 다음 순서를 지킨다.
+
+1. 목표값 $y=r+\gamma\max_{a'}Q(s',a')$를 **현재 표**로 계산한다. 종료 전이면 max 항은 0이다.
+2. 갱신 $Q(s,a)\leftarrow Q(s,a)+\alpha\,(y-Q(s,a))$. 다른 칸은 그대로 둔다.
+3. 표 전체를 다시 적는다. 다음 전이는 이 갱신된 표를 쓴다.
+
+::: {.callout-tip collapse="true" title="의의 및 함정"}
+- 같은 전이 안에서는 갱신 전 표로 목표값을 계산한다.
+- 결정적 환경에서 $Q^*$를 직접 구할 때는 Bellman 방정식 $Q^*(s,a)=r(s,a)+\gamma\max_{a'}Q^*(s',a')$을 연립으로 푼다. 어떤 행동이 최적인지 가정하고 풀어서, 그 가정이 성립하는지 검증한다.
+:::
+
+**↑ 올라가기**: [@sec-h0]
+
+## 학습 후 정책은 어떻게 얻고, 왜 모델이 필요 없는가 {#sec-h4}
+
+**답.** $\pi^*(s)\in\arg\max_aQ(s,a)$로 얻는다. 이 단계에 전이확률이 들어가지 않으므로 처음부터 끝까지 모델 프리다 → [@sec-e6a]
+
+**↑ 올라가기**: [@sec-h0]
+
+## 왜 Q-learning은 off-policy인가 {#sec-h5}
+
+**답.** 목표값의 $\max_{a'}$가 학습 대상(greedy 정책)을 결정한다. 반면 표본을 만들 때 실제로 취하는 행동은 임의의 정책으로 골라도 된다. 학습하려는 정책과 행동을 만드는 정책이 달라도 되므로 off-policy이다.
+
+::: {.callout-tip collapse="true" title="의의"}
+유연성이 높다. 이미 모은 표본을 다시 써도(experience replay) 갱신이 유효하다.
+:::
+
+**↑ 올라가기**: [@sec-h0]
+
+## 행동은 어떻게 골라야 하는가: greedy의 문제와 탐색 {#sec-h6}
+
+**답.** Q가 거의 최적이면 greedy 정책이 최적이다. 그러나 학습 초기에는 Q가 부정확하다. 이때 greedy만 쓰면 일부 $(s,a)$가 아예 방문되지 않는다. 모든 상태를 방문하더라도 이익이 되는 일부 행동이 한 번도 시도되지 않을 수 있다. 그러면 "모든 쌍 무한 방문" 가정이 깨져 최적 Q로의 수렴이 보장되지 않는다. 그래서 당장의 greedy 이득을 일부 포기하고 탐색한다.
+
+::: {.callout-tip collapse="true" title="의의: 탐색 방법"}
+- **ε-greedy**: 확률 $1-\epsilon$로 greedy 행동, 확률 $\epsilon$로 무작위 행동. 간편하고 스케줄링이 쉬워 가장 많이 쓰인다. 효율적이어서 쓰는 것은 아니다.
+- **구간 전환**: 탐색 구간(무작위)과 greedy 구간을 번갈아 쓴다.
+- **Boltzmann**: $\Pr(a\mid s)=\frac{\exp(Q(s,a)/T)}{\sum_{a'}\exp(Q(s,a')/T)}$, $T>0$은 온도. $T\to0$이면 greedy, $T\to\infty$이면 균등.
+- **ε 스케줄**: 큰 ε에서 시작해 줄인다. 처음에는 정보가 없으므로 탐색에 집중해 가치의 품질을 높인다.
+- exploration–exploitation trade-off의 근원은 시스템 동역학과 보상 구조에 대한 지식의 부족이다.
+:::
+
+**↓ 내려가기**: [@sec-h6a]
+**↑ 올라가기**: [@sec-h0]
+
+### ε-greedy에서 각 행동이 선택될 확률은 얼마인가 {#sec-h6a}
+
+**답.** 탐색 시 행동 집합 **전체**에서 균등 추출한다면, greedy 행동이 유일할 때 확률은 다음과 같다.
+
+- greedy 행동: $1-\epsilon+\epsilon/|A|$ (탐색 중에도 greedy 행동이 뽑힐 수 있다).
+- 나머지 각 행동: $\epsilon/|A|$.
+
+::: {.callout-tip collapse="true" title="함정"}
+- 탐색을 "greedy가 아닌 행동 중에서" 하는지 "전체 중에서" 하는지에 따라 답이 달라진다. 문제의 정의를 먼저 확인한다.
+- greedy 행동이 동률이면, 동률 처리 규칙(예: 동률 행동 사이 균등)을 먼저 명시한다.
+:::
+
+**↑ 올라가기**: [@sec-h6]
+
+## ✍ Q-learning은 왜 확률 1로 $Q^*$로 수렴하는가 {#sec-h7}
+
+**명제.** 모든 $(s,a)$가 무한히 방문되고, 각 쌍에 대해 $\sum_t\alpha_t(s,a)=\infty$, $\sum_t\alpha_t(s,a)^2<\infty$이면, 각 $(s,a)$에서 확률 1로 $Q(s,a)\to Q^*(s,a)$이다.
+
+**답의 구조.** SA 정리 1([@sec-f5])을 $H=T_Q$에 적용한다. 축약은 [@sec-h1]에서 이미 확보했다. 남는 것은 노이즈 조건의 검증이다.
+
+안내 질문:
+
+1. 갱신식을 $(1-\alpha_t)Q_t(s_t,a_t)+\alpha_t\big[(T_QQ_t)(s_t,a_t)+w_t\big]$ 꼴로 쓰면 $w_t$는 무엇인가?
+2. $\mathcal{F}_t$가 주어졌을 때 $s_{t+1}$의 조건부 분포는 무엇인가? 그로부터 $\mathbb{E}[w_t\mid\mathcal{F}_t]=0$이 왜 나오는가?
+3. $|w_t|$를 $\max|r|$과 $\|Q_t\|_\infty$로 위에서 누르면 어떤 한계가 나오는가? 그 제곱이 $C_0+C_1\|Q_t\|^2$ 꼴이 되도록 상수를 정하라.
+4. step size 조건과 무한 방문 조건은 문제의 가정으로 주어진다. 가정이 하나라도 깨지는 사례(행동 정책이 greedy뿐인 경우, $\alpha$가 상수인 경우)에서는 어느 단계가 무너지는가?
+5. $\epsilon>0$인 ε-greedy와 쌍별 카운터 $\alpha_n(s,a)=1/n$을 쓰면, 두 가정이 각각 왜 만족되는가?
+
+**↓ 내려가기**: [@sec-f4], [@sec-f5], [@sec-h1], [@sec-h6]
+**↑ 올라가기**: [@sec-h0]

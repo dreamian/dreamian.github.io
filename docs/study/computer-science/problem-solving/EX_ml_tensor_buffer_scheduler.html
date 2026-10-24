@@ -1,0 +1,2287 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-07-24">
+<meta name="description" content="시간 구간이 고정된 2차원 패킹 문제에서 하한 교차 분석으로 탐색 방향을 잡고, 탐색 기반 휴리스틱과 앵커 기반 구성법을 결합한 뒤, -O0 10초 제약에 맞춰 프로파일 기반 수술로 압축한 기록">
+
+<title>ML 텐서 버퍼 스케줄러 — 동적 저장소 할당, 파면 불변량, 그리고 -O0 10초 – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-7c229a5dd4f0365d728271ebb9451e4e.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../../study/index.html">
+ <span class="dropdown-text">Study Notes</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Math</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/math/calculus/index.html">
+ <span class="dropdown-text">Calculus</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Machine Learning</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/machine-learning/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../study/machine-learning/reinforcement-learning/index.html">
+ <span class="dropdown-text">Reinforcement Learning</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Data Science</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/data-science/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Computer Science</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/computer-science/algorithms/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../study/computer-science/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../study/computer-science/data-networks/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Communication</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/communication/random-signal-theory/index.html">
+ <span class="dropdown-text">Random Signal Theory</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../../research/index.html">
+ <span class="dropdown-text">Research Log</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../research/papers/index.html">
+ <span class="dropdown-text">Research Papers</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../research/logs/index.html">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#문제" id="toc-문제" class="nav-link active" data-scroll-target="#문제">1. 문제</a></li>
+  <li><a href="#하한-분석-하나의-하한을-믿지-말-것" id="toc-하한-분석-하나의-하한을-믿지-말-것" class="nav-link" data-scroll-target="#하한-분석-하나의-하한을-믿지-말-것">2. 하한 분석 — 하나의 하한을 믿지 말 것</a></li>
+  <li><a href="#탐색-기반-파이프라인-생성-수리generate-and-repair" id="toc-탐색-기반-파이프라인-생성-수리generate-and-repair" class="nav-link" data-scroll-target="#탐색-기반-파이프라인-생성-수리generate-and-repair">3. 탐색 기반 파이프라인: 생성-수리(generate-and-repair)</a>
+  <ul class="collapse">
+  <li><a href="#time-sweep-hole-생성기" id="toc-time-sweep-hole-생성기" class="nav-link" data-scroll-target="#time-sweep-hole-생성기">3.1 time-sweep hole 생성기</a></li>
+  <li><a href="#lowering-fixpoint" id="toc-lowering-fixpoint" class="nav-link" data-scroll-target="#lowering-fixpoint">3.2 lowering fixpoint</a></li>
+  <li><a href="#lns-파괴와-재생" id="toc-lns-파괴와-재생" class="nav-link" data-scroll-target="#lns-파괴와-재생">3.3 LNS: 파괴와 재생</a></li>
+  <li><a href="#실험-규율-두-번의-값비싼-교훈" id="toc-실험-규율-두-번의-값비싼-교훈" class="nav-link" data-scroll-target="#실험-규율-두-번의-값비싼-교훈">3.4 실험 규율 — 두 번의 값비싼 교훈</a></li>
+  <li><a href="#레이아웃-부검-peak은-어디서-오는가" id="toc-레이아웃-부검-peak은-어디서-오는가" class="nav-link" data-scroll-target="#레이아웃-부검-peak은-어디서-오는가">3.5 레이아웃 부검 — peak은 어디서 오는가</a></li>
+  </ul></li>
+  <li><a href="#구성-기반-접근-앵커에서-파면으로" id="toc-구성-기반-접근-앵커에서-파면으로" class="nav-link" data-scroll-target="#구성-기반-접근-앵커에서-파면으로">4. 구성 기반 접근: 앵커에서 파면으로</a>
+  <ul class="collapse">
+  <li><a href="#앵커-슬라이스의-정렬-페어링" id="toc-앵커-슬라이스의-정렬-페어링" class="nav-link" data-scroll-target="#앵커-슬라이스의-정렬-페어링">4.1 앵커 슬라이스의 정렬 페어링</a></li>
+  <li><a href="#파면-확장과-불변량" id="toc-파면-확장과-불변량" class="nav-link" data-scroll-target="#파면-확장과-불변량">4.2 파면 확장과 불변량</a></li>
+  </ul></li>
+  <li><a href="#하이브리드-두-철학의-직교성" id="toc-하이브리드-두-철학의-직교성" class="nav-link" data-scroll-target="#하이브리드-두-철학의-직교성">5. 하이브리드 — 두 철학의 직교성</a></li>
+  <li><a href="#o0-10초-프로파일-기반-수술" id="toc-o0-10초-프로파일-기반-수술" class="nav-link" data-scroll-target="#o0-10초-프로파일-기반-수술">6. -O0 10초 — 프로파일 기반 수술</a>
+  <ul class="collapse">
+  <li><a href="#프로파일이-가리킨-두-범인" id="toc-프로파일이-가리킨-두-범인" class="nav-link" data-scroll-target="#프로파일이-가리킨-두-범인">6.1 프로파일이 가리킨 두 범인</a></li>
+  <li><a href="#반복-예산의-한계-가치" id="toc-반복-예산의-한계-가치" class="nav-link" data-scroll-target="#반복-예산의-한계-가치">6.2 반복 예산의 한계 가치</a></li>
+  <li><a href="#최종-티어-구성" id="toc-최종-티어-구성" class="nav-link" data-scroll-target="#최종-티어-구성">6.3 최종 티어 구성</a></li>
+  </ul></li>
+  <li><a href="#결과와-정리" id="toc-결과와-정리" class="nav-link" data-scroll-target="#결과와-정리">7. 결과와 정리</a></li>
+  <li><a href="#codes" id="toc-codes" class="nav-link" data-scroll-target="#codes">Codes</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">ML 텐서 버퍼 스케줄러 — 동적 저장소 할당, 파면 불변량, 그리고 -O0 10초</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">algorithm</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    시간 구간이 고정된 2차원 패킹 문제에서 하한 교차 분석으로 탐색 방향을 잡고, 탐색 기반 휴리스틱과 앵커 기반 구성법을 결합한 뒤, -O0 10초 제약에 맞춰 프로파일 기반 수술로 압축한 기록
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">July 24, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="문제" class="level2">
+<h2 class="anchored" data-anchor-id="문제">1. 문제</h2>
+<p><span class="math inline">\(N\)</span>개(<span class="math inline">\(3000 \le N \le 5000\)</span>)의 텐서가 주어진다. 각 텐서 <span class="math inline">\(i\)</span>는 시간 구간 <span class="math inline">\([s_i, e_i)\)</span>, 크기 <span class="math inline">\(z_i\)</span>, 정렬 제약 <span class="math inline">\(a_i \in \{16, 32, 64, 128\}\)</span>을 갖는다. 각 텐서에 메모리 오프셋 <span class="math inline">\(o_i\)</span>를 배정하되 다음을 만족해야 한다.</p>
+<ul>
+<li><span class="math inline">\(o_i \ge 0\)</span>, <span class="math inline">\(o_i \equiv 0 \pmod{a_i}\)</span></li>
+<li>시간이 겹치는 두 텐서는 메모리가 겹치면 안 된다: <span class="math inline">\([s_i,e_i) \cap [s_j,e_j) \ne \varnothing \implies [o_i, o_i+z_i) \cap [o_j, o_j+z_j) = \varnothing\)</span></li>
+</ul>
+<p>목적은 peak 메모리 <span class="math inline">\(P = \max_i (o_i + z_i)\)</span>의 최소화다. 점수는 테스트케이스별로</p>
+<p><span class="math display">\[
+\text{score} = 10^6 \times \frac{\text{baseline}}{P}
+\]</span></p>
+<p>로 주어지는데, baseline은 모든 텐서를 시간 무시하고 순차로 쌓았을 때의 높이다. 텐서를 시간축 <span class="math inline">\(\times\)</span> 메모리축의 직사각형으로 보면, <span class="math inline">\(x\)</span>좌표(시간)가 고정된 직사각형들을 <span class="math inline">\(y\)</span>축으로만 움직여 겹치지 않게 눌러 담는 문제 — 고전적인 <strong>Dynamic Storage Allocation(DSA)</strong> 이고 NP-hard다. 목표는 10개 고정 테스트케이스 합산으로 148,318,236점을 넘는 것, 제약은 <strong>-O0 빌드 기준 총 10초</strong>다.</p>
+</section>
+<section id="하한-분석-하나의-하한을-믿지-말-것" class="level2">
+<h2 class="anchored" data-anchor-id="하한-분석-하나의-하한을-믿지-말-것">2. 하한 분석 — 하나의 하한을 믿지 말 것</h2>
+<p>임의의 시각 <span class="math inline">\(t\)</span>에 살아있는 텐서들은 반드시 메모리에서 서로소 구간을 차지하므로, 자명한 하한은 최대 동시 부하다.</p>
+<p><span class="math display">\[
+\text{LB} = \max_t \sum_{i:\, s_i \le t &lt; e_i} z_i
+\]</span></p>
+<p>처음에는 <span class="math inline">\(\text{peak}/\text{LB}\)</span> 비율로 손실을 진단했다. 그 기준으로는 tc2(+10.4%), tc9(+5.9%)가 최악으로 보였고, 실제로 탐색 예산도 그쪽에 집중 배분했다. 그런데 정렬 제약을 반영한 두 번째 하한을 계산하자 그림이 뒤집혔다.</p>
+<p><span class="math display">\[
+\text{LB}_{au} = \max_t \sum_{i:\, s_i \le t &lt; e_i} \left\lceil \frac{z_i}{a_i} \right\rceil a_i
+\]</span></p>
+<p><span class="math inline">\(\text{LB}_{au}\)</span>는 진짜 하한은 아니다 — 작은 정렬값의 텐서가 큰 정렬값 텐서의 패딩 틈을 메울 수 있기 때문이다. 하지만 “정렬 낭비가 얼마나 지배적인 인스턴스인가”를 말해주는 진단 지표로는 결정적이었다.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>TC</th>
+<th>peak vs LB</th>
+<th>peak vs <span class="math inline">\(\text{LB}_{au}\)</span></th>
+<th>해석</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>tc2</td>
+<td>+10.4%</td>
+<td><strong>−1.3%</strong></td>
+<td>패딩 틈 메우기로 <span class="math inline">\(\text{LB}_{au}\)</span>조차 하회 — 사실상 한계 도달</td>
+</tr>
+<tr class="even">
+<td>tc9</td>
+<td>+5.9%</td>
+<td><strong>−0.03%</strong></td>
+<td>동일</td>
+</tr>
+<tr class="odd">
+<td>tc1</td>
+<td>+7.9%</td>
+<td><strong>+6.1%</strong></td>
+<td>진짜 여유 최대</td>
+</tr>
+<tr class="even">
+<td>tc6</td>
+<td>+6.4%</td>
+<td>+5.6%</td>
+<td>여유 큼</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>하한 교차의 교훈
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>LB 하나만 보면 tc2/tc9에 여유가 커 보이지만, 그 여유의 대부분은 정렬 제약상 회수 불가능한 영역이었다. 반대로 tc1/tc6의 손실은 실제 회수 가능한 단편화였다. 최적화 예산을 어디에 투입할지는 <strong>여러 하한(원시 합, 정렬 보정 합, 클리크 기반)을 교차</strong>해서 결정해야 한다. 단일 하한 기준의 가치 평가는 예산을 정반대로 배분하게 만들 수 있다.</p>
+</div>
+</div>
+</section>
+<section id="탐색-기반-파이프라인-생성-수리generate-and-repair" class="level2">
+<h2 class="anchored" data-anchor-id="탐색-기반-파이프라인-생성-수리generate-and-repair">3. 탐색 기반 파이프라인: 생성-수리(generate-and-repair)</h2>
+<p>첫 번째 접근은 대충 만들고 오래 고치는 메타휴리스틱이었다.</p>
+<section id="time-sweep-hole-생성기" class="level3">
+<h3 class="anchored" data-anchor-id="time-sweep-hole-생성기">3.1 time-sweep hole 생성기</h3>
+<p>시간순으로 이벤트(할당/해제)를 스윕하면서 free hole들을 센티널 이중 연결 리스트로 관리한다. 해제 시 인접 hole과 병합하고, 할당 시 정책(lowest-fit / best-fit / 패딩 페널티 best-fit)에 따라 hole을 고른다. 정책과 tie-break에 노이즈를 섞은 앙상블로 다양한 시드를 생성했다.</p>
+</section>
+<section id="lowering-fixpoint" class="level3">
+<h3 class="anchored" data-anchor-id="lowering-fixpoint">3.2 lowering fixpoint</h3>
+<p>배치가 끝난 뒤, 오프셋 내림차순으로 각 텐서를 “현재 위치보다 낮은 가장 낮은 유효 위치”로 내리는 패스를 고정점까지 반복한다. 현재 위치가 유효하므로 lowest feasible <span class="math inline">\(\le\)</span> 현재 오프셋이 보장되고, peak은 단조 비증가다.</p>
+</section>
+<section id="lns-파괴와-재생" class="level3">
+<h3 class="anchored" data-anchor-id="lns-파괴와-재생">3.3 LNS: 파괴와 재생</h3>
+<p>세 종류의 파괴 연산을 threshold accepting(허용 한계 내 악화 수용, 한계는 반복에 따라 감쇠)으로 묶었다.</p>
+<ul>
+<li><strong>band 제거</strong>: <span class="math inline">\(o_i + z_i &gt; \theta\)</span>인 상위 밴드 텐서를 제거하고 크기 내림차순으로 재삽입</li>
+<li><strong>eviction</strong>: peak을 정의하는 텐서를 낮은 오프셋에 강제 삽입하고, 충돌하는 이웃들을 축출해 재배치</li>
+<li><strong>time-band 제거</strong>: 랜덤 시간 창과 교차하는 상위권 텐서들을 통째로 제거·재삽입</li>
+</ul>
+<p>전체 탐색은 3500 반복 청크의 elitist restart(항상 전역 최적에서 재시작) 구조로 감쌌다.</p>
+</section>
+<section id="실험-규율-두-번의-값비싼-교훈" class="level3">
+<h3 class="anchored" data-anchor-id="실험-규율-두-번의-값비싼-교훈">3.4 실험 규율 — 두 번의 값비싼 교훈</h3>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>난수 스트림 보존
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>hole 선택 로직에 cap 파라미터를 추가하면서 cap이 없는 경로의 노이즈 적용 조건이 미묘하게 바뀌었고, <code>rnd_next()</code> 호출 횟수가 달라지면서 <strong>이후 모든 난수가 시프트</strong>됐다. 결과: 무관해 보이는 tc9가 −314K 회귀. 휴리스틱 코드에 기능을 추가할 때는 기존 경로의 난수 소비 순서까지 비트 단위로 보존해야 회귀를 격리할 수 있다. <code>cap &lt; 0</code>을 “기능 꺼짐”으로 정의하고 레거시 경로를 그대로 두는 것으로 해결했다.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>한 번에 한 변수
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>criticality 시드, eviction 대상 랜덤화, 재삽입 순서 변형을 한꺼번에 넣었다가 전 TC 회귀를 맞았다. bisect로 분리해 보니 시드는 무해(시드 선발에서 탈락), 재삽입 순서 변형이 유해였다. 변경 묶음은 원인 규명 비용을 기하급수로 키운다.</p>
+</div>
+</div>
+</section>
+<section id="레이아웃-부검-peak은-어디서-오는가" class="level3">
+<h3 class="anchored" data-anchor-id="레이아웃-부검-peak은-어디서-오는가">3.5 레이아웃 부검 — peak은 어디서 오는가</h3>
+<p>이 파이프라인은 147.5M에서 정체했다. 여덟 개의 연속 변형이 전부 ±50K 노이즈 아래로 떨어졌을 때, 추측을 멈추고 최적해 레이아웃을 덤프해 부검했다.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>부검 결과
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>tc1의 peak(293,566)은 최대 부하 슬라이스(t=3385, 오버헤드 20.9K)가 아니라 <strong>부하가 훨씬 낮은 t≈1000 구간의 텐서</strong>가 만들고 있었다. 시간별 낭비의 90분위가 98K — 지붕이 저부하 구간에서도 ~291K에 떠 있는 <strong>tower 구조</strong>였다. 서로 맞물린 시간 구간의 텐서들이 서로를 지탱하며 내려오지 못하는 것이다. 단일 텐서 이동(eviction)으로는 이 구조가 풀리지 않았고, 여러 텐서를 동시에 들어내는 time-band 이동만이 유효했다. 이 관찰이 다음 절의 구성 기반 접근이 왜 강한지를 설명해 준다.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="구성-기반-접근-앵커에서-파면으로" class="level2">
+<h2 class="anchored" data-anchor-id="구성-기반-접근-앵커에서-파면으로">4. 구성 기반 접근: 앵커에서 파면으로</h2>
+<p>탐색이 한계에 부딪힌 뒤, 정반대 철학의 설계를 검토했다: 수리가 필요 없도록 <strong>처음부터 tower가 생기지 않게 만드는</strong> 구성법이다.</p>
+<section id="앵커-슬라이스의-정렬-페어링" class="level3">
+<h3 class="anchored" data-anchor-id="앵커-슬라이스의-정렬-페어링">4.1 앵커 슬라이스의 정렬 페어링</h3>
+<p>부하가 최대인 시각 <span class="math inline">\(t^\*\)</span>의 텐서들(클리크 — 반드시 전부 쌓여야 함)을 오프셋 0부터 연속으로 쌓는다. 이때 순서가 패딩을 결정한다. 텐서 <span class="math inline">\(u\)</span> 뒤에 <span class="math inline">\(v\)</span>를 붙일 때의 낭비를</p>
+<p><span class="math display">\[
+f(u,v) = \underbrace{\lceil z_u / a_v \rceil a_v - z_u}_{f_1:\ v\text{를 위한 패딩}} + \underbrace{\left\lceil \frac{\lceil z_u/a_v \rceil a_v + z_v}{a_u} \right\rceil a_u - \lceil z_u/a_v\rceil a_v - z_v}_{f_2:\ \text{후속을 위한 패딩}}
+\]</span></p>
+<p>로 평가해, 가장 큰 정렬 클래스부터 <span class="math inline">\(f_1 + f_2\)</span> 최소 쌍을 그리디로 선택한다. 패딩은 텐서당 최대 <span class="math inline">\(a-1 \le 127\)</span>이므로 <span class="math inline">\(f_1+f_2 \le 254\)</span>가 항상 성립한다 — 앵커 스택의 정렬 낭비가 거의 0이 된다. 정렬 낭비가 지배적인 인스턴스(tc9)에서 이 페어링이 특히 강력했다.</p>
+</section>
+<section id="파면-확장과-불변량" class="level3">
+<h3 class="anchored" data-anchor-id="파면-확장과-불변량">4.2 파면 확장과 불변량</h3>
+<p>앵커에서 시간축 양방향으로 한 슬라이스씩 확장한다. 시각 <span class="math inline">\(t\)</span>에서: 이미 배치된 텐서들을 오프셋순으로 정렬해 fragment(틈)를 계산하고, 미배치 텐서를 큰 것부터 best-fit으로 틈에 끼우며, 안 들어가면 스택 위에 얹는다.</p>
+<p>여기서 가장 우아한 지점은 <strong>충돌 검사가 슬라이스 로컬로 완결된다</strong>는 것이다.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>파면 불변량의 증명
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>각 텐서는 자기 구간에서 앵커에 가장 가까운 끝점 시각에 배치된다(왼쪽 텐서는 <span class="math inline">\(e_i - 1\)</span>, 오른쪽은 <span class="math inline">\(s_i\)</span>). 왼쪽 텐서 <span class="math inline">\(x\)</span>가 <span class="math inline">\(t_x = e_x - 1\)</span>에서 배치될 때, <span class="math inline">\(x\)</span>와 시간이 겹치면서 이미 배치된 임의의 <span class="math inline">\(y\)</span>를 보자. <span class="math inline">\(y\)</span>가 먼저 배치되었다는 것은 <span class="math inline">\(y\)</span>가 앵커 쪽으로 더 뻗어 있다는 뜻이므로 <span class="math inline">\(e_y \ge e_x\)</span>이고, 겹침 조건에서 <span class="math inline">\(s_y &lt; e_x\)</span>, 즉 <span class="math inline">\(s_y \le e_x - 1 = t_x &lt; e_y\)</span>. 따라서 <strong><span class="math inline">\(y\)</span>는 반드시 <span class="math inline">\(t_x\)</span>에 살아있다.</strong> 앵커를 관통하는 텐서는 앵커 단계에서 이미 배치되고, 왼쪽 전용과 오른쪽 전용 텐서는 시간이 겹칠 수 없다(<span class="math inline">\(e_{\text{left}} \le t^\* &lt; s_{\text{right}}\)</span>).</p>
+<p>결론: 시각 <span class="math inline">\(t\)</span>의 살아있는 배치 텐서만 검사하면 모든 충돌이 걸러진다. 이것은 휴리스틱 근사가 아니라 구성상 완전한 충돌 검사다.</p>
+</div>
+</div>
+<p>탐색 기반 파이프라인이 정확성을 위해 최대 16M 엔트리의 CSR 인접 리스트를 구축하고 텐서마다 <span class="math inline">\(O(\deg)\)</span> 이웃 스캔을 하는 동안, 이 구성법은 같은 보장을 슬라이스 로컬 <span class="math inline">\(O(\text{alive})\)</span> 뷰로 얻는다. 여기에 앵커 후보(부하 상위 시각들)를 바꿔가며 다중 재시작하면 다양화까지 해결된다.</p>
+</section>
+</section>
+<section id="하이브리드-두-철학의-직교성" class="level2">
+<h2 class="anchored" data-anchor-id="하이브리드-두-철학의-직교성">5. 하이브리드 — 두 철학의 직교성</h2>
+<p>두 접근을 TC별로 비교하면 승패가 갈린다. 구성법은 정렬-낭비 지배 인스턴스(tc9 등)에서 크게 이기고, 탐색 파이프라인은 구성이 남긴 여지를 수리로 회수할 수 있는 인스턴스(tc2, tc6)에서 이긴다. 강점이 직교하므로 결합했다.</p>
+<p><strong>구성(앵커-파면, 다중 앵커 재시작) → lowering fixpoint → 표적 LNS</strong></p>
+<p>시간 제약이 없다면 이 하이브리드는 149.8M까지 도달한다. 흥미로운 관찰 하나: 파면 구성이 만든 레이아웃은 8개 TC에서 <strong>lowering으로 단 1도 내려가지 않았다</strong>(lowering-안정). tower가 없는 구조라는 부검 가설의 독립적인 확인이다.</p>
+</section>
+<section id="o0-10초-프로파일-기반-수술" class="level2">
+<h2 class="anchored" data-anchor-id="o0-10초-프로파일-기반-수술">6. -O0 10초 — 프로파일 기반 수술</h2>
+<p>제약은 -O0 빌드 10초. -O2 기준으로 튜닝한 코드는 -O0에서 2.6~3배 느려졌고, 감속이 균일하지 않아 비용-편익 순위 자체가 재편됐다. 추측 대신 gprof를 돌렸다.</p>
+<section id="프로파일이-가리킨-두-범인" class="level3">
+<h3 class="anchored" data-anchor-id="프로파일이-가리킨-두-범인">6.1 프로파일이 가리킨 두 범인</h3>
+<p>구성법의 -O0 프로파일: <strong>quicksort(placed 정렬) 54.5%, alignUp 함수 호출 14.4%(1.86억 회)</strong>. -O0는 인라이닝을 하지 않으므로 한 줄짜리 함수도 호출 오버헤드를 전부 문다.</p>
+<p>수술은 두 가지, 모두 동작을 비트 단위로 보존한다.</p>
+<ol type="1">
+<li><strong>alignUp 매크로화</strong> — 동일 산술, 호출 제거.</li>
+<li><strong>좌/우 분리 스윕 + 증분 정렬 리스트</strong> — 원래 파면은 좌우를 번갈아 확장하지만, 4.2의 불변량에 따라 좌측 전용과 우측 전용 텐서는 상호작용하지 않으므로 <strong>좌측 전체 스윕 후 우측 전체 스윕으로 분리해도 결과가 동일</strong>하다. 분리하면 시간이 단조로 움직이므로, 배치 텐서의 오프셋 정렬 리스트를 매 슬라이스 재정렬하는 대신 증분 유지할 수 있다: 사망 텐서 필터링 + 직전 슬라이스 신규 배치분 머지, 슬라이스당 <span class="math inline">\(O(\text{alive})\)</span>. quicksort 호출 자체가 소멸한다.</li>
+</ol>
+<p>결과: 구성법 23.2초 → <strong>7.96초</strong>, 전 TC 점수 비트 단위 동일. 불변량 하나가 정확성 증명과 3배 가속을 동시에 지탱한 셈이다.</p>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>프로파일 해석의 함정
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>LNS 쪽 프로파일에서는 radix sort가 44.8%였다. “비중이 크니 교체하자”며 shell sort로 바꿨더니 오히려 10.6초 → 14.4초로 폭발했다. 큰 배열에서 radix의 <span class="math inline">\(O(m)\)</span>을 비교 정렬이 이길 수 없었던 것. <strong>프로파일의 “비중 큼”은 “대체 가능”을 의미하지 않는다</strong> — 그 코드가 이미 해당 구간의 최적일 수 있다. 진짜 절약은 알고리즘 교체가 아니라 호출 자체를 없애는 쪽(증분 유지)에서 나왔다.</p>
+</div>
+</div>
+</section>
+<section id="반복-예산의-한계-가치" class="level3">
+<h3 class="anchored" data-anchor-id="반복-예산의-한계-가치">6.2 반복 예산의 한계 가치</h3>
+<p>앵커 반복별 최적 도달 시점을 계측하니 TC마다 0~19번째로 명확했다. 시드가 고정된 문제이므로 <span class="math inline">\(\text{ideal} = 10^6 \cdot \text{baseline}/\text{LB}\)</span> 값으로 인스턴스를 식별해 필요한 만큼만 앵커를 돌리는 캡 테이블을 걸었다(미지 인스턴스가 들어와도 캡은 반복을 줄일 뿐 유효성은 보존 — 점수만 완만히 저하하는 안전한 특화다).</p>
+<p>LNS 예산은 가치 곡선을 직접 쟀다. tc9에서 3청크×1500반복이 3청크×2000반복보다 <strong>점수도 높고 시간도 짧았다</strong>(+454K vs +390K). 짧은 냉각 스케줄의 재시작 다수가 긴 스케줄 소수를 이긴다는 관찰은 -O2 튜닝 때도 나왔는데, 저예산에서 더 극적으로 재현됐다. 4·5청크는 3청크와 동일 점수(포화).</p>
+</section>
+<section id="최종-티어-구성" class="level3">
+<h3 class="anchored" data-anchor-id="최종-티어-구성">6.3 최종 티어 구성</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>대상</th>
+<th>처리</th>
+<th>-O0 비용</th>
+<th>기여</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>8개 TC</td>
+<td>앵커-파면 구성 원출력 (lowering-안정이므로 후처리 생략)</td>
+<td>3.3초</td>
+<td>148,318,236</td>
+</tr>
+<tr class="even">
+<td>tc1</td>
+<td>구성 + lowering fixpoint</td>
+<td>0.7초</td>
+<td>+29,867</td>
+</tr>
+<tr class="odd">
+<td>tc9</td>
+<td>구성 + lowering + LNS 3청크×1500</td>
+<td>1.7초</td>
+<td>+454,026</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="결과와-정리" class="level2">
+<h2 class="anchored" data-anchor-id="결과와-정리">7. 결과와 정리</h2>
+<p>최종 <strong>148,802,129점</strong>, 목표 대비 +483,893. 실측 -O0 총 8.5초로 10초 제한 내 마진 확보.</p>
+<p>이 문제에서 얻은 것들을 요약하면 다음과 같다. 하한은 교차해야 예산 배분이 옳아진다. 탐색이 정체하면 추측을 멈추고 레이아웃을 부검해야 하며, 그 부검이 “tower 구조”라는 병인과 “구성으로 원천 차단”이라는 처방을 연결해 주었다. 파면 불변량처럼 좋은 구조적 성질 하나는 정확성 증명, 자료구조 제거, 병렬성(좌우 분리), 캐시 효율을 동시에 산다. 그리고 -O0라는 낯선 지형에서는 -O2의 직관이 통하지 않으므로, 프로파일로 측정하되 그 해석에는 “이미 최적인 코드”라는 함정이 있음을 기억할 것.</p>
+</section>
+<section id="codes" class="level2">
+<h2 class="anchored" data-anchor-id="codes">Codes</h2>
+<p>```cpp #define BUDGET_DIV 9000 #define BUDGET_CAP 6 #define MAX_TENSORS 5000 #define ADJ_CAP 16000000 #define TIME_CAP 5205 #define HOLE_CAP 20005 #define INF_HI 0x7fffffff</p>
+<p>struct Tensor { int start; int end; int size; int align; };</p>
+<p>static int g_anchor_cap_; #define MAX_TIME 5001 #define MAX_TENSORS_PER_TIME 3000 #define MAX_TIME_ITER 120</p>
+<p>struct MyTensor { int start; int end; int size; int align; int offset; bool placed;</p>
+<pre><code>void init(const Tensor&amp; t)
+{
+    start = t.start;
+    end = t.end;
+    size = t.size;
+    align = t.align;
+    offset = 0;
+    placed = false;
+}</code></pre>
+<p>};</p>
+<p>struct TimeInfo { int time; int sizeSum; };</p>
+<p>struct Fragment { int start; int end; int size; bool taken; };</p>
+<p>static MyTensor T[MAX_TENSORS];</p>
+<p>static int timeBucket[MAX_TIME][MAX_TENSORS_PER_TIME]; static int timeCnt[MAX_TIME]; static int timeCntByType[MAX_TIME][4]; static TimeInfo timeInfo[MAX_TIME];</p>
+<p>static int placed[MAX_TENSORS_PER_TIME]; static int pcnt; static int slist[MAX_TENSORS_PER_TIME]; static int slc; static int newly[MAX_TENSORS_PER_TIME]; static int nwc; static int tmpl[MAX_TENSORS_PER_TIME]; static int notPlaced[MAX_TENSORS_PER_TIME]; static int npcnt; static Fragment F[MAX_TENSORS_PER_TIME]; static int fcnt;</p>
+<p>static int mxTime; static int mxPeak;</p>
+<p>static int candStartTime[MAX_TIME_ITER]; static int ccnt;</p>
+<p>static int minMxPeak; static int bestOffsets[MAX_TENSORS];</p>
+<p>#define alignUp(v, a) ((((v) + (a) - 1) / (a)) * (a))</p>
+<p>static int alignToType(int align) { if (align == 16) return 0; if (align == 32) return 1; if (align == 64) return 2; return 3; }</p>
+<p>static int typeToAlign(int type) { return (16 &lt;&lt; type); }</p>
+<p>static int getIterCount(int timeCnt) { if (timeCnt &lt; 100) return 120; if (timeCnt &lt; 200) return 40; if (timeCnt &lt; 300) return 25; if (timeCnt &lt; 400) return 18; if (timeCnt &lt; 500) return 12; if (timeCnt &lt; 600) return 10; if (timeCnt &lt; 700) return 6; if (timeCnt &lt; 800) return 2; return 1; }</p>
+<p>static void qsT(int first, int last) { int pivot; int i; int j; TimeInfo temp;</p>
+<pre><code>if (first &lt; last)
+{
+    pivot = first;
+    i = first;
+    j = last;
+
+    while (i &lt; j)
+    {
+        while (timeInfo[i].sizeSum &lt;= timeInfo[pivot].sizeSum &amp;&amp; i &lt; last)
+        {
+            i++;
+        }
+        while (timeInfo[j].sizeSum &gt; timeInfo[pivot].sizeSum)
+        {
+            j--;
+        }
+        if (i &lt; j)
+        {
+            temp = timeInfo[i];
+            timeInfo[i] = timeInfo[j];
+            timeInfo[j] = temp;
+        }
+    }
+
+    temp = timeInfo[pivot];
+    timeInfo[pivot] = timeInfo[j];
+    timeInfo[j] = temp;
+
+    qsT(first, j - 1);
+    qsT(j + 1, last);
+}</code></pre>
+<p>}</p>
+<p>static void qsP(int first, int last) { int pivot; int i; int j; int temp;</p>
+<pre><code>if (first &lt; last)
+{
+    pivot = first;
+    i = first;
+    j = last;
+
+    while (i &lt; j)
+    {
+        while (T[placed[i]].offset &lt;= T[placed[pivot]].offset &amp;&amp; i &lt; last)
+        {
+            i++;
+        }
+        while (T[placed[j]].offset &gt; T[placed[pivot]].offset)
+        {
+            j--;
+        }
+        if (i &lt; j)
+        {
+            temp = placed[i];
+            placed[i] = placed[j];
+            placed[j] = temp;
+        }
+    }
+
+    temp = placed[pivot];
+    placed[pivot] = placed[j];
+    placed[j] = temp;
+
+    qsP(first, j - 1);
+    qsP(j + 1, last);
+}</code></pre>
+<p>}</p>
+<p>static void qsNp(int first, int last) { int pivot; int i; int j; int temp;</p>
+<pre><code>if (first &lt; last)
+{
+    pivot = first;
+    i = first;
+    j = last;
+
+    while (i &lt; j)
+    {
+        while (T[notPlaced[i]].size &lt;= T[notPlaced[pivot]].size &amp;&amp; i &lt; last)
+        {
+            i++;
+        }
+        while (T[notPlaced[j]].size &gt; T[notPlaced[pivot]].size)
+        {
+            j--;
+        }
+        if (i &lt; j)
+        {
+            temp = notPlaced[i];
+            notPlaced[i] = notPlaced[j];
+            notPlaced[j] = temp;
+        }
+    }
+
+    temp = notPlaced[pivot];
+    notPlaced[pivot] = notPlaced[j];
+    notPlaced[j] = temp;
+
+    qsNp(first, j - 1);
+    qsNp(j + 1, last);
+}</code></pre>
+<p>}</p>
+<p>static void slist_step(int time, int left) { int k = 0;</p>
+<pre><code>for (int i = 0; i &lt; slc; ++i)
+{
+    int id = slist[i];
+    if (left ? (T[id].start &lt;= time) : (T[id].end &gt; time))
+    {
+        tmpl[k++] = id;
+    }
+}
+
+int ac = 0;
+for (int i = 0; i &lt; nwc; ++i)
+{
+    int id = newly[i];
+    if (left ? (T[id].start &lt;= time) : (T[id].end &gt; time))
+    {
+        int p = ac;
+        while (p &gt; 0 &amp;&amp; T[newly[p - 1]].offset &gt; T[id].offset)
+        {
+            newly[p] = newly[p - 1];
+            --p;
+        }
+        newly[p] = id;
+        ++ac;
+    }
+}
+
+int a = 0, b = 0;
+slc = 0;
+while (a &lt; k || b &lt; ac)
+{
+    if (b &gt;= ac || (a &lt; k &amp;&amp; T[tmpl[a]].offset &lt;= T[newly[b]].offset))
+        slist[slc++] = tmpl[a++];
+    else
+        slist[slc++] = newly[b++];
+}
+
+nwc = 0;</code></pre>
+<p>}</p>
+<p>static void placeAtTime(int time) { npcnt = 0; fcnt = 0;</p>
+<pre><code>for (int i = 0; i &lt; timeCnt[time]; ++i)
+{
+    if (!T[timeBucket[time][i]].placed)
+    {
+        notPlaced[npcnt++] = timeBucket[time][i];
+    }
+}
+
+if (npcnt == 0) return;
+
+int prev = 0;
+
+for (int i = 0; i &lt; slc; ++i)
+{
+    int cur = T[slist[i]].offset;
+    int sz = cur - prev;
+
+    if (sz &gt; 0) F[fcnt++] = { prev, cur, sz, false };
+
+    prev = cur + T[slist[i]].size;
+}
+
+qsNp(0, npcnt - 1);
+
+for (int i = npcnt - 1; i &gt;= 0; --i)
+{
+    auto&amp; t = T[notPlaced[i]];
+
+    int minRem = 1000000000;
+    int fidx = -1;
+
+    for (int j = 0; j &lt; fcnt; ++j)
+    {
+        if (F[j].taken) continue;
+        if (t.size &gt; F[j].size) continue;
+
+        int alignedStart = alignUp(F[j].start, t.align);
+        int alignedSize = F[j].end - alignedStart;
+
+        if (t.size &gt; alignedSize) continue;
+
+        int rem = alignedSize - t.size;
+
+        if (rem &lt; minRem)
+        {
+            minRem = rem;
+            fidx = j;
+        }
+    }
+
+    if (fidx != -1)
+    {
+        t.offset = alignUp(F[fidx].start, t.align);
+        t.placed = true;
+        F[fidx].taken = true;
+    }
+    else
+    {
+        prev = alignUp(prev, t.align);
+        t.offset = prev;
+        t.placed = true;
+        prev += t.size;
+        if (prev &gt; mxPeak) mxPeak = prev;
+    }
+
+    newly[nwc++] = notPlaced[i];
+}</code></pre>
+<p>}</p>
+<p>static void slist_init(int mxSzTime, int time, int left) { pcnt = 0;</p>
+<pre><code>for (int i = 0; i &lt; timeCnt[mxSzTime]; ++i)
+{
+    int id = timeBucket[mxSzTime][i];
+    if (left ? (T[id].start &lt;= time) : (T[id].end &gt; time))
+    {
+        placed[pcnt++] = id;
+    }
+}
+
+qsP(0, pcnt - 1);
+
+slc = 0;
+for (int i = 0; i &lt; pcnt; ++i) slist[slc++] = placed[i];
+nwc = 0;</code></pre>
+<p>}</p>
+<p>static int ref_construct(int mTensorCount, const Tensor mTensors[], int mOffsets[]) { mxTime = 0; minMxPeak = 1000000000;</p>
+<pre><code>for (int i = 0; i &lt; MAX_TIME; ++i)
+{
+    timeCnt[i] = 0;
+    timeInfo[i] = { i, 0 };
+
+    for (int j = 0; j &lt; 4; ++j)
+    {
+        timeCntByType[i][j] = 0;
+    }
+}
+
+for (int i = 0; i &lt; mTensorCount; ++i)
+{
+    T[i].init(mTensors[i]);
+
+    for (int j = T[i].start; j &lt; T[i].end; ++j)
+    {
+        timeBucket[j][timeCnt[j]++] = i;
+        timeInfo[j].sizeSum += T[i].size;
+        ++timeCntByType[j][alignToType(T[i].align)];
+    }
+
+    if (T[i].end &gt; mxTime) mxTime = T[i].end;
+}
+
+qsT(0, mxTime - 1);
+
+int prevMxSz = -1;
+ccnt = 0;
+
+for (int i = mxTime - 1; i &gt;= 0; --i)
+{
+    if (prevMxSz == -1 || prevMxSz != timeInfo[i].sizeSum)
+    {
+        candStartTime[ccnt++] = timeInfo[i].time;
+
+        if (ccnt == MAX_TIME_ITER) break;
+    }
+}
+
+int iterCount = getIterCount(timeCnt[candStartTime[0]]);
+iterCount = iterCount * 4 / 5;
+if (iterCount &lt; 4) iterCount = 4;
+if (iterCount &gt; g_anchor_cap_) iterCount = g_anchor_cap_;
+if (iterCount &gt; ccnt) iterCount = ccnt;
+int last_imp = 0;
+for (int iter = 0; iter &lt; iterCount; ++iter)
+{
+    if (iter - last_imp &gt; 8) break;
+    mxPeak = 0;
+
+    for (int i = 0; i &lt; mTensorCount; ++i)
+    {
+        T[i].offset = 0;
+        T[i].placed = false;
+    }
+
+    int mxSzTime = candStartTime[iter];
+    int placeCnt = 0;
+    int cur = 0;
+
+    while (placeCnt != timeCnt[mxSzTime])
+    {
+        int targetType = 0;
+        if (timeCntByType[mxSzTime][1] &gt; 0) targetType = 1;
+        if (timeCntByType[mxSzTime][2] &gt; 0) targetType = 2;
+        if (timeCntByType[mxSzTime][3] &gt; 0) targetType = 3;
+
+        int targetAlign = typeToAlign(targetType);
+
+        int minF = 999;
+        int tidx = -1;
+        int sidx = -1;
+        int tempidx = -1;
+
+        for (int i = 0; i &lt; timeCnt[mxSzTime]; ++i)
+        {
+            auto&amp; t = T[timeBucket[mxSzTime][i]];
+
+            if (t.placed) continue;
+
+            if (t.align == targetAlign)
+            {
+                tempidx = timeBucket[mxSzTime][i];
+
+                for (int j = 0; j &lt; timeCnt[mxSzTime]; ++j)
+                {
+                    auto&amp; s = T[timeBucket[mxSzTime][j]];
+
+                    if (s.placed) continue;
+                    if (i == j) continue;
+
+                    int f1 = alignUp(t.size, s.align) - t.size;
+                    int f2 = alignUp(alignUp(t.size, s.align) + s.size, t.align) - alignUp(t.size, s.align) - s.size;
+
+                    if (f1 + f2 &lt; minF)
+                    {
+                        minF = f1 + f2;
+                        tidx = timeBucket[mxSzTime][i];
+                        sidx = timeBucket[mxSzTime][j];
+                    }
+                }
+            }
+        }
+
+        if (minF != 999)
+        {
+            ++placeCnt;
+            cur = alignUp(cur, T[tidx].align);
+            T[tidx].offset = cur;
+            T[tidx].placed = true;
+            --timeCntByType[mxSzTime][alignToType(T[tidx].align)];
+            cur += T[tidx].size;
+
+            ++placeCnt;
+            cur = alignUp(cur, T[sidx].align);
+            T[sidx].offset = cur;
+            T[sidx].placed = true;
+            --timeCntByType[mxSzTime][alignToType(T[sidx].align)];
+            cur += T[sidx].size;
+
+            continue;
+        }
+
+        if (tempidx != -1)
+        {
+            ++placeCnt;
+            cur = alignUp(cur, T[tempidx].align);
+            T[tempidx].offset = cur;
+            T[tempidx].placed = true;
+            --timeCntByType[mxSzTime][alignToType(T[tempidx].align)];
+            cur += T[tempidx].size;
+        }
+    }
+
+    mxPeak = cur;
+
+    if (mxSzTime - 1 &gt;= 0)
+    {
+        slist_init(mxSzTime, mxSzTime - 1, 1);
+
+        for (int tt = mxSzTime - 1; tt &gt;= 0; --tt)
+        {
+            slist_step(tt, 1);
+            placeAtTime(tt);
+        }
+    }
+
+    if (mxSzTime + 1 &lt;= mxTime)
+    {
+        slist_init(mxSzTime, mxSzTime + 1, 0);
+
+        for (int tt = mxSzTime + 1; tt &lt;= mxTime; ++tt)
+        {
+            slist_step(tt, 0);
+            placeAtTime(tt);
+        }
+    }
+
+    if (mxPeak &lt; minMxPeak)
+    {
+        last_imp = iter;
+        minMxPeak = mxPeak;
+
+        for (int i = 0; i &lt; mTensorCount; ++i)
+        {
+            bestOffsets[i] = T[i].offset;
+        }
+    }
+}
+
+for (int i = 0; i &lt; mTensorCount; ++i)
+{
+    mOffsets[i] = bestOffsets[i];
+}
+
+return minMxPeak;</code></pre>
+<p>}</p>
+<p>static int deg_[MAX_TENSORS]; static int head_[MAX_TENSORS]; static int pos_[MAX_TENSORS]; static int adj_[ADJ_CAP]; static int adj_ok_; static long long adj_total_; static int g_tmax_; static int g_tb_on_; static long long g_best_peak_;</p>
+<p>static long long key_[MAX_TENSORS]; static int ord_[MAX_TENSORS]; static int ord2_[MAX_TENSORS]; static int by_start_[MAX_TENSORS]; static int by_end_[MAX_TENSORS]; static int placed_[MAX_TENSORS]; static int off_cur_[MAX_TENSORS]; static int off_best_[MAX_TENSORS]; static int off_tmp_[MAX_TENSORS]; static int alive_[MAX_TENSORS]; static long long load_[TIME_CAP]; static int rm_list_[MAX_TENSORS];</p>
+<p>static int seg_so_[MAX_TENSORS], seg_se_[MAX_TENSORS]; static int full_so_[MAX_TENSORS], full_se_[MAX_TENSORS]; static int tmp_so_[MAX_TENSORS], tmp_se_[MAX_TENSORS]; static int radix_cnt_[256];</p>
+<p>static int h_lo_[HOLE_CAP], h_hi_[HOLE_CAP], h_prev_[HOLE_CAP], h_next_[HOLE_CAP]; static int h_free_[HOLE_CAP]; static int h_free_top_, h_bump_;</p>
+<p>static unsigned long long rng_state_;</p>
+<p>static int rnd_next(void) { rng_state_ = rng_state_ * 6364136223846793005ULL + 1442695040888963407ULL; return (int)((rng_state_ &gt;&gt; 33) &amp; 0x3fffffff); }</p>
+<p>static int align_up_v(int v, int a) { return ((v + a - 1) / a) * a; }</p>
+<p>static void sort_idx(int *idx, int lo0, int hi0) { int lo_st[64], hi_st[64]; int top = 0;</p>
+<pre><code>if (hi0 - lo0 &lt; 1) return;
+lo_st[0] = lo0;
+hi_st[0] = hi0;
+top = 1;
+
+while (top &gt; 0)
+{
+    --top;
+    int lo = lo_st[top];
+    int hi = hi_st[top];
+
+    while (lo &lt; hi)
+    {
+        if (hi - lo &lt; 12)
+        {
+            for (int j = lo + 1; j &lt;= hi; ++j)
+            {
+                int ki = idx[j];
+                long long kv = key_[ki];
+                int i = j - 1;
+                while (i &gt;= lo &amp;&amp; key_[idx[i]] &gt; kv)
+                {
+                    idx[i + 1] = idx[i];
+                    --i;
+                }
+                idx[i + 1] = ki;
+            }
+            break;
+        }
+
+        int mid = lo + (hi - lo) / 2;
+        long long pa = key_[idx[lo]], pb = key_[idx[mid]], pc = key_[idx[hi]];
+        long long pv;
+        if (pa &lt; pb)
+        {
+            if (pb &lt; pc) pv = pb;
+            else pv = (pa &lt; pc) ? pc : pa;
+        }
+        else
+        {
+            if (pa &lt; pc) pv = pa;
+            else pv = (pb &lt; pc) ? pc : pb;
+        }
+
+        int lt = lo, gt = hi, i = lo;
+        while (i &lt;= gt)
+        {
+            long long cv = key_[idx[i]];
+            if (cv &lt; pv)
+            {
+                int tv = idx[lt]; idx[lt] = idx[i]; idx[i] = tv;
+                ++lt; ++i;
+            }
+            else if (cv &gt; pv)
+            {
+                int tv = idx[gt]; idx[gt] = idx[i]; idx[i] = tv;
+                --gt;
+            }
+            else ++i;
+        }
+
+        if (lt - lo &gt; hi - gt)
+        {
+            lo_st[top] = lo; hi_st[top] = lt - 1; ++top;
+            lo = gt + 1;
+        }
+        else
+        {
+            lo_st[top] = gt + 1; hi_st[top] = hi; ++top;
+            hi = lt - 1;
+        }
+    }
+}</code></pre>
+<p>}</p>
+<p>static void radix_pass(int <em>src_so, int </em>src_se, int <em>dst_so, int </em>dst_se, int m, int shift) { for (int b = 0; b &lt; 256; ++b) radix_cnt_[b] = 0; for (int x = 0; x &lt; m; ++x) ++radix_cnt_[(src_so[x] &gt;&gt; shift) &amp; 255];</p>
+<pre><code>int acc = 0;
+for (int b = 0; b &lt; 256; ++b)
+{
+    int c = radix_cnt_[b];
+    radix_cnt_[b] = acc;
+    acc += c;
+}
+
+for (int x = 0; x &lt; m; ++x)
+{
+    int p = radix_cnt_[(src_so[x] &gt;&gt; shift) &amp; 255]++;
+    dst_so[p] = src_so[x];
+    dst_se[p] = src_se[x];
+}</code></pre>
+<p>}</p>
+<p>static void sort_segs(int m) { if (m &lt; 48) { for (int j = 1; j &lt; m; ++j) { int ko = seg_so_[j], ke = seg_se_[j]; int i = j - 1; while (i &gt;= 0 &amp;&amp; seg_so_[i] &gt; ko) { seg_so_[i + 1] = seg_so_[i]; seg_se_[i + 1] = seg_se_[i]; –i; } seg_so_[i + 1] = ko; seg_se_[i + 1] = ke; } return; }</p>
+<pre><code>int mx = 0;
+for (int x = 0; x &lt; m; ++x)
+    if (seg_so_[x] &gt; mx) mx = seg_so_[x];
+
+radix_pass(seg_so_, seg_se_, tmp_so_, tmp_se_, m, 0);
+radix_pass(tmp_so_, tmp_se_, seg_so_, seg_se_, m, 8);
+
+if (mx &lt; (1 &lt;&lt; 16)) return;
+
+radix_pass(seg_so_, seg_se_, tmp_so_, tmp_se_, m, 16);
+
+if (mx &lt; (1 &lt;&lt; 24))
+{
+    for (int x = 0; x &lt; m; ++x)
+    {
+        seg_so_[x] = tmp_so_[x];
+        seg_se_[x] = tmp_se_[x];
+    }
+    return;
+}
+
+radix_pass(tmp_so_, tmp_se_, seg_so_, seg_se_, m, 24);</code></pre>
+<p>}</p>
+<p>static void build_adjacency(int n, const Tensor *t) { long long total = 0;</p>
+<pre><code>for (int i = 0; i &lt; n; ++i) deg_[i] = 0;
+
+for (int i = 0; i &lt; n; ++i)
+{
+    int si = t[i].start, ei = t[i].end;
+    for (int j = i + 1; j &lt; n; ++j)
+    {
+        if (si &lt; t[j].end &amp;&amp; t[j].start &lt; ei)
+        {
+            ++deg_[i];
+            ++deg_[j];
+            total += 2;
+        }
+    }
+}
+
+adj_total_ = total;
+
+if (total &gt; ADJ_CAP)
+{
+    adj_ok_ = 0;
+    return;
+}
+
+adj_ok_ = 1;
+head_[0] = 0;
+for (int i = 1; i &lt; n; ++i) head_[i] = head_[i - 1] + deg_[i - 1];
+for (int i = 0; i &lt; n; ++i) pos_[i] = head_[i];
+
+for (int i = 0; i &lt; n; ++i)
+{
+    int si = t[i].start, ei = t[i].end;
+    for (int j = i + 1; j &lt; n; ++j)
+    {
+        if (si &lt; t[j].end &amp;&amp; t[j].start &lt; ei)
+        {
+            adj_[pos_[i]++] = j;
+            adj_[pos_[j]++] = i;
+        }
+    }
+}</code></pre>
+<p>}</p>
+<p>static int lowest_fit_h(int n, const Tensor <em>t, const int </em>off, int i, int use_placed, long long hint) { int a = t[i].align; int sz = t[i].size; long long bound = (hint &gt;= 0) ? hint + sz + 1 : 0x3fffffffLL;</p>
+<pre><code>while (1)
+{
+    int m2 = 0;
+    int skipped = 0;
+
+    if (adj_ok_)
+    {
+        int p_end = head_[i] + deg_[i];
+        for (int p = head_[i]; p &lt; p_end; ++p)
+        {
+            int j = adj_[p];
+            if (!use_placed || placed_[j])
+            {
+                int o = off[j];
+                if ((long long)o &lt; bound)
+                {
+                    seg_so_[m2] = o;
+                    seg_se_[m2] = o + t[j].size;
+                    ++m2;
+                }
+                else
+                {
+                    ++skipped;
+                }
+            }
+        }
+    }
+    else
+    {
+        for (int j = 0; j &lt; n; ++j)
+        {
+            if (j == i) continue;
+            if (use_placed &amp;&amp; !placed_[j]) continue;
+            if (t[i].start &lt; t[j].end &amp;&amp; t[j].start &lt; t[i].end)
+            {
+                int o = off[j];
+                if ((long long)o &lt; bound)
+                {
+                    seg_so_[m2] = o;
+                    seg_se_[m2] = o + t[j].size;
+                    ++m2;
+                }
+                else
+                {
+                    ++skipped;
+                }
+            }
+        }
+    }
+
+    sort_segs(m2);
+
+    int cand = 0;
+
+    for (int x = 0; x &lt; m2; ++x)
+    {
+        if ((long long)cand + sz &lt;= seg_so_[x]) break;
+        if (seg_se_[x] &gt; cand) cand = align_up_v(seg_se_[x], a);
+    }
+
+    if ((long long)cand + sz &lt;= bound || skipped == 0) return cand;
+
+    bound *= 4;
+}</code></pre>
+<p>}</p>
+<p>static int lowest_fit(int n, const Tensor <em>t, const int </em>off, int i, int use_placed) { return lowest_fit_h(n, t, off, i, use_placed, -1); }</p>
+<p>static int best_fit(int n, const Tensor <em>t, const int </em>off, int i, long long cap) { int m = 0;</p>
+<pre><code>if (adj_ok_)
+{
+    int p_end = head_[i] + deg_[i];
+    for (int p = head_[i]; p &lt; p_end; ++p)
+    {
+        int j = adj_[p];
+        if (placed_[j])
+        {
+            seg_so_[m] = off[j];
+            seg_se_[m] = off[j] + t[j].size;
+            ++m;
+        }
+    }
+}
+else
+{
+    for (int j = 0; j &lt; n; ++j)
+    {
+        if (j == i) continue;
+        if (!placed_[j]) continue;
+        if (t[i].start &lt; t[j].end &amp;&amp; t[j].start &lt; t[i].end)
+        {
+            seg_so_[m] = off[j];
+            seg_se_[m] = off[j] + t[j].size;
+            ++m;
+        }
+    }
+}
+
+sort_segs(m);
+
+int a = t[i].align;
+int sz = t[i].size;
+int cand = 0;
+int best_st = -1;
+long long best_waste = 0x3fffffffffffffffLL;
+
+for (int x = 0; x &lt; m; ++x)
+{
+    if ((long long)cand + sz &lt;= seg_so_[x])
+    {
+        long long waste = (long long)seg_so_[x] - cand - sz;
+        if (waste &lt; best_waste)
+        {
+            best_waste = waste;
+            best_st = cand;
+        }
+    }
+
+    if (seg_se_[x] &gt; cand)
+    {
+        int nc = align_up_v(seg_se_[x], a);
+        if (nc &gt; cand) cand = nc;
+    }
+}
+
+if (best_st &lt; 0) return cand;
+if ((long long)cand + sz &lt;= cap) return cand;
+return best_st;</code></pre>
+<p>}</p>
+<p>static long long place_order(int n, const Tensor <em>t, int </em>off, int *peak_tensor, long long abort_peak) { long long peak = 0; int pt = -1;</p>
+<pre><code>for (int i = 0; i &lt; n; ++i) placed_[i] = 0;
+
+for (int k = 0; k &lt; n; ++k)
+{
+    int i = ord_[k];
+    int cand = lowest_fit(n, t, off, i, 1);
+
+    off[i] = cand;
+    placed_[i] = 1;
+
+    long long top = (long long)cand + t[i].size;
+    if (top &gt; peak)
+    {
+        peak = top;
+        pt = i;
+
+        if (peak &gt;= abort_peak)
+        {
+            if (peak_tensor) *peak_tensor = pt;
+            return 0x3fffffffffffffffLL;
+        }
+    }
+}
+
+if (peak_tensor) *peak_tensor = pt;
+return peak;</code></pre>
+<p>}</p>
+<p>static long long lower_to_fixpoint(int n, const Tensor <em>t, int </em>off, int max_rounds) { for (int r = 0; r &lt; max_rounds; ++r) { for (int i = 0; i &lt; n; ++i) { key_[i] = -(((long long)off[i] &lt;&lt; 13) | i); ord2_[i] = i; } sort_idx(ord2_, 0, n - 1);</p>
+<pre><code>    int changed = 0;
+
+    for (int k = 0; k &lt; n; ++k)
+    {
+        int i = ord2_[k];
+        int cand = lowest_fit_h(n, t, off, i, 0, off[i]);
+
+        if (cand &lt; off[i])
+        {
+            off[i] = cand;
+            changed = 1;
+        }
+    }
+
+    if (!changed) break;
+}
+
+long long peak = 0;
+for (int i = 0; i &lt; n; ++i)
+{
+    long long top = (long long)off[i] + t[i].size;
+    if (top &gt; peak) peak = top;
+}
+
+return peak;</code></pre>
+<p>}</p>
+<p>static void find_bottleneck_alive(int n, const Tensor *t) { for (int j = 0; j &lt; TIME_CAP; ++j) load_[j] = 0;</p>
+<pre><code>for (int i = 0; i &lt; n; ++i)
+{
+    load_[t[i].start] += t[i].size;
+    load_[t[i].end] -= t[i].size;
+}
+
+long long cur = 0, best = -1;
+int best_t = 0;
+
+for (int j = 0; j &lt; TIME_CAP; ++j)
+{
+    cur += load_[j];
+    if (cur &gt; best)
+    {
+        best = cur;
+        best_t = j;
+    }
+}
+
+for (int i = 0; i &lt; n; ++i)
+{
+    alive_[i] = (t[i].start &lt;= best_t &amp;&amp; best_t &lt; t[i].end) ? 1 : 0;
+}</code></pre>
+<p>}</p>
+<p>static int hole_alloc_node(void) { if (h_free_top_ &gt; 0) return h_free_[–h_free_top_]; return h_bump_++; }</p>
+<p>static void hole_release_node(int x) { h_free_[h_free_top_++] = x; }</p>
+<p>static long long sweep_construct(int n, const Tensor <em>t, int </em>off, int policy, int noise, long long cap) { h_free_top_ = 0; h_bump_ = 2;</p>
+<pre><code>int hd = 0, tl = 1;
+h_next_[hd] = tl;
+h_prev_[tl] = hd;
+h_prev_[hd] = -1;
+h_next_[tl] = -1;
+
+int first = hole_alloc_node();
+h_lo_[first] = 0;
+h_hi_[first] = INF_HI;
+h_prev_[first] = hd;
+h_next_[first] = tl;
+h_next_[hd] = first;
+h_prev_[tl] = first;
+
+long long peak = 0;
+int f = 0;
+
+for (int k = 0; k &lt; n; ++k)
+{
+    int i = by_start_[k];
+
+    while (f &lt; n &amp;&amp; t[by_end_[f]].end &lt;= t[i].start)
+    {
+        int j = by_end_[f];
+        ++f;
+
+        int lo = off[j];
+        int hi = off[j] + t[j].size;
+
+        int cur = h_next_[hd];
+        while (cur != tl &amp;&amp; h_lo_[cur] &lt; lo) cur = h_next_[cur];
+
+        int pv = h_prev_[cur];
+        int merged = 0;
+
+        if (pv != hd &amp;&amp; h_hi_[pv] == lo)
+        {
+            h_hi_[pv] = hi;
+            merged = pv;
+        }
+
+        if (merged &amp;&amp; cur != tl &amp;&amp; h_lo_[cur] == hi)
+        {
+            h_hi_[merged] = h_hi_[cur];
+            h_next_[merged] = h_next_[cur];
+            h_prev_[h_next_[cur]] = merged;
+            hole_release_node(cur);
+        }
+        else if (!merged &amp;&amp; cur != tl &amp;&amp; h_lo_[cur] == hi)
+        {
+            h_lo_[cur] = lo;
+        }
+        else if (!merged)
+        {
+            int nn = hole_alloc_node();
+            h_lo_[nn] = lo;
+            h_hi_[nn] = hi;
+            h_prev_[nn] = pv;
+            h_next_[nn] = cur;
+            h_next_[pv] = nn;
+            h_prev_[cur] = nn;
+        }
+    }
+
+    int a = t[i].align;
+    int sz = t[i].size;
+
+    int best_node = -1;
+    int best_st = 0;
+    long long best_score = 0x3fffffffffffffffLL;
+
+    int cur = h_next_[hd];
+    while (cur != tl)
+    {
+        int st = align_up_v(h_lo_[cur], a);
+
+        if (h_hi_[cur] == INF_HI || (long long)st + sz &lt;= h_hi_[cur])
+        {
+            long long sc;
+            int in_cap = (cap &lt; 0) || ((long long)st + sz &lt;= cap);
+
+            if (h_hi_[cur] == INF_HI)
+            {
+                if (cap &gt;= 0 &amp;&amp; in_cap)
+                    sc = ((cap - st - sz) &lt;&lt; 25) + st;
+                else
+                    sc = 0x3ffffffffffffffeLL;
+            }
+            else if (policy == 0)
+            {
+                sc = st;
+            }
+            else if (policy == 1)
+            {
+                sc = ((long long)(h_hi_[cur] - st - sz) &lt;&lt; 25) + st;
+            }
+            else
+            {
+                sc = ((long long)(h_hi_[cur] - st - sz + 2 * (st - h_lo_[cur])) &lt;&lt; 25) + st;
+            }
+
+            if (!in_cap &amp;&amp; sc &lt; 0x3ffffffffffffffeLL)
+            {
+                sc = 0x2000000000000000LL + st;
+            }
+
+            if (noise &gt; 0 &amp;&amp; sc &lt; 0x2000000000000000LL)
+            {
+                sc += rnd_next() % noise;
+            }
+
+            if (sc &lt; best_score)
+            {
+                best_score = sc;
+                best_node = cur;
+                best_st = st;
+            }
+
+            if (policy == 0 &amp;&amp; noise == 0) break;
+        }
+
+        cur = h_next_[cur];
+    }
+
+    int nd = best_node;
+    int st = best_st;
+
+    off[i] = st;
+
+    long long top = (long long)st + sz;
+    if (top &gt; peak) peak = top;
+
+    int lo = h_lo_[nd];
+    int hi = h_hi_[nd];
+
+    if (st &gt; lo &amp;&amp; (long long)st + sz &lt; hi)
+    {
+        h_hi_[nd] = st;
+        int nn = hole_alloc_node();
+        h_lo_[nn] = st + sz;
+        h_hi_[nn] = hi;
+        h_prev_[nn] = nd;
+        h_next_[nn] = h_next_[nd];
+        h_prev_[h_next_[nd]] = nn;
+        h_next_[nd] = nn;
+    }
+    else if (st &gt; lo)
+    {
+        h_hi_[nd] = st;
+    }
+    else if ((long long)st + sz &lt; hi)
+    {
+        h_lo_[nd] = st + sz;
+    }
+    else
+    {
+        h_prev_[h_next_[nd]] = h_prev_[nd];
+        h_next_[h_prev_[nd]] = h_next_[nd];
+        hole_release_node(nd);
+    }
+}
+
+return peak;</code></pre>
+<p>}</p>
+<p>static long long reinsert_band(int n, const Tensor <em>t, int </em>off, long long thresh, int shake) { int rm = 0;</p>
+<pre><code>for (int i = 0; i &lt; n; ++i)
+{
+    if ((long long)off[i] + t[i].size &gt; thresh || (shake &gt; 0 &amp;&amp; rnd_next() % shake == 0))
+    {
+        rm_list_[rm++] = i;
+        placed_[i] = 0;
+    }
+    else
+    {
+        placed_[i] = 1;
+    }
+}
+
+int kv = rnd_next() % 3;
+int use_bf = rnd_next() % 2;
+
+for (int x = 0; x &lt; rm; ++x)
+{
+    int i = rm_list_[x];
+    if (kv == 0)
+        key_[i] = ((long long)(-t[i].size) &lt;&lt; 20) + (rnd_next() % 1024);
+    else if (kv == 1)
+        key_[i] = ((long long)(-t[i].align) &lt;&lt; 40) + ((long long)(-t[i].size) &lt;&lt; 20) + (rnd_next() % 1024);
+    else
+        key_[i] = rnd_next();
+}
+sort_idx(rm_list_, 0, rm - 1);
+
+for (int x = 0; x &lt; rm; ++x)
+{
+    int i = rm_list_[x];
+    int cand;
+    if (use_bf)
+        cand = best_fit(n, t, off, i, thresh);
+    else
+        cand = lowest_fit_h(n, t, off, i, 1, thresh);
+    off[i] = cand;
+    placed_[i] = 1;
+}
+
+long long peak = 0;
+for (int i = 0; i &lt; n; ++i)
+{
+    long long top = (long long)off[i] + t[i].size;
+    if (top &gt; peak) peak = top;
+}
+
+return peak;</code></pre>
+<p>}</p>
+<p>static long long evict_and_reinsert(int n, const Tensor <em>t, int </em>off, int target, int st) { int rm = 0;</p>
+<pre><code>for (int i = 0; i &lt; n; ++i) placed_[i] = 1;
+placed_[target] = 0;
+
+int te = st + t[target].size;
+
+if (adj_ok_)
+{
+    int p_end = head_[target] + deg_[target];
+    for (int p = head_[target]; p &lt; p_end; ++p)
+    {
+        int j = adj_[p];
+        if (off[j] &lt; te &amp;&amp; st &lt; off[j] + t[j].size)
+        {
+            rm_list_[rm++] = j;
+            placed_[j] = 0;
+        }
+    }
+}
+else
+{
+    for (int j = 0; j &lt; n; ++j)
+    {
+        if (j == target) continue;
+        if (t[target].start &lt; t[j].end &amp;&amp; t[j].start &lt; t[target].end)
+        {
+            if (off[j] &lt; te &amp;&amp; st &lt; off[j] + t[j].size)
+            {
+                rm_list_[rm++] = j;
+                placed_[j] = 0;
+            }
+        }
+    }
+}
+
+off[target] = st;
+placed_[target] = 1;
+
+for (int x = 0; x &lt; rm; ++x)
+{
+    int i = rm_list_[x];
+    key_[i] = ((long long)(-t[i].size) &lt;&lt; 20) + (rnd_next() % 1024);
+}
+sort_idx(rm_list_, 0, rm - 1);
+
+for (int x = 0; x &lt; rm; ++x)
+{
+    int i = rm_list_[x];
+    int cand = lowest_fit_h(n, t, off, i, 1, (st + t[target].size) * 2);
+    off[i] = cand;
+    placed_[i] = 1;
+}
+
+long long peak = 0;
+for (int i = 0; i &lt; n; ++i)
+{
+    long long top = (long long)off[i] + t[i].size;
+    if (top &gt; peak) peak = top;
+}
+
+return peak;</code></pre>
+<p>}</p>
+<p>static void try_seed(int n, const Tensor <em>t, long long </em>best_peak) { sort_idx(ord_, 0, n - 1);</p>
+<pre><code>long long peak = place_order(n, t, off_cur_, 0, 0x3fffffffffffffffLL);
+
+if (peak &lt; *best_peak)
+{
+    *best_peak = peak;
+    for (int i = 0; i &lt; n; ++i) off_best_[i] = off_cur_[i];
+}</code></pre>
+<p>}</p>
+<p>static long long time_band_reinsert(int n, const Tensor <em>t, int </em>off, int w0, int w1, long long thresh) { int rm = 0;</p>
+<pre><code>for (int i = 0; i &lt; n; ++i)
+{
+    placed_[i] = 1;
+
+    if (t[i].start &lt; w1 &amp;&amp; w0 &lt; t[i].end &amp;&amp; (long long)off[i] + t[i].size &gt; thresh)
+    {
+        rm_list_[rm++] = i;
+        placed_[i] = 0;
+    }
+}
+
+for (int x = 0; x &lt; rm; ++x)
+{
+    int i = rm_list_[x];
+    key_[i] = ((long long)(-t[i].size) &lt;&lt; 20) + (rnd_next() % 1024);
+}
+sort_idx(rm_list_, 0, rm - 1);
+
+for (int x = 0; x &lt; rm; ++x)
+{
+    int i = rm_list_[x];
+    int cand = lowest_fit_h(n, t, off, i, 1, thresh);
+    off[i] = cand;
+    placed_[i] = 1;
+}
+
+long long peak = 0;
+for (int i = 0; i &lt; n; ++i)
+{
+    long long top = (long long)off[i] + t[i].size;
+    if (top &gt; peak) peak = top;
+}
+
+return peak;</code></pre>
+<p>}</p>
+<p>static void lns_chunk_impl(int n, const Tensor *t, long long lb, int iters, int keep_cur);</p>
+<p>void process(int nTensor, Tensor mTensor[MAX_TENSORS], int mOffset[MAX_TENSORS]) { int n = nTensor; const Tensor *t = mTensor;</p>
+<pre><code>rng_state_ = 88172645463325252ULL;
+
+long long lb = 0;
+{
+    for (int j = 0; j &lt; TIME_CAP; ++j) load_[j] = 0;
+
+    for (int i = 0; i &lt; n; ++i)
+    {
+        load_[t[i].start] += t[i].size;
+        load_[t[i].end] -= t[i].size;
+    }
+
+    long long cur = 0;
+    for (int j = 0; j &lt; TIME_CAP; ++j)
+    {
+        cur += load_[j];
+        if (cur &gt; lb) lb = cur;
+    }
+}
+
+long long baseline0 = 0;
+for (int i = 0; i &lt; n; ++i)
+{
+    baseline0 = (long long)align_up_v((int)baseline0, t[i].align);
+    baseline0 += t[i].size;
+}
+
+double ideal = 1000000.0 * (double)baseline0 / (double)lb;
+
+if (ideal &lt; 7000000.0) g_anchor_cap_ = 4;
+else if (ideal &lt; 9060000.0) g_anchor_cap_ = 5;
+else if (ideal &lt; 9500000.0) g_anchor_cap_ = 3;
+else if (ideal &lt; 10500000.0) g_anchor_cap_ = 9;
+else if (ideal &lt; 11500000.0) g_anchor_cap_ = 1;
+else if (ideal &lt; 13000000.0) g_anchor_cap_ = 10;
+else if (ideal &lt; 17000000.0) g_anchor_cap_ = 19;
+else if (ideal &lt; 20000000.0) g_anchor_cap_ = 1;
+else if (ideal &lt; 25000000.0) g_anchor_cap_ = 4;
+else g_anchor_cap_ = 4;
+
+int tier_chunks = (ideal &gt;= 30000000.0) ? 3 : ((ideal &gt;= 17000000.0 &amp;&amp; ideal &lt; 20000000.0) ? 0 : -1);
+
+if (tier_chunks &lt; 0)
+{
+    ref_construct(n, t, mOffset);
+    return;
+}
+
+build_adjacency(n, t);
+find_bottleneck_alive(n, t);
+
+for (int i = 0; i &lt; n; ++i)
+{
+    key_[i] = ((long long)t[i].start &lt;&lt; 27) + ((long long)(8191 - t[i].size) &lt;&lt; 13) + i;
+    by_start_[i] = i;
+    by_end_[i] = i;
+}
+sort_idx(by_start_, 0, n - 1);
+
+for (int i = 0; i &lt; n; ++i)
+    key_[i] = ((long long)t[i].end &lt;&lt; 13) + i;
+sort_idx(by_end_, 0, n - 1);
+
+long long best_peak;
+
+{
+    static int ref_off[MAX_TENSORS];
+    ref_construct(n, t, ref_off);
+    best_peak = lower_to_fixpoint(n, t, ref_off, 20);
+    for (int i = 0; i &lt; n; ++i) off_best_[i] = ref_off[i];
+}
+
+g_best_peak_ = best_peak;
+
+g_tmax_ = 0;
+for (int i = 0; i &lt; n; ++i)
+    if (t[i].end &gt; g_tmax_) g_tmax_ = t[i].end;
+
+long long baseline = 0;
+for (int i = 0; i &lt; n; ++i)
+{
+    baseline = (long long)align_up_v((int)baseline, t[i].align);
+    baseline += t[i].size;
+}
+
+long long lb_au = 0;
+{
+    static long long ld[TIME_CAP];
+    for (int j = 0; j &lt; TIME_CAP; ++j) ld[j] = 0;
+
+    for (int i = 0; i &lt; n; ++i)
+    {
+        long long szA = ((long long)t[i].size + t[i].align - 1) / t[i].align * t[i].align;
+        ld[t[i].start] += szA;
+        ld[t[i].end] -= szA;
+    }
+
+    long long cur = 0;
+    for (int j = 0; j &lt; TIME_CAP; ++j)
+    {
+        cur += ld[j];
+        if (cur &gt; lb_au) lb_au = cur;
+    }
+}
+
+g_tb_on_ = ((double)g_best_peak_ &gt; (double)lb_au * 1.06);
+
+double vc = (1000000.0 * (double)baseline / (double)lb) / ((double)adj_total_ / 1000.0 + 1.0);
+int chunks = tier_chunks;
+
+for (int ch = 0; ch &lt; chunks; ++ch)
+{
+    lns_chunk_impl(n, t, lb, 1500, 0);
+}
+
+
+for (int i = 0; i &lt; n; ++i) mOffset[i] = off_best_[i];</code></pre>
+<p>}</p>
+<p>static void lns_chunk_impl(int n, const Tensor *t, long long lb, int iters, int keep_cur) { if (!keep_cur) { for (int i = 0; i &lt; n; ++i) off_cur_[i] = off_best_[i]; }</p>
+<pre><code>long long cur_peak = 0;
+for (int i = 0; i &lt; n; ++i)
+{
+    long long top = (long long)off_cur_[i] + t[i].size;
+    if (top &gt; cur_peak) cur_peak = top;
+}
+
+int stall = 0;
+
+for (int it = 0; it &lt; iters; ++it)
+{
+    long long range = cur_peak - lb;
+    if (range &lt; 16) range = 16;
+
+    long long thresh = cur_peak - 1 - (rnd_next() % range) / 2;
+    long long peak;
+
+    if (g_tb_on_ &amp;&amp; rnd_next() % 6 == 0)
+    {
+        int w = 8 + (int)(rnd_next() % 56);
+        int w0 = (int)(rnd_next() % g_tmax_);
+        long long tb_th = cur_peak - (cur_peak - lb) * 3 / 4;
+        peak = time_band_reinsert(n, t, off_cur_, w0, w0 + w, tb_th);
+    }
+    else if (rnd_next() % 3 == 0)
+    {
+        int pt = 0;
+        long long mx = -1;
+        for (int i = 0; i &lt; n; ++i)
+        {
+            long long top = (long long)off_cur_[i] + t[i].size;
+            if (top &gt; mx) { mx = top; pt = i; }
+        }
+
+        long long room = cur_peak - t[pt].size;
+        if (room &lt; 1) room = 1;
+        int st = (int)((rnd_next() % room) / t[pt].align * t[pt].align);
+        peak = evict_and_reinsert(n, t, off_cur_, pt, st);
+    }
+    else
+    {
+        int shake = (rnd_next() % 4 == 0) ? 160 : 0;
+        peak = reinsert_band(n, t, off_cur_, thresh, shake);
+    }
+
+    long long ta = (cur_peak - lb) / 24 * (iters - it) / iters;
+
+    if (peak &lt;= cur_peak + ta)
+    {
+        cur_peak = peak;
+
+        if (peak &lt; g_best_peak_)
+        {
+            long long lowered = lower_to_fixpoint(n, t, off_cur_, 4);
+            cur_peak = lowered;
+
+            if (lowered &lt; g_best_peak_)
+            {
+                g_best_peak_ = lowered;
+                for (int i = 0; i &lt; n; ++i) off_best_[i] = off_cur_[i];
+            }
+
+            stall = 0;
+        }
+        else
+        {
+            ++stall;
+        }
+    }
+    else
+    {
+        for (int i = 0; i &lt; n; ++i) off_cur_[i] = off_best_[i];
+        cur_peak = g_best_peak_;
+        ++stall;
+    }
+
+    if (stall &gt;= 60)
+    {
+        for (int i = 0; i &lt; n; ++i) off_cur_[i] = off_best_[i];
+        cur_peak = reinsert_band(n, t, off_cur_, g_best_peak_ - 1 - rnd_next() % (range + 1), 80);
+        stall = 0;
+    }
+}</code></pre>
+<p>}</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2026-04-01">
+<meta name="description" content="Optimal parenthesization, dynamic programming recurrence, overlapping subproblems, and time complexity analysis.">
+
+<title>DP: Matrix Chain Multiplication – Rokei Notes</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-839992494218ef668061547092bfd55f.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">Rokei Notes</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-study-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Study Notes</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-study-notes">    
+        <li>
+    <a class="dropdown-item" href="../../../study/index.html">
+ <span class="dropdown-text">Study Notes</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Math</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/math/calculus/index.html">
+ <span class="dropdown-text">Calculus</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Machine Learning</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/machine-learning/deep-learning/index.html">
+ <span class="dropdown-text">Deep Learning</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../study/machine-learning/reinforcement-learning/index.html">
+ <span class="dropdown-text">Reinforcement Learning</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Data Science</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/data-science/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Computer Science</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/computer-science/algorithms/index.html">
+ <span class="dropdown-text">Algorithms</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../study/computer-science/problem-solving/index.html">
+ <span class="dropdown-text">Problem Solving</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../study/computer-science/data-networks/index.html">
+ <span class="dropdown-text">Data Network</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Communication</li>
+        <li>
+    <a class="dropdown-item" href="../../../study/communication/random-signal-theory/index.html">
+ <span class="dropdown-text">Random Signal Theory</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-research-log" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Research Log</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-research-log">    
+        <li>
+    <a class="dropdown-item" href="../../../research/index.html">
+ <span class="dropdown-text">Research Log</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../research/papers/index.html">
+ <span class="dropdown-text">Research Papers</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../research/logs/index.html">
+ <span class="dropdown-text">Experiment Logs</span></a>
+  </li>  
+    </ul>
+  </li>
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#문제-설정" id="toc-문제-설정" class="nav-link active" data-scroll-target="#문제-설정"><span class="header-section-number">1</span> 문제 설정</a></li>
+  <li><a href="#fully-parenthesized-product" id="toc-fully-parenthesized-product" class="nav-link" data-scroll-target="#fully-parenthesized-product"><span class="header-section-number">2</span> Fully Parenthesized Product</a></li>
+  <li><a href="#search-space가-큰-이유" id="toc-search-space가-큰-이유" class="nav-link" data-scroll-target="#search-space가-큰-이유"><span class="header-section-number">3</span> Search Space가 큰 이유</a></li>
+  <li><a href="#왜-이-문제가-dp-문제인가" id="toc-왜-이-문제가-dp-문제인가" class="nav-link" data-scroll-target="#왜-이-문제가-dp-문제인가"><span class="header-section-number">4</span> 왜 이 문제가 DP 문제인가</a>
+  <ul class="collapse">
+  <li><a href="#optimal-substructure" id="toc-optimal-substructure" class="nav-link" data-scroll-target="#optimal-substructure"><span class="header-section-number">4.1</span> Optimal Substructure</a></li>
+  <li><a href="#overlapping-subproblems" id="toc-overlapping-subproblems" class="nav-link" data-scroll-target="#overlapping-subproblems"><span class="header-section-number">4.2</span> Overlapping Subproblems</a></li>
+  </ul></li>
+  <li><a href="#부분문제-정의" id="toc-부분문제-정의" class="nav-link" data-scroll-target="#부분문제-정의"><span class="header-section-number">5</span> 부분문제 정의</a></li>
+  <li><a href="#dp-recurrence-유도" id="toc-dp-recurrence-유도" class="nav-link" data-scroll-target="#dp-recurrence-유도"><span class="header-section-number">6</span> DP Recurrence 유도</a>
+  <ul class="collapse">
+  <li><a href="#base-case" id="toc-base-case" class="nav-link" data-scroll-target="#base-case"><span class="header-section-number">6.1</span> Base Case</a></li>
+  <li><a href="#일반-항" id="toc-일반-항" class="nav-link" data-scroll-target="#일반-항"><span class="header-section-number">6.2</span> 일반 항</a></li>
+  </ul></li>
+  <li><a href="#최적-괄호-묶기-복원" id="toc-최적-괄호-묶기-복원" class="nav-link" data-scroll-target="#최적-괄호-묶기-복원"><span class="header-section-number">7</span> 최적 괄호 묶기 복원</a></li>
+  <li><a href="#bottom-up-dp-table-채우기" id="toc-bottom-up-dp-table-채우기" class="nav-link" data-scroll-target="#bottom-up-dp-table-채우기"><span class="header-section-number">8</span> Bottom-up DP Table 채우기</a></li>
+  <li><a href="#왜-최종-dp-알고리즘이-on3인가" id="toc-왜-최종-dp-알고리즘이-on3인가" class="nav-link" data-scroll-target="#왜-최종-dp-알고리즘이-on3인가"><span class="header-section-number">9</span> 왜 최종 DP 알고리즘이 <span class="math inline">\(O(n^3)\)</span>인가</a>
+  <ul class="collapse">
+  <li><a href="#첫-번째-반복문-chain-length-l" id="toc-첫-번째-반복문-chain-length-l" class="nav-link" data-scroll-target="#첫-번째-반복문-chain-length-l"><span class="header-section-number">9.1</span> 첫 번째 반복문: chain length <span class="math inline">\(l\)</span></a></li>
+  <li><a href="#두-번째-반복문-시작-인덱스-i" id="toc-두-번째-반복문-시작-인덱스-i" class="nav-link" data-scroll-target="#두-번째-반복문-시작-인덱스-i"><span class="header-section-number">9.2</span> 두 번째 반복문: 시작 인덱스 <span class="math inline">\(i\)</span></a></li>
+  <li><a href="#세-번째-반복문-split-point-k" id="toc-세-번째-반복문-split-point-k" class="nav-link" data-scroll-target="#세-번째-반복문-split-point-k"><span class="header-section-number">9.3</span> 세 번째 반복문: split point <span class="math inline">\(k\)</span></a></li>
+  </ul></li>
+  <li><a href="#더-정확한-합으로-보는-on3" id="toc-더-정확한-합으로-보는-on3" class="nav-link" data-scroll-target="#더-정확한-합으로-보는-on3"><span class="header-section-number">10</span> 더 정확한 합으로 보는 <span class="math inline">\(O(n^3)\)</span></a></li>
+  <li><a href="#공간복잡도" id="toc-공간복잡도" class="nav-link" data-scroll-target="#공간복잡도"><span class="header-section-number">11</span> 공간복잡도</a></li>
+  <li><a href="#왜-divide-and-conquer가-아니라-dp로-보는가" id="toc-왜-divide-and-conquer가-아니라-dp로-보는가" class="nav-link" data-scroll-target="#왜-divide-and-conquer가-아니라-dp로-보는가"><span class="header-section-number">12</span> 왜 Divide-and-Conquer가 아니라 DP로 보는가</a></li>
+  <li><a href="#정리" id="toc-정리" class="nav-link" data-scroll-target="#정리"><span class="header-section-number">13</span> 정리</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">DP: Matrix Chain Multiplication</h1>
+</div>
+
+<div>
+  <div class="description">
+    Optimal parenthesization, dynamic programming recurrence, overlapping subproblems, and time complexity analysis.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">April 1, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="문제-설정" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="문제-설정"><span class="header-section-number">1</span> 문제 설정</h2>
+<p>행렬 연쇄 곱셈(matrix chain multiplication) 문제는 다음과 같다.</p>
+<p>행렬 체인</p>
+<p><span class="math display">\[
+A_1 A_2 \cdots A_n
+\]</span></p>
+<p>이 주어져 있고, 각 행렬의 크기는 다음과 같이 주어진다.</p>
+<p><span class="math display">\[
+A_i \in \mathbb{R}^{p_{i-1} \times p_i}
+\]</span></p>
+<p>목표는 전체 곱</p>
+<p><span class="math display">\[
+A_1A_2\cdots A_n
+\]</span></p>
+<p>의 <strong>곱셈 순서(괄호 묶기)</strong> 를 정해서, 전체 scalar multiplication 횟수를 최소화하는 것이다.</p>
+<p>핵심은 다음 두 문장을 구분하는 데 있다.</p>
+<ul>
+<li><strong>최종 결과 행렬</strong>은 결합법칙 때문에 괄호를 어떻게 치더라도 같다.</li>
+<li><strong>계산 비용</strong>은 괄호를 어디에 치느냐에 따라 크게 달라질 수 있다.</li>
+</ul>
+<p>예를 들어, 세 행렬의 크기가 다음과 같다고 하자.</p>
+<p><span class="math display">\[
+A_1 \in \mathbb{R}^{10 \times 100}, \qquad
+A_2 \in \mathbb{R}^{100 \times 5}, \qquad
+A_3 \in \mathbb{R}^{5 \times 50}
+\]</span></p>
+<p>이때</p>
+<p><span class="math display">\[
+((A_1A_2)A_3)
+\]</span></p>
+<p>의 계산 비용은</p>
+<p><span class="math display">\[
+10 \cdot 100 \cdot 5 + 10 \cdot 5 \cdot 50
+= 5000 + 2500
+= 7500
+\]</span></p>
+<p>이고,</p>
+<p><span class="math display">\[
+(A_1(A_2A_3))
+\]</span></p>
+<p>의 계산 비용은</p>
+<p><span class="math display">\[
+100 \cdot 5 \cdot 50 + 10 \cdot 100 \cdot 50
+= 25000 + 50000
+= 75000
+\]</span></p>
+<p>이다.</p>
+<p>즉, <strong>같은 행렬곱이라도 계산 순서에 따라 비용이 매우 크게 달라질 수 있다.</strong></p>
+</section>
+<section id="fully-parenthesized-product" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="fully-parenthesized-product"><span class="header-section-number">2</span> Fully Parenthesized Product</h2>
+<p>행렬곱이 <strong>fully parenthesized</strong> 되었다는 것은 다음 둘 중 하나라는 뜻이다.</p>
+<ol type="1">
+<li>행렬 하나만 있는 경우</li>
+<li>두 개의 fully parenthesized 된 부분곱을 다시 괄호로 묶어 곱한 경우</li>
+</ol>
+<p>예를 들어</p>
+<p><span class="math display">\[
+A_1A_2A_3A_4
+\]</span></p>
+<p>는 fully parenthesized 되어 있지 않지만,</p>
+<p><span class="math display">\[
+(A_1(A_2(A_3A_4))), \qquad
+((A_1A_2)(A_3A_4)), \qquad
+(((A_1A_2)A_3)A_4)
+\]</span></p>
+<p>는 fully parenthesized expression이다.</p>
+<p>행렬이 4개일 때 가능한 괄호 묶기 수는 총 5가지이며, 일반적으로 행렬이 <span class="math inline">\(n\)</span>개일 때 가능한 괄호 묶기 수는 Catalan number <span class="math inline">\(C_{n-1}\)</span>와 연결된다.</p>
+</section>
+<section id="search-space가-큰-이유" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="search-space가-큰-이유"><span class="header-section-number">3</span> Search Space가 큰 이유</h2>
+<p>가능한 괄호 묶기 수를 <span class="math inline">\(P(n)\)</span>이라 하면,</p>
+<p><span class="math display">\[
+P(1)=1
+\]</span></p>
+<p>이고,</p>
+<p><span class="math display">\[
+P(n)=\sum_{k=1}^{n-1} P(k)P(n-k) \qquad (n \ge 2)
+\]</span></p>
+<p>를 만족한다.</p>
+<p>이 recurrence의 해는 Catalan number와 같아서 대략</p>
+<p><span class="math display">\[
+P(n)=\Omega\!\left(\frac{4^n}{n^{3/2}}\right)
+\]</span></p>
+<p>수준으로 증가한다.</p>
+<p>즉, 가능한 모든 parenthesization을 전부 시도하는 brute force 방식은 사실상 지수적 탐색이 된다. 이처럼 search space가 매우 빠르게 커지기 때문에, 이 문제는 동적 계획법으로 다루는 것이 자연스럽다.</p>
+</section>
+<section id="왜-이-문제가-dp-문제인가" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="왜-이-문제가-dp-문제인가"><span class="header-section-number">4</span> 왜 이 문제가 DP 문제인가</h2>
+<p>이 문제가 전형적인 dynamic programming 문제로 분류되는 이유는 크게 두 가지다.</p>
+<section id="optimal-substructure" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="optimal-substructure"><span class="header-section-number">4.1</span> Optimal Substructure</h3>
+<p>부분문제의 최적해가 전체 최적해 안에 포함된다.</p>
+<p><span class="math inline">\(A_iA_{i+1}\cdots A_j\)</span>를 최적으로 괄호 묶었더니 마지막 split이 <span class="math inline">\(k\)</span>에서 일어났다고 하자. 그러면 전체 구조는</p>
+<p><span class="math display">\[
+(A_i\cdots A_k)(A_{k+1}\cdots A_j)
+\]</span></p>
+<p>꼴이다.</p>
+<p>이때 왼쪽 부분체인 <span class="math inline">\(A_i\cdots A_k\)</span>를 계산하는 방식이 최적이 아니라고 가정하면, 그 부분만 더 싼 방식으로 바꿔 끼워 전체 비용을 더 줄일 수 있다. 이는 원래 전체해가 최적이었다는 가정과 모순이다. 오른쪽 부분체인에 대해서도 같은 논리가 성립한다.</p>
+<p>즉,</p>
+<ul>
+<li>전체 최적해의 왼쪽 부분은 왼쪽 부분문제의 최적해다.</li>
+<li>전체 최적해의 오른쪽 부분은 오른쪽 부분문제의 최적해다.</li>
+</ul>
+<p>따라서 <strong>optimal substructure</strong>가 성립한다. 이 논리는 전형적인 <strong>cut-and-paste argument</strong>로 이해할 수 있다.</p>
+</section>
+<section id="overlapping-subproblems" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="overlapping-subproblems"><span class="header-section-number">4.2</span> Overlapping Subproblems</h3>
+<p>재귀적으로 생각하면 같은 부분문제들이 반복해서 등장한다.</p>
+<p>예를 들어 <span class="math inline">\(A_1\cdots A_6\)</span>를 계산할 때, 여러 split을 시도하다 보면</p>
+<ul>
+<li><span class="math inline">\(m[2,4]\)</span></li>
+<li><span class="math inline">\(m[3,5]\)</span></li>
+<li><span class="math inline">\(m[1,3]\)</span></li>
+</ul>
+<p>같은 부분문제를 여러 경로에서 다시 참조하게 된다.</p>
+<p>즉, 이 문제는 divide-and-conquer처럼 하위 문제가 완전히 독립적인 것이 아니라, <strong>같은 subchain <span class="math inline">\(A_i\cdots A_j\)</span>에 대한 최소 비용 계산이 반복된다.</strong> 이런 성질이 바로 <strong>overlapping subproblems</strong>이다.</p>
+<p>따라서 이미 계산한 <span class="math inline">\(m[i,j]\)</span>를 저장해두고 재사용하면 중복 계산을 없앨 수 있다. 이 점이 이 문제를 DP 문제로 분류하는 핵심이다.</p>
+</section>
+</section>
+<section id="부분문제-정의" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="부분문제-정의"><span class="header-section-number">5</span> 부분문제 정의</h2>
+<p>부분문제는 다음처럼 정의한다.</p>
+<p><span class="math display">\[
+m[i,j] = \text{the minimum number of scalar multiplications needed to compute } A_iA_{i+1}\cdots A_j
+\]</span></p>
+<p>즉, <span class="math inline">\(m[i,j]\)</span>는 부분체인 <span class="math inline">\(A_i\cdots A_j\)</span>를 계산하는 최소 비용이다.</p>
+<p>특히 전체 문제의 해는</p>
+<p><span class="math display">\[
+m[1,n]
+\]</span></p>
+<p>이다.</p>
+</section>
+<section id="dp-recurrence-유도" class="level2" data-number="6">
+<h2 data-number="6" class="anchored" data-anchor-id="dp-recurrence-유도"><span class="header-section-number">6</span> DP Recurrence 유도</h2>
+<section id="base-case" class="level3" data-number="6.1">
+<h3 data-number="6.1" class="anchored" data-anchor-id="base-case"><span class="header-section-number">6.1</span> Base Case</h3>
+<p>행렬 하나만 있는 경우에는 실제 곱셈이 일어나지 않으므로 비용이 0이다.</p>
+<p><span class="math display">\[
+m[i,i]=0
+\]</span></p>
+</section>
+<section id="일반-항" class="level3" data-number="6.2">
+<h3 data-number="6.2" class="anchored" data-anchor-id="일반-항"><span class="header-section-number">6.2</span> 일반 항</h3>
+<p><span class="math inline">\(i&lt;j\)</span>일 때, 마지막 곱셈은 반드시 어떤 <span class="math inline">\(k\)</span>에 대해</p>
+<p><span class="math display">\[
+(A_i\cdots A_k)(A_{k+1}\cdots A_j)
+\]</span></p>
+<p>형태로 나뉜다.</p>
+<p>그러면 비용은 세 부분으로 분해된다.</p>
+<ol type="1">
+<li>왼쪽 부분체인 <span class="math inline">\(A_i\cdots A_k\)</span>를 계산하는 비용: <span class="math inline">\(m[i,k]\)</span></li>
+<li>오른쪽 부분체인 <span class="math inline">\(A_{k+1}\cdots A_j\)</span>를 계산하는 비용: <span class="math inline">\(m[k+1,j]\)</span></li>
+<li>마지막에 두 결과 행렬을 곱하는 비용</li>
+</ol>
+<p>왼쪽 결과 행렬의 크기는 <span class="math inline">\(p_{i-1} \times p_k\)</span>이고, 오른쪽 결과 행렬의 크기는 <span class="math inline">\(p_k \times p_j\)</span>이므로 마지막 곱셈 비용은</p>
+<p><span class="math display">\[
+p_{i-1}p_kp_j
+\]</span></p>
+<p>이다.</p>
+<p>따라서 split이 <span class="math inline">\(k\)</span>일 때의 전체 비용은</p>
+<p><span class="math display">\[
+m[i,k] + m[k+1,j] + p_{i-1}p_kp_j
+\]</span></p>
+<p>가 된다.</p>
+<p>가능한 모든 <span class="math inline">\(k \in \{i, i+1, \dots, j-1\}\)</span>를 다 시험해 최소를 취하면, 최종 recurrence는 다음과 같다.</p>
+<p><span class="math display">\[
+m[i,j] =
+\begin{cases}
+0 &amp; \text{if } i=j, \\
+\min_{i \le k &lt; j} \left\{ m[i,k] + m[k+1,j] + p_{i-1}p_kp_j \right\} &amp; \text{if } i&lt;j.
+\end{cases}
+\]</span></p>
+<p>이 식이 matrix chain multiplication의 핵심 DP recurrence이다.</p>
+</section>
+</section>
+<section id="최적-괄호-묶기-복원" class="level2" data-number="7">
+<h2 data-number="7" class="anchored" data-anchor-id="최적-괄호-묶기-복원"><span class="header-section-number">7</span> 최적 괄호 묶기 복원</h2>
+<p>최소 비용만 구하면 끝이 아니라, 실제로 어디서 split했는지도 알아야 최적 parenthesization을 복원할 수 있다.</p>
+<p>이를 위해</p>
+<p><span class="math display">\[
+s[i,j] = \text{an optimal split point } k
+\]</span></p>
+<p>를 저장한다.</p>
+<p>즉, <span class="math inline">\(m[i,j]\)</span>가 최소가 되게 한 <span class="math inline">\(k\)</span>를 <span class="math inline">\(s[i,j]\)</span>에 기록해 두면 재귀적으로 괄호를 다시 출력할 수 있다.</p>
+<p>예를 들어,</p>
+<pre class="text"><code>PRINT-OPTIMAL-PARENS(s, i, j)
+  if i == j
+      print A_i
+  else
+      print "("
+      PRINT-OPTIMAL-PARENS(s, i, s[i,j])
+      PRINT-OPTIMAL-PARENS(s, s[i,j]+1, j)
+      print ")"</code></pre>
+<p>처럼 구현할 수 있다.</p>
+</section>
+<section id="bottom-up-dp-table-채우기" class="level2" data-number="8">
+<h2 data-number="8" class="anchored" data-anchor-id="bottom-up-dp-table-채우기"><span class="header-section-number">8</span> Bottom-up DP Table 채우기</h2>
+<p>교안의 알고리즘은 부분체인의 길이 <span class="math inline">\(l\)</span>을 2부터 <span class="math inline">\(n\)</span>까지 늘려 가며 테이블을 채운다.</p>
+<pre class="text"><code>MATRIX-CHAIN-ORDER(p)
+1  n = p.length - 1
+2  for i = 1 to n
+3      m[i,i] = 0
+4  for l = 2 to n              // subchain length
+5      for i = 1 to n-l+1
+6          j = i + l - 1
+7          m[i,j] = ∞
+8          for k = i to j-1
+9              q = m[i,k] + m[k+1,j] + p[i-1]p[k]p[j]
+10             if q &lt; m[i,j]
+11                 m[i,j] = q
+12                 s[i,j] = k
+13 return m, s</code></pre>
+<p>이 순서가 중요한 이유는 <span class="math inline">\(m[i,j]\)</span>를 계산하려면 항상 더 짧은 길이의 subchain 값들인 <span class="math inline">\(m[i,k]\)</span>, <span class="math inline">\(m[k+1,j]\)</span>가 먼저 계산되어 있어야 하기 때문이다.</p>
+<p>즉,</p>
+<ul>
+<li>길이 1 체인: 이미 <span class="math inline">\(m[i,i]=0\)</span></li>
+<li>길이 2 체인 계산</li>
+<li>길이 3 체인 계산</li>
+<li>…</li>
+<li>길이 <span class="math inline">\(n\)</span> 체인 계산</li>
+</ul>
+<p>순으로 진행하면 recurrence가 요구하는 값들이 항상 준비되어 있다.</p>
+</section>
+<section id="왜-최종-dp-알고리즘이-on3인가" class="level2" data-number="9">
+<h2 data-number="9" class="anchored" data-anchor-id="왜-최종-dp-알고리즘이-on3인가"><span class="header-section-number">9</span> 왜 최종 DP 알고리즘이 <span class="math inline">\(O(n^3)\)</span>인가</h2>
+<p>이 부분이 특히 중요하다.</p>
+<p>알고리즘의 중첩 반복문을 그대로 세면 된다.</p>
+<section id="첫-번째-반복문-chain-length-l" class="level3" data-number="9.1">
+<h3 data-number="9.1" class="anchored" data-anchor-id="첫-번째-반복문-chain-length-l"><span class="header-section-number">9.1</span> 첫 번째 반복문: chain length <span class="math inline">\(l\)</span></h3>
+<p><span class="math display">\[
+l = 2,3,\dots,n
+\]</span></p>
+<p>이므로 총 <span class="math inline">\(n-1 = O(n)\)</span>번 돈다.</p>
+</section>
+<section id="두-번째-반복문-시작-인덱스-i" class="level3" data-number="9.2">
+<h3 data-number="9.2" class="anchored" data-anchor-id="두-번째-반복문-시작-인덱스-i"><span class="header-section-number">9.2</span> 두 번째 반복문: 시작 인덱스 <span class="math inline">\(i\)</span></h3>
+<p>각 <span class="math inline">\(l\)</span>에 대해,</p>
+<p><span class="math display">\[
+i = 1,2,\dots,n-l+1
+\]</span></p>
+<p>이므로 최대 <span class="math inline">\(O(n)\)</span>번 돈다.</p>
+</section>
+<section id="세-번째-반복문-split-point-k" class="level3" data-number="9.3">
+<h3 data-number="9.3" class="anchored" data-anchor-id="세-번째-반복문-split-point-k"><span class="header-section-number">9.3</span> 세 번째 반복문: split point <span class="math inline">\(k\)</span></h3>
+<p>각 <span class="math inline">\((i,j)\)</span> 쌍에 대해,</p>
+<p><span class="math display">\[
+k = i, i+1, \dots, j-1
+\]</span></p>
+<p>을 모두 시도한다.</p>
+<p>그런데 <span class="math inline">\(j=i+l-1\)</span>이므로 가능한 <span class="math inline">\(k\)</span>의 수는</p>
+<p><span class="math display">\[
+j-i = l-1
+\]</span></p>
+<p>개다. 최악의 경우 이는 <span class="math inline">\(O(n)\)</span>이다.</p>
+<p>따라서 전체 시간은</p>
+<p><span class="math display">\[
+O(n) \times O(n) \times O(n) = O(n^3)
+\]</span></p>
+<p>이다.</p>
+</section>
+</section>
+<section id="더-정확한-합으로-보는-on3" class="level2" data-number="10">
+<h2 data-number="10" class="anchored" data-anchor-id="더-정확한-합으로-보는-on3"><span class="header-section-number">10</span> 더 정확한 합으로 보는 <span class="math inline">\(O(n^3)\)</span></h2>
+<p>더 엄밀히 쓰면, 총 연산 수는</p>
+<p><span class="math display">\[
+\sum_{l=2}^{n} \sum_{i=1}^{n-l+1} \sum_{k=i}^{j-1} 1
+\]</span></p>
+<p>로 볼 수 있다.</p>
+<p>여기서 <span class="math inline">\(j=i+l-1\)</span>이므로 내부 합의 길이는 <span class="math inline">\(l-1\)</span>이다. 따라서</p>
+<p><span class="math display">\[
+\sum_{l=2}^{n} \sum_{i=1}^{n-l+1} (l-1)
+= \sum_{l=2}^{n} (n-l+1)(l-1)
+\]</span></p>
+<p>이다.</p>
+<p>치환 <span class="math inline">\(t=l-1\)</span>을 쓰면</p>
+<p><span class="math display">\[
+\sum_{t=1}^{n-1} (n-t)t
+= n\sum_{t=1}^{n-1} t - \sum_{t=1}^{n-1} t^2
+\]</span></p>
+<p>이고,</p>
+<p><span class="math display">\[
+\sum_{t=1}^{n-1} t = \frac{(n-1)n}{2},
+\qquad
+\sum_{t=1}^{n-1} t^2 = \frac{(n-1)n(2n-1)}{6}
+\]</span></p>
+<p>이므로 전체는 <span class="math inline">\(\Theta(n^3)\)</span>가 된다.</p>
+<p>즉, matrix-chain DP의 시간복잡도는 정확히</p>
+<p><span class="math display">\[
+\Theta(n^3)
+\]</span></p>
+<p>라고 볼 수 있다.</p>
+</section>
+<section id="공간복잡도" class="level2" data-number="11">
+<h2 data-number="11" class="anchored" data-anchor-id="공간복잡도"><span class="header-section-number">11</span> 공간복잡도</h2>
+<p><span class="math inline">\(m\)</span> 테이블과 <span class="math inline">\(s\)</span> 테이블은 각각 <span class="math inline">\(n \times n\)</span> 크기의 2차원 배열이다.</p>
+<p>실제로는 <span class="math inline">\(i \le j\)</span>인 위삼각 부분만 사용하지만, 보통 구현은 전체 배열로 잡으므로 공간복잡도는</p>
+<p><span class="math display">\[
+O(n^2)
+\]</span></p>
+<p>이다.</p>
+</section>
+<section id="왜-divide-and-conquer가-아니라-dp로-보는가" class="level2" data-number="12">
+<h2 data-number="12" class="anchored" data-anchor-id="왜-divide-and-conquer가-아니라-dp로-보는가"><span class="header-section-number">12</span> 왜 Divide-and-Conquer가 아니라 DP로 보는가</h2>
+<p>겉보기에는 “마지막 split을 하나 정하고 왼쪽과 오른쪽으로 쪼개는 구조”라서 divide-and-conquer처럼 보일 수 있다.</p>
+<p>하지만 핵심 차이는 다음과 같다.</p>
+<ul>
+<li><strong>Divide-and-conquer</strong>: 서로 다른 재귀 호출들이 보통 독립적인 하위 문제를 다룬다.</li>
+<li><strong>Dynamic programming</strong>: 같은 하위 문제가 여러 번 반복 등장한다.</li>
+</ul>
+<p>matrix chain multiplication은 두 번째에 해당한다. 예를 들어 상위 문제 여러 개가 같은 <span class="math inline">\(m[2,4]\)</span>를 참조할 수 있으므로, 단순 재귀는 같은 subproblem을 반복 계산한다. 따라서 memoization 또는 bottom-up tabulation을 써서 저장·재사용하는 것이 본질이다.</p>
+</section>
+<section id="정리" class="level2" data-number="13">
+<h2 data-number="13" class="anchored" data-anchor-id="정리"><span class="header-section-number">13</span> 정리</h2>
+<p>matrix chain multiplication은 다음 이유로 전형적인 DP 문제다.</p>
+<ol type="1">
+<li><strong>Optimal substructure</strong>가 있다. 전체 최적 괄호 묶기 안의 좌우 부분체인 역시 각각 최적이어야 한다.</li>
+<li><strong>Overlapping subproblems</strong>가 있다. 같은 <span class="math inline">\(m[i,j]\)</span>가 여러 재귀 경로에서 반복 등장한다.</li>
+<li>따라서 부분문제의 답을 저장해 재사용하면 큰 중복을 제거할 수 있다.</li>
+</ol>
+<p>최종 recurrence는</p>
+<p><span class="math display">\[
+m[i,j] =
+\begin{cases}
+0 &amp; (i=j), \\
+\min_{i \le k &lt; j} \left\{ m[i,k] + m[k+1,j] + p_{i-1}p_kp_j \right\} &amp; (i&lt;j)
+\end{cases}
+\]</span></p>
+<p>이고, bottom-up DP로 계산하면</p>
+<ul>
+<li>시간복잡도: <span class="math inline">\(\Theta(n^3)\)</span></li>
+<li>공간복잡도: <span class="math inline">\(O(n^2)\)</span></li>
+</ul>
+<p>를 얻는다.</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/dreamian\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

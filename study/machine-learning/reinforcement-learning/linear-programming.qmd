@@ -1,0 +1,742 @@
+---
+title: "Linear Programming Approach"
+aliases:
+  - "/study/reinforcement-learning/linear-programming.html"
+subtitle: "Bellman 방정식을 최적화 문제로 바꾸기: primal → LP → dual → 근사 → Q-함수 → 데이터 기반 PI"
+date: "2026-10-16"
+lang: ko
+number: "4"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    html-math-method: mathjax
+    callout-appearance: default
+---
+
+# 사용법 {#sec-howto}
+
+각 노드는 다음 순서로 되어 있다.
+
+1. **질문**: 노드 제목.
+2. **먼저 떠올릴 질문**: 유도를 시작하기 전에 스스로 답해 볼 물음. 유도는 이 물음에 답하는 순서로 진행된다.
+3. **답**: 한두 문장.
+4. **유도 / 증명**: 접혀 있다. 각 줄 오른쪽에 그 줄을 정당화하는 근거를 붙였다. 먼저 스스로 써 본 뒤 펼친다.
+5. **의의**: 접혀 있다. 이 결과가 다음 단계에서 무엇을 가능하게 하는지.
+6. **↓ 내려가기 / ↑ 올라가기**: 하위·상위 노드.
+
+✍ 표시가 있는 노드는 안내 질문을 먼저 두고, 풀이를 따로 접어 두었다.
+
+공통 표기: $S=\{1,\dots,n\}$, $A=\{1,\dots,m\}$, $K$는 feature 개수, $\|\cdot\|=\|\cdot\|_\infty$. 벡터·행렬 부등식은 원소별이다. $c>0$은 모든 원소가 양수라는 뜻이다.
+$$
+(Tv)(s)=\max_{a}\Big[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v(s')\Big],\qquad
+(T^\pi v)(s)=r(s,\pi(s))+\gamma\sum_{s'}p(s'\mid s,\pi(s))\,v(s').
+$$
+
+# 전체 트리 {#sec-tree}
+
+- **0. 출발점**: Bellman 방정식을 반복이 아니라 최적화로 풀 수 있는가 → [@sec-lp0]
+- **I. 최적화 정식화**: $\min c^\top v$ s.t. $v\ge Tv$의 유일한 최적해는 $v^*$ → [@sec-lp1]
+  - 증명의 세 부등식 → [@sec-lp1a]
+  - 쓰이는 도구: 단조성, 반복 극한, 양수 가중합 → [@sec-lp1b]
+- **II. LP로의 변환**: max를 없애면 제약이 $nm$개인 LP → [@sec-lp2]
+  - 동치의 두 방향 → [@sec-lp2a]
+  - $c$의 역할 → [@sec-lp2b]
+  - 정책 평가 LP → [@sec-lp2c]
+- **III. 쌍대성**: dual LP는 변수 $nm$개, 제약 $n$개 → [@sec-lp3]
+  - Lagrangian 정리(합의 순서 바꾸기) → [@sec-lp3a]
+  - ✍ weak duality → [@sec-lp3b]
+  - ✍ $\lambda$는 할인 점유 측도 → [@sec-lp3c]
+  - 상보 여유와 정책 복원 → [@sec-lp3d]
+- **IV. 근사 LP**: $v\approx\Phi\theta$ → [@sec-lp4]
+  - 근사해는 왜 $v^*$의 위쪽에 있는가 → [@sec-lp4a]
+- **V. Q-함수**: $v^*(s)=\max_aQ^*(s,a)$ → [@sec-lp5]
+  - 왜 $Q$인가 → [@sec-lp5a]
+  - Q의 Bellman 방정식 → [@sec-lp5b]
+  - $T_Q$의 단조성과 축약 → [@sec-lp5c]
+- **VI. Q-LP**: 해는 $Q^*$, 그러나 제약이 폭증 → [@sec-lp6]
+  - 고정 $a'$ 선형화는 정확한가 → [@sec-lp6a]
+- **VII. Q 기반 PI**: 평가는 LP, 향상은 모델 없이 → [@sec-lp7]
+  - 데이터 기반 PI → [@sec-lp8]
+- **VIII. 정리**: 크기 비교표, 손계산 예제 → [@sec-lp9], [@sec-lp10]
+
+# 0. 출발점 {#sec-part0}
+
+## Bellman 방정식을 최적화 문제의 해로 바로 구할 수 있는가 {#sec-lp0}
+
+**먼저 떠올릴 질문.** 지금까지 $v=Tv$를 푼 방법(VI, PI)은 모두 $T$의 어떤 성질에 기대고 있었나? 그 성질을 "반복"이 아니라 "제약"으로 쓰면 무엇이 되는가?
+
+**답.** VI와 PI는 $T$의 축약 성질과 Banach 고정점 정리에 기댔다. 이번에는 $T$를 반복 적용하지 않고, Bellman 방정식을 **부등식 제약** $v\ge Tv$로 완화한 뒤 선형 목적함수를 최소화한다. 이때 쓰이는 성질은 축약에 더해 **단조성**이다.
+
+::: {.callout-tip collapse="true" title="의의"}
+- 최적화 문제로 바꾸면, 성숙한 최적화 솔버(interior-point, simplex)를 그대로 쓸 수 있다.
+- 쌍대성, 근사(feature), 샘플 기반 제약 같은 최적화 쪽의 도구를 MDP에 들여올 수 있다.
+- 이 장 끝에서는 같은 틀이 모델 없이 데이터로 정책을 개선하는 데까지 이어진다 → [@sec-lp8]
+:::
+
+**↓ 내려가기**: [@sec-lp1]
+
+# I. 최적화 정식화 {#sec-partI}
+
+## $\min_v c^\top v$ s.t. $v\ge Tv$ ($c>0$)의 최적해는 왜 유일하게 $v^*$인가 {#sec-lp1}
+
+$$
+\min_{v\in\mathbb{R}^n}\ c^\top v\qquad\text{s.t.}\qquad v\ge Tv\quad(\text{원소별}).
+$$
+
+**먼저 떠올릴 질문.**
+
+1. 최적해 하나를 $v_{\rm opt}$라 두자. 이것은 제약 $v_{\rm opt}\ge Tv_{\rm opt}$를 만족한다. 양변에 $T$를 계속 적용하면 어디로 가는가?
+2. $v^*$는 이 문제에서 어떤 위치에 있는가(feasible인가)?
+3. 두 사실에서 얻은 부등식의 방향은 서로 어떤가?
+
+**답.** 세 줄이다.
+
+1. $v_{\rm opt}\ge Tv_{\rm opt}\ge T^2v_{\rm opt}\ge\cdots\to v^*$이므로 $v_{\rm opt}\ge v^*$.
+2. $v^*=Tv^*$이므로 $v^*$는 feasible이고, 따라서 $c^\top v^*\ge c^\top v_{\rm opt}$.
+3. 1과 $c>0$에서 $c^\top v_{\rm opt}\ge c^\top v^*$. 두 부등식이 동시에 성립하려면 $v_{\rm opt}=v^*$.
+
+**↓ 내려가기**: [@sec-lp1a] 증명 · [@sec-lp1b] 도구
+**↑ 올라가기**: [@sec-lp0]
+
+### 증명: 세 부등식을 하나씩 {#sec-lp1a}
+
+::: {.callout-note collapse="true" title="증명"}
+$v_{\rm opt}$를 **임의의** 최적해로 잡는다.
+
+**(i) $v_{\rm opt}\ge v^*$.**
+$$
+\begin{aligned}
+v_{\rm opt}&\ge Tv_{\rm opt} &&(\text{제약})\\
+Tv_{\rm opt}&\ge T^2v_{\rm opt} &&(\text{윗줄 양변에 }T\text{, 단조성})\\
+&\ \ \vdots\\
+v_{\rm opt}&\ge T^kv_{\rm opt}\ \ \forall k &&(\text{이어 붙이기})\\
+v_{\rm opt}&\ge\lim_{k\to\infty}T^kv_{\rm opt}=v^* &&(\text{Banach: 임의 초기값에서 }T^k\cdot\to v^*,\ \text{원소별 부등식은 극한에서 유지})
+\end{aligned}
+$$
+
+**(ii) $c^\top v^*\ge c^\top v_{\rm opt}$.**
+$v^*=Tv^*$이므로 $v^*\ge Tv^*$를 등호로 만족한다. 즉 $v^*$는 feasible이다. $v_{\rm opt}$는 feasible한 점들 중 $c^\top v$가 가장 작은 점이므로 $c^\top v_{\rm opt}\le c^\top v^*$.
+
+**(iii) $v_{\rm opt}=v^*$.**
+(i)에서 $d:=v_{\rm opt}-v^*\ge0$이다. (ii)를 다시 쓰면 $c^\top d\le0$이다. 그런데
+$$
+c^\top d=\sum_sc(s)\,d(s),\qquad c(s)>0,\ d(s)\ge0
+$$
+이므로 각 항이 비음이고, 합이 $0$ 이하이려면 모든 항이 $0$이어야 한다. $c(s)>0$이므로 $d(s)=0$, 즉 $v_{\rm opt}=v^*$.
+
+$v_{\rm opt}$를 임의로 골랐으므로 최적해는 유일하고 $v^*$이다.
+:::
+
+::: {.callout-note collapse="true" title="덧붙임: 최적해의 존재"}
+(i)의 논증은 $v_{\rm opt}$가 최적해라는 사실을 쓰지 않는다. 제약만 썼다. 따라서 **모든 feasible $v$**에 대해 $v\ge v^*$이고, $c^\top v\ge c^\top v^*$이다. $v^*$ 자신이 feasible이므로 $v^*$는 최소값을 실제로 달성한다. 즉 존재와 유일성이 함께 나온다.
+
+이것은 비교 보조정리 "$v\ge Tv\Rightarrow v\ge v^*$"와 같은 내용이다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+- $c>0$은 (iii)에서만 쓰인다. 원소 하나라도 $c(s)=0$이면 그 원소의 $d(s)$가 양수여도 목적값이 변하지 않아 유일성이 깨진다.
+- 최소화가 "Bellman 방정식을 위에서 누르는" 방향이라는 점을 기억한다. feasible 집합 $\{v\ge Tv\}$의 모든 점은 $v^*$보다 크고, 그 집합의 "가장 아래 모서리"가 $v^*$이다.
+- 최대화 문제($\max$, $v\le Tv$)로 쓰고 싶다면 부등식 방향을 함께 뒤집어야 한다. $\{v\le Tv\}$의 모든 점은 $v^*$보다 작다. 두 방향을 섞으면(예: $\min$과 $v\le Tv$) 목적함수가 아래로 유계가 아니게 된다.
+:::
+
+**↓ 내려가기**: [@sec-lp1b]
+**↑ 올라가기**: [@sec-lp1]
+
+### 증명에 쓰인 세 도구 {#sec-lp1b}
+
+**답.**
+
+- **단조성**: $v\le w\Rightarrow Tv\le Tw$. $p\ge0$이므로 $\sum_{s'}p\,v\le\sum_{s'}p\,w$이고, 각 $a$에서 성립하는 부등식은 $\max_a$를 취해도 유지된다.
+- **반복의 극한**: $T$가 $\gamma$-축약이므로 임의의 시작점에서 $T^kv\to v^*$ (Banach 고정점 정리). 이것이 $v^*$가 $T$의 유일한 고정점이라는 사실과 이어진다.
+- **양수 가중합**: $c>0$, $d\ge0$, $c^\top d=0\Rightarrow d=0$.
+
+::: {.callout-tip collapse="true" title="의의"}
+같은 세 도구가 정책 평가 LP([@sec-lp2c]), Q-LP([@sec-lp6]), 근사 LP의 위쪽 한계([@sec-lp4a])에서 그대로 다시 쓰인다. 바뀌는 것은 연산자($T$, $T^\pi$, $T_Q$)뿐이다.
+:::
+
+**↑ 올라가기**: [@sec-lp1a]
+
+# II. LP로의 변환 {#sec-partII}
+
+## 이 최적화 문제는 어떻게 linear program이 되는가 {#sec-lp2}
+
+**먼저 떠올릴 질문.**
+
+1. 목적함수 $c^\top v$와 제약 $v\ge Tv$ 중 무엇이 문제인가?
+2. 제약을 상태별로 풀어 쓰면, 비선형성은 정확히 어디서 오는가?
+3. "$x\ge\max_a y_a$"와 동치인 명제를 max 없이 쓰면?
+
+**답.** 목적함수는 선형이다. 문제는 제약 $v(s)\ge\max_a[\cdots]$의 $\max$이다. 그런데 이 제약은 "**모든** $a$에 대해 $v(s)\ge[\cdots]$"와 동치이다. 그렇게 쓰면 각 제약의 양변이 $v$에 대해 affine이 된다.
+$$
+\boxed{\ \min_{v\in\mathbb{R}^n}\ c^\top v\quad\text{s.t.}\quad v(s)\ge r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v(s')\quad\forall(s,a)\in S\times A\ }
+$$
+변수는 $n$개 그대로이고, 제약은 $n$개에서 $nm$개로 늘었다.
+
+::: {.callout-tip collapse="true" title="의의"}
+- LP는 최적화 문제 중 가장 단순한 클래스이고, 솔버는 성숙한 기술이다.
+- 대가는 제약의 개수다. 대규모 MDP에서는 $nm$개의 제약이 부담이 된다. 이 부담을 줄이는 두 방향이 dual([@sec-lp3])과 근사([@sec-lp4])이다.
+- 정리하면, 원래와 **같은 문제**를 제약 개수를 늘리는 대가로 LP로 만든 것이다. 해는 여전히 $v^*$이다.
+:::
+
+**↓ 내려가기**: [@sec-lp2a] 동치 · [@sec-lp2b] $c$ · [@sec-lp2c] 정책 평가
+**↑ 올라가기**: [@sec-lp1]
+
+### "$x\ge\max_ay_a$ ⇔ 모든 $a$에 대해 $x\ge y_a$"의 두 방향 {#sec-lp2a}
+
+::: {.callout-note collapse="true" title="증명"}
+($\Rightarrow$) 모든 $a$에 대해 $y_a\le\max_by_b\le x$.
+
+($\Leftarrow$) 모든 $a$에 대해 $y_a\le x$이면, $x$는 $\{y_a\}$의 상계이다. 유한 집합의 최댓값은 상계 중 가장 작은 것이므로 $\max_ay_a\le x$.
+
+$x=v(s)$, $y_a=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v(s')$로 두고 모든 $s$에 대해 쓰면 [@sec-lp2]의 LP가 된다.
+:::
+
+::: {.callout-tip collapse="true" title="의의: 이 동치가 성립하는 조건"}
+- max가 부등식의 **큰 쪽(오른쪽)**에 있고, 부등식이 "$\ge\max$"일 때만 이렇게 풀린다. "$\le\max$"는 "어떤 $a$에 대해"라는 존재 명제가 되어 선형 제약의 교집합으로 쓸 수 없다.
+- max가 **합 바깥**에 있다는 점도 중요하다. 합 안에 max가 들어간 Q의 Bellman 식에서는 같은 방식이 그대로 통하지 않는다 → [@sec-lp6a]
+:::
+
+**↑ 올라가기**: [@sec-lp2]
+
+### $c$의 역할은 무엇인가 {#sec-lp2b}
+
+**먼저 떠올릴 질문.** $c$는 "모든 원소가 양수"라는 조건만 있다. 문제를 직접 설계한다면 $c$를 어떻게 정하겠는가? $c$를 바꾸면 해가 바뀌는가?
+
+**답.** $c(s)$는 가치의 $s$번째 원소에 두는 가중치다. $c(s)$를 키우면 $v(s)$를 더 끌어내리는 방향으로 탐색한다. 최적 가치에 대한 사전 지식(어느 상태의 가치가 낮을지)이 있으면 그것을 반영할 수 있고, 없으면 $c=\mathbf{1}$로 둔다.
+
+::: {.callout-tip collapse="true" title="의의: 정확한 LP와 근사 LP에서 다르다"}
+- **정확한 LP**: [@sec-lp1a]에 따르면 $c>0$이기만 하면 최적해는 항상 $v^*$이다. $c$는 **해를 바꾸지 않는다**. 솔버의 탐색 경로, 수치 효율에만 영향을 준다.
+- **근사 LP**: $v^*$를 정확히 표현할 수 없으면 $c$가 해를 바꾼다. 이때 $c$는 상태별 근사 오차의 가중치가 된다 → [@sec-lp4a]
+- **dual에서**: $c$는 초기 상태 분포 역할을 한다. $c>0$이기 때문에 모든 상태에 양의 질량이 들어가고, 그래서 모든 상태에서 정책을 복원할 수 있다 → [@sec-lp3c], [@sec-lp3d]
+:::
+
+**↑ 올라가기**: [@sec-lp2]
+
+### 정책 평가 LP는 왜 제약이 $n$개뿐인가 {#sec-lp2c}
+
+$$
+\min_{v\in\mathbb{R}^n}\ c^\top v\quad\text{s.t.}\quad v\ge T^\pi v
+\ \Longleftrightarrow\
+\min_{v}\ c^\top v\quad\text{s.t.}\quad v(s)\ge r(s,\pi(s))+\gamma\sum_{s'}p(s'\mid s,\pi(s))\,v(s')\quad\forall s.
+$$
+
+**답.** $T^\pi$에는 max가 없다. 그래서 제약이 처음부터 선형이고, 상태당 하나씩 $n$개면 충분하다. 해는 $v^\pi$이다. 증명은 [@sec-lp1a]에서 $T$를 $T^\pi$로 바꾸면 된다. $T^\pi$도 단조이고 $\gamma$-축약이며, 유일한 고정점이 $v^\pi$이기 때문이다.
+
+::: {.callout-tip collapse="true" title="의의"}
+- 행동 차원 $m$이 사라진 작은 LP이므로 효율적이다. PI의 평가 단계에 LP를 쓰는 근거가 된다.
+- 최적해에서는 모든 제약이 등호로 성립한다($v^\pi=T^\pi v^\pi$). 즉 이 LP는 선형 연립방정식 $(I-\gamma P^\pi)v=R^\pi$의 해를 구하는 또 하나의 방법이다.
+:::
+
+**↓ 내려가기**: [@sec-lp1b]
+**↑ 올라가기**: [@sec-lp2], [@sec-lp7]
+
+# III. 쌍대성 {#sec-partIII}
+
+## dual LP는 무엇이고, 왜 계산상 선호될 수 있는가 {#sec-lp3}
+
+**먼저 떠올릴 질문.**
+
+1. 제약 하나마다 쌍대 변수 하나를 둔다. primal 제약은 몇 개이고 어떤 첨자를 갖는가?
+2. Lagrangian을 $v$에 대해 최소화할 때, 언제 $-\infty$가 아닌 유한한 값이 나오는가?
+3. 그 "유한하게 만드는 조건"이 dual의 무엇이 되는가?
+
+**답.** primal 제약은 $(s,a)$마다 하나이므로 쌍대 변수는 $\lambda(s,a)\ge0$, 즉 $n\times m$개다. Lagrangian을 $v(s')$의 계수별로 정리하면, 계수가 하나라도 $0$이 아닐 때 $\min_vL=-\infty$이다. 따라서 "계수 $=0$"이 dual의 등식 제약이 되고, 남는 항이 dual의 목적함수가 된다.
+$$
+\boxed{\ \max_{\lambda\ge0}\ \sum_{s,a}\lambda(s,a)\,r(s,a)\quad\text{s.t.}\quad c(s')+\gamma\sum_{s,a}\lambda(s,a)\,p(s'\mid s,a)-\sum_a\lambda(s',a)=0\quad\forall s'\in S\ }
+$$
+
+::: {.callout-tip collapse="true" title="의의"}
+- dual도 LP다. 목적함수와 제약이 모두 $\lambda$에 대해 선형이다.
+- **duality gap이 없다.** primal과 dual이 모두 feasible이면 LP는 강쌍대성이 성립한다. primal은 $v^*$가, dual은 임의 정책의 점유 측도가 feasible하다([@sec-lp3c]). 따라서 dual 최적값 $=c^\top v^*$.
+- 크기가 뒤바뀐다: 변수 $n\to nm$, 제약 $nm\to n$ (등식). LP에서는 보통 제약 수가 적은 쪽이 계산상 유리하므로 dual이 선호될 수 있다.
+:::
+
+**↓ 내려가기**: [@sec-lp3a] 유도 · [@sec-lp3b] weak duality · [@sec-lp3c] 점유 측도 · [@sec-lp3d] 정책 복원
+**↑ 올라가기**: [@sec-lp2]
+
+### Lagrangian에서 dual 함수까지: 합의 순서 바꾸기 {#sec-lp3a}
+
+::: {.callout-note collapse="true" title="유도"}
+**1단계: 제약을 $g\le0$ 꼴로.** primal 제약은
+$$g_{s,a}(v):=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v(s')-v(s)\ \le\ 0.$$
+
+**2단계: Lagrangian.** $\min f$ s.t. $g\le0$의 Lagrangian은 $f+\sum\lambda g$, $\lambda\ge0$이다.
+$$
+L(v,\lambda)=\underbrace{\sum_sc(s)\,v(s)}_{\text{(a)}}+\underbrace{\sum_{s,a}\lambda(s,a)\,r(s,a)}_{\text{(b)}}+\underbrace{\gamma\sum_{s,a}\lambda(s,a)\sum_{s'}p(s'\mid s,a)\,v(s')}_{\text{(c)}}-\underbrace{\sum_{s,a}\lambda(s,a)\,v(s)}_{\text{(d)}}.
+$$
+
+**3단계: 모든 $v$ 항을 $v(s')$의 계수로 모은다.**
+
+- (a): 합 첨자 이름만 바꾼다. $\sum_{s'}c(s')\,v(s')$.
+- (c): 유한합이므로 순서를 바꾼다. $\sum_{s'}v(s')\cdot\gamma\sum_{s,a}\lambda(s,a)\,p(s'\mid s,a)$.
+- (d): $\sum_s v(s)\sum_a\lambda(s,a)$로 묶고 이름을 $s'$로 바꾼다. $\sum_{s'}v(s')\sum_a\lambda(s',a)$.
+
+따라서
+$$
+L(v,\lambda)=\sum_{s,a}\lambda(s,a)\,r(s,a)+\sum_{s'}v(s')\underbrace{\Big[c(s')+\gamma\sum_{s,a}\lambda(s,a)\,p(s'\mid s,a)-\sum_a\lambda(s',a)\Big]}_{=:\,\kappa_\lambda(s')}.
+$$
+
+**4단계: $v$에 대해 최소화.** $L$은 $v$에 대해 affine이다. 어떤 $s'$에서 $\kappa_\lambda(s')\ne0$이면 $v(s')\to\mp\infty$로 보내 $L\to-\infty$. 따라서
+$$
+g(\lambda):=\min_vL(v,\lambda)=\begin{cases}\sum_{s,a}\lambda(s,a)\,r(s,a), & \kappa_\lambda(s')=0\ \ \forall s',\\ -\infty, & \text{그 외}.\end{cases}
+$$
+
+**5단계: dual.** $\max_{\lambda\ge0}g(\lambda)$에서 $-\infty$가 되는 $\lambda$는 최대화에 쓸모가 없으므로, $\kappa_\lambda=0$을 제약으로 두면 [@sec-lp3]의 dual LP가 된다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+- (c)에서 바뀐 것은 "어디서 **출발해** $s'$로 가는가"를 세는 관점이다. $s$에서 나가는 흐름을 $s'$로 들어오는 흐름으로 다시 셌다. 이 관점 전환이 흐름 보존 해석([@sec-lp3c])의 출발점이다.
+- (d)에서 $v(s)$의 계수는 $s$에 걸린 **모든 행동**의 $\lambda$를 더한 것이다. 그래서 dual 제약은 상태당 하나, $n$개가 된다.
+:::
+
+**↑ 올라가기**: [@sec-lp3]
+
+### ✍ weak duality: primal 목적값 ≥ dual 목적값 {#sec-lp3b}
+
+안내 질문:
+
+1. primal feasible $v$와 dual feasible $\lambda$를 잡는다. 제약 $r(s,a)\le v(s)-\gamma\sum_{s'}p\,v(s')$에 $\lambda(s,a)\ge0$을 곱해도 부등호가 유지되는 이유는?
+2. 모든 $(s,a)$에 대해 더한 뒤, 우변을 $\sum_{s'}v(s')[\cdots]$ 꼴로 모으면 대괄호는 무엇인가? ([@sec-lp3a]의 3단계와 같은 조작이다.)
+3. dual 제약을 대입하면 그 대괄호는 무엇으로 바뀌는가?
+
+::: {.callout-note collapse="true" title="풀이"}
+$$
+\begin{aligned}
+\sum_{s,a}\lambda(s,a)\,r(s,a)
+&\le\sum_{s,a}\lambda(s,a)\Big[v(s)-\gamma\sum_{s'}p(s'\mid s,a)\,v(s')\Big] &&(\lambda\ge0,\ \text{primal 제약})\\
+&=\sum_{s'}v(s')\Big[\sum_a\lambda(s',a)-\gamma\sum_{s,a}\lambda(s,a)\,p(s'\mid s,a)\Big] &&(\text{합의 순서 바꾸기})\\
+&=\sum_{s'}c(s')\,v(s') &&(\text{dual 제약}).
+\end{aligned}
+$$
+등호는 $\lambda(s,a)>0$인 모든 $(s,a)$에서 primal 제약이 등호일 때만 성립한다. 이것이 상보 여유 조건이다 → [@sec-lp3d]
+:::
+
+**↑ 올라가기**: [@sec-lp3]
+
+### ✍ dual 제약은 왜 흐름 보존이고, $\lambda$는 무엇을 세는가 {#sec-lp3c}
+
+안내 질문:
+
+1. dual 제약을 $\sum_a\lambda(s',a)=c(s')+\gamma\sum_{s,a}p(s'\mid s,a)\,\lambda(s,a)$로 옮겨 쓴다. 좌변, 우변 첫째 항, 우변 둘째 항은 각각 무엇을 세는가?
+2. stationary 정책 $\pi$와 (정규화하지 않은) 초기 질량 $c$를 두고 $d_t(s,a):=\Pr^\pi(s_t=s,a_t=a)$라 하자. $\sum_ad_{t+1}(s',a)$를 $d_t$로 쓰는 한 스텝 재귀는?
+3. $\lambda:=\sum_{t\ge0}\gamma^td_t$로 두고, 재귀에 $\gamma^{t+1}$을 곱해 더하면 무엇이 나오는가?
+4. 이때 $\sum_{s,a}\lambda(s,a)\,r(s,a)$는 무엇인가?
+
+::: {.callout-note collapse="true" title="풀이"}
+**1.** 좌변은 $s'$에 머무는 (할인된) 총량, 우변 첫째 항은 처음부터 $s'$에 놓인 질량, 둘째 항은 다른 상태에서 한 스텝 뒤 $s'$로 흘러 들어오는 양에 할인을 곱한 것이다. "머무는 양 = 처음 양 + 할인된 유입량"이다.
+
+**2.** 다음 상태는 전이로, 다음 행동은 정책으로 정해진다.
+$$\sum_ad_{t+1}(s',a)=\Pr(s_{t+1}=s')=\sum_{s,a}p(s'\mid s,a)\,d_t(s,a).$$
+
+**3.** $t=0$ 항을 떼어 낸다.
+$$
+\sum_a\lambda(s',a)=\underbrace{\sum_ad_0(s',a)}_{=c(s')}+\sum_{t\ge0}\gamma^{t+1}\sum_ad_{t+1}(s',a)
+=c(s')+\gamma\sum_{s,a}p(s'\mid s,a)\underbrace{\sum_{t\ge0}\gamma^td_t(s,a)}_{=\lambda(s,a)}.
+$$
+즉 **모든 stationary 정책의 할인 점유 측도는 dual feasible**이다.
+
+**4.** $\sum_{s,a}\lambda r=\sum_t\gamma^t\,\mathbb{E}^\pi_c[r(s_t,a_t)]=\sum_sc(s)\,v^\pi(s)=c^\top v^\pi$. 따라서 dual은 "초기 질량 $c$에서 출발한 할인 누적 보상 $c^\top v^\pi$를 정책에 대해 최대화"하는 문제로 읽힌다. 최적값은 $\max_\pi c^\top v^\pi=c^\top v^*$이고, 이것이 primal 최적값과 같다.
+
+**검산.** dual 제약을 $s'$에 대해 모두 더하면 $\sum_{s,a}\lambda(s,a)=\sum_sc(s)/(1-\gamma)$. 할인 합의 총질량이다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+- primal은 **가치 공간**(어떤 $v$가 Bellman 부등식을 만족하는가), dual은 **방문 빈도 공간**(정책이 상태-행동을 얼마나 방문하는가)에서 같은 문제를 본다.
+- $c>0$이므로 $\sum_a\lambda(s',a)\ge c(s')>0$. 모든 상태에 양의 질량이 있어 정책을 모든 상태에서 정의할 수 있다 → [@sec-lp3d]
+:::
+
+**↑ 올라가기**: [@sec-lp3]
+
+### 상보 여유: dual 해에서 정책을 어떻게 꺼내는가 {#sec-lp3d}
+
+**답.** primal 최적해 $v^*$와 dual 최적해 $\lambda^*$에 대해 다음이 성립한다.
+$$
+\lambda^*(s,a)>0\ \Longrightarrow\ v^*(s)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^*(s').
+$$
+즉 $\lambda^*$가 질량을 둔 행동은 $v^*$에 대한 greedy 행동이다. 따라서
+$$
+\pi^*(a\mid s)=\frac{\lambda^*(s,a)}{\sum_b\lambda^*(s,b)}
+$$
+는 최적 정책이다. 분모는 $c(s)>0$ 이상이므로 항상 정의된다.
+
+::: {.callout-note collapse="true" title="근거"}
+[@sec-lp3b]의 부등식 사슬에서 $\lambda^*$, $v^*$를 넣으면 duality gap이 $0$이므로 첫 줄이 등호여야 한다. 첫 줄의 차이는 $\sum_{s,a}\lambda^*(s,a)\cdot(\text{제약의 여유})$이고, 각 항이 비음이므로 모든 항이 $0$이다. $\lambda^*(s,a)>0$이면 그 제약의 여유가 $0$이다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+primal을 풀면 $v^*$를 얻고 정책을 위해 다시 argmax(모델 필요)를 풀어야 한다. dual을 풀면 **정책이 해 안에 이미 들어 있다**. 손계산 예제 [@sec-lp10]에서 확인한다.
+:::
+
+**↑ 올라가기**: [@sec-lp3]
+
+# IV. 근사 LP {#sec-partIV}
+
+## linear architecture로 근사하면 무엇이 줄고 무엇이 남는가 {#sec-lp4}
+
+**먼저 떠올릴 질문.** primal이든 dual이든 크기가 $n$, $m$에 비례한다. $n$이 매우 크면, 무엇을 작게 만들 수 있는가?
+
+**답.** 가치 함수를 주어진 feature의 선형 결합으로 제한한다.
+$$
+v_\theta(s)=\sum_{k=1}^K\phi_k(s)\,\theta_k=\phi(s)^\top\theta,\qquad v_\theta=\Phi\theta,\quad\Phi=[\phi_1\ \cdots\ \phi_K]\in\mathbb{R}^{n\times K}\ (s\text{번째 행이 }\phi(s)^\top).
+$$
+[@sec-lp2]의 LP에 $v=\Phi\theta$를 대입한다.
+$$
+\boxed{\ \min_{\theta\in\mathbb{R}^K}\ c^\top\Phi\theta\quad\text{s.t.}\quad(\Phi\theta)(s)\ge r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,(\Phi\theta)(s')\quad\forall(s,a)\ }
+$$
+$\Phi$는 고정이므로 목적함수와 제약이 모두 $\theta$에 대해 선형이다. 여전히 LP다.
+
+- (+) 결정 변수: $n\to K$.
+- (−) 제약 수: $nm$ 그대로.
+- (−) $v^*\notin\{\Phi\theta\}$이면 최적성을 잃는다.
+
+::: {.callout-tip collapse="true" title="의의: 부등호 방향 주의"}
+- $\min$과 짝을 이루는 방향은 $\Phi\theta\ge T\Phi\theta$이다. [@sec-lp1a]의 의의에서 본 것처럼 $\min$과 $\le$를 섞으면 목적함수가 아래로 유계가 아니게 된다.
+- 비용 최소화 관례($J$, $\min_\mu$)로 쓰는 문헌에서는 $\max c^\top\Phi r$ s.t. $\Phi r\le T\Phi r$ 꼴이 나온다. 보상 최대화와 비용 최소화를 오갈 때 목적의 $\min/\max$와 제약의 $\ge/\le$를 **함께** 뒤집는다.
+- 제약 수가 남는 문제는 제약을 샘플링해 일부만 쓰는 방법(constraint sampling)으로 다룬다. 근사해의 오차 한계도 이 틀에서 분석되어 있다.
+:::
+
+**↓ 내려가기**: [@sec-lp4a]
+**↑ 올라가기**: [@sec-lp2]
+
+### 근사해는 왜 $v^*$의 위쪽에 있고, $c$는 무엇을 가중하는가 {#sec-lp4a}
+
+**답.** feasible한 $\Phi\theta$는 $\Phi\theta\ge T\Phi\theta$를 만족하므로, [@sec-lp1a]의 (i)에 의해 $\Phi\theta\ge v^*$이다. 그러면
+$$
+c^\top\Phi\theta=c^\top v^*+c^\top(\Phi\theta-v^*)=c^\top v^*+\sum_sc(s)\,\big|\Phi\theta(s)-v^*(s)\big|.
+$$
+$c^\top v^*$는 상수이므로, 근사 LP는 **feasible 집합 안에서 $c$-가중 $\ell_1$ 오차 $\|\Phi\theta-v^*\|_{1,c}$를 최소화**한다.
+
+::: {.callout-note collapse="true" title="feasible한 $\theta$가 존재하는가"}
+상수 feature $\mathbf{1}$이 $\Phi$의 열공간에 있으면 된다. $\Phi\theta=\kappa\mathbf{1}$로 두면 제약은 $\kappa\ge r(s,a)+\gamma\kappa$, 즉 $\kappa\ge\max_{s,a}r(s,a)/(1-\gamma)$이다. 이런 $\kappa$는 항상 있다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+- 정확한 LP에서는 $c$가 해를 바꾸지 않았다([@sec-lp2b]). 근사 LP에서는 $c$가 "어느 상태의 오차를 더 줄일 것인가"를 정하는 가중치가 되어 해를 바꾼다.
+- 근사해는 항상 $v^*$의 **상계**이다. 근사 가치로 정책 성능을 추정할 때 과대평가 쪽으로 치우친다는 뜻이다.
+:::
+
+**↓ 내려가기**: [@sec-lp1a]
+**↑ 올라가기**: [@sec-lp4]
+
+# V. Q-함수 {#sec-partV}
+
+## Q-함수는 무엇이고, $v^*$와 어떤 관계인가 {#sec-lp5}
+
+$$
+Q^*(s,a):=\max_\pi Q^\pi(s,a)=\max_\pi\mathbb{E}^\pi\Big[\sum_{t\ge0}\gamma^tr(s_t,a_t)\ \Big|\ s_0=s,\ a_0=a\Big].
+$$
+
+**먼저 떠올릴 질문.** $v^*(s)$와 $Q^*(s,a)$의 차이는 "무엇이 고정되어 있는가"이다. $v^*(s)$를 얻으려면 $Q^*(s,\cdot)$에서 무엇을 더 해야 하는가?
+
+**답.** $Q^*(s,a)$는 첫 행동까지 $a$로 고정한 뒤의 최대 기대 누적 보상이다. $v^*(s)$는 첫 행동조차 최적으로 골라야 하므로
+$$
+v^*(s)=\max_aQ^*(s,a),\qquad\pi^*(s)\in\arg\max_aQ^*(s,a).
+$$
+무한 할인 설정에서는 시작 시점이 중요하지 않으므로 $t=0$에서 시작한다고 두었다.
+
+::: {.callout-note collapse="true" title="$v^*=\max_aQ^*$의 근거"}
+[@sec-lp5b]에서 보일 $Q^*(s,a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^*(s')$를 쓰면
+$$\max_aQ^*(s,a)=\max_a\Big[r(s,a)+\gamma\sum_{s'}p\,v^*(s')\Big]=(Tv^*)(s)=v^*(s).$$
+마지막 등호는 $v^*$가 Bellman 방정식의 해이기 때문이다.
+:::
+
+**↓ 내려가기**: [@sec-lp5a] 왜 Q인가 · [@sec-lp5b] Bellman 방정식 · [@sec-lp5c] $T_Q$의 성질
+**↑ 올라가기**: [@sec-lp0]
+
+### $Q^*$를 알면 $v^*$만 알 때보다 무엇이 좋은가 {#sec-lp5a}
+
+**먼저 떠올릴 질문.** 두 경우에 최적 정책을 꺼내는 식을 나란히 쓰면, 어느 쪽에 $r$과 $p$가 들어가는가?
+
+**답.**
+$$
+\begin{aligned}
+v^*\text{를 알 때}:&\quad\pi^*(s)\in\arg\max_a\Big[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^*(s')\Big] &&\leftarrow\ r,\ p\ \text{필요}\\
+Q^*\text{를 알 때}:&\quad\pi^*(s)\in\arg\max_aQ^*(s,a) &&\leftarrow\ \text{모델 불필요}
+\end{aligned}
+$$
+$Q^*$는 대괄호 전체를 $(s,a)$별로 미리 계산해 둔 표다. 그래서 정보가 더 많고, 정책을 꺼낼 때 모델이 필요 없다.
+
+::: {.callout-tip collapse="true" title="의의"}
+- 모델 프리 설정에서 $v^*$를 아무리 잘 학습해도, 정책을 만들 때 다시 모델이 필요하다. 그래서 RL 알고리즘은 대부분 $Q$를 학습한다. Q-learning이라는 이름도 여기서 온다.
+- 대가는 학습 대상의 크기가 $n$에서 $nm$으로 커진다는 것이다.
+:::
+
+**↑ 올라가기**: [@sec-lp5], [@sec-lp7]
+
+### Q의 Bellman 방정식은 어떻게 나오는가 {#sec-lp5b}
+
+$$
+Q^*(s,a)=\underbrace{r(s,a)}_{\text{즉각 보상}}+\gamma\sum_{s'}p(s'\mid s,a)\underbrace{v^*(s')}_{\text{다음 상태의 최적 가치}}
+=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\max_{a'}Q^*(s',a').
+$$
+
+**먼저 떠올릴 질문.** 현재 $(s,a)$가 고정되어 있으면 즉각 보상은 결정되어 있다. 남는 최적화는 어디에 걸리는가?
+
+::: {.callout-note collapse="true" title="유도"}
+$G_1:=\sum_{t\ge1}\gamma^{t-1}r(s_t,a_t)$로 두면 $\sum_{t\ge0}\gamma^tr_t=r(s_0,a_0)+\gamma G_1$이다.
+
+**(≤)**
+$$
+\begin{aligned}
+Q^\pi(s,a)&=r(s,a)+\gamma\,\mathbb{E}^\pi[G_1\mid s_0=s,a_0=a]\\
+&=r(s,a)+\gamma\,\mathbb{E}\big[\mathbb{E}^\pi[G_1\mid s_0,a_0,s_1]\ \big|\ s_0=s,a_0=a\big] &&(\text{tower})\\
+&=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,\mathbb{E}^\pi[G_1\mid s_0,a_0,s_1=s'] &&(s_1\text{의 분포는 }p(\cdot\mid s,a))\\
+&\le r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^*(s') &&(s'\text{부터의 누적 보상} \le v^*(s')).
+\end{aligned}
+$$
+모든 $\pi$에 대해 성립하므로 $\max_\pi$를 취해도 성립한다.
+
+**(≥)** 첫 행동은 $a$, 그다음부터는 stationary 최적 정책 $\pi^*$를 따르는 정책을 생각한다. Markov 성질과 stationarity에 의해 $s_1=s'$에서 시작한 꼬리의 가치는 $v^{\pi^*}(s')=v^*(s')$이다. 이 정책은 허용되는 정책이므로
+$$Q^*(s,a)\ge r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^*(s').$$
+
+두 방향을 합치면 첫 등호가 나오고, $v^*=\max_{a'}Q^*$를 대입하면 둘째 등호가 나온다.
+:::
+
+이 식의 우변을 연산자로 정의한다.
+$$
+(T_QQ)(s,a):=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\max_{a'}Q(s',a'),\qquad Q^*=T_QQ^*.
+$$
+
+::: {.callout-tip collapse="true" title="의의: $v$ 식과 구조가 다르다"}
+- $T$: max가 **합 바깥**. 현재 행동 $a$를 고른다.
+- $T_Q$: max가 **합 안**. 다음 상태 $s'$마다 다음 행동 $a'$를 따로 고른다.
+
+이 차이 때문에 Q-LP의 선형화가 $v$의 경우처럼 간단히 되지 않는다 → [@sec-lp6a]
+:::
+
+**↓ 내려가기**: [@sec-lp5c]
+**↑ 올라가기**: [@sec-lp5]
+
+### $T_Q$는 왜 단조이고 $\gamma$-축약인가 {#sec-lp5c}
+
+::: {.callout-note collapse="true" title="증명"}
+**단조.** $Q\le Q'$이면 각 $s'$에서 $\max_{a'}Q(s',a')\le\max_{a'}Q'(s',a')$이고, $p\ge0$인 가중합은 순서를 보존한다. 따라서 $T_QQ\le T_QQ'$.
+
+**축약.**
+$$
+\begin{aligned}
+|(T_QQ)(s,a)-(T_QQ')(s,a)|
+&=\gamma\Big|\sum_{s'}p(s'\mid s,a)\Big(\max_{a'}Q(s',a')-\max_{a'}Q'(s',a')\Big)\Big|\\
+&\le\gamma\sum_{s'}p(s'\mid s,a)\,\max_{a'}|Q(s',a')-Q'(s',a')| &&(\text{max 차이 부등식})\\
+&\le\gamma\|Q-Q'\|_\infty\sum_{s'}p(s'\mid s,a)=\gamma\|Q-Q'\|_\infty.
+\end{aligned}
+$$
+$(s,a)$에 대해 max를 취하면 끝난다.
+
+max 차이 부등식: 모든 $a$에 대해 $x_a\le y_a+|x_a-y_a|\le\max_by_b+\max_b|x_b-y_b|$. 좌변에 $\max_a$를 취하고, $x$와 $y$를 바꿔 한 번 더 쓴다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+$T$와 같은 두 성질을 가지므로, [@sec-lp1a]의 논증이 Q-LP에도 그대로 옮겨진다([@sec-lp6]). Q-learning의 수렴 증명에서도 같은 성질이 쓰인다.
+:::
+
+**↑ 올라가기**: [@sec-lp5b], [@sec-lp6]
+
+# VI. Q-LP {#sec-partVI}
+
+## Q-함수의 LP는 무엇이고, 왜 비효율적인가 {#sec-lp6}
+
+$$
+\min_{Q\in\mathbb{R}^{n\times m}}\ \sum_{s,a}c(s,a)\,Q(s,a)\quad\text{s.t.}\quad Q\ge T_QQ,\qquad c>0.
+$$
+
+**먼저 떠올릴 질문.**
+
+1. 해가 $Q^*$라는 증명에서 [@sec-lp1a]의 어느 부분을 바꾸면 되는가?
+2. max를 없애려면, 이번에는 어느 첨자에 대해 "모든"을 붙여야 하는가? 그러면 제약은 몇 개인가?
+
+**답.**
+
+1. $T$를 $T_Q$로 바꾸면 된다. $T_Q$도 단조이고 축약이며 유일한 고정점이 $Q^*$이므로([@sec-lp5c]), 같은 세 줄로 최적해가 유일하게 $Q^*$이다.
+2. max가 다음 행동 $a'$에 걸려 있으므로 $a'$에 대해서도 제약을 늘린다.
+$$
+Q(s,a)\ge r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,Q(s',a')\qquad\forall(s,a,a').
+$$
+제약이 $n\times m\times m=nm^2$개가 된다. 최적 Q를 구할 때 이 LP를 직접 쓰는 일은 드물다.
+
+::: {.callout-tip collapse="true" title="의의"}
+$v$-LP는 변수 $n$, 제약 $nm$이었다. Q-LP는 변수 $nm$, 제약 $nm^2$이다. 같은 정보를 더 큰 문제로 푸는 셈이라 최적 가치 계산용으로는 이득이 없다. Q-LP가 쓸모 있는 것은 **정책이 고정되어 max가 사라질 때**이다 → [@sec-lp7]
+:::
+
+**↓ 내려가기**: [@sec-lp6a]
+**↑ 올라가기**: [@sec-lp5]
+
+### 고정 $a'$ 선형화는 원래 제약과 동치인가 {#sec-lp6a}
+
+**먼저 떠올릴 질문.** [@sec-lp2a]의 동치는 max가 합 바깥에 있을 때였다. 위 선형화 제약에서 $a'$은 $s'$에 따라 달라질 수 있는가?
+
+**답.** 동치가 아니다. 위 제약에서 $a'$은 **모든 $s'$에 공통인 하나의 행동**이다. 그래서 위 제약 전체는
+$$
+Q(s,a)\ge r(s,a)+\gamma\max_{a'}\sum_{s'}p(s'\mid s,a)\,Q(s',a')
+$$
+와 동치이다. 그런데 일반적으로
+$$
+\max_{a'}\sum_{s'}p(s'\mid s,a)\,Q(s',a')\ \le\ \sum_{s'}p(s'\mid s,a)\max_{a'}Q(s',a')
+$$
+(오른쪽은 $s'$마다 최선의 $a'$을 따로 고른다)이므로, 선형화된 제약은 $Q\ge T_QQ$보다 **느슨하다**. feasible 집합이 커지므로 최적 목적값이 $Q^*$의 목적값보다 작아질 수 있고, 해가 $Q^*$와 달라진다.
+
+::: {.callout-note collapse="true" title="정확한 선형화: 보조 변수"}
+다음 상태의 가치를 나타내는 보조 변수 $u\in\mathbb{R}^n$을 둔다.
+$$
+\min_{Q,u}\ \sum_{s,a}c(s,a)\,Q(s,a)\quad\text{s.t.}\quad
+\begin{cases}
+Q(s,a)\ge r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,u(s') & \forall(s,a)\\
+u(s')\ge Q(s',a') & \forall(s',a')
+\end{cases}
+$$
+- ($\Rightarrow$) $(Q,u)$가 feasible이면 $u(s')\ge\max_{a'}Q(s',a')$이고, $p\ge0$이므로 $Q\ge r+\gamma\sum p\,u\ge T_QQ$.
+- ($\Leftarrow$) $Q\ge T_QQ$이면 $u(s'):=\max_{a'}Q(s',a')$로 두면 feasible.
+
+$Q$에 대한 feasible 집합이 원래와 같으므로 해는 $Q^*$이다. 제약은 $nm+nm=2nm$개다.
+
+**수치 확인.** 임의로 만든 $n=3$, $m=2$, $\gamma=0.9$ MDP 200개에서, 보조 변수 LP는 모두 $Q^*$를 정확히 돌려주었다. 고정 $a'$ LP는 $Q^*$와 다른 해를 돌려주었다(한 예에서 모든 원소가 $Q^*$보다 0.04~0.06 작았고, 200개 중 최대 오차는 약 2.7).
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+"max를 없애려면 그 max가 걸린 첨자마다 제약을 늘린다"는 요령은, max가 **합 바깥**에 있을 때만 정확하다. 합 안의 max를 정확히 선형화하려면 "$s'$마다 고른 $a'$"을 표현해야 하고, 가장 깔끔한 방법은 그 max 값을 변수 $u(s')$로 따로 두는 것이다. 이 $u$가 사실상 $v$이다.
+:::
+
+**↑ 올라가기**: [@sec-lp6]
+
+# VII. Q 기반 policy iteration {#sec-partVII}
+
+## Q 기반 PI는 어디까지 모델 없이 할 수 있는가 {#sec-lp7}
+
+**먼저 떠올릴 질문.**
+
+1. 정책 $\pi$가 고정되면 $T_Q$의 max는 무엇으로 바뀌는가? 그러면 Q-LP의 제약은 몇 개인가?
+2. 기존 PI의 향상 단계 $\pi_{k+1}(s)\in\arg\max_a[r+\gamma\sum p\,v^{\pi_k}]$에서, 대괄호 전체는 무엇과 같은가?
+
+**답.**
+
+- **평가**: max 자리에 $\pi(s')$이 들어가므로 제약이 선형이고 $(s,a)$당 하나, $nm$개다. 해는 $Q^\pi$이다.
+$$
+\min_{Q}\ \sum_{s,a}c(s,a)\,Q(s,a)\quad\text{s.t.}\quad Q(s,a)\ge r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,Q(s',\pi(s'))\quad\forall(s,a).
+$$
+- **향상**: $\pi(s)\in\arg\max_aQ(s,a)$. **모델이 필요 없다.**
+
+::: {.callout-note collapse="true" title="향상 단계가 모델 프리인 이유"}
+$Q^{\pi_k}$의 Bellman 식은
+$$
+Q^{\pi_k}(s,a)=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,Q^{\pi_k}(s',\pi_k(s'))=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\,v^{\pi_k}(s').
+$$
+마지막 등호는 $v^{\pi_k}(s')=Q^{\pi_k}(s',\pi_k(s'))$ (다음 상태에서 정책대로 행동)이기 때문이다. 즉 기존 향상 단계의 대괄호가 **정확히** $Q^{\pi_k}(s,a)$이다. $Q^{\pi_k}$를 이미 계산했다면 그 대괄호를 다시 만들 필요가 없고, $\arg\max_aQ^{\pi_k}(s,a)$만 하면 된다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+- 평가와 향상을 번갈아 하는 PI 구조는 그대로다. 단조 향상과 수렴 논증도 그대로 옮겨진다.
+- 이제 모델이 남아 있는 곳은 평가 LP의 $\sum_{s'}p(s'\mid s,a)\,Q(s',\pi(s'))$ 하나뿐이다. 이것만 데이터로 바꾸면 전체가 모델 프리가 된다 → [@sec-lp8]
+:::
+
+**↓ 내려가기**: [@sec-lp2c], [@sec-lp5a], [@sec-lp8]
+**↑ 올라가기**: [@sec-lp6]
+
+## 데이터 기반 PI: 평가 단계의 기댓값을 어떻게 없애는가 {#sec-lp8}
+
+**먼저 떠올릴 질문.** 평가 LP 제약의 우변에서 $p$가 하는 일은 "다음 상태에 대한 기댓값"이다. $p$를 모르지만 다음 상태를 **샘플링**할 수 있다면?
+
+**답.** 각 $(s,a)$에서 전이 샘플 $(s,a,r,s')$를 모은다. 이 네 요소가 RL에서 샘플 한 단위(transition sample)다. $(s,a)$에서 관측한 다음 상태들의 모음을 $D_{s,a}$라 하면, 기댓값을 표본 평균으로 바꾼다.
+$$
+\sum_{s'}p(s'\mid s,a)\,Q(s',\pi(s'))\ \approx\ \frac1{|D_{s,a}|}\sum_{s'\in D_{s,a}}Q(s',\pi(s')).
+$$
+알고리즘은 다음 두 단계를 반복한다.
+
+- **평가 (데이터 기반)**:
+$$\min_{Q}\ \sum_{s,a}c(s,a)\,Q(s,a)\quad\text{s.t.}\quad Q(s,a)\ge\hat r(s,a)+\gamma\,\frac1{|D_{s,a}|}\sum_{s'\in D_{s,a}}Q(s',\pi(s'))\quad\forall(s,a)$$
+  ($\hat r(s,a)$: 관측 보상의 평균. 보상이 결정적이면 그 값.)
+- **향상**: $\pi(s)\in\arg\max_aQ(s,a)$.
+
+두 단계 모두 $p$를 쓰지 않으므로 **모델 프리**다.
+
+::: {.callout-note collapse="true" title="정규화 $1/|D|$가 왜 필요한가"}
+표본 평균이 기댓값의 근사이려면 가중치의 합이 1이어야 한다. $1/|D|$ 없이 $\sum_{s'\in D}$만 쓰면 우변이 샘플 수에 비례해 커진다. 그러면 $\gamma\sum_{s'\in D}$의 "실효 할인율"이 $\gamma|D|$가 되어 1을 넘을 수 있고, 연산자의 축약성이 깨져 해가 존재하지 않거나 의미가 없어진다.
+:::
+
+::: {.callout-note collapse="true" title="이 LP의 해는 무엇인가"}
+경험적 전이확률 $\hat p(s'\mid s,a):=\#\{s'\text{가 }D_{s,a}\text{에 나타난 횟수}\}/|D_{s,a}|$를 두면
+$$\frac1{|D_{s,a}|}\sum_{s'\in D_{s,a}}Q(s',\pi(s'))=\sum_{s'}\hat p(s'\mid s,a)\,Q(s',\pi(s')).$$
+$\hat p(\cdot\mid s,a)$는 확률분포이므로, 데이터 기반 평가 LP는 **경험적 MDP $(\hat p,\hat r)$의 정책 평가 LP** 그 자체이다. 해는 그 MDP에서의 $Q^\pi_{\hat p}$이다. 각 $(s,a)$의 샘플 수가 커지면 대수의 법칙으로 $\hat p\to p$이고, $Q^\pi$는 유한 차원에서 $p$에 연속이므로 $Q^\pi_{\hat p}\to Q^\pi$이다.
+:::
+
+::: {.callout-tip collapse="true" title="의의"}
+- 평가와 향상을 모두 모델 없이 하는 첫 번째 알고리즘이다. 대가는 모든 $(s,a)$에서 샘플이 필요하다는 것, 그리고 LP 크기가 $nm$에 비례한다는 것이다. 작은 문제에서는 충분히 쓸 수 있다.
+- "기댓값을 샘플로 바꾼다"는 발상이 다음 단계(확률 근사, TD, Q-learning)의 출발점이다. 그쪽에서는 샘플을 모아 LP를 다시 푸는 대신, 샘플 하나가 들어올 때마다 추정치를 조금씩 갱신한다.
+:::
+
+**↓ 내려가기**: [@sec-lp7]
+**↑ 올라가기**: [@sec-lp7]
+
+# VIII. 정리 {#sec-partVIII}
+
+## 각 정식화의 크기 비교 {#sec-lp9}
+
+| 정식화 | 해 | 변수 수 | 제약 수 | 비고 |
+|---|---|---|---|---|
+| primal $v$-LP | $v^*$ | $n$ | $nm$ | max를 $a$별 제약으로 |
+| 정책 평가 $v$-LP | $v^\pi$ | $n$ | $n$ | max 없음 |
+| dual LP | $\lambda^*$ (값 $=c^\top v^*$) | $nm$ | $n$ (등식) + 비음 | 정책을 해 안에 포함 |
+| 근사 LP | $\Phi\theta^\star\ge v^*$ | $K$ | $nm$ | 최적성 손실, $c$가 오차 가중 |
+| Q-LP (고정 $a'$) | 일반적으로 $\ne Q^*$ | $nm$ | $nm^2$ | 느슨한 선형화 |
+| Q-LP (보조 변수 $u$) | $Q^*$ | $nm+n$ | $2nm$ | 정확한 선형화 |
+| Q 정책 평가 LP | $Q^\pi$ | $nm$ | $nm$ | PI의 평가 단계 |
+| 데이터 기반 Q 평가 LP | $Q^\pi_{\hat p}$ | $nm$ | $nm$ | 모델 프리 |
+
+**↑ 올라가기**: [@sec-lp0]
+
+## 손계산 예제: primal, dual, 상보 여유를 한 번에 {#sec-lp10}
+
+**설정.** $S=\{0,1\}$, $A=\{\text{stay},\text{move}\}$, $\gamma=0.9$, $c=(1,1)$. 전이는 결정적이다.
+
+| $(s,a)$ | $r$ | 다음 상태 |
+|---|---|---|
+| $(0,\text{stay})$ | 1 | 0 |
+| $(0,\text{move})$ | 0 | 1 |
+| $(1,\text{stay})$ | 2 | 1 |
+| $(1,\text{move})$ | 0 | 0 |
+
+**✍ 먼저 풀어 볼 것.**
+
+1. primal LP의 제약 4개를 쓰고, $v^*$를 Bellman 방정식으로 구하라.
+2. dual LP의 등식 제약 2개를 쓰라.
+3. 상보 여유로 어떤 $\lambda$가 0인지 정하고, 나머지를 풀어라.
+4. 두 목적값이 같은지 확인하라.
+
+::: {.callout-note collapse="true" title="풀이"}
+**1. primal.**
+$$
+\begin{aligned}
+v(0)&\ge1+0.9\,v(0), & v(0)&\ge0+0.9\,v(1),\\
+v(1)&\ge2+0.9\,v(1), & v(1)&\ge0+0.9\,v(0).
+\end{aligned}
+$$
+Bellman 방정식: 상태 1에서 stay를 반복하면 $2/(1-0.9)=20$. move는 $0.9\,v(0)$인데 $v(0)\le20$이므로 stay가 낫다. $v^*(1)=20$. 상태 0에서 stay는 $1/(0.1)=10$, move는 $0.9\times20=18$. $v^*(0)=18$.
+
+$v^*=(18,20)$, $c^\top v^*=38$. 등호가 성립하는 제약은 $(0,\text{move})$와 $(1,\text{stay})$이다.
+
+**2. dual 제약** ($\sum_a\lambda(s',a)=c(s')+\gamma\cdot\text{유입}$):
+$$
+\begin{aligned}
+s'=0:&\quad\lambda(0,\text{st})+\lambda(0,\text{mv})=1+0.9\big[\lambda(0,\text{st})+\lambda(1,\text{mv})\big],\\
+s'=1:&\quad\lambda(1,\text{st})+\lambda(1,\text{mv})=1+0.9\big[\lambda(0,\text{mv})+\lambda(1,\text{st})\big].
+\end{aligned}
+$$
+
+**3. 상보 여유.** 등호가 아닌 제약 $(0,\text{stay})$, $(1,\text{move})$에서는 $\lambda=0$이어야 한다. 남은 식은
+$$
+\lambda(0,\text{mv})=1,\qquad\lambda(1,\text{st})=1+0.9\,(1+\lambda(1,\text{st}))\ \Rightarrow\ 0.1\,\lambda(1,\text{st})=1.9\ \Rightarrow\ \lambda(1,\text{st})=19.
+$$
+
+**4. 목적값.** dual: $\sum\lambda r=19\times2=38$. primal: $38$. 같다.
+
+**검산.** 총질량 $1+19=20=\sum_sc(s)/(1-\gamma)=2/0.1$.
+
+**정책 복원.** $\lambda(0,\cdot)=(0,1)$이므로 상태 0에서 move, $\lambda(1,\cdot)=(19,0)$이므로 상태 1에서 stay. greedy 정책과 같다.
+
+**점유 측도 해석.** 상태 0에서 시작한 질량 1은 즉시 move로 상태 1로 가고(할인 후 0.9), 상태 1에 처음부터 있던 1과 합쳐져 매 스텝 stay한다. 상태 1의 할인 총량은 $(1+0.9)/(1-0.9)=19$이다.
+
+(위 값은 LP 솔버로도 primal $v=(18,20)$, dual $\lambda=(0,1,19,0)$, 목적값 38로 확인된다.)
+:::
+
+**↑ 올라가기**: [@sec-lp3d], [@sec-lp1]
