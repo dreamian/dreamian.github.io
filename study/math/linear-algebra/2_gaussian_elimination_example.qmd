@@ -1,0 +1,506 @@
+---
+title: "An Example of Gaussian Elimination"
+aliases:
+  - "/study/linear-algebra/2_gaussian_elimination_example.html"
+subtitle: "Pivots, breakdown, and the cost of elimination"
+date: "2026-10-26"
+number: "2"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+execute:
+  echo: false
+---
+
+# A Worked Example
+
+Consider the $3\times 3$ system
+
+$$
+\begin{aligned}
+2u + v + w &= 5\\
+4u - 6v\phantom{{}+2w} &= -2\\
+-2u + 7v + 2w &= 9.
+\end{aligned}
+\tag{1}
+$$
+
+**Forward elimination** subtracts multiples of one equation from the equations below it, aiming for a triangular system.
+
+**Stage 1.** The first pivot is $2$. To remove $u$ from rows 2 and 3:
+
+- subtract $\ell_{21} = 4/2 = 2$ times row 1 from row 2,
+- subtract $\ell_{31} = -2/2 = -1$ times row 1 from row 3.
+
+$$
+\begin{aligned}
+2u + v + w &= 5\\
+-8v - 2w &= -12\\
+8v + 3w &= 14.
+\end{aligned}
+$$
+
+**Stage 2.** Set the first equation aside. The second pivot is $-8$. Subtract $\ell_{32} = 8/(-8) = -1$ times row 2 from row 3:
+
+$$
+\begin{aligned}
+2u + v + w &= 5\\
+-8v - 2w &= -12\\
+1w &= 2.
+\end{aligned}
+$$
+
+The system is now upper triangular, and the pivots are $2,\,-8,\,1$.
+
+**Back-substitution** works from the bottom up:
+
+$$
+w = \frac{2}{1} = 2,\qquad
+v = \frac{-12 + 2w}{-8} = 1,\qquad
+u = \frac{5 - v - w}{2} = 1.
+$$
+
+The solution is $(u,v,w) = (1,1,2)$. Each newly computed value is substituted into the equations above it that are still waiting.
+
+## The augmented-matrix form
+
+There is no need to copy $u$, $v$, $w$ and $=$ at every step. Attach the right-hand side as an extra column and keep only the numbers:
+
+$$
+\left[\begin{array}{rrr|r}
+2 & 1 & 1 & 5\\
+4 & -6 & 0 & -2\\
+-2 & 7 & 2 & 9
+\end{array}\right]
+\longrightarrow
+\left[\begin{array}{rrr|r}
+2 & 1 & 1 & 5\\
+0 & -8 & -2 & -12\\
+0 & 8 & 3 & 14
+\end{array}\right]
+\longrightarrow
+\left[\begin{array}{rrr|r}
+2 & 1 & 1 & 5\\
+0 & -8 & -2 & -12\\
+0 & 0 & 1 & 2
+\end{array}\right].
+$$
+
+Because both sides sit in the same array, every operation on the left is automatically applied to the right as well.
+
+## The general pattern
+
+For $n$ equations, multiples of the first equation produce zeros below the first pivot, then the second column is cleared below the second pivot, and so on. The forward step ends when the system is triangular: equation $n$ contains only the last unknown times the last pivot. Back-substitution then recovers the unknowns in reverse order, from last to first. In a large problem, forward elimination takes most of the effort.
+
+# What a Pivot Is
+
+> **By definition, pivots cannot be zero. We need to divide by them.**
+
+A pivot is defined by the *role* it plays, not by the place it sits.
+
+## Division appears twice
+
+**Multipliers.** At stage $k$, to remove the entry $a_{ik}$ below the pivot, row $k$ is multiplied by
+
+$$
+\ell_{ik} = \frac{a_{ik}}{a_{kk}} = \frac{\text{entry to eliminate}}{\text{pivot}}
+$$
+
+and subtracted from row $i$. For a general $2\times2$ system,
+
+$$
+\begin{aligned}
+ax + by &= f\\
+cx + dy &= g
+\end{aligned}
+\quad\xrightarrow{\;\ell = c/a\;}\quad
+\begin{aligned}
+ax + by &= f\\
+\Big(d - \tfrac{c}{a}\,b\Big)\,y &= g - \tfrac{c}{a}\,f.
+\end{aligned}
+$$
+
+If $a = 0$, the multiplier $c/a$ does not exist. No multiple of a row that starts with $0$ can cancel $c \neq 0$, because $0\cdot \ell = c$ has no solution.
+
+**Back-substitution.** The last triangular equation reads $(\text{pivot}_n)\,x_n = c_n$, so $x_n = c_n/\text{pivot}_n$. Each earlier unknown is likewise found by dividing by its own pivot. A zero there leaves the unknown undetermined: either $0\cdot x = c \neq 0$ (no solution) or $0\cdot x = 0$ (infinitely many).
+
+The second pivot of the $2\times2$ system is $d - bc/a = (ad - bc)/a$. It is missing exactly when $ad = bc$.
+
+## Pivot position vs. pivot
+
+| Term | Meaning |
+|---|---|
+| pivot position | the slot where a pivot is expected (usually the diagonal $(k,k)$) |
+| pivot | the **nonzero** number actually placed there and used as a divisor |
+
+A zero in a pivot position is therefore not "a zero pivot". It means there is **no pivot there yet**. Two outcomes are possible:
+
+- Some row below has a nonzero entry in that column. Exchange rows, and that entry becomes the pivot.
+- Every entry below is zero. That column has no pivot.
+
+A pivot need not lie on the diagonal. In a singular case the elimination may continue in the next column, and the nonzero entry used there still counts as a pivot.
+
+# The Breakdown of Elimination
+
+> *Under what circumstances could the process break down? Something **must** go wrong in the singular case, and something **might** go wrong in the nonsingular case.*
+
+The contrast between *must* and *might* is the whole point.
+
+- **Nonsingular:** a full set of $n$ pivots exists, and the solution is unique. A zero may still show up in a pivot position because of the order of the equations. That failure is temporary, since a row exchange repairs the algorithm.
+- **Singular:** no reordering produces $n$ pivots. The failure is permanent, and there is either no solution or infinitely many.
+
+A zero can also *appear* in a pivot position even though the original coefficient there was nonzero. In general you cannot tell in advance; you find out by running the elimination.
+
+## Nonsingular: cured by a row exchange
+
+$$
+\begin{aligned}
+u + v + w &= \ast\\
+2u + 2v + 5w &= \ast\\
+4u + 6v + 8w &= \ast
+\end{aligned}
+\;\longrightarrow\;
+\begin{aligned}
+u + v + w &= \ast\\
+3w &= \ast\\
+2v + 4w &= \ast
+\end{aligned}
+\;\longrightarrow\;
+\begin{aligned}
+u + v + w &= \ast\\
+2v + 4w &= \ast\\
+3w &= \ast
+\end{aligned}
+$$
+
+After stage 1 the $(2,2)$ position holds $0$, but the entry $2$ below it can be moved up. Exchanging equations 2 and 3 gives a triangular system with pivots $1, 2, 3$.
+
+## Singular: incurable
+
+$$
+\begin{aligned}
+u + v + w &= \ast\\
+2u + 2v + 5w &= \ast\\
+4u + 4v + 8w &= \ast
+\end{aligned}
+\;\longrightarrow\;
+\begin{aligned}
+u + v + w &= \ast\\
+3w &= \ast\\
+4w &= \ast
+\end{aligned}
+$$
+
+Both entries in column 2 below the first pivot are zero, so no exchange can supply a second pivot in that column. Whether the system can be solved depends on the right-hand side:
+
+- $3w = 6$ and $4w = 7$: inconsistent, so **no solution**.
+- $3w = 6$ and $4w = 8$: consistent, so $w = 2$, but the first equation cannot determine both $u$ and $v$. There are **infinitely many solutions**.
+
+If elimination is allowed to continue, $3w$ can still eliminate $4w$, and $3$ serves as the second pivot (in column 3). There is no third pivot.
+
+# The Cost of Elimination
+
+Count each division and each multiply–subtract as **one operation**. Ignore the right-hand side for now.
+
+## Stage 1 costs $n(n-1)$
+
+Each of the $n-1$ rows below the first pivot needs:
+
+| Task | Operations |
+|---|---|
+| multiplier $\ell_{i1} = a_{i1}/a_{11}$ | 1 division |
+| new entries $a_{ij} - \ell_{i1}a_{1j}$ for $j = 2,\dots,n$ | $n-1$ multiply–subtracts |
+| entry in column 1 | none (known to become $0$) |
+
+That is $1 + (n-1) = n$ operations per row. All $n-1$ rows have the same length, so
+
+$$
+\text{Stage 1} = n(n-1) = n^2 - n.
+$$
+
+There is no factor $\tfrac12$ here, because within a single stage the rows do not get shorter. Equivalently, of the $n^2$ entries, all except the $n$ in the first row are changed.
+
+For the example $(1)$ with $n = 3$: each of rows 2 and 3 needs one division and two updates, giving $3 + 3 = 6 = 3\cdot 2$.
+
+## Self-similarity: stage $k$ costs $k^2 - k$
+
+After stage 1 the matrix looks like
+
+$$
+\begin{bmatrix}
+\ast & \ast & \cdots & \ast\\
+0 & \ast & \cdots & \ast\\
+\vdots & \vdots & \ddots & \vdots\\
+0 & \ast & \cdots & \ast
+\end{bmatrix}.
+$$
+
+The first row is final (it is used again only in back-substitution), and the first column is cleared below the pivot. What remains is an $(n-1)\times(n-1)$ block, which is a new system of exactly the same form, one size smaller.
+
+The stage-1 argument therefore applies with $n$ replaced by the current size $k$: there are $k-1$ rows below the pivot, each costing $k$ operations, so stage $k$ costs $k(k-1) = k^2 - k$.
+
+| Stage | Remaining size $k$ | Cost $k^2-k$ |
+|---|---|---|
+| 1 | $n$ | $n^2 - n$ |
+| 2 | $n-1$ | $(n-1)^2 - (n-1)$ |
+| $\vdots$ | $\vdots$ | $\vdots$ |
+| $n-1$ | $2$ | $2$ |
+| $n$ | $1$ | $0$ |
+
+Every value of $k$ from $n$ down to $1$ appears exactly once. The $k = 1$ term is zero and is included only for a clean formula.
+
+## Summing the stages
+
+Two standard sums are needed:
+
+$$
+\sum_{k=1}^{n} k = \frac{n(n+1)}{2},\qquad
+\sum_{k=1}^{n} k^2 = \frac{n(n+1)(2n+1)}{6}.
+$$
+
+The second follows by telescoping. Summing $(k+1)^3 - k^3 = 3k^2 + 3k + 1$ over $k = 1,\dots,n$ gives $(n+1)^3 - 1$ on the left, so
+
+$$
+3\sum_{k=1}^{n} k^2 = (n+1)^3 - 1 - \frac{3n(n+1)}{2} - n = \frac{n(n+1)(2n+1)}{2}.
+$$
+
+Then
+
+$$
+\sum_{k=1}^{n}(k^2 - k)
+= \frac{n(n+1)}{6}\big[(2n+1) - 3\big]
+= \frac{(n-1)\,n\,(n+1)}{3}
+= \frac{n^3 - n}{3}.
+$$
+
+Since $n-1,\ n,\ n+1$ are consecutive integers, one of them is divisible by $3$, so the count is always an integer. For $n = 3$ it gives $8 = 6 + 2$, matching stage 1 ($6$) plus stage 2 ($\ell_{32}$ and one update, $2$).
+
+Substituting $n = 1$, $2$, $100$ gives $0$, $2$, and $333{,}300$ operations, about a third of a million for $n = 100$. For large $n$,
+
+$$
+\text{forward elimination} \approx \tfrac{1}{3}n^3,
+$$
+
+so doubling $n$ multiplies the cost by $8$, provided few of the coefficients are zero.
+
+## Geometric intuition: a pyramid
+
+Stage $k$ costs about $k^2$, the area of the remaining square block. Stacking squares whose side shrinks by one at each stage builds a square pyramid:
+
+$$
+\sum_{k=1}^{n} k^2 \approx \int_0^n k^2\,dk = \frac{n^3}{3},
+$$
+
+which is the volume of a pyramid with an $n\times n$ base and height $n$.
+
+## Right-hand side and back-substitution
+
+Forward elimination must subtract the same multiples on the right-hand side to keep the equations correct. At stage $k$, that is one multiply–subtract for each of the $k-1$ rows below the pivot, starting with $n-1$ at stage 1:
+
+$$
+(n-1) + (n-2) + \cdots + 1 = \sum_{k=1}^{n}(k-1) = \frac{n(n-1)}{2}.
+$$
+
+In back-substitution, the last unknown needs $1$ operation (a division), the next needs $2$, and so on:
+
+$$
+1 + 2 + \cdots + n = \frac{n(n+1)}{2}.
+$$
+
+Together they cost
+
+$$
+\frac{n(n-1)}{2} + \frac{n(n+1)}{2} = n^2.
+$$
+
+This is an order of magnitude below the $\tfrac13 n^3$ spent on the left side. Once the left side has been reduced, each new right-hand side costs only $n^2$.
+
+```{python}
+#| label: tbl-opcount
+#| tbl-cap: "Instrumented elimination: measured operation counts vs. closed forms"
+import numpy as np
+import pandas as pd
+
+def eliminate_and_count(A, b):
+    A = A.astype(float).copy()
+    b = b.astype(float).copy()
+    n = len(b)
+    left = right = back = 0
+    pivots = []
+    for k in range(n):
+        p = A[k, k]
+        assert p != 0, "zero in pivot position"
+        pivots.append(p)
+        for i in range(k + 1, n):
+            l = A[i, k] / p; left += 1          # division
+            A[i, k] = 0.0
+            for j in range(k + 1, n):
+                A[i, j] -= l * A[k, j]; left += 1  # multiply-subtract
+            b[i] -= l * b[k]; right += 1
+    x = np.zeros(n)
+    for i in reversed(range(n)):
+        s = b[i]
+        for j in range(i + 1, n):
+            s -= A[i, j] * x[j]; back += 1
+        x[i] = s / A[i, i]; back += 1
+    return x, pivots, left, right, back
+
+A = np.array([[2, 1, 1], [4, -6, 0], [-2, 7, 2]])
+b = np.array([5, -2, 9])
+x, piv, *_ = eliminate_and_count(A, b)
+print(f"solution (u, v, w) = {tuple(float(round(t, 12)) for t in x)}")
+print(f"pivots             = {tuple(float(p) for p in piv)}")
+
+rng = np.random.default_rng(0)
+rows = []
+for n in [1, 2, 3, 5, 10, 50, 100]:
+    M = rng.standard_normal((n, n)) + n * np.eye(n)
+    _, _, left, right, back = eliminate_and_count(M, rng.standard_normal(n))
+    rows.append({
+        "n": n,
+        "left (measured)": left,
+        "(n^3 - n)/3": (n**3 - n) // 3,
+        "right + back (measured)": right + back,
+        "n^2": n**2,
+    })
+pd.DataFrame(rows)
+```
+
+# Beyond $n^3/3$
+
+For a long time it was widely believed that a general system of order $n$ could not be solved with substantially fewer than $n^3/3$ multiplications. This turned out to be false.
+
+## Two combinations of two vectors
+
+In $C = AB$, each column of $C$ is a combination of the columns of $A$:
+
+$$
+\begin{bmatrix} a_{11} & a_{12}\\ a_{21} & a_{22}\end{bmatrix}
+\begin{bmatrix} b_{11} & b_{12}\\ b_{21} & b_{22}\end{bmatrix},
+\qquad
+\text{column 1 of } C = b_{11}\begin{bmatrix}a_{11}\\a_{21}\end{bmatrix} + b_{21}\begin{bmatrix}a_{12}\\a_{22}\end{bmatrix}.
+$$
+
+So a $2\times2$ product is *two combinations of two vectors in two-dimensional space*. Computed directly, it uses $4 \times 2 = 8$ multiplications.
+
+## Strassen's seven products
+
+$$
+\begin{aligned}
+M_1 &= (a_{11}+a_{22})(b_{11}+b_{22}) & M_5 &= (a_{11}+a_{12})\,b_{22}\\
+M_2 &= (a_{21}+a_{22})\,b_{11} & M_6 &= (a_{21}-a_{11})(b_{11}+b_{12})\\
+M_3 &= a_{11}(b_{12}-b_{22}) & M_7 &= (a_{12}-a_{22})(b_{21}+b_{22})\\
+M_4 &= a_{22}(b_{21}-b_{11})
+\end{aligned}
+$$
+
+$$
+c_{11} = M_1+M_4-M_5+M_7,\quad
+c_{12} = M_3+M_5,\quad
+c_{21} = M_2+M_4,\quad
+c_{22} = M_1-M_2+M_3+M_6.
+$$
+
+Check of $c_{11}$:
+
+$$
+\underbrace{a_{11}b_{11}+a_{11}b_{22}+a_{22}b_{11}+a_{22}b_{22}}_{M_1}
++\underbrace{a_{22}b_{21}-a_{22}b_{11}}_{M_4}
+\underbrace{-a_{11}b_{22}-a_{12}b_{22}}_{-M_5}
++\underbrace{a_{12}b_{21}+a_{12}b_{22}-a_{22}b_{21}-a_{22}b_{22}}_{M_7}
+= a_{11}b_{11}+a_{12}b_{21}.
+$$
+
+This saves one multiplication but raises the number of additions from $4$ to $18$. For a single $2\times2$ product that is a loss. The gain comes from recursion.
+
+## Recursion changes the exponent
+
+Partition an $n\times n$ matrix into four $(n/2)\times(n/2)$ blocks. The formulas above **never use commutativity** ($ab = ba$), so they remain valid when the entries are matrix blocks. One product of size $n$ becomes $7$ block products of size $n/2$ plus $18$ block additions:
+
+$$
+T(n) = 7\,T(n/2),\quad T(1) = 1
+\;\Longrightarrow\;
+T(n) = 7^{\log_2 n} = n^{\log_2 7} \approx n^{2.807},
+$$
+
+using $a^{\log b} = b^{\log a}$ (both sides have logarithm $\log a\cdot\log b$). Including the additions, $T(n) = 7T(n/2) + O(n^2)$, and since $n^2$ grows more slowly than $n^{\log_2 7}$, the exponent does not change. With $8$ products the same recursion gives $8^{\log_2 n} = n^3$. So the exponent drops from $\log_2 8 = 3$ to $\log_2 7$.
+
+## Why faster multiplication means faster solving
+
+Block elimination reduces inversion to multiplication. With
+
+$$
+A = \begin{bmatrix} A_{11} & A_{12}\\ A_{21} & A_{22}\end{bmatrix},
+\qquad
+S = A_{22} - A_{21}A_{11}^{-1}A_{12},
+$$
+
+$A_{11}$ plays the role of the pivot, $A_{21}A_{11}^{-1}$ the multiplier, and the Schur complement $S$ the remaining system. This is ordinary elimination carried out on blocks. Two half-size inversions plus a constant number of half-size products give
+
+$$
+I(n) = 2\,I(n/2) + O\big(M(n/2)\big)
+\;\Longrightarrow\;
+I(n) = O\big(M(n)\big).
+$$
+
+If multiplication costs $O(n^\omega)$, so does solving a general system. Earlier "optimality" proofs for elimination held only for restricted classes of algorithms, such as those built from row and column operations alone. Strassen's 1969 method lies outside those classes, which is why his paper is titled *Gaussian elimination is not optimal*.
+
+## The exponent $\omega$
+
+| Year | Upper bound on $\omega$ | |
+|---|---|---|
+| — | $3$ | standard multiplication |
+| 1969 | $2.807$ | Strassen |
+| 1990 | $2.376$ | Coppersmith–Winograd |
+| 2024 | $2.371339$ | Alman, Duan, Vassilevska Williams, et al. |
+| 2026 | $2.371177$ | Alman, Vassilevska Williams, et al. with AlphaEvolve (preprint) |
+
+The trivial lower bound is $\omega \ge 2$, since all $n^2$ output entries must be written. Whether $\omega = 2$ is open. Since 1990 the bound has moved by only about $0.005$.
+
+## Theory vs. practice
+
+- **Strassen** can pay off for $n$ in the hundreds to thousands, but it is less numerically stable than standard multiplication. Standard dense linear algebra libraries do not use it by default.
+- **Methods below $2.376$** have constants so large that they only win for sizes no computer can handle. They are *galactic algorithms*, of purely theoretical interest.
+
+So $\tfrac13 n^3$ remains the practical cost of elimination.
+
+## The modern bottleneck: parallelism and data movement
+
+On current hardware, the limiting cost is usually **data movement** (memory bandwidth and communication between processors) rather than the number of arithmetic operations. Practical implementations reorganize elimination into blocks, so that most of the work becomes matrix–matrix products (BLAS-3) that fit caches and GPUs. The operation count is still about $\tfrac13 n^3$. What determines real speed is how well those operations run in parallel and how little data has to move.
+
+```{python}
+#| label: strassen-check
+import numpy as np
+
+def strassen(A, B, leaf=1):
+    n = A.shape[0]
+    if n <= leaf:
+        return A @ B, n**3 if n > 1 else 1
+    h = n // 2
+    A11, A12, A21, A22 = A[:h, :h], A[:h, h:], A[h:, :h], A[h:, h:]
+    B11, B12, B21, B22 = B[:h, :h], B[:h, h:], B[h:, :h], B[h:, h:]
+    prods = [
+        (A11 + A22, B11 + B22), (A21 + A22, B11), (A11, B12 - B22),
+        (A22, B21 - B11), (A11 + A12, B22), (A21 - A11, B11 + B12),
+        (A12 - A22, B21 + B22),
+    ]
+    M, mults = [], 0
+    for X, Y in prods:
+        P, c = strassen(X, Y, leaf)
+        M.append(P); mults += c
+    M1, M2, M3, M4, M5, M6, M7 = M
+    C = np.block([[M1 + M4 - M5 + M7, M3 + M5],
+                  [M2 + M4, M1 - M2 + M3 + M6]])
+    return C, mults
+
+rng = np.random.default_rng(1)
+for n in [2, 4, 8, 16, 32, 64]:
+    A, B = rng.standard_normal((n, n)), rng.standard_normal((n, n))
+    C, mults = strassen(A, B)
+    print(f"n={n:3d}  max|C - AB| = {np.abs(C - A @ B).max():.1e}  "
+          f"scalar mults = {mults:7d}  = 7^log2(n) = {round(n**np.log2(7)):7d}  vs n^3 = {n**3:7d}")
+```

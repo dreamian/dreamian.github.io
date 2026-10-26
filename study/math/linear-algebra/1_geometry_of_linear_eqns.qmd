@@ -1,0 +1,472 @@
+---
+title: "The Geometry of Linear Equations"
+aliases:
+  - "/study/linear-algebra/1_geometry-of-linear-equations.html"
+subtitle: "Row Picture, Column Picture, and the Singular Case"
+date: "2026-10-26"
+number: "1"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+execute:
+  echo: false
+---
+
+## Overview
+
+A linear system $A\mathbf{x} = \mathbf{b}$ can be read in two complementary ways.
+
+- **Row picture**: each equation is a line (in 2D), a plane (in 3D), or a hyperplane
+  (in $n$D). The solution is the point where all of them intersect.
+- **Column picture**: the whole system is a single vector equation. The solution is the
+  set of weights that combine the columns of $A$ into $\mathbf{b}$.
+
+Both pictures describe the same solution. They also fail at the same time: when the
+system is **singular**, the row picture loses its unique intersection point and the
+column picture loses the ability to reach every $\mathbf{b}$. Understanding exactly how
+they fail is the best way to understand why the good case works.
+
+## Two Equations, Two Unknowns
+
+Consider
+
+$$
+\begin{aligned}
+2x - y &= 1 \\
+x + y &= 5.
+\end{aligned}
+$$
+
+### Row Picture
+
+Each equation is a straight line in the $xy$-plane. The line $2x - y = 1$ passes through
+$(\tfrac12, 0)$ and $(1, 1)$; the line $x + y = 5$ has slope $-1$. A point satisfies both
+equations if and only if it lies on both lines, so the solution is their intersection,
+$(x, y) = (2, 3)$.
+
+### Column Picture
+
+The same two equations are the two components of one vector equation:
+
+$$
+x \begin{bmatrix} 2 \\ 1 \end{bmatrix}
++ y \begin{bmatrix} -1 \\ 1 \end{bmatrix}
+= \begin{bmatrix} 1 \\ 5 \end{bmatrix}.
+$$
+
+Now the unknowns are *weights*: how much of column 1 and how much of column 2 are
+needed to produce $\mathbf{b}$. With $x = 2$ and $y = 3$,
+
+$$
+2 \begin{bmatrix} 2 \\ 1 \end{bmatrix} + 3 \begin{bmatrix} -1 \\ 1 \end{bmatrix}
+= \begin{bmatrix} 4 \\ 2 \end{bmatrix} + \begin{bmatrix} -3 \\ 3 \end{bmatrix}
+= \begin{bmatrix} 1 \\ 5 \end{bmatrix}. \;✓
+$$
+
+Geometrically, $2(\text{column } 1)$ and $3(\text{column } 2)$ are two sides of a
+parallelogram, and $\mathbf{b}$ is its diagonal. This is the parallelogram law of vector
+addition, the same rule used for centuries to combine forces in mechanics.
+
+```{python}
+#| label: fig-2d-pictures
+#| fig-cap: "Left: row picture (two lines meeting at the solution). Right: column picture (2 × column 1 + 3 × column 2 = b, the diagonal of a parallelogram)."
+import numpy as np
+import matplotlib.pyplot as plt
+
+fig, axes = plt.subplots(1, 2, figsize=(11, 4.8))
+
+# Row picture
+ax = axes[0]
+x = np.linspace(-1, 5, 200)
+ax.plot(x, 2 * x - 1, lw=2, label=r"$2x - y = 1$")
+ax.plot(x, 5 - x, lw=2, label=r"$x + y = 5$")
+ax.plot(2, 3, "ko", ms=7)
+ax.annotate(r"$(2,3)$", (2, 3), xytext=(2.3, 3.4), fontsize=12)
+ax.axhline(0, color="gray", lw=0.8)
+ax.axvline(0, color="gray", lw=0.8)
+ax.set_xlim(-1, 5)
+ax.set_ylim(-2, 6)
+ax.set_aspect("equal")
+ax.set_title("Row picture")
+ax.legend(loc="lower right")
+
+# Column picture
+ax = axes[1]
+c1 = np.array([2, 1])
+c2 = np.array([-1, 1])
+b = 2 * c1 + 3 * c2
+
+def vec(ax, start, v, color, lw=2.5):
+    ax.quiver(*start, *v, angles="xy", scale_units="xy", scale=1,
+              color=color, width=0.008 if lw > 2 else 0.005)
+
+vec(ax, (0, 0), c1, "C0")
+vec(ax, (0, 0), c2, "C1")
+vec(ax, (0, 0), 2 * c1, "C0", lw=1.5)
+vec(ax, (0, 0), 3 * c2, "C1", lw=1.5)
+vec(ax, (0, 0), b, "k")
+
+para = np.array([[0, 0], 2 * c1, b, 3 * c2, [0, 0]])
+ax.plot(para[:, 0], para[:, 1], "k--", lw=1)
+
+ax.annotate("column 1", c1, xytext=(1.6, 0.3), color="C0")
+ax.annotate("column 2", c2, xytext=(-1.9, 0.6), color="C1")
+ax.annotate(r"$2\,(\mathrm{col}\ 1)$", 2 * c1, xytext=(3.4, 1.6), color="C0")
+ax.annotate(r"$3\,(\mathrm{col}\ 2)$", 3 * c2, xytext=(-3.9, 3.3), color="C1")
+ax.annotate(r"$\mathbf{b} = (1,5)$", b, xytext=(1.2, 5.2), fontsize=12)
+ax.axhline(0, color="gray", lw=0.8)
+ax.axvline(0, color="gray", lw=0.8)
+ax.set_xlim(-4.5, 5)
+ax.set_ylim(-1, 6)
+ax.set_aspect("equal")
+ax.set_title("Column picture")
+
+plt.tight_layout()
+plt.show()
+```
+
+## Three Equations, Three Unknowns
+
+$$
+\begin{aligned}
+2u + v + w &= 5 \\
+4u - 6v \phantom{{}+w} &= -2 \\
+-2u + 7v + 2w &= 9
+\end{aligned}
+\tag{1}
+$$
+
+### Row Picture: Intersecting Planes
+
+Each equation describes a plane in $\mathbb{R}^3$.
+
+**Plane 1.** $2u + v + w = 5$ meets the axes at $(\tfrac52, 0, 0)$, $(0, 5, 0)$ and
+$(0, 0, 5)$. A plane is fixed by any three of its points that are not collinear.
+
+::: {.callout-note}
+## The right-hand side only shifts the plane
+The coefficients $(2, 1, 1)$ form the **normal vector** and fix the orientation of the
+plane. Changing the right side moves the plane parallel to itself:
+$2u + v + w = 10$ is the parallel plane twice as far from the origin, and
+$2u + v + w = 0$ passes through the origin.
+:::
+
+**Plane 2.** $4u - 6v = -2$ has no $w$ term. That does not make it a line: $w$ is simply
+free, so the plane is **vertical** (parallel to the $w$-axis). Even $u = 0$ is a plane
+in 3D.
+
+**Intersection.** Planes 1 and 2 meet in a line. Plane 3 cuts that line at a single
+point, the solution
+
+$$
+(u, v, w) = (1, 1, 2).
+$$
+
+Check: $2 + 1 + 2 = 5$, $\;4 - 6 = -2$, $\;-2 + 7 + 4 = 9$. ✓
+
+```{python}
+#| label: fig-3d-row
+#| fig-cap: "Row picture in 3D: three planes meeting at the single point (1, 1, 2)."
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+
+fig = plt.figure(figsize=(7, 6))
+ax = fig.add_subplot(111, projection="3d")
+
+U, V = np.meshgrid(np.linspace(-0.5, 2.5, 20), np.linspace(-0.5, 2.5, 20))
+
+# Plane 1: w = 5 - 2u - v
+ax.plot_surface(U, V, 5 - 2 * U - V, alpha=0.35, color="C0")
+# Plane 3: w = (9 + 2u - 7v) / 2
+ax.plot_surface(U, V, (9 + 2 * U - 7 * V) / 2, alpha=0.35, color="C2")
+# Plane 2 (vertical): v = (4u + 2) / 6, w free
+Uv, Wv = np.meshgrid(np.linspace(-0.5, 2.5, 20), np.linspace(-2, 6, 20))
+ax.plot_surface(Uv, (4 * Uv + 2) / 6, Wv, alpha=0.35, color="C1")
+
+ax.scatter([1], [1], [2], color="k", s=50)
+ax.text(1.1, 1.1, 2.3, "(1, 1, 2)", fontsize=11)
+
+ax.set_xlabel("u")
+ax.set_ylabel("v")
+ax.set_zlabel("w")
+ax.set_zlim(-2, 6)
+ax.view_init(elev=20, azim=-60)
+plt.tight_layout()
+plt.show()
+```
+
+### Column Picture: A Linear Combination
+
+The same system as one vector equation:
+
+$$
+u \begin{bmatrix} 2 \\ 4 \\ -2 \end{bmatrix}
++ v \begin{bmatrix} 1 \\ -6 \\ 7 \end{bmatrix}
++ w \begin{bmatrix} 1 \\ 0 \\ 2 \end{bmatrix}
+= \begin{bmatrix} 5 \\ -2 \\ 9 \end{bmatrix} = \mathbf{b}.
+\tag{2}
+$$
+
+A vector in $\mathbb{R}^3$ can be viewed as a column of three numbers, as a point with
+those coordinates, or as an arrow from the origin to that point. Whichever view is
+used, only two operations matter:
+
+- **Addition**, component by component:
+  $(5,0,0) + (0,-2,0) + (0,0,9) = (5,-2,9)$.
+- **Scalar multiplication**: $2\,(1,0,2) = (2,0,4)$, and $-2\,(1,0,2)$ points the
+  opposite way.
+
+Combining both operations gives a **linear combination**, the central idea of the
+subject. The weights found in the row picture produce $\mathbf{b}$:
+
+$$
+1 \begin{bmatrix} 2 \\ 4 \\ -2 \end{bmatrix}
++ 1 \begin{bmatrix} 1 \\ -6 \\ 7 \end{bmatrix}
++ 2 \begin{bmatrix} 1 \\ 0 \\ 2 \end{bmatrix}
+= \begin{bmatrix} 5 \\ -2 \\ 9 \end{bmatrix}.
+$$
+
+The numbers $(1, 1, 2)$ are simultaneously the **intersection point** in the row picture
+and the **weights** in the column picture.
+
+## Beyond Three Dimensions
+
+With $n$ equations in $n$ unknowns:
+
+| | Row picture | Column picture |
+|---|---|---|
+| Objects | $n$ hyperplanes in $\mathbb{R}^n$ | $n$ column vectors and $\mathbf{b}$ in $\mathbb{R}^n$ |
+| Question | Where do all hyperplanes meet? | Which weights combine the columns into $\mathbf{b}$? |
+
+A single equation $a_1 x_1 + \cdots + a_n x_n = b$ (with not all $a_i = 0$) defines a
+**hyperplane**, a flat set of dimension $n - 1$. In the good case, each additional
+equation cuts the dimension of the intersection by exactly one:
+
+$$
+n - 1 \;\to\; n - 2 \;\to\; \cdots \;\to\; 0.
+$$
+
+After all $n$ equations the intersection has dimension $0$: a single point, the solution.
+
+::: {.callout-tip}
+## Precise version
+"Each equation lowers the dimension by one" holds exactly when the new equation's
+coefficient row is not a combination of the previous rows. In general, if the system is
+consistent, the solution set has dimension $n - r$, where $r$ is the number of
+independent rows (the **rank**). The unique-solution case is $r = n$.
+:::
+
+## The Singular Case
+
+### Row Picture: Four Ways to Fail
+
+In 2D, the only way for two lines to fail is to be parallel. In 3D there are more
+possibilities, and planes can fail without any two of them being parallel.
+
+**(a) Two parallel planes.**
+$2u + v + w = 5$ and $4u + 2v + 2w = 11$ have proportional normals $(2,1,1)$ and
+$(4,2,2)$, but dividing the second by 2 gives $2u + v + w = 5.5$. Two distinct parallel
+planes: no solution.
+
+**(b) Three planes forming a "triangle."**
+
+$$
+\begin{aligned}
+u + v + w &= 2 \\
+2u \phantom{{}+v} + 3w &= 5 \\
+3u + v + 4w &= 6
+\end{aligned}
+\tag{3}
+$$
+
+No two planes are parallel, so every pair meets in a line. But the left side of
+equation 3 is the sum of the first two left sides, while the right sides give
+$2 + 5 = 7 \neq 6$. Thus
+
+$$
+(\text{eq. } 1) + (\text{eq. } 2) - (\text{eq. } 3): \quad 0 = 1,
+$$
+
+a contradiction. Seen end-on, the three lines of intersection are parallel and the
+planes form a triangular prism: no common point.
+
+**(c) A whole line of solutions.**
+Change the last right side from $6$ to $7$. The same combination now gives $0 = 0$, so
+equation 3 adds no new information. The third plane moves parallel to itself until it
+contains the line where planes 1 and 2 meet. The system is still singular, but now it
+has too many solutions rather than too few.
+
+**(d) Three parallel planes.**
+If all three normals are proportional, e.g.
+
+$$
+u + v + w = b_1, \qquad 2u + 2v + 2w = b_2, \qquad 3u + 3v + 3w = b_3,
+$$
+
+then for most $\mathbf{b}$ the three planes are distinct and parallel: no solution. For
+special right sides with $b_1 = b_2/2 = b_3/3$ they coincide, and the whole plane is the
+solution set. The right side $\mathbf{b} = \mathbf{0}$ is always special: every equation
+is satisfied by $\mathbf{x} = \mathbf{0}$, so every plane passes through the origin, and
+parallel planes through a common point must be the same plane.
+
+::: {.callout-note}
+## Summary of the row picture
+A singular system has either **no solution** (most right sides) or **infinitely many**
+(special right sides). It never has exactly one.
+:::
+
+### Column Picture: Columns Trapped in a Plane
+
+Write system (3) in column form:
+
+$$
+u \begin{bmatrix} 1 \\ 2 \\ 3 \end{bmatrix}
++ v \begin{bmatrix} 1 \\ 0 \\ 1 \end{bmatrix}
++ w \begin{bmatrix} 1 \\ 3 \\ 4 \end{bmatrix}
+= \mathbf{b}.
+\tag{4}
+$$
+
+Call the columns $\mathbf{a}_1, \mathbf{a}_2, \mathbf{a}_3$. They lie in a common plane
+through the origin, so every linear combination of them also lies in that plane.
+
+- If $\mathbf{b}$ is **outside** the plane, no combination reaches it: no solution.
+  This is the typical situation.
+- If $\mathbf{b}$ is **inside** the plane, it can be reached in infinitely many ways.
+
+**Why are the columns coplanar?** Find a nontrivial combination that gives zero:
+
+$$
+3\,\mathbf{a}_1 - \mathbf{a}_2 - 2\,\mathbf{a}_3
+= \begin{bmatrix} 3 \\ 6 \\ 9 \end{bmatrix}
+- \begin{bmatrix} 1 \\ 0 \\ 1 \end{bmatrix}
+- \begin{bmatrix} 2 \\ 6 \\ 8 \end{bmatrix}
+= \mathbf{0}.
+$$
+
+So $3\mathbf{a}_1 = \mathbf{a}_2 + 2\mathbf{a}_3$: column 1 lies in the plane spanned by
+columns 2 and 3, and only two of the three columns are independent.
+
+**Which $\mathbf{b}$ lie in the plane?** A normal vector to the plane is
+
+$$
+\mathbf{a}_2 \times \mathbf{a}_3
+= \begin{bmatrix} 1 \\ 0 \\ 1 \end{bmatrix} \times \begin{bmatrix} 1 \\ 3 \\ 4 \end{bmatrix}
+= \begin{bmatrix} -3 \\ -3 \\ 3 \end{bmatrix}
+\;\propto\; \begin{bmatrix} 1 \\ 1 \\ -1 \end{bmatrix},
+$$
+
+and indeed $\mathbf{a}_1 \cdot (1,1,-1) = 1 + 2 - 3 = 0$. Hence
+
+$$
+\mathbf{b} \text{ is reachable} \iff b_1 + b_2 - b_3 = 0.
+$$
+
+For $\mathbf{b} = (2,5,7)$: $2 + 5 - 7 = 0$, solvable. For $\mathbf{b} = (2,5,6)$:
+$2 + 5 - 6 = 1 \neq 0$, not solvable.
+
+::: {.callout-important}
+## One vector, two roles
+The vector $(1, 1, -1)$ is exactly the combination of **equations** used in the row
+picture: $(\text{eq. } 1) + (\text{eq. } 2) - (\text{eq. } 3)$. The same vector that
+combines the rows into $\mathbf{0}$ is perpendicular to every column. The solvability
+condition $b_1 + b_2 - b_3 = 0$ is the right-hand side of that combination, which must
+equal $0$ rather than $1$.
+:::
+
+```{python}
+#| label: fig-3d-column-singular
+#| fig-cap: "Column picture of the singular system: all three columns lie in one plane. b = (2,5,7) lies in the plane (solvable); b = (2,5,6) does not."
+fig = plt.figure(figsize=(7.5, 6.5))
+ax = fig.add_subplot(111, projection="3d")
+
+a1 = np.array([1, 2, 3])
+a2 = np.array([1, 0, 1])
+a3 = np.array([1, 3, 4])
+
+S, T = np.meshgrid(np.linspace(-0.5, 2.5, 15), np.linspace(-0.5, 2.0, 15))
+P = S[..., None] * a2 + T[..., None] * a3
+ax.plot_surface(P[..., 0], P[..., 1], P[..., 2], alpha=0.25, color="C0")
+
+for v, name, c in [(a1, "col 1", "C0"), (a2, "col 2", "C1"), (a3, "col 3", "C2")]:
+    ax.quiver(0, 0, 0, *v, color=c, lw=2, arrow_length_ratio=0.08)
+    ax.text(*(v * 1.05), name, color=c)
+
+b_in = np.array([2, 5, 7])
+b_out = np.array([2, 5, 6])
+ax.quiver(0, 0, 0, *b_in, color="k", lw=2.5, arrow_length_ratio=0.06)
+ax.text(*(b_in * 1.03), "b = (2,5,7)\nin the plane", fontsize=9)
+ax.quiver(0, 0, 0, *b_out, color="red", lw=2.5, arrow_length_ratio=0.06)
+ax.text(*(b_out * 1.03 + np.array([0.3, 0, -0.6])), "b = (2,5,6)\noff the plane",
+        color="red", fontsize=9)
+
+ax.set_xlabel("1st component")
+ax.set_ylabel("2nd component")
+ax.set_zlabel("3rd component")
+ax.view_init(elev=15, azim=-35)
+plt.tight_layout()
+plt.show()
+```
+
+### The Complete Solution When $\mathbf{b}$ Is in the Plane
+
+For $\mathbf{b} = (2,5,7)$, note that $\mathbf{a}_1 + \mathbf{a}_3 = (2,5,7)$, so
+$(u,v,w) = (1, 0, 1)$ is one solution. Adding any multiple of $(3, -1, -2)$, which
+produces $\mathbf{0}$, does not change the right side:
+
+$$
+\begin{bmatrix} u \\ v \\ w \end{bmatrix}
+= \underbrace{\begin{bmatrix} 1 \\ 0 \\ 1 \end{bmatrix}}_{\text{particular solution}}
++ \; t \underbrace{\begin{bmatrix} 3 \\ -1 \\ -2 \end{bmatrix}}_{A\mathbf{x} = \mathbf{0}},
+\qquad t \in \mathbb{R}.
+$$
+
+This is a line of solutions, matching configuration (c) in the row picture. The
+structure "one particular solution plus every solution of $A\mathbf{x} = \mathbf{0}$"
+holds for every consistent linear system.
+
+## Rows Fail Exactly When Columns Fail
+
+The column dependence above was not a coincidence. The rows were dependent
+(row 1 + row 2 = row 3), and for a square matrix this forces the columns to be dependent
+as well.
+
+::: {.callout-important}
+## Fact
+For an $n \times n$ matrix $A$, the following are equivalent:
+
+1. The $n$ hyperplanes do **not** meet in exactly one point (row picture breaks down).
+2. The rows of $A$ are linearly dependent.
+3. The columns of $A$ are linearly dependent, i.e. they lie in a common subspace of
+   dimension less than $n$ (column picture breaks down).
+:::
+
+**Sketch of why rows dependent $\Rightarrow$ columns dependent.**
+
+1. If some row is a combination of the others, elimination subtracts exactly that
+   combination and produces a **zero row**.
+2. A zero row means fewer than $n$ pivots, so at least one column has no pivot. Its
+   unknown is a **free variable**.
+3. Setting that free variable to $1$ and solving by back-substitution gives
+   $\mathbf{x} \neq \mathbf{0}$ with $A\mathbf{x} = \mathbf{0}$, which is precisely a
+   nontrivial combination of the columns equal to $\mathbf{0}$.
+
+The converse follows by applying the same argument to $A^{\mathsf T}$. This is a
+structural fact rather than a numerical accident, and it holds in every dimension.
+
+## Summary
+
+| | Nonsingular | Singular |
+|---|---|---|
+| Row picture | $n$ hyperplanes meet in one point | No common point, or a line/plane/… of them |
+| Column picture | Columns span all of $\mathbb{R}^n$; every $\mathbf{b}$ is reachable in one way | Columns lie in a lower-dimensional subspace; $\mathbf{b}$ reachable only if it lies there, then in infinitely many ways |
+| Rows / columns | Independent | Dependent (both, always together) |
+| Number of solutions | Exactly one | Zero or infinitely many |
+
+The nonsingular case, where there is exactly one solution to be computed, is the
+problem that elimination solves efficiently. The singular case, where one must describe
+all solutions or decide that none exist, leads to the ideas of column space, null space,
+and rank.

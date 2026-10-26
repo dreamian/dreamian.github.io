@@ -1,0 +1,538 @@
+---
+title: "Triangular Factors and Row Exchanges"
+aliases:
+  - "/study/linear-algebra/4_triangular_factors.html"
+subtitle: "Elimination as factorization: A = LU, A = LDU, and PA = LU"
+date: "2026-10-26"
+number: "4"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+execute:
+  echo: false
+---
+
+## Overview
+
+Gaussian elimination is usually described as a *procedure*: subtract multiples of rows until the matrix becomes upper triangular. The central idea here is that this procedure is equivalent to a *factorization*:
+
+$$
+A = LU,
+$$
+
+where $U$ is the upper triangular matrix produced by elimination and $L$ is a lower triangular matrix that records every elimination step. This note covers:
+
+1. Why the multipliers fall directly into $L$, and why the forward elimination matrix does not have this property.
+2. How $A = LU$ splits one linear system into two triangular systems.
+3. The symmetric form $A = LDU$ and its uniqueness.
+4. How row exchanges enter through permutation matrices, leading to $PA = LU$.
+
+## From $A$ to $U$ and Back
+
+### The three elimination steps
+
+Throughout, the running example is
+
+$$
+A=\begin{bmatrix}2&1&1\\4&-6&0\\-2&7&2\end{bmatrix}.
+$$
+
+Elimination uses three elementary matrices:
+
+| Matrix | Operation | Multiplier |
+|:---:|:---|:---:|
+| $E$ | subtract $2\times$ row 1 from row 2 | $\ell_{21} = 2$ |
+| $F$ | subtract $-1\times$ row 1 from row 3 | $\ell_{31} = -1$ |
+| $G$ | subtract $-1\times$ row 2 from row 3 | $\ell_{32} = -1$ |
+
+The multiplier $\ell_{ij}$ is the number that multiplies pivot row $j$ when it is subtracted from row $i$, producing a zero in position $(i,j)$. After the three steps,
+
+$$
+GFE\,A = U =
+\begin{bmatrix}2&1&1\\0&-8&-2\\0&0&1\end{bmatrix}.
+$$
+
+The single matrix taking $A$ to $U$ is
+
+$$
+GFE =
+\begin{bmatrix}1&&\\&1&\\&1&1\end{bmatrix}
+\begin{bmatrix}1&&\\&1&\\1&&1\end{bmatrix}
+\begin{bmatrix}1&&\\-2&1&\\&&1\end{bmatrix}
+=
+\begin{bmatrix}1&0&0\\-2&1&0\\-1&1&1\end{bmatrix}.
+$$
+
+### Undoing elimination
+
+The more important question is the reverse one: how do we get from $U$ back to $A$?
+
+Undoing a single step is easy. Instead of subtracting $2\times$ row 1 from row 2, add it back:
+
+$$
+\begin{bmatrix}1&0&0\\2&1&0\\0&0&1\end{bmatrix}
+\begin{bmatrix}1&0&0\\-2&1&0\\0&0&1\end{bmatrix}
+= I .
+$$
+
+In general, if an elementary matrix has $-\ell$ in position $(i,j)$, its inverse has $+\ell$ in the same position:
+
+$$
+E_{ij} = I - \ell_{ij}\,e_ie_j^T, \qquad E_{ij}^{-1} = I + \ell_{ij}\,e_ie_j^T .
+$$
+
+To undo the whole process, the steps must be reversed in the opposite order. Since $G$ was applied last, $G^{-1}$ is applied first:
+
+$$
+E^{-1}F^{-1}G^{-1}\,U = A, \qquad\text{i.e.}\qquad A = LU, \quad L = E^{-1}F^{-1}G^{-1}.
+$$
+
+### The multipliers fall into place
+
+Multiplying the three inverses in this order gives
+
+$$
+E^{-1}F^{-1}G^{-1} =
+\begin{bmatrix}1&&\\2&1&\\&&1\end{bmatrix}
+\begin{bmatrix}1&&\\&1&\\-1&&1\end{bmatrix}
+\begin{bmatrix}1&&\\&1&\\&-1&1\end{bmatrix}
+=
+\begin{bmatrix}1&0&0\\ \mathbf{2}&1&0\\ \mathbf{-1}&\mathbf{-1}&1\end{bmatrix}
+= L .
+$$
+
+::: {.callout-important}
+## The entries of $L$ are exactly the multipliers
+The entries below the diagonal of $L$ are the multipliers $\ell_{21}=2$, $\ell_{31}=-1$, $\ell_{32}=-1$, each in its own position. In general a matrix product cannot be read off without computing it. Here the factors appear in exactly the right order, so the product can be written down immediately. If each multiplier $\ell_{ij}$ is stored during elimination, these numbers form a complete record of elimination, and they fit directly into the matrix $L$ that takes $U$ back to $A$.
+:::
+
+::: {.callout-tip}
+## Triangular factorization $A = LU$ (no row exchanges)
+- $L$ is lower triangular with 1s on the diagonal; the multipliers $\ell_{ij}$ sit below the diagonal.
+- $U$ is the upper triangular matrix that appears after forward elimination; its diagonal entries are the pivots.
+:::
+
+## Why $L$ Is Clean but $GFE$ Is Not
+
+Compare the two products:
+
+$$
+GFE=\begin{bmatrix}1&0&0\\-2&1&0\\ \boxed{-1}&1&1\end{bmatrix},
+\qquad
+L = E^{-1}F^{-1}G^{-1}=\begin{bmatrix}1&0&0\\2&1&0\\-1&-1&1\end{bmatrix}.
+$$
+
+In $GFE$, the $(3,1)$ entry is not simply $-\ell_{31} = 1$. In $L$, every entry is a single multiplier. There are two complementary ways to see why.
+
+### Algebraic view: cross terms
+
+Expanding the forward product,
+
+$$
+GFE = I - \ell_{21}e_2e_1^T - \ell_{31}e_3e_1^T - \ell_{32}e_3e_2^T + \ell_{32}\ell_{21}\,e_3e_1^T ,
+$$
+
+so the $(3,1)$ entry is
+
+$$
+-\ell_{31} + \ell_{32}\ell_{21} = 1 + (-1)(2) = -1 .
+$$
+
+A cross term in a product of factors $I \pm \ell\,e_ie_j^T$ has the form
+
+$$
+e_ie_j^T\,e_ke_m^T = (e_j^Te_k)\,e_ie_m^T ,
+$$
+
+which survives only when $j = k$, that is, when the column index of the left factor equals the row index of the right factor.
+
+- In $GFE$, the left factor $G$ carries $e_3e_2^T$ and the right factor $E$ carries $e_2e_1^T$. The indices meet ($j = k = 2$), so the term $\ell_{32}\ell_{21}e_3e_1^T$ appears.
+- In $E^{-1}F^{-1}G^{-1}$, the factors are ordered by pivot column $1, 1, 2$. A left factor's column index is an earlier pivot index, and a right factor's row index is always strictly larger than its own column index, which is at least as large. So the indices never meet, every cross term vanishes, and
+
+$$
+L = I + \sum_{i>j}\ell_{ij}\,e_ie_j^T .
+$$
+
+### Row view: pivot rows are already final
+
+Writing $A = LU$ row by row,
+
+$$
+\text{row}_i(A) = \ell_{i1}\,\text{row}_1(U) + \cdots + \ell_{i,i-1}\,\text{row}_{i-1}(U) + 1\cdot\text{row}_i(U).
+$$
+
+This holds because of how elimination works. Row $i$ of $U$ comes from row $i$ of $A$ by subtracting multiples of the pivot rows, and **by the time a pivot row is used, it has already reached its final form as a row of $U$**. So
+
+$$
+\text{row}_i(U) = \text{row}_i(A) - \sum_{j<i}\ell_{ij}\,\text{row}_j(U),
+$$
+
+and moving the sum to the other side gives the identity above. That identity is precisely "row $i$ of $L$ times $U$" (each row of a product is a combination of the rows of the right factor).
+
+Check with row 3 of the example:
+
+$$
+\ell_{31}\text{row}_1(U) + \ell_{32}\text{row}_2(U) + \text{row}_3(U)
+= -[2,1,1] - [0,-8,-2] + [0,0,1] = [-2,7,2] = \text{row}_3(A). \;\checkmark
+$$
+
+::: {.callout-note}
+## Interpretation
+- $L$ rebuilds the rows of $A$ from the rows of $U$. The reference rows (rows of $U$) are fixed, so the coefficients never mix.
+- $GFE = L^{-1}$ builds $U$ from the original rows of $A$. Row 2 has already been changed by $E$ when $G$ uses it, so the coefficients accumulate and mix.
+- Going from $A$ to $U$ is a sequence of row subtractions; going from $U$ to $A$ is a sequence of row additions.
+:::
+
+## Examples of $A = LU$
+
+**Example 1.**
+
+$$
+A=\begin{bmatrix}1&2\\3&8\end{bmatrix}
+\;\to\;
+U=\begin{bmatrix}1&2\\0&2\end{bmatrix},
+\qquad
+L=\begin{bmatrix}1&0\\3&1\end{bmatrix},
+\qquad LU = A.
+$$
+
+**Example 2 (needs a row exchange).**
+
+$$
+A=\begin{bmatrix}0&2\\3&4\end{bmatrix}
+$$
+
+cannot be factored as $A = LU$: the first pivot position holds a zero.
+
+**Example 3 (all pivots and multipliers equal to 1).**
+
+$$
+\begin{bmatrix}1&1&1\\1&2&2\\1&2&3\end{bmatrix}
+=
+\begin{bmatrix}1&0&0\\1&1&0\\1&1&1\end{bmatrix}
+\begin{bmatrix}1&1&1\\0&1&1\\0&0&1\end{bmatrix}.
+$$
+
+**Example 4 ($U = I$, so $L = A$).** Let
+
+$$
+A=\begin{bmatrix}1&0&0\\ \ell_{21}&1&0\\ \ell_{31}&\ell_{32}&1\end{bmatrix}.
+$$
+
+Elimination subtracts $\ell_{21}\times$ row 1 from row 2 ($E$), $\ell_{31}\times$ row 1 from row 3 ($F$), and $\ell_{32}\times$ row 2 from row 3 ($G$), ending at $U = I$. The inverses bring $A$ back, and the $\ell$'s fall into position:
+
+$$
+\begin{bmatrix}1&&\\ \ell_{21}&1&\\&&1\end{bmatrix}
+\begin{bmatrix}1&&\\&1&\\ \ell_{31}&&1\end{bmatrix}
+\begin{bmatrix}1&&\\&1&\\&\ell_{32}&1\end{bmatrix}
+=
+\begin{bmatrix}1&0&0\\ \ell_{21}&1&0\\ \ell_{31}&\ell_{32}&1\end{bmatrix}.
+$$
+
+### The general case
+
+Example 4 extends to any $U$:
+
+$$
+\begin{bmatrix}1&0&0\\ \ell_{21}&1&0\\ \ell_{31}&\ell_{32}&1\end{bmatrix}
+\begin{bmatrix}\text{row 1 of } U\\ \text{row 2 of } U\\ \text{row 3 of } U\end{bmatrix}
+= A .
+$$
+
+*Proof.* Apply the same elimination steps to both sides. On the right-hand side they take $A$ to $U$. On the left-hand side they act on $L$ alone and reduce it to $I$, exactly as in Example 4 (for instance, the first step subtracts $\ell_{21}$ times $(1,0,0)$ from row 2 of $L$, removing $\ell_{21}$), leaving $IU = U$. Both sides end at the same $U$ through reversible steps, so they were equal to begin with. $\blacksquare$
+
+**Example 5 (tridiagonal, zeros in empty spaces).**
+
+$$
+\begin{bmatrix}1&-1&&\\-1&2&-1&\\&-1&2&-1\\&&-1&2\end{bmatrix}
+=
+\begin{bmatrix}1&&&\\-1&1&&\\&-1&1&\\&&-1&1\end{bmatrix}
+\begin{bmatrix}1&-1&&\\&1&-1&\\&&1&-1\\&&&1\end{bmatrix}.
+$$
+
+A matrix with three diagonals has factors with two diagonals. Interpreted as difference operators, the second difference $A$ is a backward difference $L$ times a forward difference $U$.
+
+## One Linear System = Two Triangular Systems
+
+$A = LU$ is more than a record of elimination: $L$ and $U$ are the right matrices for solving $Ax = b$, and $A$ itself can be discarded. Split the system as
+
+$$
+Lc = b \quad\text{then}\quad Ux = c .
+$$
+
+Multiplying the second equation by $L$ gives $LUx = Lc$, which is $Ax = b$.
+
+- $Lc = b$ is solved **forward** ($c_1$ before $c_2$). This is exactly forward elimination applied to $b$.
+- $Ux = c$ is solved **backward** ($x_n$ before $x_{n-1}$). This is back substitution.
+
+A good elimination code therefore separates the work into two parts:
+
+1. **Factor**: from $A$, compute $L$ and $U$.
+2. **Solve**: from $L$, $U$, and $b$, compute $x$.
+
+| Task | Cost (multiply–subtract steps) |
+|:---|:---:|
+| Factor $A = LU$ | $\approx n^3/3$ |
+| Each triangular solve | $\approx n^2/2$ |
+| Each new right-hand side $b$ | $\approx n^2$ |
+
+**Example 6.** Take the tridiagonal $A$ of Example 5 with $b = (1,1,1,1)$:
+
+$$
+Lc = b:\;
+\begin{aligned}
+c_1 &= 1\\ -c_1 + c_2 &= 1\\ -c_2 + c_3 &= 1\\ -c_3 + c_4 &= 1
+\end{aligned}
+\;\Rightarrow\; c = \begin{bmatrix}1\\2\\3\\4\end{bmatrix},
+\qquad
+Ux = c:\;
+\begin{aligned}
+x_1 - x_2 &= 1\\ x_2 - x_3 &= 2\\ x_3 - x_4 &= 3\\ x_4 &= 4
+\end{aligned}
+\;\Rightarrow\; x = \begin{bmatrix}10\\9\\7\\4\end{bmatrix}.
+$$
+
+For tridiagonal matrices the solve cost drops from $n^2$ to $2n$.
+
+## The $LDU$ Factorization
+
+### Splitting off the pivots
+
+$A = LU$ is unsymmetric on the diagonal: $L$ has 1s where $U$ has the pivots. Dividing each row of $U$ by its pivot fixes this:
+
+$$
+U =
+\begin{bmatrix}d_1&&&\\&d_2&&\\&&\ddots&\\&&&d_n\end{bmatrix}
+\begin{bmatrix}1&u_{12}/d_1&u_{13}/d_1&\cdots\\&1&u_{23}/d_2&\cdots\\&&\ddots&\vdots\\&&&1\end{bmatrix}.
+$$
+
+::: {.callout-tip}
+## $A = LDU$
+The triangular factorization can be written $A = LDU$, where $L$ and $U$ have 1s on the diagonal and $D$ is the diagonal matrix of pivots. Whenever $LDU$ (or $LDV$) is written, the upper factor is understood to have unit diagonal. Then $L$ and $U$ are treated evenly.
+:::
+
+Example:
+
+$$
+\begin{bmatrix}1&2\\3&4\end{bmatrix}
+=
+\begin{bmatrix}1&\\3&1\end{bmatrix}
+\begin{bmatrix}1&2\\&-2\end{bmatrix}
+=
+\begin{bmatrix}1&\\3&1\end{bmatrix}
+\begin{bmatrix}1&\\&-2\end{bmatrix}
+\begin{bmatrix}1&2\\&1\end{bmatrix}.
+$$
+
+For the running example,
+
+$$
+\begin{bmatrix}2&1&1\\4&-6&0\\-2&7&2\end{bmatrix}
+=
+\begin{bmatrix}1&0&0\\2&1&0\\-1&-1&1\end{bmatrix}
+\begin{bmatrix}2&&\\&-8&\\&&1\end{bmatrix}
+\begin{bmatrix}1&\tfrac12&\tfrac12\\0&1&\tfrac14\\0&0&1\end{bmatrix}.
+$$
+
+When all pivots equal 1 (Example 3), $D = I$ and $LU = LDU$; normally they differ.
+
+### Could the diagonal of $L$ be something other than 1?
+
+**For the $L$ produced by elimination: no.** Each step is $\text{row}_i \leftarrow \text{row}_i - \ell_{ij}\,\text{row}_j$, and no row is ever rescaled. So each $E_{ij}^{-1}$ is unit lower triangular, and products of unit lower triangular matrices are again unit lower triangular (the diagonal of a product of triangular matrices is the product of the diagonals, $1\cdot1 = 1$).
+
+**For an arbitrary "lower times upper" factorization: yes.** For any invertible diagonal $\Lambda$,
+
+$$
+A = LU = (L\Lambda)(\Lambda^{-1}U),
+$$
+
+and $L\Lambda$ is still lower triangular, $\Lambda^{-1}U$ still upper triangular. The condition "lower $\times$ upper" alone leaves the diagonal scaling free. Different conventions fix it differently:
+
+| Convention | diagonal of $L$ | diagonal of $U$ |
+|:---|:---:|:---:|
+| Doolittle ($A = LU$ above) | 1 | pivots |
+| Crout | pivots | 1 |
+| $LDU$ | 1 | 1 (pivots in $D$) |
+
+The unit diagonal is therefore both a **consequence of the elimination procedure** and a **normalization that removes the scaling freedom**.
+
+### Uniqueness
+
+The order in which the arithmetic is carried out has some freedom (the Crout algorithm, for example, arranges the computation differently). There is no freedom in the final result.
+
+::: {.callout-tip}
+## Theorem (uniqueness of $LDU$)
+If $A = L_1D_1U_1 = L_2D_2U_2$, where the $L$'s are unit lower triangular, the $U$'s are unit upper triangular, and the $D$'s are diagonal with no zeros on the diagonal, then $L_1 = L_2$, $D_1 = D_2$, $U_1 = U_2$. The $LDU$ and $LU$ factorizations are uniquely determined by $A$.
+:::
+
+*Proof.* All factors are invertible. Multiply $L_1D_1U_1 = L_2D_2U_2$ on the left by $L_2^{-1}$ and on the right by $U_1^{-1}$:
+
+$$
+\underbrace{L_2^{-1}L_1}_{\text{unit lower}}\,D_1
+\;=\;
+D_2\,\underbrace{U_2U_1^{-1}}_{\text{unit upper}} .
+$$
+
+The left side is lower triangular and the right side is upper triangular, so both are diagonal. The diagonal of the left side is $D_1$ and that of the right side is $D_2$, so $D_1 = D_2$. Then $L_2^{-1}L_1D_1 = D_1$ forces $L_2^{-1}L_1 = I$, and similarly $U_2U_1^{-1} = I$. $\blacksquare$
+
+::: {.callout-note}
+## Consequence for symmetric matrices
+If $A = A^T$ and $A = LDU$, transposing gives $A = U^TDL^T$, another factorization of the same type. By uniqueness $U = L^T$, so $A = LDL^T$.
+:::
+
+## Row Exchanges and Permutation Matrices
+
+### Zero in the pivot position
+
+The number expected to serve as a pivot may be zero, either at the start ($a_{11} = 0$) or in the middle of elimination. For
+
+$$
+\begin{bmatrix}0&2\\3&4\end{bmatrix}\begin{bmatrix}u\\v\end{bmatrix}=\begin{bmatrix}b_1\\b_2\end{bmatrix},
+$$
+
+no multiple of the first equation can remove the coefficient 3. The remedy is to exchange the two equations:
+
+$$
+P=\begin{bmatrix}0&1\\1&0\end{bmatrix},
+\qquad
+PA=\begin{bmatrix}3&4\\0&2\end{bmatrix}.
+$$
+
+$P$ acts on $b$ in the same way, so the new system is $PAx = Pb$. The unknowns $u, v$ are not reordered by a row exchange.
+
+### Permutation matrices
+
+A permutation matrix has the rows of the identity in some order.
+
+- There is a single 1 in every row and every column.
+- The product of two permutation matrices is again a permutation matrix (the rows of $I$ are reordered twice).
+- There are $n!$ permutation matrices of order $n$: row 1 has $n$ choices, row 2 has $n-1$, and so on. For $n = 3$ there are $6$: $I,\ P_{21},\ P_{31},\ P_{32},\ P_{32}P_{21},\ P_{21}P_{32}$.
+- $P^{-1} = P^T$.
+
+### When the trouble is curable
+
+A zero in the pivot position is fixed by looking **below** it in the same column. If a nonzero entry exists there, exchange rows; if not, the matrix is singular. Consider
+
+$$
+A=\begin{bmatrix}0&a&b\\0&0&c\\d&e&f\end{bmatrix}.
+$$
+
+- $d = 0$: no first pivot. The column is all zero, so $A$ is singular and there is no unique solution.
+- $d \ne 0$: exchange rows 1 and 3 with $P_{13}$. The next pivot position again holds a zero; the entry $a$ is now below it (the $e$ above it is useless). If $a \ne 0$, exchange rows 2 and 3 with $P_{23}$:
+
+$$
+P_{23}P_{13}A=\begin{bmatrix}d&e&f\\0&a&b\\0&0&c\end{bmatrix}.
+$$
+
+- $c = 0$: no third pivot, and $A$ is singular.
+
+Both exchanges can be done at once ($P_{13}$ acts first):
+
+$$
+P = P_{23}P_{13}
+=\begin{bmatrix}1&0&0\\0&0&1\\0&1&0\end{bmatrix}
+\begin{bmatrix}0&0&1\\0&1&0\\1&0&0\end{bmatrix}
+=\begin{bmatrix}0&0&1\\1&0&0\\0&1&0\end{bmatrix}.
+$$
+
+Had $P$ been known in advance, $A$ could have been multiplied by $P$ at the start. With the rows in the right order, $PA$ is ready for elimination.
+
+### Elimination in a nutshell: $PA = LU$
+
+If elimination can be completed with the help of row exchanges, imagine those exchanges done first. Then $PA$ needs no exchanges and has a standard factorization.
+
+::: {.callout-important}
+## $PA = LU$
+**Nonsingular case.** There is a permutation matrix $P$ that reorders the rows of $A$ to avoid zeros in the pivot positions. Then $PA = LU$ and $Ax = b$ has a unique solution.
+
+**Singular case.** No $P$ can produce a full set of pivots, and elimination fails.
+:::
+
+In practice a row exchange is also used when the pivot is merely close to zero. Choosing a larger pivot reduces roundoff error.
+
+### Multipliers move with the rows
+
+Care is needed with $L$. If elimination first subtracts row 1 from row 2 ($\ell_{21} = 1$) and then exchanges rows 2 and 3, doing the exchange in advance turns that multiplier into $\ell_{31} = 1$.
+
+**Example 7.**
+
+$$
+A=\begin{bmatrix}1&1&1\\1&1&3\\2&5&8\end{bmatrix}
+\to
+\begin{bmatrix}1&1&1\\0&0&2\\0&3&6\end{bmatrix}
+\to
+\begin{bmatrix}1&1&1\\0&3&6\\0&0&2\end{bmatrix}=U .
+$$
+
+With the exchange done in advance, the multipliers are $\ell_{21} = 2$, $\ell_{31} = 1$, $\ell_{32} = 0$:
+
+$$
+P=\begin{bmatrix}1&0&0\\0&0&1\\0&1&0\end{bmatrix},
+\qquad
+L=\begin{bmatrix}1&0&0\\2&1&0\\1&0&1\end{bmatrix},
+\qquad PA = LU .
+$$
+
+In code, when row $k$ is exchanged with row $r$ below it, the same exchange is applied to the rows of $A$, to the already-computed part of $L$ (columns $1,\dots,k-1$), and to $P$. Each exchange also flips a sign $\pm1$. The final sign records whether the number of exchanges is even ($+1$) or odd ($-1$); it equals $\det P$ and does not depend on the order of the exchanges.
+
+::: {.callout-note}
+## Summary of what a good elimination code stores
+$L$, $U$, and $P$. Together they carry all the information that was in $A$, in a more usable form: $Ax = b$ reduces to two triangular systems.
+:::
+
+## Numerical Check
+
+```{python}
+import numpy as np
+
+def lu_no_pivot(A):
+    """Doolittle LU without row exchanges: A = L U, L unit lower triangular."""
+    A = A.astype(float)
+    n = A.shape[0]
+    L, U = np.eye(n), A.copy()
+    for j in range(n - 1):
+        for i in range(j + 1, n):
+            L[i, j] = U[i, j] / U[j, j]          # multiplier l_ij
+            U[i, :] -= L[i, j] * U[j, :]         # row_i <- row_i - l_ij * row_j
+    return L, U
+
+np.set_printoptions(suppress=True)
+
+# Running example: A = LU = LDU, and GFE = L^{-1}
+A = np.array([[2, 1, 1], [4, -6, 0], [-2, 7, 2]])
+L, U = lu_no_pivot(A)
+D = np.diag(np.diag(U))
+U1 = np.linalg.solve(D, U)
+print("L =\n", L)
+print("U =\n", U)
+print("D =\n", D, "\nunit U =\n", U1)
+print("GFE = L^{-1} =\n", np.linalg.inv(L))
+print("A == L D U :", np.allclose(A, L @ D @ U1))
+
+# Example 6: two triangular solves
+T = np.array([[1, -1, 0, 0], [-1, 2, -1, 0], [0, -1, 2, -1], [0, 0, -1, 2]])
+LT, UT = lu_no_pivot(T)
+b = np.ones(4)
+c = np.linalg.solve(LT, b)
+x = np.linalg.solve(UT, c)
+print("\nExample 6:  c =", c, "  x =", x)
+
+# Example 7: PA = LU
+P = np.array([[1, 0, 0], [0, 0, 1], [0, 1, 0]])
+A7 = np.array([[1, 1, 1], [1, 1, 3], [2, 5, 8]])
+L7, U7 = lu_no_pivot(P @ A7)
+print("\nExample 7:\nL =\n", L7, "\nU =\n", U7)
+print("PA == L U :", np.allclose(P @ A7, L7 @ U7))
+```
+
+## Summary
+
+- Without row exchanges, elimination is the factorization $A = LU$. The multipliers $\ell_{ij}$ sit below the diagonal of $L$, and the pivots sit on the diagonal of $U$.
+- $L = E^{-1}F^{-1}G^{-1}$ is clean because it rebuilds $A$ from the **fixed** rows of $U$; the forward matrix $GFE$ mixes multipliers because it acts on rows that are still changing.
+- $Ax = b$ becomes $Lc = b$ (forward) and $Ux = c$ (backward). Factoring costs about $n^3/3$; each new $b$ costs about $n^2$.
+- Factoring out the pivots gives $A = LDU$ with unit triangular $L$ and $U$. The unit diagonal comes from never rescaling rows and is what makes the factorization unique; for symmetric $A$ it forces $A = LDL^T$.
+- A zero pivot with a nonzero entry below it is fixed by a row exchange. For nonsingular $A$ there is always a permutation $P$ with $PA = LU$; for singular $A$ no permutation gives a full set of pivots.
