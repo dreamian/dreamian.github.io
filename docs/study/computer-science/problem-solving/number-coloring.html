@@ -1252,320 +1252,321 @@ ans = \min_{k=0}^{n}\Bigl(mx + A_k + \min_{g}\bigl(D[n-1][g]\bigr)\Bigr)
   </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "수 색칠하기"</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="an">aliases:</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">  - "/study/problem-solving/number-coloring.html"</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "3-Color DP + 열거를 활용한 최적 풀이 분석"</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "인접한 두 수에 대해 서로 다른 색으로 색칠하는 최소 비용 구하기"</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-04-05</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: false</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="co">    highlight-style: github</span></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: cosmo</span></span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="fu">## 문제 정의</span></span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="fu">### 문제 설명</span></span>
-<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>$N$개의 수 $A_1, A_2, \ldots, A_N$이 일렬로 놓여 있다.</span>
-<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>각 수에 색을 칠하되, 특정 색 $c$로 칠해진 수들 $A_{i_1}, A_{i_2}, \ldots, A_{i_k}$의 비용은</span>
-<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>$\max(A_{i_1}, A_{i_2}, \ldots, A_{i_k})$이다.</span>
-<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>모든 색에 대한 비용의 총합이 전체 비용이다.</span>
-<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>**제약 조건:** 인접한 두 수 $A_{i-1}$과 $A_i$는 같은 색으로 칠할 수 없다.</span>
-<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>**목표:** 전체 비용의 최솟값을 구하라.</span>
-<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a><span class="fu">### 입력 제약</span></span>
-<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$1 \le N \le 1000$</span>
-<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$1 \le A_i \le 10^6$</span>
-<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="fu">### 예제</span></span>
-<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 입력 <span class="pp">|</span> 정답 <span class="pp">|</span> 설명 <span class="pp">|</span></span>
-<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
-<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`[1, 2, 1, 2]`</span> <span class="pp">|</span> 3 <span class="pp">|</span> Even $<span class="sc">\{</span>1,1<span class="sc">\}</span>$→1, Odd $<span class="sc">\{</span>2,2<span class="sc">\}</span>$→2 <span class="pp">|</span></span>
-<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`[1, 6, 1, 1, 6]`</span> <span class="pp">|</span> 8 <span class="pp">|</span> $<span class="sc">\{</span>6,6<span class="sc">\}</span>$→6, $<span class="sc">\{</span>1,1<span class="sc">\}</span>$→1, $<span class="sc">\{</span>1<span class="sc">\}</span>$→1 <span class="pp">|</span></span>
-<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`[5, 4, 3, 2, 1]`</span> <span class="pp">|</span> 9 <span class="pp">|</span> $<span class="sc">\{</span>5,3,1<span class="sc">\}</span>$→5, $<span class="sc">\{</span>4,2<span class="sc">\}</span>$→4 <span class="pp">|</span></span>
-<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a><span class="fu">## 핵심 관찰</span></span>
-<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a><span class="fu">### 문제의 그래프 해석</span></span>
-<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>인접한 수가 같은 색이 될 수 없으므로, 위치를 정점, 인접 관계를 간선으로 보면 **경로 그래프(path graph)**의 **proper coloring** 문제가 된다.</span>
-<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a><span class="in">pos:  0 ── 1 ── 2 ── 3 ── 4 ── ...</span></span>
-<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a><span class="fu">### 3색이면 충분한 이유 {#sec-3color}</span></span>
-<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>경로 그래프의 **최대 차수(max degree)** = 2이다.</span>
-<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>어떤 정점 $i$를 칠할 때, 이웃은 최대 $i-1$과 $i+1$ 두 개뿐이므로</span>
-<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>이웃이 2가지 색을 사용하더라도 **3번째 색은 항상 사용 가능**하다.</span>
-<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a>따라서:</span>
-<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**3색 → 항상 유효한 배정이 존재**</span>
-<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**4색 이상 → 그룹 수만 늘어나 max 비용 추가, 이득 없음**</span>
-<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
-<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a><span class="fu">## 3색 충분성 정리</span></span>
-<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a>경로 그래프에서 max degree = $\Delta$이면, $\Delta + 1$색으로 항상 proper coloring이 가능하다.</span>
-<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a>이 문제에서는 $\Delta = 2$이므로 **3색이면 최적해에 충분**하다.</span>
-<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a><span class="fu">### 2색으로는 부족한 이유</span></span>
-<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a>2색이면 경로 그래프가 bipartite이므로 **even/odd 파티션으로 강제**된다.</span>
-<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a><span class="in">`[1, 6, 1, 1, 6]`</span>에서:</span>
-<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 방법 <span class="pp">|</span> 그룹 구성 <span class="pp">|</span> 비용 <span class="pp">|</span></span>
-<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
-<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **2색** (강제) | Even $\{1,1,6\}$→6, Odd $\{6,1\}$→6 | **12** <span class="pp">|</span></span>
-<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **3색** (자유) | $\{6,6\}$→6, $\{1,1\}$→1, $\{1\}$→1 | **8** <span class="pp">|</span></span>
-<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a>3색의 자유도 덕분에 **큰 값들을 한 그룹에 몰아넣어 max를 한 번만 지불**할 수 있다.</span>
-<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a><span class="fu">## 알고리즘: 3-Color DP + 열거</span></span>
-<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a><span class="fu">### 비용 분해</span></span>
-<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-90"><a href="#cb3-90" aria-hidden="true" tabindex="-1"></a>전역 최댓값 $mx = \max(A_1, \ldots, A_N)$은 어떤 그룹에 넣든 반드시 비용으로 지불해야 한다.</span>
-<span id="cb3-91"><a href="#cb3-91" aria-hidden="true" tabindex="-1"></a>따라서 이를 **고정 비용**으로 분리하고, 나머지 2개 그룹의 비용만 최소화한다.</span>
-<span id="cb3-92"><a href="#cb3-92" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-93"><a href="#cb3-93" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb3-94"><a href="#cb3-94" aria-hidden="true" tabindex="-1"></a>\text{총 비용} = \underbrace{mx}_{\text{고정}} + \underbrace{A_k}_{\text{열거}} + \underbrace{D_{\min}}_{\text{DP}}</span>
-<span id="cb3-95"><a href="#cb3-95" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb3-96"><a href="#cb3-96" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-97"><a href="#cb3-97" aria-hidden="true" tabindex="-1"></a><span class="fu">### 3개 그룹의 역할</span></span>
-<span id="cb3-98"><a href="#cb3-98" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-99"><a href="#cb3-99" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 그룹 <span class="pp">|</span> enum <span class="pp">|</span> 비용 <span class="pp">|</span> 역할 <span class="pp">|</span></span>
-<span id="cb3-100"><a href="#cb3-100" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|</span></span>
-<span id="cb3-101"><a href="#cb3-101" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> mx 그룹 <span class="pp">|</span> <span class="in">`MAX_GRP`</span> <span class="pp">|</span> $mx$ (고정) <span class="pp">|</span> 전역 최댓값을 포함하는 그룹 <span class="pp">|</span></span>
-<span id="cb3-102"><a href="#cb3-102" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> cap 그룹 <span class="pp">|</span> <span class="in">`CAP`</span> <span class="pp">|</span> $A_k$ (열거) <span class="pp">|</span> 값 $\le A_k$인 원소만 수용 <span class="pp">|</span></span>
-<span id="cb3-103"><a href="#cb3-103" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> rest 그룹 <span class="pp">|</span> <span class="in">`RESIDUAL`</span> <span class="pp">|</span> $D_{\min}$ (DP) <span class="pp">|</span> 나머지, max를 DP로 추적 <span class="pp">|</span></span>
-<span id="cb3-104"><a href="#cb3-104" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-105"><a href="#cb3-105" aria-hidden="true" tabindex="-1"></a><span class="fu">### cap 상한 열거의 완전성</span></span>
-<span id="cb3-106"><a href="#cb3-106" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-107"><a href="#cb3-107" aria-hidden="true" tabindex="-1"></a>최적해에서 cap 그룹의 비용 = 그룹 내 최댓값 = **배열의 어떤 원소값 $A_k$**.</span>
-<span id="cb3-108"><a href="#cb3-108" aria-hidden="true" tabindex="-1"></a>따라서 $A_0, A_1, \ldots, A_{n-1}$을 모두 시도하면 최적해를 반드시 포함한다.</span>
-<span id="cb3-109"><a href="#cb3-109" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-110"><a href="#cb3-110" aria-hidden="true" tabindex="-1"></a>$A_n = 0$으로 설정하면 어떤 원소도 cap에 넣을 수 없으므로,</span>
-<span id="cb3-111"><a href="#cb3-111" aria-hidden="true" tabindex="-1"></a>**2-coloring(mx + rest만 사용)** 케이스도 자동으로 탐색된다.</span>
-<span id="cb3-112"><a href="#cb3-112" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-113"><a href="#cb3-113" aria-hidden="true" tabindex="-1"></a><span class="fu">### DP 상태 정의</span></span>
-<span id="cb3-114"><a href="#cb3-114" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-115"><a href="#cb3-115" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb3-116"><a href="#cb3-116" aria-hidden="true" tabindex="-1"></a>D<span class="co">[</span><span class="ot">j</span><span class="co">][g]</span> = \text{``}j\text{번째 원소를 그룹 }g\text{에 배정했을 때, RESIDUAL 그룹의 최소 가능한 max값''}</span>
-<span id="cb3-117"><a href="#cb3-117" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb3-118"><a href="#cb3-118" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-119"><a href="#cb3-119" aria-hidden="true" tabindex="-1"></a>여기서 $g \in <span class="sc">\{</span>\texttt{MAX<span class="sc">\_</span>GRP},\; \texttt{CAP},\; \texttt{RESIDUAL}<span class="sc">\}</span>$.</span>
-<span id="cb3-120"><a href="#cb3-120" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-121"><a href="#cb3-121" aria-hidden="true" tabindex="-1"></a><span class="fu">### DP 전이</span></span>
-<span id="cb3-122"><a href="#cb3-122" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-123"><a href="#cb3-123" aria-hidden="true" tabindex="-1"></a>인접한 두 원소는 다른 그룹이어야 하므로:</span>
-<span id="cb3-124"><a href="#cb3-124" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-125"><a href="#cb3-125" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb3-126"><a href="#cb3-126" aria-hidden="true" tabindex="-1"></a>\begin{aligned}</span>
-<span id="cb3-127"><a href="#cb3-127" aria-hidden="true" tabindex="-1"></a>D<span class="co">[</span><span class="ot">j</span><span class="co">][\texttt{MAX\_GRP}]</span> &amp;= \min\bigl(D<span class="co">[</span><span class="ot">j-1</span><span class="co">][\texttt{CAP}]</span>,\; D<span class="co">[</span><span class="ot">j-1</span><span class="co">][\texttt{RESIDUAL}]</span>\bigr) <span class="sc">\\</span><span class="co">[</span><span class="ot">6pt</span><span class="co">]</span></span>
-<span id="cb3-128"><a href="#cb3-128" aria-hidden="true" tabindex="-1"></a>D<span class="co">[</span><span class="ot">j</span><span class="co">][\texttt{CAP}]</span> &amp;= \begin{cases}</span>
-<span id="cb3-129"><a href="#cb3-129" aria-hidden="true" tabindex="-1"></a>\min\bigl(D<span class="co">[</span><span class="ot">j-1</span><span class="co">][\texttt{MAX\_GRP}]</span>,\; D<span class="co">[</span><span class="ot">j-1</span><span class="co">][\texttt{RESIDUAL}]</span>\bigr) &amp; \text{if } A_j \le A_k <span class="sc">\\</span></span>
-<span id="cb3-130"><a href="#cb3-130" aria-hidden="true" tabindex="-1"></a>\infty &amp; \text{otherwise}</span>
-<span id="cb3-131"><a href="#cb3-131" aria-hidden="true" tabindex="-1"></a>\end{cases} <span class="sc">\\</span><span class="co">[</span><span class="ot">6pt</span><span class="co">]</span></span>
-<span id="cb3-132"><a href="#cb3-132" aria-hidden="true" tabindex="-1"></a>D<span class="co">[</span><span class="ot">j</span><span class="co">][\texttt{RESIDUAL}]</span> &amp;= \max\Bigl(\min\bigl(D<span class="co">[</span><span class="ot">j-1</span><span class="co">][\texttt{MAX\_GRP}]</span>,\; D<span class="co">[</span><span class="ot">j-1</span><span class="co">][\texttt{CAP}]</span>\bigr),\; A_j\Bigr)</span>
-<span id="cb3-133"><a href="#cb3-133" aria-hidden="true" tabindex="-1"></a>\end{aligned}</span>
-<span id="cb3-134"><a href="#cb3-134" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb3-135"><a href="#cb3-135" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-136"><a href="#cb3-136" aria-hidden="true" tabindex="-1"></a>**전이의 의미:**</span>
-<span id="cb3-137"><a href="#cb3-137" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-138"><a href="#cb3-138" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**MAX_GRP으로:** 이전이 CAP 또는 RESIDUAL이어야 함. mx 그룹은 비용이 이미 고정이므로 rest max 변동 없음.</span>
-<span id="cb3-139"><a href="#cb3-139" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**CAP으로:** 이전이 MAX_GRP 또는 RESIDUAL이어야 함. $A_j &gt; A_k$이면 cap 상한 초과로 불가능.</span>
-<span id="cb3-140"><a href="#cb3-140" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**RESIDUAL로:** 이전이 MAX_GRP 또는 CAP이어야 함. rest 그룹의 max가 $A_j$를 포함하도록 갱신.</span>
-<span id="cb3-141"><a href="#cb3-141" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-142"><a href="#cb3-142" aria-hidden="true" tabindex="-1"></a><span class="fu">### 최종 답</span></span>
-<span id="cb3-143"><a href="#cb3-143" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-144"><a href="#cb3-144" aria-hidden="true" tabindex="-1"></a>모든 원소를 처리한 후:</span>
-<span id="cb3-145"><a href="#cb3-145" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-146"><a href="#cb3-146" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb3-147"><a href="#cb3-147" aria-hidden="true" tabindex="-1"></a>ans = \min_{k=0}^{n}\Bigl(mx + A_k + \min_{g}\bigl(D<span class="co">[</span><span class="ot">n-1</span><span class="co">][g]</span>\bigr)\Bigr)</span>
-<span id="cb3-148"><a href="#cb3-148" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb3-149"><a href="#cb3-149" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-150"><a href="#cb3-150" aria-hidden="true" tabindex="-1"></a><span class="fu">## 시뮬레이션: `[10, 9, 1, 1]`</span></span>
-<span id="cb3-151"><a href="#cb3-151" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-152"><a href="#cb3-152" aria-hidden="true" tabindex="-1"></a>$mx = 10$, $k = 1$ ($\text{cap<span class="sc">\_</span>val} = 9$)일 때:</span>
-<span id="cb3-153"><a href="#cb3-153" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-154"><a href="#cb3-154" aria-hidden="true" tabindex="-1"></a><span class="fu">### DP 초기화 ($j = 0$, $A_0 = 10$)</span></span>
-<span id="cb3-155"><a href="#cb3-155" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-156"><a href="#cb3-156" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 그룹 <span class="pp">|</span> 계산 <span class="pp">|</span> 값 <span class="pp">|</span> 이유 <span class="pp">|</span></span>
-<span id="cb3-157"><a href="#cb3-157" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|</span></span>
-<span id="cb3-158"><a href="#cb3-158" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`MAX_GRP`</span> <span class="pp">|</span> — <span class="pp">|</span> 0 <span class="pp">|</span> mx 그룹에 넣으면 rest max 불변 <span class="pp">|</span></span>
-<span id="cb3-159"><a href="#cb3-159" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`CAP`</span> <span class="pp">|</span> $10 &gt; 9$? <span class="pp">|</span> $\infty$ <span class="pp">|</span> cap 상한 초과! <span class="pp">|</span></span>
-<span id="cb3-160"><a href="#cb3-160" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`RESIDUAL`</span> <span class="pp">|</span> $\max(0, 10)$ <span class="pp">|</span> 10 <span class="pp">|</span> rest에 넣으면 rest max = 10 <span class="pp">|</span></span>
-<span id="cb3-161"><a href="#cb3-161" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-162"><a href="#cb3-162" aria-hidden="true" tabindex="-1"></a><span class="fu">### DP 전이 ($j = 1$, $A_1 = 9$)</span></span>
-<span id="cb3-163"><a href="#cb3-163" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-164"><a href="#cb3-164" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 그룹 <span class="pp">|</span> 계산 <span class="pp">|</span> 값 <span class="pp">|</span></span>
-<span id="cb3-165"><a href="#cb3-165" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
-<span id="cb3-166"><a href="#cb3-166" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`MAX_GRP`</span> <span class="pp">|</span> $\min(\infty, 10) = 10$ <span class="pp">|</span> 10 <span class="pp">|</span></span>
-<span id="cb3-167"><a href="#cb3-167" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`CAP`</span> <span class="pp">|</span> $9 \le 9$ → $\min(0, 10) = 0$ <span class="pp">|</span> 0 <span class="pp">|</span></span>
-<span id="cb3-168"><a href="#cb3-168" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`RESIDUAL`</span> <span class="pp">|</span> $\max(\min(0, \infty), 9) = 9$ <span class="pp">|</span> 9 <span class="pp">|</span></span>
-<span id="cb3-169"><a href="#cb3-169" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-170"><a href="#cb3-170" aria-hidden="true" tabindex="-1"></a><span class="fu">### DP 전이 ($j = 2$, $A_2 = 1$)</span></span>
-<span id="cb3-171"><a href="#cb3-171" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-172"><a href="#cb3-172" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 그룹 <span class="pp">|</span> 계산 <span class="pp">|</span> 값 <span class="pp">|</span></span>
-<span id="cb3-173"><a href="#cb3-173" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
-<span id="cb3-174"><a href="#cb3-174" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`MAX_GRP`</span> <span class="pp">|</span> $\min(0, 9) = 0$ <span class="pp">|</span> 0 <span class="pp">|</span></span>
-<span id="cb3-175"><a href="#cb3-175" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`CAP`</span> <span class="pp">|</span> $1 \le 9$ → $\min(10, 9) = 9$ <span class="pp">|</span> 9 <span class="pp">|</span></span>
-<span id="cb3-176"><a href="#cb3-176" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`RESIDUAL`</span> <span class="pp">|</span> $\max(\min(10, 0), 1) = 1$ <span class="pp">|</span> 1 <span class="pp">|</span></span>
-<span id="cb3-177"><a href="#cb3-177" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-178"><a href="#cb3-178" aria-hidden="true" tabindex="-1"></a><span class="fu">### DP 전이 ($j = 3$, $A_3 = 1$)</span></span>
-<span id="cb3-179"><a href="#cb3-179" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-180"><a href="#cb3-180" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 그룹 <span class="pp">|</span> 계산 <span class="pp">|</span> 값 <span class="pp">|</span></span>
-<span id="cb3-181"><a href="#cb3-181" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
-<span id="cb3-182"><a href="#cb3-182" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`MAX_GRP`</span> <span class="pp">|</span> $\min(9, 1) = 1$ <span class="pp">|</span> 1 <span class="pp">|</span></span>
-<span id="cb3-183"><a href="#cb3-183" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`CAP`</span> <span class="pp">|</span> $1 \le 9$ → $\min(0, 1) = 0$ <span class="pp">|</span> 0 <span class="pp">|</span></span>
-<span id="cb3-184"><a href="#cb3-184" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`RESIDUAL`</span> <span class="pp">|</span> $\max(\min(0, 9), 1) = 1$ <span class="pp">|</span> 1 <span class="pp">|</span></span>
-<span id="cb3-185"><a href="#cb3-185" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-186"><a href="#cb3-186" aria-hidden="true" tabindex="-1"></a><span class="fu">### 최종</span></span>
-<span id="cb3-187"><a href="#cb3-187" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-188"><a href="#cb3-188" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb3-189"><a href="#cb3-189" aria-hidden="true" tabindex="-1"></a>\text{비용} = mx + A_k + \min(D<span class="co">[</span><span class="ot">3</span><span class="co">]</span>) = 10 + 9 + \min(1, 0, 1) = \mathbf{19}</span>
-<span id="cb3-190"><a href="#cb3-190" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb3-191"><a href="#cb3-191" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-192"><a href="#cb3-192" aria-hidden="true" tabindex="-1"></a>최적 배정: <span class="in">`pos 0,2`</span> → MAX_GRP, <span class="in">`pos 1,3`</span> → CAP, RESIDUAL 비어있음.</span>
-<span id="cb3-193"><a href="#cb3-193" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-194"><a href="#cb3-194" aria-hidden="true" tabindex="-1"></a><span class="fu">## 복잡도 분석</span></span>
-<span id="cb3-195"><a href="#cb3-195" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-196"><a href="#cb3-196" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 항목 <span class="pp">|</span> 값 <span class="pp">|</span></span>
-<span id="cb3-197"><a href="#cb3-197" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|</span></span>
-<span id="cb3-198"><a href="#cb3-198" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $k$ 열거 <span class="pp">|</span> $O(N)$가지 <span class="pp">|</span></span>
-<span id="cb3-199"><a href="#cb3-199" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 각 $k$마다 DP <span class="pp">|</span> $O(N)$ <span class="pp">|</span></span>
-<span id="cb3-200"><a href="#cb3-200" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **총 시간** <span class="pp">|</span> $O(N^2)$ <span class="pp">|</span></span>
-<span id="cb3-201"><a href="#cb3-201" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **공간** <span class="pp">|</span> $O(N)$ (1차원 배열로 압축 가능) <span class="pp">|</span></span>
-<span id="cb3-202"><a href="#cb3-202" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-203"><a href="#cb3-203" aria-hidden="true" tabindex="-1"></a>$N \le 1000$이므로 $10^6$ 연산, 충분히 빠르다.</span>
-<span id="cb3-204"><a href="#cb3-204" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-205"><a href="#cb3-205" aria-hidden="true" tabindex="-1"></a><span class="fu">## AC 코드</span></span>
-<span id="cb3-206"><a href="#cb3-206" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-207"><a href="#cb3-207" aria-hidden="true" tabindex="-1"></a><span class="in">```{.cpp filename="solution.cpp"}</span></span>
-<span id="cb3-208"><a href="#cb3-208" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
-<span id="cb3-209"><a href="#cb3-209" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-210"><a href="#cb3-210" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> eGroup <span class="op">=</span> <span class="kw">enum</span> <span class="op">{</span></span>
-<span id="cb3-211"><a href="#cb3-211" aria-hidden="true" tabindex="-1"></a>    MAX_GRP <span class="op">=</span> <span class="dv">0</span><span class="op">,</span></span>
-<span id="cb3-212"><a href="#cb3-212" aria-hidden="true" tabindex="-1"></a>    CAP<span class="op">,</span></span>
-<span id="cb3-213"><a href="#cb3-213" aria-hidden="true" tabindex="-1"></a>    RESIDUAL<span class="op">,</span></span>
-<span id="cb3-214"><a href="#cb3-214" aria-hidden="true" tabindex="-1"></a>    MAX_VAL<span class="op">,</span></span>
-<span id="cb3-215"><a href="#cb3-215" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
-<span id="cb3-216"><a href="#cb3-216" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-217"><a href="#cb3-217" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
-<span id="cb3-218"><a href="#cb3-218" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> _MIN<span class="op">(</span>T a<span class="op">,</span> T b<span class="op">)</span></span>
-<span id="cb3-219"><a href="#cb3-219" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb3-220"><a href="#cb3-220" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>a <span class="op">&lt;</span> b<span class="op">)</span> <span class="op">?</span> a <span class="op">:</span> b<span class="op">;</span></span>
-<span id="cb3-221"><a href="#cb3-221" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb3-222"><a href="#cb3-222" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-223"><a href="#cb3-223" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
-<span id="cb3-224"><a href="#cb3-224" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> _MAX<span class="op">(</span>T a<span class="op">,</span> T b<span class="op">)</span></span>
-<span id="cb3-225"><a href="#cb3-225" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb3-226"><a href="#cb3-226" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>a <span class="op">&gt;</span> b<span class="op">)</span> <span class="op">?</span> a <span class="op">:</span> b<span class="op">;</span></span>
-<span id="cb3-227"><a href="#cb3-227" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb3-228"><a href="#cb3-228" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-229"><a href="#cb3-229" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span></span>
-<span id="cb3-230"><a href="#cb3-230" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb3-231"><a href="#cb3-231" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> t<span class="op">;</span></span>
-<span id="cb3-232"><a href="#cb3-232" aria-hidden="true" tabindex="-1"></a>    scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>t<span class="op">);</span></span>
-<span id="cb3-233"><a href="#cb3-233" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> tc <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> tc <span class="op">&lt;=</span> t<span class="op">;</span> <span class="op">++</span>tc<span class="op">)</span></span>
-<span id="cb3-234"><a href="#cb3-234" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb3-235"><a href="#cb3-235" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> n<span class="op">;</span></span>
-<span id="cb3-236"><a href="#cb3-236" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> a<span class="op">[</span><span class="dv">1'001</span><span class="op">];</span></span>
-<span id="cb3-237"><a href="#cb3-237" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> max_v <span class="op">=</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
-<span id="cb3-238"><a href="#cb3-238" aria-hidden="true" tabindex="-1"></a>        scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>n<span class="op">);</span></span>
-<span id="cb3-239"><a href="#cb3-239" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-240"><a href="#cb3-240" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span></span>
-<span id="cb3-241"><a href="#cb3-241" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
-<span id="cb3-242"><a href="#cb3-242" aria-hidden="true" tabindex="-1"></a>            scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>a<span class="op">[</span>i<span class="op">]);</span></span>
-<span id="cb3-243"><a href="#cb3-243" aria-hidden="true" tabindex="-1"></a>            max_v <span class="op">=</span> _MAX<span class="op">(</span>max_v<span class="op">,</span> a<span class="op">[</span>i<span class="op">]);</span></span>
-<span id="cb3-244"><a href="#cb3-244" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb3-245"><a href="#cb3-245" aria-hidden="true" tabindex="-1"></a>        a<span class="op">[</span>n<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
-<span id="cb3-246"><a href="#cb3-246" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-247"><a href="#cb3-247" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> ans <span class="op">=</span> <span class="dv">987654321</span><span class="op">;</span></span>
-<span id="cb3-248"><a href="#cb3-248" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cap_val <span class="op">=</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
-<span id="cb3-249"><a href="#cb3-249" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> D<span class="op">[</span><span class="dv">1'001</span><span class="op">][</span>MAX_VAL<span class="op">]</span> <span class="op">=</span> <span class="op">{</span><span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">};</span></span>
-<span id="cb3-250"><a href="#cb3-250" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;=</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span></span>
-<span id="cb3-251"><a href="#cb3-251" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
-<span id="cb3-252"><a href="#cb3-252" aria-hidden="true" tabindex="-1"></a>            cap_val <span class="op">=</span> a<span class="op">[</span>i<span class="op">];</span></span>
-<span id="cb3-253"><a href="#cb3-253" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-254"><a href="#cb3-254" aria-hidden="true" tabindex="-1"></a>            D<span class="op">[</span><span class="dv">0</span><span class="op">][</span>MAX_GRP<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
-<span id="cb3-255"><a href="#cb3-255" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>a<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">&lt;=</span> cap_val<span class="op">)</span></span>
-<span id="cb3-256"><a href="#cb3-256" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span></span>
-<span id="cb3-257"><a href="#cb3-257" aria-hidden="true" tabindex="-1"></a>                D<span class="op">[</span><span class="dv">0</span><span class="op">][</span>CAP<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
-<span id="cb3-258"><a href="#cb3-258" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
-<span id="cb3-259"><a href="#cb3-259" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span></span>
-<span id="cb3-260"><a href="#cb3-260" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span></span>
-<span id="cb3-261"><a href="#cb3-261" aria-hidden="true" tabindex="-1"></a>                D<span class="op">[</span><span class="dv">0</span><span class="op">][</span>CAP<span class="op">]</span> <span class="op">=</span> <span class="dv">987654321</span><span class="op">;</span></span>
-<span id="cb3-262"><a href="#cb3-262" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
-<span id="cb3-263"><a href="#cb3-263" aria-hidden="true" tabindex="-1"></a>            D<span class="op">[</span><span class="dv">0</span><span class="op">][</span>RESIDUAL<span class="op">]</span> <span class="op">=</span> a<span class="op">[</span><span class="dv">0</span><span class="op">];</span></span>
-<span id="cb3-264"><a href="#cb3-264" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> j <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> j <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>j<span class="op">)</span></span>
-<span id="cb3-265"><a href="#cb3-265" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span></span>
-<span id="cb3-266"><a href="#cb3-266" aria-hidden="true" tabindex="-1"></a>                D<span class="op">[</span>j<span class="op">][</span>MAX_GRP<span class="op">]</span> <span class="op">=</span> _MIN<span class="op">(</span>D<span class="op">[</span>j <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>CAP<span class="op">],</span> D<span class="op">[</span>j <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>RESIDUAL<span class="op">]);</span></span>
-<span id="cb3-267"><a href="#cb3-267" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span><span class="op">(</span>a<span class="op">[</span>j<span class="op">]</span> <span class="op">&lt;=</span> cap_val<span class="op">)</span></span>
-<span id="cb3-268"><a href="#cb3-268" aria-hidden="true" tabindex="-1"></a>                <span class="op">{</span></span>
-<span id="cb3-269"><a href="#cb3-269" aria-hidden="true" tabindex="-1"></a>                    D<span class="op">[</span>j<span class="op">][</span>CAP<span class="op">]</span> <span class="op">=</span> _MIN<span class="op">(</span>D<span class="op">[</span>j <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>MAX_GRP<span class="op">],</span> D<span class="op">[</span>j <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>RESIDUAL<span class="op">]);</span></span>
-<span id="cb3-270"><a href="#cb3-270" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
-<span id="cb3-271"><a href="#cb3-271" aria-hidden="true" tabindex="-1"></a>                <span class="cf">else</span></span>
-<span id="cb3-272"><a href="#cb3-272" aria-hidden="true" tabindex="-1"></a>                <span class="op">{</span></span>
-<span id="cb3-273"><a href="#cb3-273" aria-hidden="true" tabindex="-1"></a>                    D<span class="op">[</span>j<span class="op">][</span>CAP<span class="op">]</span> <span class="op">=</span> <span class="dv">987654321</span><span class="op">;</span></span>
-<span id="cb3-274"><a href="#cb3-274" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
-<span id="cb3-275"><a href="#cb3-275" aria-hidden="true" tabindex="-1"></a>                D<span class="op">[</span>j<span class="op">][</span>RESIDUAL<span class="op">]</span> <span class="op">=</span> _MIN<span class="op">(</span>D<span class="op">[</span>j <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>MAX_GRP<span class="op">],</span> D<span class="op">[</span>j <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>CAP<span class="op">]);</span></span>
-<span id="cb3-276"><a href="#cb3-276" aria-hidden="true" tabindex="-1"></a>                D<span class="op">[</span>j<span class="op">][</span>RESIDUAL<span class="op">]</span> <span class="op">=</span> _MAX<span class="op">(</span>D<span class="op">[</span>j<span class="op">][</span>RESIDUAL<span class="op">],</span> a<span class="op">[</span>j<span class="op">]);</span></span>
-<span id="cb3-277"><a href="#cb3-277" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
-<span id="cb3-278"><a href="#cb3-278" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-279"><a href="#cb3-279" aria-hidden="true" tabindex="-1"></a>            ans <span class="op">=</span> _MIN<span class="op">(</span>ans<span class="op">,</span> max_v <span class="op">+</span> cap_val <span class="op">+</span> D<span class="op">[</span>n <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>MAX_GRP<span class="op">]);</span></span>
-<span id="cb3-280"><a href="#cb3-280" aria-hidden="true" tabindex="-1"></a>            ans <span class="op">=</span> _MIN<span class="op">(</span>ans<span class="op">,</span> max_v <span class="op">+</span> cap_val <span class="op">+</span> D<span class="op">[</span>n <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>CAP<span class="op">]);</span></span>
-<span id="cb3-281"><a href="#cb3-281" aria-hidden="true" tabindex="-1"></a>            ans <span class="op">=</span> _MIN<span class="op">(</span>ans<span class="op">,</span> max_v <span class="op">+</span> cap_val <span class="op">+</span> D<span class="op">[</span>n <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>RESIDUAL<span class="op">]);</span></span>
-<span id="cb3-282"><a href="#cb3-282" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb3-283"><a href="#cb3-283" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-284"><a href="#cb3-284" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">"#</span><span class="sc">%d</span><span class="st"> </span><span class="sc">%d\n</span><span class="st">"</span><span class="op">,</span> tc<span class="op">,</span> ans<span class="op">);</span></span>
-<span id="cb3-285"><a href="#cb3-285" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb3-286"><a href="#cb3-286" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb3-287"><a href="#cb3-287" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb3-288"><a href="#cb3-288" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-289"><a href="#cb3-289" aria-hidden="true" tabindex="-1"></a><span class="fu">## 틀린 접근과 교훈</span></span>
-<span id="cb3-290"><a href="#cb3-290" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-291"><a href="#cb3-291" aria-hidden="true" tabindex="-1"></a><span class="fu">### ChatGPT 풀이 (인접 쌍 매칭 DP) — 오답</span></span>
-<span id="cb3-292"><a href="#cb3-292" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-293"><a href="#cb3-293" aria-hidden="true" tabindex="-1"></a>인접 쌍을 매칭하여 $\min(A_{i-1}, A_i)$만큼 절약하는 모델.</span>
-<span id="cb3-294"><a href="#cb3-294" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-295"><a href="#cb3-295" aria-hidden="true" tabindex="-1"></a>**실패 원인:** 그룹에 3개 이상 원소가 들어가는 경우를 고려하지 못함.</span>
-<span id="cb3-296"><a href="#cb3-296" aria-hidden="true" tabindex="-1"></a>예제 <span class="in">`[1,2,1,2]`</span>에서 ChatGPT=4, 정답=3.</span>
-<span id="cb3-297"><a href="#cb3-297" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-298"><a href="#cb3-298" aria-hidden="true" tabindex="-1"></a><span class="fu">### Greedy (내림차순 배정) — 오답</span></span>
-<span id="cb3-299"><a href="#cb3-299" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-300"><a href="#cb3-300" aria-hidden="true" tabindex="-1"></a>값이 큰 원소부터 처리하여 기존 그룹에 넣을 수 있으면 넣고, 아니면 새 그룹 생성.</span>
-<span id="cb3-301"><a href="#cb3-301" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-302"><a href="#cb3-302" aria-hidden="true" tabindex="-1"></a>**실패 원인:** 지역적 결정이 전역적 bipartite 구조를 무시.</span>
-<span id="cb3-303"><a href="#cb3-303" aria-hidden="true" tabindex="-1"></a>예제 <span class="in">`[10,9,1,1]`</span>에서 Greedy=20, 정답=19.</span>
-<span id="cb3-304"><a href="#cb3-304" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-305"><a href="#cb3-305" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb3-306"><a href="#cb3-306" aria-hidden="true" tabindex="-1"></a><span class="fu">## PS 교훈</span></span>
-<span id="cb3-307"><a href="#cb3-307" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-308"><a href="#cb3-308" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Greedy는 정당성 증명(exchange argument) 없이 제출하지 말 것.**</span>
-<span id="cb3-309"><a href="#cb3-309" aria-hidden="true" tabindex="-1"></a>   이 문제에서 교환논증이 실제로 성립하지 않았다.</span>
-<span id="cb3-310"><a href="#cb3-310" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**그래프 색칠 문제에서 "몇 색이 최적인가"를 먼저 분석할 것.**</span>
-<span id="cb3-311"><a href="#cb3-311" aria-hidden="true" tabindex="-1"></a>   max degree = $\Delta$ → $\Delta + 1$색이면 항상 충분.</span>
-<span id="cb3-312"><a href="#cb3-312" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**DP 상태를 "마지막 배정 그룹"으로 잡는 테크닉을 기억할 것.**</span>
-<span id="cb3-313"><a href="#cb3-313" aria-hidden="true" tabindex="-1"></a>   색칠/파티션 문제에서 매우 강력한 패턴이다.</span>
-<span id="cb3-314"><a href="#cb3-314" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**항상 stress test로 검증할 것.**</span>
-<span id="cb3-315"><a href="#cb3-315" aria-hidden="true" tabindex="-1"></a>   예제만 맞고 랜덤에서 틀리는 건 가장 위험한 상황이다.</span>
-<span id="cb3-316"><a href="#cb3-316" aria-hidden="true" tabindex="-1"></a>:::</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="an">number:</span><span class="co"> 3</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="an">aliases:</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">  - "/study/problem-solving/number-coloring.html"</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "3-Color DP + 열거를 활용한 최적 풀이 분석"</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "인접한 두 수에 대해 서로 다른 색으로 색칠하는 최소 비용 구하기"</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-04-05</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: false</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co">    highlight-style: github</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: cosmo</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="fu">## 문제 정의</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a><span class="fu">### 문제 설명</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>$N$개의 수 $A_1, A_2, \ldots, A_N$이 일렬로 놓여 있다.</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>각 수에 색을 칠하되, 특정 색 $c$로 칠해진 수들 $A_{i_1}, A_{i_2}, \ldots, A_{i_k}$의 비용은</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>$\max(A_{i_1}, A_{i_2}, \ldots, A_{i_k})$이다.</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>모든 색에 대한 비용의 총합이 전체 비용이다.</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>**제약 조건:** 인접한 두 수 $A_{i-1}$과 $A_i$는 같은 색으로 칠할 수 없다.</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>**목표:** 전체 비용의 최솟값을 구하라.</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a><span class="fu">### 입력 제약</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$1 \le N \le 1000$</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$1 \le A_i \le 10^6$</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a><span class="fu">### 예제</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 입력 <span class="pp">|</span> 정답 <span class="pp">|</span> 설명 <span class="pp">|</span></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`[1, 2, 1, 2]`</span> <span class="pp">|</span> 3 <span class="pp">|</span> Even $<span class="sc">\{</span>1,1<span class="sc">\}</span>$→1, Odd $<span class="sc">\{</span>2,2<span class="sc">\}</span>$→2 <span class="pp">|</span></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`[1, 6, 1, 1, 6]`</span> <span class="pp">|</span> 8 <span class="pp">|</span> $<span class="sc">\{</span>6,6<span class="sc">\}</span>$→6, $<span class="sc">\{</span>1,1<span class="sc">\}</span>$→1, $<span class="sc">\{</span>1<span class="sc">\}</span>$→1 <span class="pp">|</span></span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`[5, 4, 3, 2, 1]`</span> <span class="pp">|</span> 9 <span class="pp">|</span> $<span class="sc">\{</span>5,3,1<span class="sc">\}</span>$→5, $<span class="sc">\{</span>4,2<span class="sc">\}</span>$→4 <span class="pp">|</span></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a><span class="fu">## 핵심 관찰</span></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a><span class="fu">### 문제의 그래프 해석</span></span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>인접한 수가 같은 색이 될 수 없으므로, 위치를 정점, 인접 관계를 간선으로 보면 **경로 그래프(path graph)**의 **proper coloring** 문제가 된다.</span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a><span class="in">pos:  0 ── 1 ── 2 ── 3 ── 4 ── ...</span></span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a><span class="fu">### 3색이면 충분한 이유 {#sec-3color}</span></span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>경로 그래프의 **최대 차수(max degree)** = 2이다.</span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>어떤 정점 $i$를 칠할 때, 이웃은 최대 $i-1$과 $i+1$ 두 개뿐이므로</span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a>이웃이 2가지 색을 사용하더라도 **3번째 색은 항상 사용 가능**하다.</span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a>따라서:</span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**3색 → 항상 유효한 배정이 존재**</span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**4색 이상 → 그룹 수만 늘어나 max 비용 추가, 이득 없음**</span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a><span class="fu">## 3색 충분성 정리</span></span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a>경로 그래프에서 max degree = $\Delta$이면, $\Delta + 1$색으로 항상 proper coloring이 가능하다.</span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a>이 문제에서는 $\Delta = 2$이므로 **3색이면 최적해에 충분**하다.</span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a><span class="fu">### 2색으로는 부족한 이유</span></span>
+<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a>2색이면 경로 그래프가 bipartite이므로 **even/odd 파티션으로 강제**된다.</span>
+<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a><span class="in">`[1, 6, 1, 1, 6]`</span>에서:</span>
+<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 방법 <span class="pp">|</span> 그룹 구성 <span class="pp">|</span> 비용 <span class="pp">|</span></span>
+<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **2색** (강제) | Even $\{1,1,6\}$→6, Odd $\{6,1\}$→6 | **12** <span class="pp">|</span></span>
+<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **3색** (자유) | $\{6,6\}$→6, $\{1,1\}$→1, $\{1\}$→1 | **8** <span class="pp">|</span></span>
+<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a>3색의 자유도 덕분에 **큰 값들을 한 그룹에 몰아넣어 max를 한 번만 지불**할 수 있다.</span>
+<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a><span class="fu">## 알고리즘: 3-Color DP + 열거</span></span>
+<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a><span class="fu">### 비용 분해</span></span>
+<span id="cb3-90"><a href="#cb3-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-91"><a href="#cb3-91" aria-hidden="true" tabindex="-1"></a>전역 최댓값 $mx = \max(A_1, \ldots, A_N)$은 어떤 그룹에 넣든 반드시 비용으로 지불해야 한다.</span>
+<span id="cb3-92"><a href="#cb3-92" aria-hidden="true" tabindex="-1"></a>따라서 이를 **고정 비용**으로 분리하고, 나머지 2개 그룹의 비용만 최소화한다.</span>
+<span id="cb3-93"><a href="#cb3-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-94"><a href="#cb3-94" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb3-95"><a href="#cb3-95" aria-hidden="true" tabindex="-1"></a>\text{총 비용} = \underbrace{mx}_{\text{고정}} + \underbrace{A_k}_{\text{열거}} + \underbrace{D_{\min}}_{\text{DP}}</span>
+<span id="cb3-96"><a href="#cb3-96" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb3-97"><a href="#cb3-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-98"><a href="#cb3-98" aria-hidden="true" tabindex="-1"></a><span class="fu">### 3개 그룹의 역할</span></span>
+<span id="cb3-99"><a href="#cb3-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-100"><a href="#cb3-100" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 그룹 <span class="pp">|</span> enum <span class="pp">|</span> 비용 <span class="pp">|</span> 역할 <span class="pp">|</span></span>
+<span id="cb3-101"><a href="#cb3-101" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|</span></span>
+<span id="cb3-102"><a href="#cb3-102" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> mx 그룹 <span class="pp">|</span> <span class="in">`MAX_GRP`</span> <span class="pp">|</span> $mx$ (고정) <span class="pp">|</span> 전역 최댓값을 포함하는 그룹 <span class="pp">|</span></span>
+<span id="cb3-103"><a href="#cb3-103" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> cap 그룹 <span class="pp">|</span> <span class="in">`CAP`</span> <span class="pp">|</span> $A_k$ (열거) <span class="pp">|</span> 값 $\le A_k$인 원소만 수용 <span class="pp">|</span></span>
+<span id="cb3-104"><a href="#cb3-104" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> rest 그룹 <span class="pp">|</span> <span class="in">`RESIDUAL`</span> <span class="pp">|</span> $D_{\min}$ (DP) <span class="pp">|</span> 나머지, max를 DP로 추적 <span class="pp">|</span></span>
+<span id="cb3-105"><a href="#cb3-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-106"><a href="#cb3-106" aria-hidden="true" tabindex="-1"></a><span class="fu">### cap 상한 열거의 완전성</span></span>
+<span id="cb3-107"><a href="#cb3-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-108"><a href="#cb3-108" aria-hidden="true" tabindex="-1"></a>최적해에서 cap 그룹의 비용 = 그룹 내 최댓값 = **배열의 어떤 원소값 $A_k$**.</span>
+<span id="cb3-109"><a href="#cb3-109" aria-hidden="true" tabindex="-1"></a>따라서 $A_0, A_1, \ldots, A_{n-1}$을 모두 시도하면 최적해를 반드시 포함한다.</span>
+<span id="cb3-110"><a href="#cb3-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-111"><a href="#cb3-111" aria-hidden="true" tabindex="-1"></a>$A_n = 0$으로 설정하면 어떤 원소도 cap에 넣을 수 없으므로,</span>
+<span id="cb3-112"><a href="#cb3-112" aria-hidden="true" tabindex="-1"></a>**2-coloring(mx + rest만 사용)** 케이스도 자동으로 탐색된다.</span>
+<span id="cb3-113"><a href="#cb3-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-114"><a href="#cb3-114" aria-hidden="true" tabindex="-1"></a><span class="fu">### DP 상태 정의</span></span>
+<span id="cb3-115"><a href="#cb3-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-116"><a href="#cb3-116" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb3-117"><a href="#cb3-117" aria-hidden="true" tabindex="-1"></a>D<span class="co">[</span><span class="ot">j</span><span class="co">][g]</span> = \text{``}j\text{번째 원소를 그룹 }g\text{에 배정했을 때, RESIDUAL 그룹의 최소 가능한 max값''}</span>
+<span id="cb3-118"><a href="#cb3-118" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb3-119"><a href="#cb3-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-120"><a href="#cb3-120" aria-hidden="true" tabindex="-1"></a>여기서 $g \in <span class="sc">\{</span>\texttt{MAX<span class="sc">\_</span>GRP},\; \texttt{CAP},\; \texttt{RESIDUAL}<span class="sc">\}</span>$.</span>
+<span id="cb3-121"><a href="#cb3-121" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-122"><a href="#cb3-122" aria-hidden="true" tabindex="-1"></a><span class="fu">### DP 전이</span></span>
+<span id="cb3-123"><a href="#cb3-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-124"><a href="#cb3-124" aria-hidden="true" tabindex="-1"></a>인접한 두 원소는 다른 그룹이어야 하므로:</span>
+<span id="cb3-125"><a href="#cb3-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-126"><a href="#cb3-126" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb3-127"><a href="#cb3-127" aria-hidden="true" tabindex="-1"></a>\begin{aligned}</span>
+<span id="cb3-128"><a href="#cb3-128" aria-hidden="true" tabindex="-1"></a>D<span class="co">[</span><span class="ot">j</span><span class="co">][\texttt{MAX\_GRP}]</span> &amp;= \min\bigl(D<span class="co">[</span><span class="ot">j-1</span><span class="co">][\texttt{CAP}]</span>,\; D<span class="co">[</span><span class="ot">j-1</span><span class="co">][\texttt{RESIDUAL}]</span>\bigr) <span class="sc">\\</span><span class="co">[</span><span class="ot">6pt</span><span class="co">]</span></span>
+<span id="cb3-129"><a href="#cb3-129" aria-hidden="true" tabindex="-1"></a>D<span class="co">[</span><span class="ot">j</span><span class="co">][\texttt{CAP}]</span> &amp;= \begin{cases}</span>
+<span id="cb3-130"><a href="#cb3-130" aria-hidden="true" tabindex="-1"></a>\min\bigl(D<span class="co">[</span><span class="ot">j-1</span><span class="co">][\texttt{MAX\_GRP}]</span>,\; D<span class="co">[</span><span class="ot">j-1</span><span class="co">][\texttt{RESIDUAL}]</span>\bigr) &amp; \text{if } A_j \le A_k <span class="sc">\\</span></span>
+<span id="cb3-131"><a href="#cb3-131" aria-hidden="true" tabindex="-1"></a>\infty &amp; \text{otherwise}</span>
+<span id="cb3-132"><a href="#cb3-132" aria-hidden="true" tabindex="-1"></a>\end{cases} <span class="sc">\\</span><span class="co">[</span><span class="ot">6pt</span><span class="co">]</span></span>
+<span id="cb3-133"><a href="#cb3-133" aria-hidden="true" tabindex="-1"></a>D<span class="co">[</span><span class="ot">j</span><span class="co">][\texttt{RESIDUAL}]</span> &amp;= \max\Bigl(\min\bigl(D<span class="co">[</span><span class="ot">j-1</span><span class="co">][\texttt{MAX\_GRP}]</span>,\; D<span class="co">[</span><span class="ot">j-1</span><span class="co">][\texttt{CAP}]</span>\bigr),\; A_j\Bigr)</span>
+<span id="cb3-134"><a href="#cb3-134" aria-hidden="true" tabindex="-1"></a>\end{aligned}</span>
+<span id="cb3-135"><a href="#cb3-135" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb3-136"><a href="#cb3-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-137"><a href="#cb3-137" aria-hidden="true" tabindex="-1"></a>**전이의 의미:**</span>
+<span id="cb3-138"><a href="#cb3-138" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-139"><a href="#cb3-139" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**MAX_GRP으로:** 이전이 CAP 또는 RESIDUAL이어야 함. mx 그룹은 비용이 이미 고정이므로 rest max 변동 없음.</span>
+<span id="cb3-140"><a href="#cb3-140" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**CAP으로:** 이전이 MAX_GRP 또는 RESIDUAL이어야 함. $A_j &gt; A_k$이면 cap 상한 초과로 불가능.</span>
+<span id="cb3-141"><a href="#cb3-141" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**RESIDUAL로:** 이전이 MAX_GRP 또는 CAP이어야 함. rest 그룹의 max가 $A_j$를 포함하도록 갱신.</span>
+<span id="cb3-142"><a href="#cb3-142" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-143"><a href="#cb3-143" aria-hidden="true" tabindex="-1"></a><span class="fu">### 최종 답</span></span>
+<span id="cb3-144"><a href="#cb3-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-145"><a href="#cb3-145" aria-hidden="true" tabindex="-1"></a>모든 원소를 처리한 후:</span>
+<span id="cb3-146"><a href="#cb3-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-147"><a href="#cb3-147" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb3-148"><a href="#cb3-148" aria-hidden="true" tabindex="-1"></a>ans = \min_{k=0}^{n}\Bigl(mx + A_k + \min_{g}\bigl(D<span class="co">[</span><span class="ot">n-1</span><span class="co">][g]</span>\bigr)\Bigr)</span>
+<span id="cb3-149"><a href="#cb3-149" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb3-150"><a href="#cb3-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-151"><a href="#cb3-151" aria-hidden="true" tabindex="-1"></a><span class="fu">## 시뮬레이션: `[10, 9, 1, 1]`</span></span>
+<span id="cb3-152"><a href="#cb3-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-153"><a href="#cb3-153" aria-hidden="true" tabindex="-1"></a>$mx = 10$, $k = 1$ ($\text{cap<span class="sc">\_</span>val} = 9$)일 때:</span>
+<span id="cb3-154"><a href="#cb3-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-155"><a href="#cb3-155" aria-hidden="true" tabindex="-1"></a><span class="fu">### DP 초기화 ($j = 0$, $A_0 = 10$)</span></span>
+<span id="cb3-156"><a href="#cb3-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-157"><a href="#cb3-157" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 그룹 <span class="pp">|</span> 계산 <span class="pp">|</span> 값 <span class="pp">|</span> 이유 <span class="pp">|</span></span>
+<span id="cb3-158"><a href="#cb3-158" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|</span></span>
+<span id="cb3-159"><a href="#cb3-159" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`MAX_GRP`</span> <span class="pp">|</span> — <span class="pp">|</span> 0 <span class="pp">|</span> mx 그룹에 넣으면 rest max 불변 <span class="pp">|</span></span>
+<span id="cb3-160"><a href="#cb3-160" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`CAP`</span> <span class="pp">|</span> $10 &gt; 9$? <span class="pp">|</span> $\infty$ <span class="pp">|</span> cap 상한 초과! <span class="pp">|</span></span>
+<span id="cb3-161"><a href="#cb3-161" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`RESIDUAL`</span> <span class="pp">|</span> $\max(0, 10)$ <span class="pp">|</span> 10 <span class="pp">|</span> rest에 넣으면 rest max = 10 <span class="pp">|</span></span>
+<span id="cb3-162"><a href="#cb3-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-163"><a href="#cb3-163" aria-hidden="true" tabindex="-1"></a><span class="fu">### DP 전이 ($j = 1$, $A_1 = 9$)</span></span>
+<span id="cb3-164"><a href="#cb3-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-165"><a href="#cb3-165" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 그룹 <span class="pp">|</span> 계산 <span class="pp">|</span> 값 <span class="pp">|</span></span>
+<span id="cb3-166"><a href="#cb3-166" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb3-167"><a href="#cb3-167" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`MAX_GRP`</span> <span class="pp">|</span> $\min(\infty, 10) = 10$ <span class="pp">|</span> 10 <span class="pp">|</span></span>
+<span id="cb3-168"><a href="#cb3-168" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`CAP`</span> <span class="pp">|</span> $9 \le 9$ → $\min(0, 10) = 0$ <span class="pp">|</span> 0 <span class="pp">|</span></span>
+<span id="cb3-169"><a href="#cb3-169" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`RESIDUAL`</span> <span class="pp">|</span> $\max(\min(0, \infty), 9) = 9$ <span class="pp">|</span> 9 <span class="pp">|</span></span>
+<span id="cb3-170"><a href="#cb3-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-171"><a href="#cb3-171" aria-hidden="true" tabindex="-1"></a><span class="fu">### DP 전이 ($j = 2$, $A_2 = 1$)</span></span>
+<span id="cb3-172"><a href="#cb3-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-173"><a href="#cb3-173" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 그룹 <span class="pp">|</span> 계산 <span class="pp">|</span> 값 <span class="pp">|</span></span>
+<span id="cb3-174"><a href="#cb3-174" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb3-175"><a href="#cb3-175" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`MAX_GRP`</span> <span class="pp">|</span> $\min(0, 9) = 0$ <span class="pp">|</span> 0 <span class="pp">|</span></span>
+<span id="cb3-176"><a href="#cb3-176" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`CAP`</span> <span class="pp">|</span> $1 \le 9$ → $\min(10, 9) = 9$ <span class="pp">|</span> 9 <span class="pp">|</span></span>
+<span id="cb3-177"><a href="#cb3-177" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`RESIDUAL`</span> <span class="pp">|</span> $\max(\min(10, 0), 1) = 1$ <span class="pp">|</span> 1 <span class="pp">|</span></span>
+<span id="cb3-178"><a href="#cb3-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-179"><a href="#cb3-179" aria-hidden="true" tabindex="-1"></a><span class="fu">### DP 전이 ($j = 3$, $A_3 = 1$)</span></span>
+<span id="cb3-180"><a href="#cb3-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-181"><a href="#cb3-181" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 그룹 <span class="pp">|</span> 계산 <span class="pp">|</span> 값 <span class="pp">|</span></span>
+<span id="cb3-182"><a href="#cb3-182" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb3-183"><a href="#cb3-183" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`MAX_GRP`</span> <span class="pp">|</span> $\min(9, 1) = 1$ <span class="pp">|</span> 1 <span class="pp">|</span></span>
+<span id="cb3-184"><a href="#cb3-184" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`CAP`</span> <span class="pp">|</span> $1 \le 9$ → $\min(0, 1) = 0$ <span class="pp">|</span> 0 <span class="pp">|</span></span>
+<span id="cb3-185"><a href="#cb3-185" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`RESIDUAL`</span> <span class="pp">|</span> $\max(\min(0, 9), 1) = 1$ <span class="pp">|</span> 1 <span class="pp">|</span></span>
+<span id="cb3-186"><a href="#cb3-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-187"><a href="#cb3-187" aria-hidden="true" tabindex="-1"></a><span class="fu">### 최종</span></span>
+<span id="cb3-188"><a href="#cb3-188" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-189"><a href="#cb3-189" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb3-190"><a href="#cb3-190" aria-hidden="true" tabindex="-1"></a>\text{비용} = mx + A_k + \min(D<span class="co">[</span><span class="ot">3</span><span class="co">]</span>) = 10 + 9 + \min(1, 0, 1) = \mathbf{19}</span>
+<span id="cb3-191"><a href="#cb3-191" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb3-192"><a href="#cb3-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-193"><a href="#cb3-193" aria-hidden="true" tabindex="-1"></a>최적 배정: <span class="in">`pos 0,2`</span> → MAX_GRP, <span class="in">`pos 1,3`</span> → CAP, RESIDUAL 비어있음.</span>
+<span id="cb3-194"><a href="#cb3-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-195"><a href="#cb3-195" aria-hidden="true" tabindex="-1"></a><span class="fu">## 복잡도 분석</span></span>
+<span id="cb3-196"><a href="#cb3-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-197"><a href="#cb3-197" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 항목 <span class="pp">|</span> 값 <span class="pp">|</span></span>
+<span id="cb3-198"><a href="#cb3-198" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|</span></span>
+<span id="cb3-199"><a href="#cb3-199" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $k$ 열거 <span class="pp">|</span> $O(N)$가지 <span class="pp">|</span></span>
+<span id="cb3-200"><a href="#cb3-200" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 각 $k$마다 DP <span class="pp">|</span> $O(N)$ <span class="pp">|</span></span>
+<span id="cb3-201"><a href="#cb3-201" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **총 시간** <span class="pp">|</span> $O(N^2)$ <span class="pp">|</span></span>
+<span id="cb3-202"><a href="#cb3-202" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **공간** <span class="pp">|</span> $O(N)$ (1차원 배열로 압축 가능) <span class="pp">|</span></span>
+<span id="cb3-203"><a href="#cb3-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-204"><a href="#cb3-204" aria-hidden="true" tabindex="-1"></a>$N \le 1000$이므로 $10^6$ 연산, 충분히 빠르다.</span>
+<span id="cb3-205"><a href="#cb3-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-206"><a href="#cb3-206" aria-hidden="true" tabindex="-1"></a><span class="fu">## AC 코드</span></span>
+<span id="cb3-207"><a href="#cb3-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-208"><a href="#cb3-208" aria-hidden="true" tabindex="-1"></a><span class="in">```{.cpp filename="solution.cpp"}</span></span>
+<span id="cb3-209"><a href="#cb3-209" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb3-210"><a href="#cb3-210" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-211"><a href="#cb3-211" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> eGroup <span class="op">=</span> <span class="kw">enum</span> <span class="op">{</span></span>
+<span id="cb3-212"><a href="#cb3-212" aria-hidden="true" tabindex="-1"></a>    MAX_GRP <span class="op">=</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb3-213"><a href="#cb3-213" aria-hidden="true" tabindex="-1"></a>    CAP<span class="op">,</span></span>
+<span id="cb3-214"><a href="#cb3-214" aria-hidden="true" tabindex="-1"></a>    RESIDUAL<span class="op">,</span></span>
+<span id="cb3-215"><a href="#cb3-215" aria-hidden="true" tabindex="-1"></a>    MAX_VAL<span class="op">,</span></span>
+<span id="cb3-216"><a href="#cb3-216" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-217"><a href="#cb3-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-218"><a href="#cb3-218" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-219"><a href="#cb3-219" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> _MIN<span class="op">(</span>T a<span class="op">,</span> T b<span class="op">)</span></span>
+<span id="cb3-220"><a href="#cb3-220" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb3-221"><a href="#cb3-221" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>a <span class="op">&lt;</span> b<span class="op">)</span> <span class="op">?</span> a <span class="op">:</span> b<span class="op">;</span></span>
+<span id="cb3-222"><a href="#cb3-222" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-223"><a href="#cb3-223" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-224"><a href="#cb3-224" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-225"><a href="#cb3-225" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> _MAX<span class="op">(</span>T a<span class="op">,</span> T b<span class="op">)</span></span>
+<span id="cb3-226"><a href="#cb3-226" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb3-227"><a href="#cb3-227" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>a <span class="op">&gt;</span> b<span class="op">)</span> <span class="op">?</span> a <span class="op">:</span> b<span class="op">;</span></span>
+<span id="cb3-228"><a href="#cb3-228" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-229"><a href="#cb3-229" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-230"><a href="#cb3-230" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span></span>
+<span id="cb3-231"><a href="#cb3-231" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb3-232"><a href="#cb3-232" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> t<span class="op">;</span></span>
+<span id="cb3-233"><a href="#cb3-233" aria-hidden="true" tabindex="-1"></a>    scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>t<span class="op">);</span></span>
+<span id="cb3-234"><a href="#cb3-234" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> tc <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> tc <span class="op">&lt;=</span> t<span class="op">;</span> <span class="op">++</span>tc<span class="op">)</span></span>
+<span id="cb3-235"><a href="#cb3-235" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb3-236"><a href="#cb3-236" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> n<span class="op">;</span></span>
+<span id="cb3-237"><a href="#cb3-237" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> a<span class="op">[</span><span class="dv">1'001</span><span class="op">];</span></span>
+<span id="cb3-238"><a href="#cb3-238" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> max_v <span class="op">=</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb3-239"><a href="#cb3-239" aria-hidden="true" tabindex="-1"></a>        scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>n<span class="op">);</span></span>
+<span id="cb3-240"><a href="#cb3-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-241"><a href="#cb3-241" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span></span>
+<span id="cb3-242"><a href="#cb3-242" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
+<span id="cb3-243"><a href="#cb3-243" aria-hidden="true" tabindex="-1"></a>            scanf<span class="op">(</span><span class="st">"</span><span class="sc">%d</span><span class="st">"</span><span class="op">,</span> <span class="op">&amp;</span>a<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb3-244"><a href="#cb3-244" aria-hidden="true" tabindex="-1"></a>            max_v <span class="op">=</span> _MAX<span class="op">(</span>max_v<span class="op">,</span> a<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb3-245"><a href="#cb3-245" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb3-246"><a href="#cb3-246" aria-hidden="true" tabindex="-1"></a>        a<span class="op">[</span>n<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-247"><a href="#cb3-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-248"><a href="#cb3-248" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> ans <span class="op">=</span> <span class="dv">987654321</span><span class="op">;</span></span>
+<span id="cb3-249"><a href="#cb3-249" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> cap_val <span class="op">=</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb3-250"><a href="#cb3-250" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> D<span class="op">[</span><span class="dv">1'001</span><span class="op">][</span>MAX_VAL<span class="op">]</span> <span class="op">=</span> <span class="op">{</span><span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">};</span></span>
+<span id="cb3-251"><a href="#cb3-251" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;=</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span></span>
+<span id="cb3-252"><a href="#cb3-252" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
+<span id="cb3-253"><a href="#cb3-253" aria-hidden="true" tabindex="-1"></a>            cap_val <span class="op">=</span> a<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb3-254"><a href="#cb3-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-255"><a href="#cb3-255" aria-hidden="true" tabindex="-1"></a>            D<span class="op">[</span><span class="dv">0</span><span class="op">][</span>MAX_GRP<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-256"><a href="#cb3-256" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span><span class="op">(</span>a<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">&lt;=</span> cap_val<span class="op">)</span></span>
+<span id="cb3-257"><a href="#cb3-257" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span></span>
+<span id="cb3-258"><a href="#cb3-258" aria-hidden="true" tabindex="-1"></a>                D<span class="op">[</span><span class="dv">0</span><span class="op">][</span>CAP<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-259"><a href="#cb3-259" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb3-260"><a href="#cb3-260" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span></span>
+<span id="cb3-261"><a href="#cb3-261" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span></span>
+<span id="cb3-262"><a href="#cb3-262" aria-hidden="true" tabindex="-1"></a>                D<span class="op">[</span><span class="dv">0</span><span class="op">][</span>CAP<span class="op">]</span> <span class="op">=</span> <span class="dv">987654321</span><span class="op">;</span></span>
+<span id="cb3-263"><a href="#cb3-263" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb3-264"><a href="#cb3-264" aria-hidden="true" tabindex="-1"></a>            D<span class="op">[</span><span class="dv">0</span><span class="op">][</span>RESIDUAL<span class="op">]</span> <span class="op">=</span> a<span class="op">[</span><span class="dv">0</span><span class="op">];</span></span>
+<span id="cb3-265"><a href="#cb3-265" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span><span class="op">(</span><span class="dt">int</span> j <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> j <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>j<span class="op">)</span></span>
+<span id="cb3-266"><a href="#cb3-266" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span></span>
+<span id="cb3-267"><a href="#cb3-267" aria-hidden="true" tabindex="-1"></a>                D<span class="op">[</span>j<span class="op">][</span>MAX_GRP<span class="op">]</span> <span class="op">=</span> _MIN<span class="op">(</span>D<span class="op">[</span>j <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>CAP<span class="op">],</span> D<span class="op">[</span>j <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>RESIDUAL<span class="op">]);</span></span>
+<span id="cb3-268"><a href="#cb3-268" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span><span class="op">(</span>a<span class="op">[</span>j<span class="op">]</span> <span class="op">&lt;=</span> cap_val<span class="op">)</span></span>
+<span id="cb3-269"><a href="#cb3-269" aria-hidden="true" tabindex="-1"></a>                <span class="op">{</span></span>
+<span id="cb3-270"><a href="#cb3-270" aria-hidden="true" tabindex="-1"></a>                    D<span class="op">[</span>j<span class="op">][</span>CAP<span class="op">]</span> <span class="op">=</span> _MIN<span class="op">(</span>D<span class="op">[</span>j <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>MAX_GRP<span class="op">],</span> D<span class="op">[</span>j <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>RESIDUAL<span class="op">]);</span></span>
+<span id="cb3-271"><a href="#cb3-271" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
+<span id="cb3-272"><a href="#cb3-272" aria-hidden="true" tabindex="-1"></a>                <span class="cf">else</span></span>
+<span id="cb3-273"><a href="#cb3-273" aria-hidden="true" tabindex="-1"></a>                <span class="op">{</span></span>
+<span id="cb3-274"><a href="#cb3-274" aria-hidden="true" tabindex="-1"></a>                    D<span class="op">[</span>j<span class="op">][</span>CAP<span class="op">]</span> <span class="op">=</span> <span class="dv">987654321</span><span class="op">;</span></span>
+<span id="cb3-275"><a href="#cb3-275" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
+<span id="cb3-276"><a href="#cb3-276" aria-hidden="true" tabindex="-1"></a>                D<span class="op">[</span>j<span class="op">][</span>RESIDUAL<span class="op">]</span> <span class="op">=</span> _MIN<span class="op">(</span>D<span class="op">[</span>j <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>MAX_GRP<span class="op">],</span> D<span class="op">[</span>j <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>CAP<span class="op">]);</span></span>
+<span id="cb3-277"><a href="#cb3-277" aria-hidden="true" tabindex="-1"></a>                D<span class="op">[</span>j<span class="op">][</span>RESIDUAL<span class="op">]</span> <span class="op">=</span> _MAX<span class="op">(</span>D<span class="op">[</span>j<span class="op">][</span>RESIDUAL<span class="op">],</span> a<span class="op">[</span>j<span class="op">]);</span></span>
+<span id="cb3-278"><a href="#cb3-278" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb3-279"><a href="#cb3-279" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-280"><a href="#cb3-280" aria-hidden="true" tabindex="-1"></a>            ans <span class="op">=</span> _MIN<span class="op">(</span>ans<span class="op">,</span> max_v <span class="op">+</span> cap_val <span class="op">+</span> D<span class="op">[</span>n <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>MAX_GRP<span class="op">]);</span></span>
+<span id="cb3-281"><a href="#cb3-281" aria-hidden="true" tabindex="-1"></a>            ans <span class="op">=</span> _MIN<span class="op">(</span>ans<span class="op">,</span> max_v <span class="op">+</span> cap_val <span class="op">+</span> D<span class="op">[</span>n <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>CAP<span class="op">]);</span></span>
+<span id="cb3-282"><a href="#cb3-282" aria-hidden="true" tabindex="-1"></a>            ans <span class="op">=</span> _MIN<span class="op">(</span>ans<span class="op">,</span> max_v <span class="op">+</span> cap_val <span class="op">+</span> D<span class="op">[</span>n <span class="op">-</span> <span class="dv">1</span><span class="op">][</span>RESIDUAL<span class="op">]);</span></span>
+<span id="cb3-283"><a href="#cb3-283" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb3-284"><a href="#cb3-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-285"><a href="#cb3-285" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">"#</span><span class="sc">%d</span><span class="st"> </span><span class="sc">%d\n</span><span class="st">"</span><span class="op">,</span> tc<span class="op">,</span> ans<span class="op">);</span></span>
+<span id="cb3-286"><a href="#cb3-286" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-287"><a href="#cb3-287" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-288"><a href="#cb3-288" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-289"><a href="#cb3-289" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-290"><a href="#cb3-290" aria-hidden="true" tabindex="-1"></a><span class="fu">## 틀린 접근과 교훈</span></span>
+<span id="cb3-291"><a href="#cb3-291" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-292"><a href="#cb3-292" aria-hidden="true" tabindex="-1"></a><span class="fu">### ChatGPT 풀이 (인접 쌍 매칭 DP) — 오답</span></span>
+<span id="cb3-293"><a href="#cb3-293" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-294"><a href="#cb3-294" aria-hidden="true" tabindex="-1"></a>인접 쌍을 매칭하여 $\min(A_{i-1}, A_i)$만큼 절약하는 모델.</span>
+<span id="cb3-295"><a href="#cb3-295" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-296"><a href="#cb3-296" aria-hidden="true" tabindex="-1"></a>**실패 원인:** 그룹에 3개 이상 원소가 들어가는 경우를 고려하지 못함.</span>
+<span id="cb3-297"><a href="#cb3-297" aria-hidden="true" tabindex="-1"></a>예제 <span class="in">`[1,2,1,2]`</span>에서 ChatGPT=4, 정답=3.</span>
+<span id="cb3-298"><a href="#cb3-298" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-299"><a href="#cb3-299" aria-hidden="true" tabindex="-1"></a><span class="fu">### Greedy (내림차순 배정) — 오답</span></span>
+<span id="cb3-300"><a href="#cb3-300" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-301"><a href="#cb3-301" aria-hidden="true" tabindex="-1"></a>값이 큰 원소부터 처리하여 기존 그룹에 넣을 수 있으면 넣고, 아니면 새 그룹 생성.</span>
+<span id="cb3-302"><a href="#cb3-302" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-303"><a href="#cb3-303" aria-hidden="true" tabindex="-1"></a>**실패 원인:** 지역적 결정이 전역적 bipartite 구조를 무시.</span>
+<span id="cb3-304"><a href="#cb3-304" aria-hidden="true" tabindex="-1"></a>예제 <span class="in">`[10,9,1,1]`</span>에서 Greedy=20, 정답=19.</span>
+<span id="cb3-305"><a href="#cb3-305" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-306"><a href="#cb3-306" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb3-307"><a href="#cb3-307" aria-hidden="true" tabindex="-1"></a><span class="fu">## PS 교훈</span></span>
+<span id="cb3-308"><a href="#cb3-308" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-309"><a href="#cb3-309" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Greedy는 정당성 증명(exchange argument) 없이 제출하지 말 것.**</span>
+<span id="cb3-310"><a href="#cb3-310" aria-hidden="true" tabindex="-1"></a>   이 문제에서 교환논증이 실제로 성립하지 않았다.</span>
+<span id="cb3-311"><a href="#cb3-311" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**그래프 색칠 문제에서 "몇 색이 최적인가"를 먼저 분석할 것.**</span>
+<span id="cb3-312"><a href="#cb3-312" aria-hidden="true" tabindex="-1"></a>   max degree = $\Delta$ → $\Delta + 1$색이면 항상 충분.</span>
+<span id="cb3-313"><a href="#cb3-313" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**DP 상태를 "마지막 배정 그룹"으로 잡는 테크닉을 기억할 것.**</span>
+<span id="cb3-314"><a href="#cb3-314" aria-hidden="true" tabindex="-1"></a>   색칠/파티션 문제에서 매우 강력한 패턴이다.</span>
+<span id="cb3-315"><a href="#cb3-315" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**항상 stress test로 검증할 것.**</span>
+<span id="cb3-316"><a href="#cb3-316" aria-hidden="true" tabindex="-1"></a>   예제만 맞고 랜덤에서 틀리는 건 가장 위험한 상황이다.</span>
+<span id="cb3-317"><a href="#cb3-317" aria-hidden="true" tabindex="-1"></a>:::</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 

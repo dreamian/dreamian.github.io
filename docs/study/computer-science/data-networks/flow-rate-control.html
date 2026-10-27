@@ -1501,522 +1501,523 @@ P=\arg\max\sum_{k\in U}\log R_k.
   </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">소스 코드</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Flow and Rate Control"</span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="an">aliases:</span></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co">  - "/study/data-network/flow-rate-control.html"</span></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "Window Flow Control · Token Bucket · 최적 Rate Control · Max-Min · Proportional Fair"</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-06-08"</span></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="an">lang:</span><span class="co"> ko</span></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: true</span></span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: cosmo</span></span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="co">    fig-width: 7</span></span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="co">    fig-height: 4.2</span></span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="co">  pdf:</span></span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="co">    pdf-engine: xelatex</span></span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
-<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
-<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="co">    include-in-header:</span></span>
-<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="co">      text: |</span></span>
-<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="co">        \usepackage{kotex}</span></span>
-<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="co">        \usepackage{amsmath,amssymb}</span></span>
-<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="an">execute:</span></span>
-<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="co">  echo: true</span></span>
-<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a><span class="co">  warning: false</span></span>
-<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> python3</span></span>
-<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a><span class="fu"># 큰 그림: 통제 변수 세 가지 {#sec-overview}</span></span>
-<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>이 장 전체는 **"네트워크에 들어가는 트래픽을 무엇으로, 어떤 목표로 통제할 것인가"** 라는 하나의 질문을 세 층위에서 다룬다.</span>
-<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 접근 <span class="pp">|</span> 통제 변수 <span class="pp">|</span> 핵심 도구 <span class="pp">|</span> 목표 <span class="pp">|</span></span>
-<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|</span></span>
-<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Window flow control <span class="pp">|</span> 미해결(outstanding) 패킷 수 $W$ <span class="pp">|</span> round-trip 관계식 <span class="pp">|</span> 파이프라인 점유 제어 <span class="pp">|</span></span>
-<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Rate control (token bucket) <span class="pp">|</span> permit 생성률 $r$, 버킷 크기 $W$ <span class="pp">|</span> 이산시간 Markov chain <span class="pp">|</span> 평균률·버스트 평활화 <span class="pp">|</span></span>
-<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 최적/공정 rate control <span class="pp">|</span> 세션별 허용률 $r_w$ <span class="pp">|</span> 볼록최적화, max-min / proportional fair <span class="pp">|</span> 비용 최소화 · 공정성 <span class="pp">|</span></span>
-<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a>앞의 둘은 **메커니즘**, 마지막은 그 메커니즘이 지향할 **목표(목적함수·공정성)** 이다.</span>
-<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a>::: {.callout-important title="이 문서를 보는 핵심 원칙"}</span>
-<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a>일반해는 *이차방정식*, 시험 문제는 그 일반해의 가장 단순한 인스턴스인 *일차방정식*이다.</span>
-<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a>각 절 끝의 **[시험 포인트]** 콜아웃이 "일차방정식 버전"이 무엇인지 정리한다.</span>
-<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a><span class="fu"># Window Flow Control {#sec-window}</span></span>
-<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a><span class="fu">## 전송률 관계식</span></span>
-<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a>End-to-end window 방식은 ACK를 못 받은 채 동시에 띄울 수 있는 패킷 수를 $W$로 제한한다.</span>
-<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$d$: round-trip delay (sec)</span>
-<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$X$: 패킷 한 개의 전송시간 (sec) $=$ 링크 속도의 역수</span>
-<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$W$: window size (패킷)</span>
-<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a>한 window가 한 바퀴 도는 데 $d$초, 그 동안 최대 $W$개를 보내므로 window 제약 시 전송률은 $W/d$, 링크 물리 한계는 $1/X$. 실제 전송률은 둘 중 작은 값:</span>
-<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a>r = \min<span class="sc">\!</span>\left<span class="co">[</span><span class="ot">\frac{1}{X},\ \frac{W}{d}\right</span><span class="co">]</span>\quad<span class="co">[</span><span class="ot">\text{packets/sec}</span><span class="co">]</span></span>
-<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$d \le WX$ : $r = 1/X$ (full speed, window는 제약이 아님)</span>
-<span id="cb6-68"><a href="#cb6-68" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$d &gt; WX$ : $r = W/d$ (이 지점부터 window가 throttle = flow control 작동)</span>
-<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-72"><a href="#cb6-72" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb6-73"><a href="#cb6-73" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-window</span></span>
-<span id="cb6-74"><a href="#cb6-74" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "RTT($d$)에 따른 전송률. $d=WX$에서 full-speed가 깨지고 flow control이 시작된다."</span></span>
-<span id="cb6-75"><a href="#cb6-75" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
-<span id="cb6-76"><a href="#cb6-76" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
-<span id="cb6-77"><a href="#cb6-77" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-78"><a href="#cb6-78" aria-hidden="true" tabindex="-1"></a>X, W <span class="op">=</span> <span class="fl">1.0</span>, <span class="fl">4.0</span></span>
-<span id="cb6-79"><a href="#cb6-79" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> np.linspace(<span class="fl">0.01</span>, <span class="dv">20</span>, <span class="dv">500</span>)</span>
-<span id="cb6-80"><a href="#cb6-80" aria-hidden="true" tabindex="-1"></a>r <span class="op">=</span> np.minimum(<span class="dv">1</span><span class="op">/</span>X, W<span class="op">/</span>d)</span>
-<span id="cb6-81"><a href="#cb6-81" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-82"><a href="#cb6-82" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots()</span>
-<span id="cb6-83"><a href="#cb6-83" aria-hidden="true" tabindex="-1"></a>ax.plot(d, r, lw<span class="op">=</span><span class="fl">2.2</span>, color<span class="op">=</span><span class="st">"#2c3e80"</span>)</span>
-<span id="cb6-84"><a href="#cb6-84" aria-hidden="true" tabindex="-1"></a>ax.axvline(W<span class="op">*</span>X, ls<span class="op">=</span><span class="st">"--"</span>, color<span class="op">=</span><span class="st">"gray"</span>)</span>
-<span id="cb6-85"><a href="#cb6-85" aria-hidden="true" tabindex="-1"></a>ax.axhline(<span class="dv">1</span><span class="op">/</span>X, ls<span class="op">=</span><span class="st">":"</span>, color<span class="op">=</span><span class="st">"gray"</span>)</span>
-<span id="cb6-86"><a href="#cb6-86" aria-hidden="true" tabindex="-1"></a>ax.annotate(<span class="st">"full speed</span><span class="ch">\n</span><span class="st">$r=1/X$"</span>, xy<span class="op">=</span>(W<span class="op">*</span>X<span class="op">/</span><span class="dv">2</span>, <span class="dv">1</span><span class="op">/</span>X),</span>
-<span id="cb6-87"><a href="#cb6-87" aria-hidden="true" tabindex="-1"></a>            xytext<span class="op">=</span>(W<span class="op">*</span>X<span class="op">/</span><span class="dv">2</span>, <span class="fl">0.78</span>), ha<span class="op">=</span><span class="st">"center"</span>)</span>
-<span id="cb6-88"><a href="#cb6-88" aria-hidden="true" tabindex="-1"></a>ax.annotate(<span class="st">"$r=W/d$"</span>, xy<span class="op">=</span>(<span class="dv">12</span>, W<span class="op">/</span><span class="dv">12</span>), xytext<span class="op">=</span>(<span class="dv">13</span>, <span class="fl">0.5</span>),</span>
-<span id="cb6-89"><a href="#cb6-89" aria-hidden="true" tabindex="-1"></a>            arrowprops<span class="op">=</span><span class="bu">dict</span>(arrowstyle<span class="op">=</span><span class="st">"-&gt;"</span>))</span>
-<span id="cb6-90"><a href="#cb6-90" aria-hidden="true" tabindex="-1"></a>ax.annotate(<span class="st">"flow control</span><span class="ch">\n</span><span class="st">begins ($d=WX$)"</span>, xy<span class="op">=</span>(W<span class="op">*</span>X, <span class="fl">0.55</span>),</span>
-<span id="cb6-91"><a href="#cb6-91" aria-hidden="true" tabindex="-1"></a>            xytext<span class="op">=</span>(<span class="dv">7</span>, <span class="fl">0.7</span>), arrowprops<span class="op">=</span><span class="bu">dict</span>(arrowstyle<span class="op">=</span><span class="st">"-&gt;"</span>))</span>
-<span id="cb6-92"><a href="#cb6-92" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="st">"Round-trip delay $d$"</span>)<span class="op">;</span> ax.set_ylabel(<span class="st">"Transmission rate $r$"</span>)</span>
-<span id="cb6-93"><a href="#cb6-93" aria-hidden="true" tabindex="-1"></a>ax.set_ylim(<span class="dv">0</span>, <span class="fl">1.15</span>)<span class="op">;</span> plt.tight_layout()</span>
-<span id="cb6-94"><a href="#cb6-94" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-95"><a href="#cb6-95" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-96"><a href="#cb6-96" aria-hidden="true" tabindex="-1"></a><span class="fu">## 시스템적 함의</span></span>
-<span id="cb6-97"><a href="#cb6-97" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-98"><a href="#cb6-98" aria-hidden="true" tabindex="-1"></a>두 가지 직관이 핵심이다.</span>
-<span id="cb6-99"><a href="#cb6-99" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-100"><a href="#cb6-100" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**긴 경로 세션이 불리하다.** $d$가 클수록 같은 $W$로 얻는 $r=W/d$가 작아진다 → window 방식은 RTT에 대해 공정하지 않다 (뒤의 공정성 절이 등장하는 동기).</span>
-<span id="cb6-101"><a href="#cb6-101" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**고속 전송은 큰 버퍼를 요구한다.** full speed 유지 조건 $W \ge d/X = d\cdot(\text{link rate})$, 즉 **bandwidth–delay product** 만큼의 패킷이 항상 in-flight 여야 한다.</span>
-<span id="cb6-102"><a href="#cb6-102" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-103"><a href="#cb6-103" aria-hidden="true" tabindex="-1"></a><span class="fu">## 변형</span></span>
-<span id="cb6-104"><a href="#cb6-104" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-105"><a href="#cb6-105" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Node-by-node (hop-by-hop):** 인접 노드쌍마다 window → **backpressure** 효과, end-to-end보다 필요 버퍼 적음.</span>
-<span id="cb6-106"><a href="#cb6-106" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Isarithmic:** 전역 permit 총수 고정 → 전역 부하는 통제하나 **국소 혼잡은 못 막음**.</span>
-<span id="cb6-107"><a href="#cb6-107" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-108"><a href="#cb6-108" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="<span class="co">[</span><span class="ot">시험 포인트</span><span class="co">]</span> Window"}</span>
-<span id="cb6-109"><a href="#cb6-109" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>외워서 쓸 식은 단 하나: $r=\min<span class="co">[</span><span class="ot">1/X,\ W/d</span><span class="co">]</span>$.</span>
-<span id="cb6-110"><a href="#cb6-110" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>묻는 형태: 주어진 $d,X,W$로 $r$ 계산, full-speed 조건 $d\le WX$ 판정, 또는 그래프 해석.</span>
-<span id="cb6-111"><a href="#cb6-111" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>"긴 경로 불리", "BDP 만큼 버퍼" 두 문장은 서술형 단골.</span>
-<span id="cb6-112"><a href="#cb6-112" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb6-113"><a href="#cb6-113" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-114"><a href="#cb6-114" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb6-115"><a href="#cb6-115" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-116"><a href="#cb6-116" aria-hidden="true" tabindex="-1"></a><span class="fu"># Rate Control — Token(Leaky) Bucket {#sec-bucket}</span></span>
-<span id="cb6-117"><a href="#cb6-117" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-118"><a href="#cb6-118" aria-hidden="true" tabindex="-1"></a>여기서부터가 계산 비중이 가장 크다. 모델 → 상태정의 → DTMC → 정상상태 → 지연 순으로 간다.</span>
-<span id="cb6-119"><a href="#cb6-119" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-120"><a href="#cb6-120" aria-hidden="true" tabindex="-1"></a><span class="fu">## 모델</span></span>
-<span id="cb6-121"><a href="#cb6-121" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-122"><a href="#cb6-122" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>패킷은 **permit(token)** 을 받아야 네트워크로 나간다.</span>
-<span id="cb6-123"><a href="#cb6-123" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Token은 **$1/r$초마다 1개** 생성되어 버킷(용량 $W$)에 쌓인다. 가득 차면 이후 token은 버려진다.</span>
-<span id="cb6-124"><a href="#cb6-124" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>token을 못 받은 패킷은 대기한다.</span>
-<span id="cb6-125"><a href="#cb6-125" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-126"><a href="#cb6-126" aria-hidden="true" tabindex="-1"></a><span class="fu">## 상태 정의 (부호 규약)</span></span>
-<span id="cb6-127"><a href="#cb6-127" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-128"><a href="#cb6-128" aria-hidden="true" tabindex="-1"></a>token 생성 시점을 embedding 시점으로 하는 이산시간 Markov chain. 상태 $i$:</span>
-<span id="cb6-129"><a href="#cb6-129" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-130"><a href="#cb6-130" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$i=0,1,\dots,W$ : 대기 패킷 없음, token이 $(W-i)$개 남음. ($i=0$ = 버킷 가득, $i=W$ = token 0개)</span>
-<span id="cb6-131"><a href="#cb6-131" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$i=W+1, W+2,\dots$ : token 0개, 패킷 $(i-W)$개 대기.</span>
-<span id="cb6-132"><a href="#cb6-132" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-133"><a href="#cb6-133" aria-hidden="true" tabindex="-1"></a>$\lambda$가 Poisson 도착률이면 한 slot($1/r$초) 동안 $k$개 도착할 확률은</span>
-<span id="cb6-134"><a href="#cb6-134" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-135"><a href="#cb6-135" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-136"><a href="#cb6-136" aria-hidden="true" tabindex="-1"></a>a_k=\frac{(\lambda/r)^k}{k!}\,e^{-\lambda/r},\qquad k=0,1,2,\dots</span>
-<span id="cb6-137"><a href="#cb6-137" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-138"><a href="#cb6-138" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-139"><a href="#cb6-139" aria-hidden="true" tabindex="-1"></a>평균 $\lambda/r=\rho$ 의 Poisson.</span>
-<span id="cb6-140"><a href="#cb6-140" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-141"><a href="#cb6-141" aria-hidden="true" tabindex="-1"></a><span class="fu">## 전이확률 (동역학에서 직접)</span></span>
-<span id="cb6-142"><a href="#cb6-142" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-143"><a href="#cb6-143" aria-hidden="true" tabindex="-1"></a>한 slot에서 token $-1$, 도착 $+A$. $j\ge1$이면 token이 늘 소비되므로 $i=j-1+A$, 즉 $A=i-j+1$:</span>
-<span id="cb6-144"><a href="#cb6-144" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-145"><a href="#cb6-145" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-146"><a href="#cb6-146" aria-hidden="true" tabindex="-1"></a>P_{ji}=a_{\,i-j+1}\quad(j\le i+1),\qquad 0\ \text{otherwise}.</span>
-<span id="cb6-147"><a href="#cb6-147" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-148"><a href="#cb6-148" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-149"><a href="#cb6-149" aria-hidden="true" tabindex="-1"></a>상태 0(버킷 가득)에서는 경계 효과: $A=0$(token 버려짐)·$A=1$(바로 소비) 둘 다 0 유지:</span>
-<span id="cb6-150"><a href="#cb6-150" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-151"><a href="#cb6-151" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-152"><a href="#cb6-152" aria-hidden="true" tabindex="-1"></a>P_{0i}=\begin{cases}a_0+a_1,&amp; i=0<span class="sc">\\</span> a_{\,i+1},&amp; i\ge1\end{cases}</span>
-<span id="cb6-153"><a href="#cb6-153" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-154"><a href="#cb6-154" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-155"><a href="#cb6-155" aria-hidden="true" tabindex="-1"></a>이 $a_0+a_1$ 항이 버킷 용량 $W$ 상한을 인코딩한다. 구조는 M/G/1 임베디드 chain과 동일한 *skip-free to the left* 형태.</span>
-<span id="cb6-156"><a href="#cb6-156" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-159"><a href="#cb6-159" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
-<span id="cb6-160"><a href="#cb6-160" aria-hidden="true" tabindex="-1"></a>%%| label: fig-mc</span>
-<span id="cb6-161"><a href="#cb6-161" aria-hidden="true" tabindex="-1"></a>%%| fig-cap: <span class="ot">"</span><span class="st">Token bucket DTMC (대표 전이만 표시). 좌향은 항상 </span><span class="dt">$a_0</span><span class="wa">$,</span><span class="st"> 자기/우향은 </span><span class="dt">$a_1</span><span class="st">,a_2,\\dots</span><span class="wa">$"</span></span>
-<span id="cb6-162"><a href="#cb6-162" aria-hidden="true" tabindex="-1"></a><span class="st">flowchart LR</span></span>
-<span id="cb6-163"><a href="#cb6-163" aria-hidden="true" tabindex="-1"></a><span class="st">    S0((0)) --&gt;|a0+a1| S0</span></span>
-<span id="cb6-164"><a href="#cb6-164" aria-hidden="true" tabindex="-1"></a><span class="st">    S0 --&gt;|a2| S1((1))</span></span>
-<span id="cb6-165"><a href="#cb6-165" aria-hidden="true" tabindex="-1"></a><span class="st">    S1 --&gt;|a0| S0</span></span>
-<span id="cb6-166"><a href="#cb6-166" aria-hidden="true" tabindex="-1"></a><span class="st">    S1 --&gt;|a1| S1</span></span>
-<span id="cb6-167"><a href="#cb6-167" aria-hidden="true" tabindex="-1"></a><span class="st">    S1 --&gt;|a2| S2((2))</span></span>
-<span id="cb6-168"><a href="#cb6-168" aria-hidden="true" tabindex="-1"></a><span class="st">    S2 --&gt;|a0| S1</span></span>
-<span id="cb6-169"><a href="#cb6-169" aria-hidden="true" tabindex="-1"></a><span class="st">    S2 --&gt;|a1| S2</span></span>
-<span id="cb6-170"><a href="#cb6-170" aria-hidden="true" tabindex="-1"></a><span class="st">    S2 --&gt;|a2| S3((3))</span></span>
-<span id="cb6-171"><a href="#cb6-171" aria-hidden="true" tabindex="-1"></a><span class="st">    S3 --&gt;|a0| S2</span></span>
-<span id="cb6-172"><a href="#cb6-172" aria-hidden="true" tabindex="-1"></a><span class="st">    S3 --&gt;|a1| S3</span></span>
-<span id="cb6-173"><a href="#cb6-173" aria-hidden="true" tabindex="-1"></a><span class="st">    S3 --&gt;|a2| S4((</span><span class="ot">"</span>...<span class="ot">"</span><span class="st">))</span></span>
-<span id="cb6-174"><a href="#cb6-174" aria-hidden="true" tabindex="-1"></a><span class="st">```</span></span>
-<span id="cb6-175"><a href="#cb6-175" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-176"><a href="#cb6-176" aria-hidden="true" tabindex="-1"></a><span class="st">## 정상상태 (balance → 재귀)</span></span>
-<span id="cb6-177"><a href="#cb6-177" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-178"><a href="#cb6-178" aria-hidden="true" tabindex="-1"></a><span class="dt">$j</span><span class="st">=0$ 항도 </span><span class="dt">$a_</span><span class="st">{i+1}=a_{i-0+1}</span><span class="wa">$로</span><span class="st"> 같은 형태에 흡수되므로,</span></span>
-<span id="cb6-179"><a href="#cb6-179" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-180"><a href="#cb6-180" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-181"><a href="#cb6-181" aria-hidden="true" tabindex="-1"></a><span class="st">p_0=a_0p_1+(a_0+a_1)p_0,\qquad p_i=</span><span class="ch">\s</span><span class="st">um_{j=0}^{i+1}a_{\,i-j+1}\,p_j\ \ (i\ge1).</span></span>
-<span id="cb6-182"><a href="#cb6-182" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-183"><a href="#cb6-183" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-184"><a href="#cb6-184" aria-hidden="true" tabindex="-1"></a><span class="st">상태 0 식에서</span></span>
-<span id="cb6-185"><a href="#cb6-185" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-186"><a href="#cb6-186" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-187"><a href="#cb6-187" aria-hidden="true" tabindex="-1"></a><span class="st">p_0(1-a_0-a_1)=a_0p_1 \;</span><span class="ch">\R</span><span class="st">ightarrow\; p_1=</span><span class="ch">\f</span><span class="st">rac{1-a_0-a_1}{a_0}\,p_0,</span></span>
-<span id="cb6-188"><a href="#cb6-188" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-189"><a href="#cb6-189" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-190"><a href="#cb6-190" aria-hidden="true" tabindex="-1"></a><span class="st">이후 </span><span class="dt">$p_2</span><span class="st">,p_3,</span><span class="ch">\d</span><span class="st">ots$ 를 차례로 </span><span class="dt">$p_0</span><span class="wa">$에</span><span class="st"> 비례해 구한다.</span></span>
-<span id="cb6-191"><a href="#cb6-191" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-192"><a href="#cb6-192" aria-hidden="true" tabindex="-1"></a><span class="st">## </span><span class="dt">$p_0</span><span class="wa">$:</span><span class="st"> 보존(conservation) 논증</span></span>
-<span id="cb6-193"><a href="#cb6-193" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-194"><a href="#cb6-194" aria-hidden="true" tabindex="-1"></a><span class="st">정규화 대신 물리 보존을 쓰면 한 줄이다. Token은 율 </span><span class="dt">$r</span><span class="wa">$로</span><span class="st"> 생성되고, **유일하게 낭비되는 경우는 상태 0에서 도착이 없을 때(</span><span class="dt">$a_0</span><span class="wa">$)</span><span class="ot">*</span><span class="st">* 뿐이므로 출력률 = </span><span class="dt">$r</span><span class="st">(1-p_0a_0)</span><span class="wa">$.</span><span class="st"> 정상상태 throughput = </span><span class="wa">$\</span><span class="st">lambda$ :</span></span>
-<span id="cb6-195"><a href="#cb6-195" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-196"><a href="#cb6-196" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-197"><a href="#cb6-197" aria-hidden="true" tabindex="-1"></a><span class="st">r(1-p_0a_0)=</span><span class="ch">\l</span><span class="st">ambda \;</span><span class="ch">\R</span><span class="st">ightarrow\; </span><span class="ch">\b</span><span class="st">oxed{\,p_0=</span><span class="ch">\d</span><span class="st">frac{r-</span><span class="ch">\l</span><span class="st">ambda}{r\,a_0}\,}</span></span>
-<span id="cb6-198"><a href="#cb6-198" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-199"><a href="#cb6-199" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-200"><a href="#cb6-200" aria-hidden="true" tabindex="-1"></a><span class="st">::: {.callout-note title=</span><span class="ot">"</span>안정성<span class="ot">"</span><span class="st">}</span></span>
-<span id="cb6-201"><a href="#cb6-201" aria-hidden="true" tabindex="-1"></a><span class="dt">$p_0</span><span class="st">&gt;0 </span><span class="ch">\L</span><span class="st">eftrightarrow </span><span class="ch">\l</span><span class="st">ambda&lt;r</span><span class="wa">$.</span><span class="st"> 평균 token 생성률이 평균 도착률보다 커야 한다 (</span><span class="wa">$\</span><span class="st">rho=</span><span class="ch">\l</span><span class="st">ambda/r&lt;1</span><span class="wa">$)</span><span class="st">.</span></span>
-<span id="cb6-202"><a href="#cb6-202" aria-hidden="true" tabindex="-1"></a><span class="st">:::</span></span>
-<span id="cb6-203"><a href="#cb6-203" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-204"><a href="#cb6-204" aria-hidden="true" tabindex="-1"></a><span class="st">## 평균 permit 대기시간</span></span>
-<span id="cb6-205"><a href="#cb6-205" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-206"><a href="#cb6-206" aria-hidden="true" tabindex="-1"></a><span class="st">대기 패킷 수 </span><span class="wa">$=</span><span class="st">\max(0,i-W)</span><span class="wa">$,</span><span class="st"> 평균 </span><span class="dt">$N_w</span><span class="st">=</span><span class="ch">\s</span><span class="st">um_{j&gt;W}p_j(j-W)</span><span class="wa">$.</span><span class="st"> **Little의 법칙** </span><span class="dt">$N_w</span><span class="st">=</span><span class="ch">\l</span><span class="st">ambda T$ :</span></span>
-<span id="cb6-207"><a href="#cb6-207" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-208"><a href="#cb6-208" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-209"><a href="#cb6-209" aria-hidden="true" tabindex="-1"></a><span class="ch">\b</span><span class="st">oxed{\,T=</span><span class="ch">\f</span><span class="st">rac{1}{</span><span class="ch">\l</span><span class="st">ambda}</span><span class="ch">\s</span><span class="st">um_{j=W+1}^{\infty}p_j\,(j-W)\,}</span></span>
-<span id="cb6-210"><a href="#cb6-210" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-211"><a href="#cb6-211" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-212"><a href="#cb6-212" aria-hidden="true" tabindex="-1"></a><span class="st">::: {.callout-warning title=</span><span class="ot">"</span>분모는 r이 아니라 λ<span class="ot">"</span><span class="st">}</span></span>
-<span id="cb6-213"><a href="#cb6-213" aria-hidden="true" tabindex="-1"></a><span class="st">대기 큐의 Little 법칙은 분모로 **도착률 </span><span class="wa">$\</span><span class="st">lambda</span><span class="wa">$*</span><span class="ot">*</span><span class="st"> 를 요구한다(서비스율 </span><span class="dt">$r</span><span class="st">$ 아님). 둘은 </span><span class="wa">$\</span><span class="st">lambda</span><span class="ch">\t</span><span class="st">o r$ 극한에서만 일치하므로, </span><span class="ot">"</span>average packet delay<span class="ot">"</span><span class="st">는 </span><span class="dt">$N_w</span><span class="st">/</span><span class="ch">\l</span><span class="st">ambda$ 로 답한다.</span></span>
-<span id="cb6-214"><a href="#cb6-214" aria-hidden="true" tabindex="-1"></a><span class="st">:::</span></span>
-<span id="cb6-215"><a href="#cb6-215" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-216"><a href="#cb6-216" aria-hidden="true" tabindex="-1"></a><span class="st">## 버킷 크기 </span><span class="dt">$W</span><span class="wa">$의</span><span class="st"> trade-off</span></span>
-<span id="cb6-217"><a href="#cb6-217" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-218"><a href="#cb6-218" aria-hidden="true" tabindex="-1"></a><span class="st">- </span><span class="dt">$W</span><span class="st">$ 작음 → 버스트가 permit 기다리며 대기 (평활화 강, 지연 증가)</span></span>
-<span id="cb6-219"><a href="#cb6-219" aria-hidden="true" tabindex="-1"></a><span class="st">- </span><span class="dt">$W</span><span class="st">$ 큼 → 긴 버스트가 한꺼번에 진입 (내부 혼잡 위험)</span></span>
-<span id="cb6-220"><a href="#cb6-220" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-221"><a href="#cb6-221" aria-hidden="true" tabindex="-1"></a><span class="dt">$r</span><span class="wa">$은</span><span class="st"> 평균률, </span><span class="dt">$W</span><span class="wa">$는</span><span class="st"> 버스트 크기를 통제하는 두 손잡이.</span></span>
-<span id="cb6-222"><a href="#cb6-222" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-223"><a href="#cb6-223" aria-hidden="true" tabindex="-1"></a><span class="st">## 워크드 예제 (일차방정식 버전) {#sec-bucket-example}</span></span>
-<span id="cb6-224"><a href="#cb6-224" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-225"><a href="#cb6-225" aria-hidden="true" tabindex="-1"></a><span class="st">가장 단순한 인스턴스: **버킷 용량 </span><span class="dt">$W</span><span class="st">=0</span><span class="wa">$*</span><span class="ot">*</span><span class="st">(token 저장 없음), 도착은 slot당 최대 2개로 한정.</span></span>
-<span id="cb6-226"><a href="#cb6-226" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-227"><a href="#cb6-227" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-228"><a href="#cb6-228" aria-hidden="true" tabindex="-1"></a><span class="st">a_0=0.4,\quad a_1=0.4,\quad a_2=0.2,\qquad </span><span class="ch">\r</span><span class="st">ho=\mathbb{E}[A]=0.4+2(0.2)=0.8&lt;1.</span></span>
-<span id="cb6-229"><a href="#cb6-229" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-230"><a href="#cb6-230" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-231"><a href="#cb6-231" aria-hidden="true" tabindex="-1"></a><span class="dt">$W</span><span class="st">=0</span><span class="wa">$이</span><span class="st">므로 상태 </span><span class="dt">$n</span><span class="st">$ = 대기 패킷 수.</span></span>
-<span id="cb6-232"><a href="#cb6-232" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-233"><a href="#cb6-233" aria-hidden="true" tabindex="-1"></a><span class="st">**Balance 방정식 (작은 선형계)**</span></span>
-<span id="cb6-234"><a href="#cb6-234" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-235"><a href="#cb6-235" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-236"><a href="#cb6-236" aria-hidden="true" tabindex="-1"></a><span class="ch">\b</span><span class="st">egin{aligned}</span></span>
-<span id="cb6-237"><a href="#cb6-237" aria-hidden="true" tabindex="-1"></a><span class="st">p_0&amp;=(a_0+a_1)p_0+a_0p_1=0.8p_0+0.4p_1 &amp;&amp;</span><span class="ch">\R</span><span class="st">ightarrow\ p_1=0.5\,p_0\\</span></span>
-<span id="cb6-238"><a href="#cb6-238" aria-hidden="true" tabindex="-1"></a><span class="st">p_1&amp;=a_2p_0+a_1p_1+a_0p_2=0.2p_0+0.4p_1+0.4p_2 &amp;&amp;</span><span class="ch">\R</span><span class="st">ightarrow\ p_2=0.25\,p_0\\</span></span>
-<span id="cb6-239"><a href="#cb6-239" aria-hidden="true" tabindex="-1"></a><span class="st">p_2&amp;=a_2p_1+a_1p_2+a_0p_3 &amp;&amp;</span><span class="ch">\R</span><span class="st">ightarrow\ p_3=0.125\,p_0</span></span>
-<span id="cb6-240"><a href="#cb6-240" aria-hidden="true" tabindex="-1"></a><span class="ch">\e</span><span class="st">nd{aligned}</span></span>
-<span id="cb6-241"><a href="#cb6-241" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-242"><a href="#cb6-242" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-243"><a href="#cb6-243" aria-hidden="true" tabindex="-1"></a><span class="st">공비 </span><span class="wa">$0</span><span class="st">.5</span><span class="wa">$의</span><span class="st"> 등비: </span><span class="dt">$p_n</span><span class="st">=p_0(0.5)^n</span><span class="wa">$.</span><span class="st"> 정규화 </span><span class="wa">$\</span><span class="st">sum p_n=2p_0=1$ → </span><span class="dt">$p_0</span><span class="st">=0.5</span><span class="wa">$,</span><span class="st"> 즉</span></span>
-<span id="cb6-244"><a href="#cb6-244" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-245"><a href="#cb6-245" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-246"><a href="#cb6-246" aria-hidden="true" tabindex="-1"></a><span class="st">p_n=(0.5)^{\,n+1}.</span></span>
-<span id="cb6-247"><a href="#cb6-247" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-248"><a href="#cb6-248" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-249"><a href="#cb6-249" aria-hidden="true" tabindex="-1"></a><span class="st">보존식 검증: </span><span class="dt">$p_0</span><span class="st">=</span><span class="ch">\d</span><span class="st">frac{r-</span><span class="ch">\l</span><span class="st">ambda}{r a_0}=</span><span class="ch">\d</span><span class="st">frac{1-</span><span class="ch">\r</span><span class="st">ho}{a_0}=</span><span class="ch">\d</span><span class="st">frac{0.2}{0.4}=0.5</span><span class="wa">$.</span><span class="st"> ✔</span></span>
-<span id="cb6-250"><a href="#cb6-250" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-251"><a href="#cb6-251" aria-hidden="true" tabindex="-1"></a><span class="st">**지연.** </span><span class="dt">$W</span><span class="st">=0</span><span class="wa">$이</span><span class="st">라 </span><span class="dt">$N_w</span><span class="st">=\mathbb{E}[n]=</span><span class="ch">\s</span><span class="st">um_n n\,(0.5)^{n+1}=1</span><span class="wa">$.</span><span class="st"> Little :</span></span>
-<span id="cb6-252"><a href="#cb6-252" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-253"><a href="#cb6-253" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-254"><a href="#cb6-254" aria-hidden="true" tabindex="-1"></a><span class="st">T=</span><span class="ch">\f</span><span class="st">rac{N_w}{</span><span class="ch">\l</span><span class="st">ambda}=</span><span class="ch">\f</span><span class="st">rac{1}{0.8\,r}=</span><span class="ch">\f</span><span class="st">rac{1.25}{r}\ </span><span class="ch">\t</span><span class="st">ext{초}\ (=1.25\ </span><span class="ch">\t</span><span class="st">ext{slot}).</span></span>
-<span id="cb6-255"><a href="#cb6-255" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
-<span id="cb6-256"><a href="#cb6-256" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-259"><a href="#cb6-259" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb6-260"><a href="#cb6-260" aria-hidden="true" tabindex="-1"></a><span class="st">#| label: fig-bucket</span></span>
-<span id="cb6-261"><a href="#cb6-261" aria-hidden="true" tabindex="-1"></a><span class="st">#| fig-cap: </span><span class="ot">"</span>워크드 예제의 정상상태 분포 <span class="dt">$p_n</span>=(<span class="fl">0.5</span>)^{n+<span class="dv">1</span>}$ (등비).<span class="ot">"</span></span>
-<span id="cb6-262"><a href="#cb6-262" aria-hidden="true" tabindex="-1"></a><span class="st">import numpy as np, matplotlib.pyplot as plt</span></span>
-<span id="cb6-263"><a href="#cb6-263" aria-hidden="true" tabindex="-1"></a><span class="st">n = np.arange(0, 9)</span></span>
-<span id="cb6-264"><a href="#cb6-264" aria-hidden="true" tabindex="-1"></a><span class="st">p = 0.5**(n+1)</span></span>
-<span id="cb6-265"><a href="#cb6-265" aria-hidden="true" tabindex="-1"></a><span class="st">fig, ax = plt.subplots()</span></span>
-<span id="cb6-266"><a href="#cb6-266" aria-hidden="true" tabindex="-1"></a><span class="st">ax.bar(n, p, color=</span><span class="ot">"</span><span class="co">#2c7a55", width=0.6)</span></span>
-<span id="cb6-267"><a href="#cb6-267" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> xi, pi in zip(n, p):</span>
-<span id="cb6-268"><a href="#cb6-268" aria-hidden="true" tabindex="-1"></a>    ax.text(xi, pi+<span class="fl">0.008</span>, f<span class="ot">"</span><span class="st">{pi:.3f}</span><span class="ot">"</span>, ha=<span class="ot">"</span><span class="st">center</span><span class="ot">"</span>, fontsize=<span class="dv">8</span>)</span>
-<span id="cb6-269"><a href="#cb6-269" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="ot">"</span><span class="st">state </span><span class="dt">$n</span><span class="st">$ (waiting packets)</span><span class="ot">"</span>); ax.set_ylabel(<span class="ot">"</span><span class="dt">$p_n</span><span class="wa">$"</span><span class="st">)</span></span>
-<span id="cb6-270"><a href="#cb6-270" aria-hidden="true" tabindex="-1"></a><span class="st">ax.set_title(r</span><span class="ot">"</span><span class="dt">$p_0</span>=<span class="fl">0.5</span>,\ \rho=<span class="fl">0.8</span>,\ \bar N_w=<span class="dv">1</span>,\ T=<span class="fl">1.25</span>/r<span class="wa">$"</span>)</span>
-<span id="cb6-271"><a href="#cb6-271" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
-<span id="cb6-272"><a href="#cb6-272" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-273"><a href="#cb6-273" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-274"><a href="#cb6-274" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="<span class="co">[</span><span class="ot">시험 포인트</span><span class="co">]</span> Token bucket — 풀이 순서"}</span>
-<span id="cb6-275"><a href="#cb6-275" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**상태 정의**를 부호 규약대로 명확히 (token 수 ↔ 대기 패킷 수).</span>
-<span id="cb6-276"><a href="#cb6-276" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>전이확률 $P_{ji}=a_{i-j+1}$, 경계 $P_{00}=a_0+a_1$ 로 **작은 MC를 그린다**.</span>
-<span id="cb6-277"><a href="#cb6-277" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>balance를 **선형 점화식**으로 풀어 등비/소수 상태 확률을 구한다.</span>
-<span id="cb6-278"><a href="#cb6-278" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>$p_0=\dfrac{r-\lambda}{r a_0}$ 로 교차검증.</span>
-<span id="cb6-279"><a href="#cb6-279" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>지연은 **$N_w/\lambda$** (Little).</span>
-<span id="cb6-280"><a href="#cb6-280" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-281"><a href="#cb6-281" aria-hidden="true" tabindex="-1"></a>"관찰 시점(token 도착 직전 vs 직후)"이 상태 개수를 바꾼다 — 직전 관찰이면 그 slot의 도착이 아직 반영 안 돼 상태 공간이 더 단순해진다. (a)·(c) 가 이 차이를 묻는다.</span>
-<span id="cb6-282"><a href="#cb6-282" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb6-283"><a href="#cb6-283" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-284"><a href="#cb6-284" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb6-285"><a href="#cb6-285" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-286"><a href="#cb6-286" aria-hidden="true" tabindex="-1"></a><span class="fu"># 최적화 기반 Rate Control {#sec-opt}</span></span>
-<span id="cb6-287"><a href="#cb6-287" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-288"><a href="#cb6-288" aria-hidden="true" tabindex="-1"></a><span class="fu">## 목적함수</span></span>
-<span id="cb6-289"><a href="#cb6-289" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-290"><a href="#cb6-290" aria-hidden="true" tabindex="-1"></a>세션 class $w$의 제공부하 $\bar r_w$, 허용률 $r_w\le\bar r_w$:</span>
-<span id="cb6-291"><a href="#cb6-291" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-292"><a href="#cb6-292" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-293"><a href="#cb6-293" aria-hidden="true" tabindex="-1"></a>\min\ \sum_{(i,j)}D_{ij}(F_{ij})+\sum_{w}e_w(r_w)</span>
-<span id="cb6-294"><a href="#cb6-294" aria-hidden="true" tabindex="-1"></a>\quad\text{s.t.}\quad \sum_{p\in P_w}x_p=r_w,\ x_p\ge0,\ 0\le r_w\le\bar r_w.</span>
-<span id="cb6-295"><a href="#cb6-295" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-296"><a href="#cb6-296" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-297"><a href="#cb6-297" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\sum D_{ij}(F_{ij})$ : 링크 지연 비용(routing 비용과 동일).</span>
-<span id="cb6-298"><a href="#cb6-298" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\sum e_w(r_w)$ : 트래픽 **거절 페널티** ($r_w$ 작을수록 큰 비용 → "다 막아버리는" 자명해 방지).</span>
-<span id="cb6-299"><a href="#cb6-299" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-300"><a href="#cb6-300" aria-hidden="true" tabindex="-1"></a>많이 받으면 지연 ↑, 적게 받으면 거절 페널티 ↑. 그 균형이 최적 허용률.</span>
-<span id="cb6-301"><a href="#cb6-301" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-302"><a href="#cb6-302" aria-hidden="true" tabindex="-1"></a><span class="fu">## Overflow 재정식화</span></span>
-<span id="cb6-303"><a href="#cb6-303" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-304"><a href="#cb6-304" aria-hidden="true" tabindex="-1"></a>거절량 $y_w=\bar r_w-r_w\ge0$ 도입 → 부등식 제약 제거:</span>
-<span id="cb6-305"><a href="#cb6-305" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-306"><a href="#cb6-306" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-307"><a href="#cb6-307" aria-hidden="true" tabindex="-1"></a>\min\sum D_{ij}(F_{ij})+\sum_w E_w(y_w),\quad</span>
-<span id="cb6-308"><a href="#cb6-308" aria-hidden="true" tabindex="-1"></a>\sum_{p}x_p+y_w=\bar r_w,\ x_p,y_w\ge0,</span>
-<span id="cb6-309"><a href="#cb6-309" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-310"><a href="#cb6-310" aria-hidden="true" tabindex="-1"></a>$E_w(y_w)=e_w(\bar r_w-y_w)$, 제안형 $e_w'(r_w)=-(a_w/r_w)^{b_w}$.</span>
-<span id="cb6-311"><a href="#cb6-311" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-312"><a href="#cb6-312" aria-hidden="true" tabindex="-1"></a><span class="fu">## 최적성 조건 (KKT의 흐름 해석)</span></span>
-<span id="cb6-313"><a href="#cb6-313" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-314"><a href="#cb6-314" aria-hidden="true" tabindex="-1"></a>경로 한계비용 $d_p^*=\sum_{(i,j)\in p}D_{ij}'(F_{ij}^*)$ 로 두면,</span>
-<span id="cb6-315"><a href="#cb6-315" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-316"><a href="#cb6-316" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-317"><a href="#cb6-317" aria-hidden="true" tabindex="-1"></a>\begin{aligned}</span>
-<span id="cb6-318"><a href="#cb6-318" aria-hidden="true" tabindex="-1"></a>x_p^*&gt;0 &amp;\Rightarrow d_p^*\le d_{p'}^*\ (\forall p'\in P_w)\ \text{and}\ d_p^*\le -e_w'(r_w^*),<span class="sc">\\</span></span>
-<span id="cb6-319"><a href="#cb6-319" aria-hidden="true" tabindex="-1"></a>r_w^*&lt;\bar r_w &amp;\Rightarrow -e_w'(r_w^*)\le d_p^*\ (\forall p\in P_w).</span>
-<span id="cb6-320"><a href="#cb6-320" aria-hidden="true" tabindex="-1"></a>\end{aligned}</span>
-<span id="cb6-321"><a href="#cb6-321" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-322"><a href="#cb6-322" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-323"><a href="#cb6-323" aria-hidden="true" tabindex="-1"></a>해석: 흐름이 실리는 경로는 **모두 같은(최소) 한계비용**(= 최적 routing 조건), 그리고 그 값이 **거절의 한계페널티 $-e_w'$ 와 균형**을 이루는 지점에서 수용량이 결정된다.</span>
-<span id="cb6-324"><a href="#cb6-324" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-325"><a href="#cb6-325" aria-hidden="true" tabindex="-1"></a><span class="fu">## 단일 링크 예제 — 완전 유도</span></span>
-<span id="cb6-326"><a href="#cb6-326" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-327"><a href="#cb6-327" aria-hidden="true" tabindex="-1"></a>용량 $C$, 제공부하 $\bar r$, 허용률 $r$, $y=\bar r-r$. M/M/1 근사 $D(r)=\dfrac{r}{C-r}$, 페널티 $\dfrac{a}{r}$ :</span>
-<span id="cb6-328"><a href="#cb6-328" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-329"><a href="#cb6-329" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-330"><a href="#cb6-330" aria-hidden="true" tabindex="-1"></a>J(r)=\frac{r}{C-r}+\frac{a}{r},\qquad</span>
-<span id="cb6-331"><a href="#cb6-331" aria-hidden="true" tabindex="-1"></a>J'(r)=\frac{C}{(C-r)^2}-\frac{a}{r^2}.</span>
-<span id="cb6-332"><a href="#cb6-332" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-333"><a href="#cb6-333" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-334"><a href="#cb6-334" aria-hidden="true" tabindex="-1"></a>**내부 최적해** $J'=0$ :</span>
-<span id="cb6-335"><a href="#cb6-335" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-336"><a href="#cb6-336" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-337"><a href="#cb6-337" aria-hidden="true" tabindex="-1"></a>\frac{\sqrt C}{C-r}=\frac{\sqrt a}{r}\Rightarrow r(\sqrt C+\sqrt a)=C\sqrt a</span>
-<span id="cb6-338"><a href="#cb6-338" aria-hidden="true" tabindex="-1"></a>\Rightarrow \boxed{\,r^*=\dfrac{C\sqrt a}{\sqrt a+\sqrt C}\,}</span>
-<span id="cb6-339"><a href="#cb6-339" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-340"><a href="#cb6-340" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-341"><a href="#cb6-341" aria-hidden="true" tabindex="-1"></a>**flow control 불필요 조건** ($r=\bar r$에서 아직 감소):</span>
-<span id="cb6-342"><a href="#cb6-342" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-343"><a href="#cb6-343" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-344"><a href="#cb6-344" aria-hidden="true" tabindex="-1"></a>\frac{C}{(C-\bar r)^2}&lt;\frac{a}{\bar r^2}\ \Longleftrightarrow\ \bar r&lt;\frac{C\sqrt a}{\sqrt a+\sqrt C}=r^*.</span>
-<span id="cb6-345"><a href="#cb6-345" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-346"><a href="#cb6-346" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-347"><a href="#cb6-347" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning title="표기 정밀성"}</span>
-<span id="cb6-348"><a href="#cb6-348" aria-hidden="true" tabindex="-1"></a>정확한 형태는 제곱근이 들어간 $r^*=\dfrac{C\sqrt a}{\sqrt a+\sqrt C}$ 이다. $\dfrac{a}{a+C}$ 식은 $\dfrac{\sqrt a}{\sqrt a+\sqrt C}$ 의 축약으로 보아야 맞다.</span>
-<span id="cb6-349"><a href="#cb6-349" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb6-350"><a href="#cb6-350" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-351"><a href="#cb6-351" aria-hidden="true" tabindex="-1"></a><span class="fu">## 3-병렬-링크 예제 (시험 단골) {#sec-three-link}</span></span>
-<span id="cb6-352"><a href="#cb6-352" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-353"><a href="#cb6-353" aria-hidden="true" tabindex="-1"></a>단일 OD, 용량 $C_1,C_2,C_3$ 인 세 one-hop 경로, 총률 $r$ :</span>
-<span id="cb6-354"><a href="#cb6-354" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-355"><a href="#cb6-355" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-356"><a href="#cb6-356" aria-hidden="true" tabindex="-1"></a>\min\sum_{i=1}^{3}\frac{f_i}{C_i-f_i}\quad\text{s.t.}\ \sum_i f_i=r,\ f_i\ge0.</span>
-<span id="cb6-357"><a href="#cb6-357" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-358"><a href="#cb6-358" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-359"><a href="#cb6-359" aria-hidden="true" tabindex="-1"></a>Lagrangian $\mathcal L=\sum\frac{f_i}{C_i-f_i}-\nu(\sum f_i-r)$, 활성 링크에서</span>
-<span id="cb6-360"><a href="#cb6-360" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-361"><a href="#cb6-361" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-362"><a href="#cb6-362" aria-hidden="true" tabindex="-1"></a>\frac{C_i}{(C_i-f_i)^2}=\nu</span>
-<span id="cb6-363"><a href="#cb6-363" aria-hidden="true" tabindex="-1"></a>\Rightarrow C_i-f_i=\sqrt{C_i/\nu}</span>
-<span id="cb6-364"><a href="#cb6-364" aria-hidden="true" tabindex="-1"></a>\Rightarrow f_i=C_i-\sqrt{\tfrac{C_i}{\nu}}.</span>
-<span id="cb6-365"><a href="#cb6-365" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-366"><a href="#cb6-366" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-367"><a href="#cb6-367" aria-hidden="true" tabindex="-1"></a>$\sum f_i=r$ 대입:</span>
-<span id="cb6-368"><a href="#cb6-368" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-369"><a href="#cb6-369" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-370"><a href="#cb6-370" aria-hidden="true" tabindex="-1"></a>\sqrt\nu=\frac{\sum_i\sqrt{C_i}}{\sum_i C_i-r},\qquad</span>
-<span id="cb6-371"><a href="#cb6-371" aria-hidden="true" tabindex="-1"></a>\boxed{\,f_i=C_i-\sqrt{C_i}\,\frac{\sum_j C_j-r}{\sum_j\sqrt{C_j}}\,}</span>
-<span id="cb6-372"><a href="#cb6-372" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-373"><a href="#cb6-373" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-374"><a href="#cb6-374" aria-hidden="true" tabindex="-1"></a>(어떤 $f_i&lt;0$ 이 나오면 그 링크는 비활성 $f_i=0$ 으로 두고 나머지로 재계산.)</span>
-<span id="cb6-375"><a href="#cb6-375" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-378"><a href="#cb6-378" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb6-379"><a href="#cb6-379" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-threelink</span></span>
-<span id="cb6-380"><a href="#cb6-380" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "총률 $r$에 따른 최적 분배. 용량이 큰 링크가 더 많이, 모든 활성 링크의 한계비용이 같아진다. ($C=[3,2,1]$)"</span></span>
-<span id="cb6-381"><a href="#cb6-381" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np, matplotlib.pyplot <span class="im">as</span> plt</span>
-<span id="cb6-382"><a href="#cb6-382" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-383"><a href="#cb6-383" aria-hidden="true" tabindex="-1"></a>C <span class="op">=</span> np.array([<span class="fl">3.0</span>, <span class="fl">2.0</span>, <span class="fl">1.0</span>])</span>
-<span id="cb6-384"><a href="#cb6-384" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> opt_flows(r):</span>
-<span id="cb6-385"><a href="#cb6-385" aria-hidden="true" tabindex="-1"></a>    active <span class="op">=</span> np.array([<span class="va">True</span>, <span class="va">True</span>, <span class="va">True</span>])</span>
-<span id="cb6-386"><a href="#cb6-386" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">3</span>):</span>
-<span id="cb6-387"><a href="#cb6-387" aria-hidden="true" tabindex="-1"></a>        Ca <span class="op">=</span> C[active]</span>
-<span id="cb6-388"><a href="#cb6-388" aria-hidden="true" tabindex="-1"></a>        s <span class="op">=</span> np.<span class="bu">sum</span>(np.sqrt(Ca)) <span class="op">/</span> (np.<span class="bu">sum</span>(Ca) <span class="op">-</span> r)</span>
-<span id="cb6-389"><a href="#cb6-389" aria-hidden="true" tabindex="-1"></a>        f <span class="op">=</span> np.zeros(<span class="dv">3</span>)</span>
-<span id="cb6-390"><a href="#cb6-390" aria-hidden="true" tabindex="-1"></a>        f[active] <span class="op">=</span> Ca <span class="op">-</span> np.sqrt(Ca)<span class="op">/</span>s</span>
-<span id="cb6-391"><a href="#cb6-391" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> np.<span class="bu">all</span>(f[active] <span class="op">&gt;=</span> <span class="op">-</span><span class="fl">1e-9</span>):</span>
-<span id="cb6-392"><a href="#cb6-392" aria-hidden="true" tabindex="-1"></a>            f[f <span class="op">&lt;</span> <span class="dv">0</span>] <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="cf">return</span> f</span>
-<span id="cb6-393"><a href="#cb6-393" aria-hidden="true" tabindex="-1"></a>        active <span class="op">=</span> f <span class="op">&gt;</span> <span class="fl">1e-9</span></span>
-<span id="cb6-394"><a href="#cb6-394" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.clip(f, <span class="dv">0</span>, <span class="va">None</span>)</span>
-<span id="cb6-395"><a href="#cb6-395" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-396"><a href="#cb6-396" aria-hidden="true" tabindex="-1"></a>R <span class="op">=</span> np.linspace(<span class="fl">0.3</span>, <span class="fl">5.5</span>, <span class="dv">200</span>)</span>
-<span id="cb6-397"><a href="#cb6-397" aria-hidden="true" tabindex="-1"></a>F <span class="op">=</span> np.array([opt_flows(r) <span class="cf">for</span> r <span class="kw">in</span> R])</span>
-<span id="cb6-398"><a href="#cb6-398" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots()</span>
-<span id="cb6-399"><a href="#cb6-399" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, c <span class="kw">in</span> <span class="bu">enumerate</span>(C):</span>
-<span id="cb6-400"><a href="#cb6-400" aria-hidden="true" tabindex="-1"></a>    ax.plot(R, F[:, i], lw<span class="op">=</span><span class="dv">2</span>, label<span class="op">=</span><span class="ss">f"$f_</span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">$ (link $C=</span><span class="sc">{</span>c<span class="sc">:g}</span><span class="ss">$)"</span>)</span>
-<span id="cb6-401"><a href="#cb6-401" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="st">"total rate $r$"</span>)<span class="op">;</span> ax.set_ylabel(<span class="st">"path flow $f_i$"</span>)</span>
-<span id="cb6-402"><a href="#cb6-402" aria-hidden="true" tabindex="-1"></a>ax.legend()<span class="op">;</span> plt.tight_layout()</span>
-<span id="cb6-403"><a href="#cb6-403" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-404"><a href="#cb6-404" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-405"><a href="#cb6-405" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="<span class="co">[</span><span class="ot">시험 포인트</span><span class="co">]</span> 최적 rate/routing"}</span>
-<span id="cb6-406"><a href="#cb6-406" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>핵심 동작은 **한계비용 등화**: $\dfrac{C_i}{(C_i-f_i)^2}$ 를 모두 같게 + $\sum f_i=r$.</span>
-<span id="cb6-407"><a href="#cb6-407" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>단일/소수 링크라 사실상 **대수 계산 한 번**이면 끝 (일차방정식 수준).</span>
-<span id="cb6-408"><a href="#cb6-408" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>음수 flow → 그 링크 비활성 처리, 라는 경계 케이스 한 줄 챙기기.</span>
-<span id="cb6-409"><a href="#cb6-409" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb6-410"><a href="#cb6-410" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-411"><a href="#cb6-411" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb6-412"><a href="#cb6-412" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-413"><a href="#cb6-413" aria-hidden="true" tabindex="-1"></a><span class="fu"># Max-Min Fairness {#sec-maxmin}</span></span>
-<span id="cb6-414"><a href="#cb6-414" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-415"><a href="#cb6-415" aria-hidden="true" tabindex="-1"></a>목표가 비용이 아니라 **공정성**으로 바뀐다. 고정·단일경로, 세션 율 $r_p$, 링크 부하 $F_a=\sum_{p\ni a}r_p\le C_a$.</span>
-<span id="cb6-416"><a href="#cb6-416" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-417"><a href="#cb6-417" aria-hidden="true" tabindex="-1"></a><span class="fu">## 정의</span></span>
-<span id="cb6-418"><a href="#cb6-418" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-419"><a href="#cb6-419" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; $r$이 feasible이고, 어떤 $r_p$ 도 — 자신보다 작거나 같은 다른 $r_{p'}\le r_p$ 를 줄이지 않고는 — 더 늘릴 수 없으면 **max-min fair**.</span></span>
-<span id="cb6-420"><a href="#cb6-420" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-421"><a href="#cb6-421" aria-hidden="true" tabindex="-1"></a>직관: 가장 작은 율부터 최대한 끌어올리는 lexicographic 최대화.</span>
-<span id="cb6-422"><a href="#cb6-422" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-423"><a href="#cb6-423" aria-hidden="true" tabindex="-1"></a><span class="fu">## Bottleneck과 명제</span></span>
-<span id="cb6-424"><a href="#cb6-424" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-425"><a href="#cb6-425" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; 링크 $a$가 세션 $p$의 **bottleneck**: $F_a=C_a$ (포화) 이고 $a$ 위 모든 세션 중 $p$가 최대 율 ($r_p\ge r_{p'}$).</span></span>
-<span id="cb6-426"><a href="#cb6-426" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-427"><a href="#cb6-427" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; **Proposition:** $r$이 max-min fair $\Leftrightarrow$ 모든 세션이 적어도 하나의 bottleneck을 가짐.</span></span>
-<span id="cb6-428"><a href="#cb6-428" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-429"><a href="#cb6-429" aria-hidden="true" tabindex="-1"></a><span class="fu">## Water-filling 알고리즘</span></span>
-<span id="cb6-430"><a href="#cb6-430" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-431"><a href="#cb6-431" aria-hidden="true" tabindex="-1"></a>모든 링크에서 율을 같은 속도로 올리다 포화 링크가 생기면 그 위 세션을 동결, 반복.</span>
-<span id="cb6-432"><a href="#cb6-432" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-433"><a href="#cb6-433" aria-hidden="true" tabindex="-1"></a>초기: $k=1,\ F_a^0=0,\ r_p^0=0,\ P^1=P,\ A^1=A$.</span>
-<span id="cb6-434"><a href="#cb6-434" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-435"><a href="#cb6-435" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>$n_a^k$ = 링크 $a$ 위 미동결 세션 수.</span>
-<span id="cb6-436"><a href="#cb6-436" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>$\displaystyle \tilde r^k=\min_{a\in A^k}\frac{C_a-F_a^{k-1}}{n_a^k}$ → 다음 bottleneck.</span>
-<span id="cb6-437"><a href="#cb6-437" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>$r_p^k=r_p^{k-1}+\tilde r^k$ (활성 $p$), 나머지 유지.</span>
-<span id="cb6-438"><a href="#cb6-438" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>$F_a^k=\sum_{p\ni a}r_p^k$.</span>
-<span id="cb6-439"><a href="#cb6-439" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>$A^{k+1}=<span class="sc">\{</span>a:C_a-F_a^k&gt;0<span class="sc">\}</span>$.</span>
-<span id="cb6-440"><a href="#cb6-440" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>$P^{k+1}=<span class="sc">\{</span>p:p$가 포화 링크를 지나지 않음$<span class="sc">\}</span>$.</span>
-<span id="cb6-441"><a href="#cb6-441" aria-hidden="true" tabindex="-1"></a><span class="ss">7. </span>$k<span class="sc">\!</span>\leftarrow<span class="sc">\!</span>k+1$. 8. $P$ 비면 정지.</span>
-<span id="cb6-442"><a href="#cb6-442" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-443"><a href="#cb6-443" aria-hidden="true" tabindex="-1"></a><span class="fu">## 예제</span></span>
-<span id="cb6-444"><a href="#cb6-444" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-447"><a href="#cb6-447" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
-<span id="cb6-448"><a href="#cb6-448" aria-hidden="true" tabindex="-1"></a>%%| label: fig-maxmin</span>
-<span id="cb6-449"><a href="#cb6-449" aria-hidden="true" tabindex="-1"></a>%%| fig-cap: <span class="ot">"</span><span class="st">직렬 두 링크(용량 1). 세션 0,1,2는 첫 링크 공유, 세션 3은 둘째 링크만 사용.</span><span class="ot">"</span></span>
-<span id="cb6-450"><a href="#cb6-450" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
-<span id="cb6-451"><a href="#cb6-451" aria-hidden="true" tabindex="-1"></a>    A((A)) --&gt;|<span class="ot">"</span><span class="st">link1, C=1</span><span class="ot">"</span>| B((B))</span>
-<span id="cb6-452"><a href="#cb6-452" aria-hidden="true" tabindex="-1"></a>    B --&gt;|<span class="ot">"</span><span class="st">link2, C=1</span><span class="ot">"</span>| D((C))</span>
-<span id="cb6-453"><a href="#cb6-453" aria-hidden="true" tabindex="-1"></a>    S012[<span class="ot">"</span><span class="st">세션 0,1,2</span><span class="ot">"</span>] -.-&gt; A</span>
-<span id="cb6-454"><a href="#cb6-454" aria-hidden="true" tabindex="-1"></a>    S3[<span class="ot">"</span><span class="st">세션 3</span><span class="ot">"</span>] -.-&gt; B</span>
-<span id="cb6-455"><a href="#cb6-455" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-456"><a href="#cb6-456" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-457"><a href="#cb6-457" aria-hidden="true" tabindex="-1"></a>첫 링크는 0·1·2가 균등 분할 → 각 $1/3$. 둘째 링크는 세션 3 혼자라 남은 $1-1/3=2/3$ 전부 → $r_3=2/3$. **남는 용량을 낭비하지 않는 것**이 max-min의 특징(단순 균등분배 아님).</span>
-<span id="cb6-458"><a href="#cb6-458" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-459"><a href="#cb6-459" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="<span class="co">[</span><span class="ot">시험 포인트</span><span class="co">]</span> Max-Min"}</span>
-<span id="cb6-460"><a href="#cb6-460" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>정의(증가시키려면 ≤인 누군가를 깎아야)와 bottleneck 명제(iff)를 정확히.</span>
-<span id="cb6-461"><a href="#cb6-461" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>계산은 작은 토폴로지에서 **water-filling 손계산** 몇 단계.</span>
-<span id="cb6-462"><a href="#cb6-462" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>"max-min ≠ 균등분배" — 여유 용량을 독점 세션이 흡수하는 예가 단골.</span>
-<span id="cb6-463"><a href="#cb6-463" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb6-464"><a href="#cb6-464" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-465"><a href="#cb6-465" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb6-466"><a href="#cb6-466" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-467"><a href="#cb6-467" aria-hidden="true" tabindex="-1"></a><span class="fu"># Proportional Fair Scheduling {#sec-pf}</span></span>
-<span id="cb6-468"><a href="#cb6-468" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-469"><a href="#cb6-469" aria-hidden="true" tabindex="-1"></a>무선 시변 채널에서의 공정성. **throughput과 fairness의 절충**(max-min의 절대 보호와 대비).</span>
-<span id="cb6-470"><a href="#cb6-470" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-471"><a href="#cb6-471" aria-hidden="true" tabindex="-1"></a><span class="fu">## 스케줄링 규칙</span></span>
-<span id="cb6-472"><a href="#cb6-472" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-473"><a href="#cb6-473" aria-hidden="true" tabindex="-1"></a>순시 데이터율 $\mathrm{DRC}_k(t)$, 지수평균률 $R_k(t)$. 매 slot</span>
-<span id="cb6-474"><a href="#cb6-474" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-475"><a href="#cb6-475" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-476"><a href="#cb6-476" aria-hidden="true" tabindex="-1"></a>k^*=\arg\max_k\frac{\mathrm{DRC}_k(t)}{R_k(t)},</span>
-<span id="cb6-477"><a href="#cb6-477" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="an">number:</span><span class="co"> 6</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="an">aliases:</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co">  - "/study/data-network/flow-rate-control.html"</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "Window Flow Control · Token Bucket · 최적 Rate Control · Max-Min · Proportional Fair"</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-06-08"</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="an">lang:</span><span class="co"> ko</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: true</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: cosmo</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="co">    fig-width: 7</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="co">    fig-height: 4.2</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="co">  pdf:</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="co">    pdf-engine: xelatex</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="co">    include-in-header:</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="co">      text: |</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="co">        \usepackage{kotex}</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="co">        \usepackage{amsmath,amssymb}</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="an">execute:</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a><span class="co">  echo: true</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a><span class="co">  warning: false</span></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> python3</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a><span class="fu"># 큰 그림: 통제 변수 세 가지 {#sec-overview}</span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a>이 장 전체는 **"네트워크에 들어가는 트래픽을 무엇으로, 어떤 목표로 통제할 것인가"** 라는 하나의 질문을 세 층위에서 다룬다.</span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 접근 <span class="pp">|</span> 통제 변수 <span class="pp">|</span> 핵심 도구 <span class="pp">|</span> 목표 <span class="pp">|</span></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|</span></span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Window flow control <span class="pp">|</span> 미해결(outstanding) 패킷 수 $W$ <span class="pp">|</span> round-trip 관계식 <span class="pp">|</span> 파이프라인 점유 제어 <span class="pp">|</span></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Rate control (token bucket) <span class="pp">|</span> permit 생성률 $r$, 버킷 크기 $W$ <span class="pp">|</span> 이산시간 Markov chain <span class="pp">|</span> 평균률·버스트 평활화 <span class="pp">|</span></span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 최적/공정 rate control <span class="pp">|</span> 세션별 허용률 $r_w$ <span class="pp">|</span> 볼록최적화, max-min / proportional fair <span class="pp">|</span> 비용 최소화 · 공정성 <span class="pp">|</span></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a>앞의 둘은 **메커니즘**, 마지막은 그 메커니즘이 지향할 **목표(목적함수·공정성)** 이다.</span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a>::: {.callout-important title="이 문서를 보는 핵심 원칙"}</span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a>일반해는 *이차방정식*, 시험 문제는 그 일반해의 가장 단순한 인스턴스인 *일차방정식*이다.</span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a>각 절 끝의 **[시험 포인트]** 콜아웃이 "일차방정식 버전"이 무엇인지 정리한다.</span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a><span class="fu"># Window Flow Control {#sec-window}</span></span>
+<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a><span class="fu">## 전송률 관계식</span></span>
+<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a>End-to-end window 방식은 ACK를 못 받은 채 동시에 띄울 수 있는 패킷 수를 $W$로 제한한다.</span>
+<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$d$: round-trip delay (sec)</span>
+<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$X$: 패킷 한 개의 전송시간 (sec) $=$ 링크 속도의 역수</span>
+<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$W$: window size (패킷)</span>
+<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a>한 window가 한 바퀴 도는 데 $d$초, 그 동안 최대 $W$개를 보내므로 window 제약 시 전송률은 $W/d$, 링크 물리 한계는 $1/X$. 실제 전송률은 둘 중 작은 값:</span>
+<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a>r = \min<span class="sc">\!</span>\left<span class="co">[</span><span class="ot">\frac{1}{X},\ \frac{W}{d}\right</span><span class="co">]</span>\quad<span class="co">[</span><span class="ot">\text{packets/sec}</span><span class="co">]</span></span>
+<span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-68"><a href="#cb6-68" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$d \le WX$ : $r = 1/X$ (full speed, window는 제약이 아님)</span>
+<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$d &gt; WX$ : $r = W/d$ (이 지점부터 window가 throttle = flow control 작동)</span>
+<span id="cb6-70"><a href="#cb6-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-73"><a href="#cb6-73" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb6-74"><a href="#cb6-74" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-window</span></span>
+<span id="cb6-75"><a href="#cb6-75" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "RTT($d$)에 따른 전송률. $d=WX$에서 full-speed가 깨지고 flow control이 시작된다."</span></span>
+<span id="cb6-76"><a href="#cb6-76" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb6-77"><a href="#cb6-77" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb6-78"><a href="#cb6-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-79"><a href="#cb6-79" aria-hidden="true" tabindex="-1"></a>X, W <span class="op">=</span> <span class="fl">1.0</span>, <span class="fl">4.0</span></span>
+<span id="cb6-80"><a href="#cb6-80" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> np.linspace(<span class="fl">0.01</span>, <span class="dv">20</span>, <span class="dv">500</span>)</span>
+<span id="cb6-81"><a href="#cb6-81" aria-hidden="true" tabindex="-1"></a>r <span class="op">=</span> np.minimum(<span class="dv">1</span><span class="op">/</span>X, W<span class="op">/</span>d)</span>
+<span id="cb6-82"><a href="#cb6-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-83"><a href="#cb6-83" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots()</span>
+<span id="cb6-84"><a href="#cb6-84" aria-hidden="true" tabindex="-1"></a>ax.plot(d, r, lw<span class="op">=</span><span class="fl">2.2</span>, color<span class="op">=</span><span class="st">"#2c3e80"</span>)</span>
+<span id="cb6-85"><a href="#cb6-85" aria-hidden="true" tabindex="-1"></a>ax.axvline(W<span class="op">*</span>X, ls<span class="op">=</span><span class="st">"--"</span>, color<span class="op">=</span><span class="st">"gray"</span>)</span>
+<span id="cb6-86"><a href="#cb6-86" aria-hidden="true" tabindex="-1"></a>ax.axhline(<span class="dv">1</span><span class="op">/</span>X, ls<span class="op">=</span><span class="st">":"</span>, color<span class="op">=</span><span class="st">"gray"</span>)</span>
+<span id="cb6-87"><a href="#cb6-87" aria-hidden="true" tabindex="-1"></a>ax.annotate(<span class="st">"full speed</span><span class="ch">\n</span><span class="st">$r=1/X$"</span>, xy<span class="op">=</span>(W<span class="op">*</span>X<span class="op">/</span><span class="dv">2</span>, <span class="dv">1</span><span class="op">/</span>X),</span>
+<span id="cb6-88"><a href="#cb6-88" aria-hidden="true" tabindex="-1"></a>            xytext<span class="op">=</span>(W<span class="op">*</span>X<span class="op">/</span><span class="dv">2</span>, <span class="fl">0.78</span>), ha<span class="op">=</span><span class="st">"center"</span>)</span>
+<span id="cb6-89"><a href="#cb6-89" aria-hidden="true" tabindex="-1"></a>ax.annotate(<span class="st">"$r=W/d$"</span>, xy<span class="op">=</span>(<span class="dv">12</span>, W<span class="op">/</span><span class="dv">12</span>), xytext<span class="op">=</span>(<span class="dv">13</span>, <span class="fl">0.5</span>),</span>
+<span id="cb6-90"><a href="#cb6-90" aria-hidden="true" tabindex="-1"></a>            arrowprops<span class="op">=</span><span class="bu">dict</span>(arrowstyle<span class="op">=</span><span class="st">"-&gt;"</span>))</span>
+<span id="cb6-91"><a href="#cb6-91" aria-hidden="true" tabindex="-1"></a>ax.annotate(<span class="st">"flow control</span><span class="ch">\n</span><span class="st">begins ($d=WX$)"</span>, xy<span class="op">=</span>(W<span class="op">*</span>X, <span class="fl">0.55</span>),</span>
+<span id="cb6-92"><a href="#cb6-92" aria-hidden="true" tabindex="-1"></a>            xytext<span class="op">=</span>(<span class="dv">7</span>, <span class="fl">0.7</span>), arrowprops<span class="op">=</span><span class="bu">dict</span>(arrowstyle<span class="op">=</span><span class="st">"-&gt;"</span>))</span>
+<span id="cb6-93"><a href="#cb6-93" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="st">"Round-trip delay $d$"</span>)<span class="op">;</span> ax.set_ylabel(<span class="st">"Transmission rate $r$"</span>)</span>
+<span id="cb6-94"><a href="#cb6-94" aria-hidden="true" tabindex="-1"></a>ax.set_ylim(<span class="dv">0</span>, <span class="fl">1.15</span>)<span class="op">;</span> plt.tight_layout()</span>
+<span id="cb6-95"><a href="#cb6-95" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-96"><a href="#cb6-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-97"><a href="#cb6-97" aria-hidden="true" tabindex="-1"></a><span class="fu">## 시스템적 함의</span></span>
+<span id="cb6-98"><a href="#cb6-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-99"><a href="#cb6-99" aria-hidden="true" tabindex="-1"></a>두 가지 직관이 핵심이다.</span>
+<span id="cb6-100"><a href="#cb6-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-101"><a href="#cb6-101" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**긴 경로 세션이 불리하다.** $d$가 클수록 같은 $W$로 얻는 $r=W/d$가 작아진다 → window 방식은 RTT에 대해 공정하지 않다 (뒤의 공정성 절이 등장하는 동기).</span>
+<span id="cb6-102"><a href="#cb6-102" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**고속 전송은 큰 버퍼를 요구한다.** full speed 유지 조건 $W \ge d/X = d\cdot(\text{link rate})$, 즉 **bandwidth–delay product** 만큼의 패킷이 항상 in-flight 여야 한다.</span>
+<span id="cb6-103"><a href="#cb6-103" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-104"><a href="#cb6-104" aria-hidden="true" tabindex="-1"></a><span class="fu">## 변형</span></span>
+<span id="cb6-105"><a href="#cb6-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-106"><a href="#cb6-106" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Node-by-node (hop-by-hop):** 인접 노드쌍마다 window → **backpressure** 효과, end-to-end보다 필요 버퍼 적음.</span>
+<span id="cb6-107"><a href="#cb6-107" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Isarithmic:** 전역 permit 총수 고정 → 전역 부하는 통제하나 **국소 혼잡은 못 막음**.</span>
+<span id="cb6-108"><a href="#cb6-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-109"><a href="#cb6-109" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="<span class="co">[</span><span class="ot">시험 포인트</span><span class="co">]</span> Window"}</span>
+<span id="cb6-110"><a href="#cb6-110" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>외워서 쓸 식은 단 하나: $r=\min<span class="co">[</span><span class="ot">1/X,\ W/d</span><span class="co">]</span>$.</span>
+<span id="cb6-111"><a href="#cb6-111" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>묻는 형태: 주어진 $d,X,W$로 $r$ 계산, full-speed 조건 $d\le WX$ 판정, 또는 그래프 해석.</span>
+<span id="cb6-112"><a href="#cb6-112" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>"긴 경로 불리", "BDP 만큼 버퍼" 두 문장은 서술형 단골.</span>
+<span id="cb6-113"><a href="#cb6-113" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-114"><a href="#cb6-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-115"><a href="#cb6-115" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb6-116"><a href="#cb6-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-117"><a href="#cb6-117" aria-hidden="true" tabindex="-1"></a><span class="fu"># Rate Control — Token(Leaky) Bucket {#sec-bucket}</span></span>
+<span id="cb6-118"><a href="#cb6-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-119"><a href="#cb6-119" aria-hidden="true" tabindex="-1"></a>여기서부터가 계산 비중이 가장 크다. 모델 → 상태정의 → DTMC → 정상상태 → 지연 순으로 간다.</span>
+<span id="cb6-120"><a href="#cb6-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-121"><a href="#cb6-121" aria-hidden="true" tabindex="-1"></a><span class="fu">## 모델</span></span>
+<span id="cb6-122"><a href="#cb6-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-123"><a href="#cb6-123" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>패킷은 **permit(token)** 을 받아야 네트워크로 나간다.</span>
+<span id="cb6-124"><a href="#cb6-124" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Token은 **$1/r$초마다 1개** 생성되어 버킷(용량 $W$)에 쌓인다. 가득 차면 이후 token은 버려진다.</span>
+<span id="cb6-125"><a href="#cb6-125" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>token을 못 받은 패킷은 대기한다.</span>
+<span id="cb6-126"><a href="#cb6-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-127"><a href="#cb6-127" aria-hidden="true" tabindex="-1"></a><span class="fu">## 상태 정의 (부호 규약)</span></span>
+<span id="cb6-128"><a href="#cb6-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-129"><a href="#cb6-129" aria-hidden="true" tabindex="-1"></a>token 생성 시점을 embedding 시점으로 하는 이산시간 Markov chain. 상태 $i$:</span>
+<span id="cb6-130"><a href="#cb6-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-131"><a href="#cb6-131" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$i=0,1,\dots,W$ : 대기 패킷 없음, token이 $(W-i)$개 남음. ($i=0$ = 버킷 가득, $i=W$ = token 0개)</span>
+<span id="cb6-132"><a href="#cb6-132" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$i=W+1, W+2,\dots$ : token 0개, 패킷 $(i-W)$개 대기.</span>
+<span id="cb6-133"><a href="#cb6-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-134"><a href="#cb6-134" aria-hidden="true" tabindex="-1"></a>$\lambda$가 Poisson 도착률이면 한 slot($1/r$초) 동안 $k$개 도착할 확률은</span>
+<span id="cb6-135"><a href="#cb6-135" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-136"><a href="#cb6-136" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-137"><a href="#cb6-137" aria-hidden="true" tabindex="-1"></a>a_k=\frac{(\lambda/r)^k}{k!}\,e^{-\lambda/r},\qquad k=0,1,2,\dots</span>
+<span id="cb6-138"><a href="#cb6-138" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-139"><a href="#cb6-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-140"><a href="#cb6-140" aria-hidden="true" tabindex="-1"></a>평균 $\lambda/r=\rho$ 의 Poisson.</span>
+<span id="cb6-141"><a href="#cb6-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-142"><a href="#cb6-142" aria-hidden="true" tabindex="-1"></a><span class="fu">## 전이확률 (동역학에서 직접)</span></span>
+<span id="cb6-143"><a href="#cb6-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-144"><a href="#cb6-144" aria-hidden="true" tabindex="-1"></a>한 slot에서 token $-1$, 도착 $+A$. $j\ge1$이면 token이 늘 소비되므로 $i=j-1+A$, 즉 $A=i-j+1$:</span>
+<span id="cb6-145"><a href="#cb6-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-146"><a href="#cb6-146" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-147"><a href="#cb6-147" aria-hidden="true" tabindex="-1"></a>P_{ji}=a_{\,i-j+1}\quad(j\le i+1),\qquad 0\ \text{otherwise}.</span>
+<span id="cb6-148"><a href="#cb6-148" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-149"><a href="#cb6-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-150"><a href="#cb6-150" aria-hidden="true" tabindex="-1"></a>상태 0(버킷 가득)에서는 경계 효과: $A=0$(token 버려짐)·$A=1$(바로 소비) 둘 다 0 유지:</span>
+<span id="cb6-151"><a href="#cb6-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-152"><a href="#cb6-152" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-153"><a href="#cb6-153" aria-hidden="true" tabindex="-1"></a>P_{0i}=\begin{cases}a_0+a_1,&amp; i=0<span class="sc">\\</span> a_{\,i+1},&amp; i\ge1\end{cases}</span>
+<span id="cb6-154"><a href="#cb6-154" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-155"><a href="#cb6-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-156"><a href="#cb6-156" aria-hidden="true" tabindex="-1"></a>이 $a_0+a_1$ 항이 버킷 용량 $W$ 상한을 인코딩한다. 구조는 M/G/1 임베디드 chain과 동일한 *skip-free to the left* 형태.</span>
+<span id="cb6-157"><a href="#cb6-157" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-160"><a href="#cb6-160" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb6-161"><a href="#cb6-161" aria-hidden="true" tabindex="-1"></a>%%| label: fig-mc</span>
+<span id="cb6-162"><a href="#cb6-162" aria-hidden="true" tabindex="-1"></a>%%| fig-cap: <span class="ot">"</span><span class="st">Token bucket DTMC (대표 전이만 표시). 좌향은 항상 </span><span class="dt">$a_0</span><span class="wa">$,</span><span class="st"> 자기/우향은 </span><span class="dt">$a_1</span><span class="st">,a_2,\\dots</span><span class="wa">$"</span></span>
+<span id="cb6-163"><a href="#cb6-163" aria-hidden="true" tabindex="-1"></a><span class="st">flowchart LR</span></span>
+<span id="cb6-164"><a href="#cb6-164" aria-hidden="true" tabindex="-1"></a><span class="st">    S0((0)) --&gt;|a0+a1| S0</span></span>
+<span id="cb6-165"><a href="#cb6-165" aria-hidden="true" tabindex="-1"></a><span class="st">    S0 --&gt;|a2| S1((1))</span></span>
+<span id="cb6-166"><a href="#cb6-166" aria-hidden="true" tabindex="-1"></a><span class="st">    S1 --&gt;|a0| S0</span></span>
+<span id="cb6-167"><a href="#cb6-167" aria-hidden="true" tabindex="-1"></a><span class="st">    S1 --&gt;|a1| S1</span></span>
+<span id="cb6-168"><a href="#cb6-168" aria-hidden="true" tabindex="-1"></a><span class="st">    S1 --&gt;|a2| S2((2))</span></span>
+<span id="cb6-169"><a href="#cb6-169" aria-hidden="true" tabindex="-1"></a><span class="st">    S2 --&gt;|a0| S1</span></span>
+<span id="cb6-170"><a href="#cb6-170" aria-hidden="true" tabindex="-1"></a><span class="st">    S2 --&gt;|a1| S2</span></span>
+<span id="cb6-171"><a href="#cb6-171" aria-hidden="true" tabindex="-1"></a><span class="st">    S2 --&gt;|a2| S3((3))</span></span>
+<span id="cb6-172"><a href="#cb6-172" aria-hidden="true" tabindex="-1"></a><span class="st">    S3 --&gt;|a0| S2</span></span>
+<span id="cb6-173"><a href="#cb6-173" aria-hidden="true" tabindex="-1"></a><span class="st">    S3 --&gt;|a1| S3</span></span>
+<span id="cb6-174"><a href="#cb6-174" aria-hidden="true" tabindex="-1"></a><span class="st">    S3 --&gt;|a2| S4((</span><span class="ot">"</span>...<span class="ot">"</span><span class="st">))</span></span>
+<span id="cb6-175"><a href="#cb6-175" aria-hidden="true" tabindex="-1"></a><span class="st">```</span></span>
+<span id="cb6-176"><a href="#cb6-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-177"><a href="#cb6-177" aria-hidden="true" tabindex="-1"></a><span class="st">## 정상상태 (balance → 재귀)</span></span>
+<span id="cb6-178"><a href="#cb6-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-179"><a href="#cb6-179" aria-hidden="true" tabindex="-1"></a><span class="dt">$j</span><span class="st">=0$ 항도 </span><span class="dt">$a_</span><span class="st">{i+1}=a_{i-0+1}</span><span class="wa">$로</span><span class="st"> 같은 형태에 흡수되므로,</span></span>
+<span id="cb6-180"><a href="#cb6-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-181"><a href="#cb6-181" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-182"><a href="#cb6-182" aria-hidden="true" tabindex="-1"></a><span class="st">p_0=a_0p_1+(a_0+a_1)p_0,\qquad p_i=</span><span class="ch">\s</span><span class="st">um_{j=0}^{i+1}a_{\,i-j+1}\,p_j\ \ (i\ge1).</span></span>
+<span id="cb6-183"><a href="#cb6-183" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-184"><a href="#cb6-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-185"><a href="#cb6-185" aria-hidden="true" tabindex="-1"></a><span class="st">상태 0 식에서</span></span>
+<span id="cb6-186"><a href="#cb6-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-187"><a href="#cb6-187" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-188"><a href="#cb6-188" aria-hidden="true" tabindex="-1"></a><span class="st">p_0(1-a_0-a_1)=a_0p_1 \;</span><span class="ch">\R</span><span class="st">ightarrow\; p_1=</span><span class="ch">\f</span><span class="st">rac{1-a_0-a_1}{a_0}\,p_0,</span></span>
+<span id="cb6-189"><a href="#cb6-189" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-190"><a href="#cb6-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-191"><a href="#cb6-191" aria-hidden="true" tabindex="-1"></a><span class="st">이후 </span><span class="dt">$p_2</span><span class="st">,p_3,</span><span class="ch">\d</span><span class="st">ots$ 를 차례로 </span><span class="dt">$p_0</span><span class="wa">$에</span><span class="st"> 비례해 구한다.</span></span>
+<span id="cb6-192"><a href="#cb6-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-193"><a href="#cb6-193" aria-hidden="true" tabindex="-1"></a><span class="st">## </span><span class="dt">$p_0</span><span class="wa">$:</span><span class="st"> 보존(conservation) 논증</span></span>
+<span id="cb6-194"><a href="#cb6-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-195"><a href="#cb6-195" aria-hidden="true" tabindex="-1"></a><span class="st">정규화 대신 물리 보존을 쓰면 한 줄이다. Token은 율 </span><span class="dt">$r</span><span class="wa">$로</span><span class="st"> 생성되고, **유일하게 낭비되는 경우는 상태 0에서 도착이 없을 때(</span><span class="dt">$a_0</span><span class="wa">$)</span><span class="ot">*</span><span class="st">* 뿐이므로 출력률 = </span><span class="dt">$r</span><span class="st">(1-p_0a_0)</span><span class="wa">$.</span><span class="st"> 정상상태 throughput = </span><span class="wa">$\</span><span class="st">lambda$ :</span></span>
+<span id="cb6-196"><a href="#cb6-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-197"><a href="#cb6-197" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-198"><a href="#cb6-198" aria-hidden="true" tabindex="-1"></a><span class="st">r(1-p_0a_0)=</span><span class="ch">\l</span><span class="st">ambda \;</span><span class="ch">\R</span><span class="st">ightarrow\; </span><span class="ch">\b</span><span class="st">oxed{\,p_0=</span><span class="ch">\d</span><span class="st">frac{r-</span><span class="ch">\l</span><span class="st">ambda}{r\,a_0}\,}</span></span>
+<span id="cb6-199"><a href="#cb6-199" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-200"><a href="#cb6-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-201"><a href="#cb6-201" aria-hidden="true" tabindex="-1"></a><span class="st">::: {.callout-note title=</span><span class="ot">"</span>안정성<span class="ot">"</span><span class="st">}</span></span>
+<span id="cb6-202"><a href="#cb6-202" aria-hidden="true" tabindex="-1"></a><span class="dt">$p_0</span><span class="st">&gt;0 </span><span class="ch">\L</span><span class="st">eftrightarrow </span><span class="ch">\l</span><span class="st">ambda&lt;r</span><span class="wa">$.</span><span class="st"> 평균 token 생성률이 평균 도착률보다 커야 한다 (</span><span class="wa">$\</span><span class="st">rho=</span><span class="ch">\l</span><span class="st">ambda/r&lt;1</span><span class="wa">$)</span><span class="st">.</span></span>
+<span id="cb6-203"><a href="#cb6-203" aria-hidden="true" tabindex="-1"></a><span class="st">:::</span></span>
+<span id="cb6-204"><a href="#cb6-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-205"><a href="#cb6-205" aria-hidden="true" tabindex="-1"></a><span class="st">## 평균 permit 대기시간</span></span>
+<span id="cb6-206"><a href="#cb6-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-207"><a href="#cb6-207" aria-hidden="true" tabindex="-1"></a><span class="st">대기 패킷 수 </span><span class="wa">$=</span><span class="st">\max(0,i-W)</span><span class="wa">$,</span><span class="st"> 평균 </span><span class="dt">$N_w</span><span class="st">=</span><span class="ch">\s</span><span class="st">um_{j&gt;W}p_j(j-W)</span><span class="wa">$.</span><span class="st"> **Little의 법칙** </span><span class="dt">$N_w</span><span class="st">=</span><span class="ch">\l</span><span class="st">ambda T$ :</span></span>
+<span id="cb6-208"><a href="#cb6-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-209"><a href="#cb6-209" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-210"><a href="#cb6-210" aria-hidden="true" tabindex="-1"></a><span class="ch">\b</span><span class="st">oxed{\,T=</span><span class="ch">\f</span><span class="st">rac{1}{</span><span class="ch">\l</span><span class="st">ambda}</span><span class="ch">\s</span><span class="st">um_{j=W+1}^{\infty}p_j\,(j-W)\,}</span></span>
+<span id="cb6-211"><a href="#cb6-211" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-212"><a href="#cb6-212" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-213"><a href="#cb6-213" aria-hidden="true" tabindex="-1"></a><span class="st">::: {.callout-warning title=</span><span class="ot">"</span>분모는 r이 아니라 λ<span class="ot">"</span><span class="st">}</span></span>
+<span id="cb6-214"><a href="#cb6-214" aria-hidden="true" tabindex="-1"></a><span class="st">대기 큐의 Little 법칙은 분모로 **도착률 </span><span class="wa">$\</span><span class="st">lambda</span><span class="wa">$*</span><span class="ot">*</span><span class="st"> 를 요구한다(서비스율 </span><span class="dt">$r</span><span class="st">$ 아님). 둘은 </span><span class="wa">$\</span><span class="st">lambda</span><span class="ch">\t</span><span class="st">o r$ 극한에서만 일치하므로, </span><span class="ot">"</span>average packet delay<span class="ot">"</span><span class="st">는 </span><span class="dt">$N_w</span><span class="st">/</span><span class="ch">\l</span><span class="st">ambda$ 로 답한다.</span></span>
+<span id="cb6-215"><a href="#cb6-215" aria-hidden="true" tabindex="-1"></a><span class="st">:::</span></span>
+<span id="cb6-216"><a href="#cb6-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-217"><a href="#cb6-217" aria-hidden="true" tabindex="-1"></a><span class="st">## 버킷 크기 </span><span class="dt">$W</span><span class="wa">$의</span><span class="st"> trade-off</span></span>
+<span id="cb6-218"><a href="#cb6-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-219"><a href="#cb6-219" aria-hidden="true" tabindex="-1"></a><span class="st">- </span><span class="dt">$W</span><span class="st">$ 작음 → 버스트가 permit 기다리며 대기 (평활화 강, 지연 증가)</span></span>
+<span id="cb6-220"><a href="#cb6-220" aria-hidden="true" tabindex="-1"></a><span class="st">- </span><span class="dt">$W</span><span class="st">$ 큼 → 긴 버스트가 한꺼번에 진입 (내부 혼잡 위험)</span></span>
+<span id="cb6-221"><a href="#cb6-221" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-222"><a href="#cb6-222" aria-hidden="true" tabindex="-1"></a><span class="dt">$r</span><span class="wa">$은</span><span class="st"> 평균률, </span><span class="dt">$W</span><span class="wa">$는</span><span class="st"> 버스트 크기를 통제하는 두 손잡이.</span></span>
+<span id="cb6-223"><a href="#cb6-223" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-224"><a href="#cb6-224" aria-hidden="true" tabindex="-1"></a><span class="st">## 워크드 예제 (일차방정식 버전) {#sec-bucket-example}</span></span>
+<span id="cb6-225"><a href="#cb6-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-226"><a href="#cb6-226" aria-hidden="true" tabindex="-1"></a><span class="st">가장 단순한 인스턴스: **버킷 용량 </span><span class="dt">$W</span><span class="st">=0</span><span class="wa">$*</span><span class="ot">*</span><span class="st">(token 저장 없음), 도착은 slot당 최대 2개로 한정.</span></span>
+<span id="cb6-227"><a href="#cb6-227" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-228"><a href="#cb6-228" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-229"><a href="#cb6-229" aria-hidden="true" tabindex="-1"></a><span class="st">a_0=0.4,\quad a_1=0.4,\quad a_2=0.2,\qquad </span><span class="ch">\r</span><span class="st">ho=\mathbb{E}[A]=0.4+2(0.2)=0.8&lt;1.</span></span>
+<span id="cb6-230"><a href="#cb6-230" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-231"><a href="#cb6-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-232"><a href="#cb6-232" aria-hidden="true" tabindex="-1"></a><span class="dt">$W</span><span class="st">=0</span><span class="wa">$이</span><span class="st">므로 상태 </span><span class="dt">$n</span><span class="st">$ = 대기 패킷 수.</span></span>
+<span id="cb6-233"><a href="#cb6-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-234"><a href="#cb6-234" aria-hidden="true" tabindex="-1"></a><span class="st">**Balance 방정식 (작은 선형계)**</span></span>
+<span id="cb6-235"><a href="#cb6-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-236"><a href="#cb6-236" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-237"><a href="#cb6-237" aria-hidden="true" tabindex="-1"></a><span class="ch">\b</span><span class="st">egin{aligned}</span></span>
+<span id="cb6-238"><a href="#cb6-238" aria-hidden="true" tabindex="-1"></a><span class="st">p_0&amp;=(a_0+a_1)p_0+a_0p_1=0.8p_0+0.4p_1 &amp;&amp;</span><span class="ch">\R</span><span class="st">ightarrow\ p_1=0.5\,p_0\\</span></span>
+<span id="cb6-239"><a href="#cb6-239" aria-hidden="true" tabindex="-1"></a><span class="st">p_1&amp;=a_2p_0+a_1p_1+a_0p_2=0.2p_0+0.4p_1+0.4p_2 &amp;&amp;</span><span class="ch">\R</span><span class="st">ightarrow\ p_2=0.25\,p_0\\</span></span>
+<span id="cb6-240"><a href="#cb6-240" aria-hidden="true" tabindex="-1"></a><span class="st">p_2&amp;=a_2p_1+a_1p_2+a_0p_3 &amp;&amp;</span><span class="ch">\R</span><span class="st">ightarrow\ p_3=0.125\,p_0</span></span>
+<span id="cb6-241"><a href="#cb6-241" aria-hidden="true" tabindex="-1"></a><span class="ch">\e</span><span class="st">nd{aligned}</span></span>
+<span id="cb6-242"><a href="#cb6-242" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-243"><a href="#cb6-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-244"><a href="#cb6-244" aria-hidden="true" tabindex="-1"></a><span class="st">공비 </span><span class="wa">$0</span><span class="st">.5</span><span class="wa">$의</span><span class="st"> 등비: </span><span class="dt">$p_n</span><span class="st">=p_0(0.5)^n</span><span class="wa">$.</span><span class="st"> 정규화 </span><span class="wa">$\</span><span class="st">sum p_n=2p_0=1$ → </span><span class="dt">$p_0</span><span class="st">=0.5</span><span class="wa">$,</span><span class="st"> 즉</span></span>
+<span id="cb6-245"><a href="#cb6-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-246"><a href="#cb6-246" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-247"><a href="#cb6-247" aria-hidden="true" tabindex="-1"></a><span class="st">p_n=(0.5)^{\,n+1}.</span></span>
+<span id="cb6-248"><a href="#cb6-248" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-249"><a href="#cb6-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-250"><a href="#cb6-250" aria-hidden="true" tabindex="-1"></a><span class="st">보존식 검증: </span><span class="dt">$p_0</span><span class="st">=</span><span class="ch">\d</span><span class="st">frac{r-</span><span class="ch">\l</span><span class="st">ambda}{r a_0}=</span><span class="ch">\d</span><span class="st">frac{1-</span><span class="ch">\r</span><span class="st">ho}{a_0}=</span><span class="ch">\d</span><span class="st">frac{0.2}{0.4}=0.5</span><span class="wa">$.</span><span class="st"> ✔</span></span>
+<span id="cb6-251"><a href="#cb6-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-252"><a href="#cb6-252" aria-hidden="true" tabindex="-1"></a><span class="st">**지연.** </span><span class="dt">$W</span><span class="st">=0</span><span class="wa">$이</span><span class="st">라 </span><span class="dt">$N_w</span><span class="st">=\mathbb{E}[n]=</span><span class="ch">\s</span><span class="st">um_n n\,(0.5)^{n+1}=1</span><span class="wa">$.</span><span class="st"> Little :</span></span>
+<span id="cb6-253"><a href="#cb6-253" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-254"><a href="#cb6-254" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-255"><a href="#cb6-255" aria-hidden="true" tabindex="-1"></a><span class="st">T=</span><span class="ch">\f</span><span class="st">rac{N_w}{</span><span class="ch">\l</span><span class="st">ambda}=</span><span class="ch">\f</span><span class="st">rac{1}{0.8\,r}=</span><span class="ch">\f</span><span class="st">rac{1.25}{r}\ </span><span class="ch">\t</span><span class="st">ext{초}\ (=1.25\ </span><span class="ch">\t</span><span class="st">ext{slot}).</span></span>
+<span id="cb6-256"><a href="#cb6-256" aria-hidden="true" tabindex="-1"></a><span class="wa">$$</span></span>
+<span id="cb6-257"><a href="#cb6-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-260"><a href="#cb6-260" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb6-261"><a href="#cb6-261" aria-hidden="true" tabindex="-1"></a><span class="st">#| label: fig-bucket</span></span>
+<span id="cb6-262"><a href="#cb6-262" aria-hidden="true" tabindex="-1"></a><span class="st">#| fig-cap: </span><span class="ot">"</span>워크드 예제의 정상상태 분포 <span class="dt">$p_n</span>=(<span class="fl">0.5</span>)^{n+<span class="dv">1</span>}$ (등비).<span class="ot">"</span></span>
+<span id="cb6-263"><a href="#cb6-263" aria-hidden="true" tabindex="-1"></a><span class="st">import numpy as np, matplotlib.pyplot as plt</span></span>
+<span id="cb6-264"><a href="#cb6-264" aria-hidden="true" tabindex="-1"></a><span class="st">n = np.arange(0, 9)</span></span>
+<span id="cb6-265"><a href="#cb6-265" aria-hidden="true" tabindex="-1"></a><span class="st">p = 0.5**(n+1)</span></span>
+<span id="cb6-266"><a href="#cb6-266" aria-hidden="true" tabindex="-1"></a><span class="st">fig, ax = plt.subplots()</span></span>
+<span id="cb6-267"><a href="#cb6-267" aria-hidden="true" tabindex="-1"></a><span class="st">ax.bar(n, p, color=</span><span class="ot">"</span><span class="co">#2c7a55", width=0.6)</span></span>
+<span id="cb6-268"><a href="#cb6-268" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> xi, pi in zip(n, p):</span>
+<span id="cb6-269"><a href="#cb6-269" aria-hidden="true" tabindex="-1"></a>    ax.text(xi, pi+<span class="fl">0.008</span>, f<span class="ot">"</span><span class="st">{pi:.3f}</span><span class="ot">"</span>, ha=<span class="ot">"</span><span class="st">center</span><span class="ot">"</span>, fontsize=<span class="dv">8</span>)</span>
+<span id="cb6-270"><a href="#cb6-270" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="ot">"</span><span class="st">state </span><span class="dt">$n</span><span class="st">$ (waiting packets)</span><span class="ot">"</span>); ax.set_ylabel(<span class="ot">"</span><span class="dt">$p_n</span><span class="wa">$"</span><span class="st">)</span></span>
+<span id="cb6-271"><a href="#cb6-271" aria-hidden="true" tabindex="-1"></a><span class="st">ax.set_title(r</span><span class="ot">"</span><span class="dt">$p_0</span>=<span class="fl">0.5</span>,\ \rho=<span class="fl">0.8</span>,\ \bar N_w=<span class="dv">1</span>,\ T=<span class="fl">1.25</span>/r<span class="wa">$"</span>)</span>
+<span id="cb6-272"><a href="#cb6-272" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb6-273"><a href="#cb6-273" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-274"><a href="#cb6-274" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-275"><a href="#cb6-275" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="<span class="co">[</span><span class="ot">시험 포인트</span><span class="co">]</span> Token bucket — 풀이 순서"}</span>
+<span id="cb6-276"><a href="#cb6-276" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**상태 정의**를 부호 규약대로 명확히 (token 수 ↔ 대기 패킷 수).</span>
+<span id="cb6-277"><a href="#cb6-277" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>전이확률 $P_{ji}=a_{i-j+1}$, 경계 $P_{00}=a_0+a_1$ 로 **작은 MC를 그린다**.</span>
+<span id="cb6-278"><a href="#cb6-278" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>balance를 **선형 점화식**으로 풀어 등비/소수 상태 확률을 구한다.</span>
+<span id="cb6-279"><a href="#cb6-279" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>$p_0=\dfrac{r-\lambda}{r a_0}$ 로 교차검증.</span>
+<span id="cb6-280"><a href="#cb6-280" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>지연은 **$N_w/\lambda$** (Little).</span>
+<span id="cb6-281"><a href="#cb6-281" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-282"><a href="#cb6-282" aria-hidden="true" tabindex="-1"></a>"관찰 시점(token 도착 직전 vs 직후)"이 상태 개수를 바꾼다 — 직전 관찰이면 그 slot의 도착이 아직 반영 안 돼 상태 공간이 더 단순해진다. (a)·(c) 가 이 차이를 묻는다.</span>
+<span id="cb6-283"><a href="#cb6-283" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-284"><a href="#cb6-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-285"><a href="#cb6-285" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb6-286"><a href="#cb6-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-287"><a href="#cb6-287" aria-hidden="true" tabindex="-1"></a><span class="fu"># 최적화 기반 Rate Control {#sec-opt}</span></span>
+<span id="cb6-288"><a href="#cb6-288" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-289"><a href="#cb6-289" aria-hidden="true" tabindex="-1"></a><span class="fu">## 목적함수</span></span>
+<span id="cb6-290"><a href="#cb6-290" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-291"><a href="#cb6-291" aria-hidden="true" tabindex="-1"></a>세션 class $w$의 제공부하 $\bar r_w$, 허용률 $r_w\le\bar r_w$:</span>
+<span id="cb6-292"><a href="#cb6-292" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-293"><a href="#cb6-293" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-294"><a href="#cb6-294" aria-hidden="true" tabindex="-1"></a>\min\ \sum_{(i,j)}D_{ij}(F_{ij})+\sum_{w}e_w(r_w)</span>
+<span id="cb6-295"><a href="#cb6-295" aria-hidden="true" tabindex="-1"></a>\quad\text{s.t.}\quad \sum_{p\in P_w}x_p=r_w,\ x_p\ge0,\ 0\le r_w\le\bar r_w.</span>
+<span id="cb6-296"><a href="#cb6-296" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-297"><a href="#cb6-297" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-298"><a href="#cb6-298" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\sum D_{ij}(F_{ij})$ : 링크 지연 비용(routing 비용과 동일).</span>
+<span id="cb6-299"><a href="#cb6-299" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\sum e_w(r_w)$ : 트래픽 **거절 페널티** ($r_w$ 작을수록 큰 비용 → "다 막아버리는" 자명해 방지).</span>
+<span id="cb6-300"><a href="#cb6-300" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-301"><a href="#cb6-301" aria-hidden="true" tabindex="-1"></a>많이 받으면 지연 ↑, 적게 받으면 거절 페널티 ↑. 그 균형이 최적 허용률.</span>
+<span id="cb6-302"><a href="#cb6-302" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-303"><a href="#cb6-303" aria-hidden="true" tabindex="-1"></a><span class="fu">## Overflow 재정식화</span></span>
+<span id="cb6-304"><a href="#cb6-304" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-305"><a href="#cb6-305" aria-hidden="true" tabindex="-1"></a>거절량 $y_w=\bar r_w-r_w\ge0$ 도입 → 부등식 제약 제거:</span>
+<span id="cb6-306"><a href="#cb6-306" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-307"><a href="#cb6-307" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-308"><a href="#cb6-308" aria-hidden="true" tabindex="-1"></a>\min\sum D_{ij}(F_{ij})+\sum_w E_w(y_w),\quad</span>
+<span id="cb6-309"><a href="#cb6-309" aria-hidden="true" tabindex="-1"></a>\sum_{p}x_p+y_w=\bar r_w,\ x_p,y_w\ge0,</span>
+<span id="cb6-310"><a href="#cb6-310" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-311"><a href="#cb6-311" aria-hidden="true" tabindex="-1"></a>$E_w(y_w)=e_w(\bar r_w-y_w)$, 제안형 $e_w'(r_w)=-(a_w/r_w)^{b_w}$.</span>
+<span id="cb6-312"><a href="#cb6-312" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-313"><a href="#cb6-313" aria-hidden="true" tabindex="-1"></a><span class="fu">## 최적성 조건 (KKT의 흐름 해석)</span></span>
+<span id="cb6-314"><a href="#cb6-314" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-315"><a href="#cb6-315" aria-hidden="true" tabindex="-1"></a>경로 한계비용 $d_p^*=\sum_{(i,j)\in p}D_{ij}'(F_{ij}^*)$ 로 두면,</span>
+<span id="cb6-316"><a href="#cb6-316" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-317"><a href="#cb6-317" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-318"><a href="#cb6-318" aria-hidden="true" tabindex="-1"></a>\begin{aligned}</span>
+<span id="cb6-319"><a href="#cb6-319" aria-hidden="true" tabindex="-1"></a>x_p^*&gt;0 &amp;\Rightarrow d_p^*\le d_{p'}^*\ (\forall p'\in P_w)\ \text{and}\ d_p^*\le -e_w'(r_w^*),<span class="sc">\\</span></span>
+<span id="cb6-320"><a href="#cb6-320" aria-hidden="true" tabindex="-1"></a>r_w^*&lt;\bar r_w &amp;\Rightarrow -e_w'(r_w^*)\le d_p^*\ (\forall p\in P_w).</span>
+<span id="cb6-321"><a href="#cb6-321" aria-hidden="true" tabindex="-1"></a>\end{aligned}</span>
+<span id="cb6-322"><a href="#cb6-322" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-323"><a href="#cb6-323" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-324"><a href="#cb6-324" aria-hidden="true" tabindex="-1"></a>해석: 흐름이 실리는 경로는 **모두 같은(최소) 한계비용**(= 최적 routing 조건), 그리고 그 값이 **거절의 한계페널티 $-e_w'$ 와 균형**을 이루는 지점에서 수용량이 결정된다.</span>
+<span id="cb6-325"><a href="#cb6-325" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-326"><a href="#cb6-326" aria-hidden="true" tabindex="-1"></a><span class="fu">## 단일 링크 예제 — 완전 유도</span></span>
+<span id="cb6-327"><a href="#cb6-327" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-328"><a href="#cb6-328" aria-hidden="true" tabindex="-1"></a>용량 $C$, 제공부하 $\bar r$, 허용률 $r$, $y=\bar r-r$. M/M/1 근사 $D(r)=\dfrac{r}{C-r}$, 페널티 $\dfrac{a}{r}$ :</span>
+<span id="cb6-329"><a href="#cb6-329" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-330"><a href="#cb6-330" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-331"><a href="#cb6-331" aria-hidden="true" tabindex="-1"></a>J(r)=\frac{r}{C-r}+\frac{a}{r},\qquad</span>
+<span id="cb6-332"><a href="#cb6-332" aria-hidden="true" tabindex="-1"></a>J'(r)=\frac{C}{(C-r)^2}-\frac{a}{r^2}.</span>
+<span id="cb6-333"><a href="#cb6-333" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-334"><a href="#cb6-334" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-335"><a href="#cb6-335" aria-hidden="true" tabindex="-1"></a>**내부 최적해** $J'=0$ :</span>
+<span id="cb6-336"><a href="#cb6-336" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-337"><a href="#cb6-337" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-338"><a href="#cb6-338" aria-hidden="true" tabindex="-1"></a>\frac{\sqrt C}{C-r}=\frac{\sqrt a}{r}\Rightarrow r(\sqrt C+\sqrt a)=C\sqrt a</span>
+<span id="cb6-339"><a href="#cb6-339" aria-hidden="true" tabindex="-1"></a>\Rightarrow \boxed{\,r^*=\dfrac{C\sqrt a}{\sqrt a+\sqrt C}\,}</span>
+<span id="cb6-340"><a href="#cb6-340" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-341"><a href="#cb6-341" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-342"><a href="#cb6-342" aria-hidden="true" tabindex="-1"></a>**flow control 불필요 조건** ($r=\bar r$에서 아직 감소):</span>
+<span id="cb6-343"><a href="#cb6-343" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-344"><a href="#cb6-344" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-345"><a href="#cb6-345" aria-hidden="true" tabindex="-1"></a>\frac{C}{(C-\bar r)^2}&lt;\frac{a}{\bar r^2}\ \Longleftrightarrow\ \bar r&lt;\frac{C\sqrt a}{\sqrt a+\sqrt C}=r^*.</span>
+<span id="cb6-346"><a href="#cb6-346" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-347"><a href="#cb6-347" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-348"><a href="#cb6-348" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning title="표기 정밀성"}</span>
+<span id="cb6-349"><a href="#cb6-349" aria-hidden="true" tabindex="-1"></a>정확한 형태는 제곱근이 들어간 $r^*=\dfrac{C\sqrt a}{\sqrt a+\sqrt C}$ 이다. $\dfrac{a}{a+C}$ 식은 $\dfrac{\sqrt a}{\sqrt a+\sqrt C}$ 의 축약으로 보아야 맞다.</span>
+<span id="cb6-350"><a href="#cb6-350" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-351"><a href="#cb6-351" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-352"><a href="#cb6-352" aria-hidden="true" tabindex="-1"></a><span class="fu">## 3-병렬-링크 예제 (시험 단골) {#sec-three-link}</span></span>
+<span id="cb6-353"><a href="#cb6-353" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-354"><a href="#cb6-354" aria-hidden="true" tabindex="-1"></a>단일 OD, 용량 $C_1,C_2,C_3$ 인 세 one-hop 경로, 총률 $r$ :</span>
+<span id="cb6-355"><a href="#cb6-355" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-356"><a href="#cb6-356" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-357"><a href="#cb6-357" aria-hidden="true" tabindex="-1"></a>\min\sum_{i=1}^{3}\frac{f_i}{C_i-f_i}\quad\text{s.t.}\ \sum_i f_i=r,\ f_i\ge0.</span>
+<span id="cb6-358"><a href="#cb6-358" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-359"><a href="#cb6-359" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-360"><a href="#cb6-360" aria-hidden="true" tabindex="-1"></a>Lagrangian $\mathcal L=\sum\frac{f_i}{C_i-f_i}-\nu(\sum f_i-r)$, 활성 링크에서</span>
+<span id="cb6-361"><a href="#cb6-361" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-362"><a href="#cb6-362" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-363"><a href="#cb6-363" aria-hidden="true" tabindex="-1"></a>\frac{C_i}{(C_i-f_i)^2}=\nu</span>
+<span id="cb6-364"><a href="#cb6-364" aria-hidden="true" tabindex="-1"></a>\Rightarrow C_i-f_i=\sqrt{C_i/\nu}</span>
+<span id="cb6-365"><a href="#cb6-365" aria-hidden="true" tabindex="-1"></a>\Rightarrow f_i=C_i-\sqrt{\tfrac{C_i}{\nu}}.</span>
+<span id="cb6-366"><a href="#cb6-366" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-367"><a href="#cb6-367" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-368"><a href="#cb6-368" aria-hidden="true" tabindex="-1"></a>$\sum f_i=r$ 대입:</span>
+<span id="cb6-369"><a href="#cb6-369" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-370"><a href="#cb6-370" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-371"><a href="#cb6-371" aria-hidden="true" tabindex="-1"></a>\sqrt\nu=\frac{\sum_i\sqrt{C_i}}{\sum_i C_i-r},\qquad</span>
+<span id="cb6-372"><a href="#cb6-372" aria-hidden="true" tabindex="-1"></a>\boxed{\,f_i=C_i-\sqrt{C_i}\,\frac{\sum_j C_j-r}{\sum_j\sqrt{C_j}}\,}</span>
+<span id="cb6-373"><a href="#cb6-373" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-374"><a href="#cb6-374" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-375"><a href="#cb6-375" aria-hidden="true" tabindex="-1"></a>(어떤 $f_i&lt;0$ 이 나오면 그 링크는 비활성 $f_i=0$ 으로 두고 나머지로 재계산.)</span>
+<span id="cb6-376"><a href="#cb6-376" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-379"><a href="#cb6-379" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb6-380"><a href="#cb6-380" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-threelink</span></span>
+<span id="cb6-381"><a href="#cb6-381" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "총률 $r$에 따른 최적 분배. 용량이 큰 링크가 더 많이, 모든 활성 링크의 한계비용이 같아진다. ($C=[3,2,1]$)"</span></span>
+<span id="cb6-382"><a href="#cb6-382" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np, matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb6-383"><a href="#cb6-383" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-384"><a href="#cb6-384" aria-hidden="true" tabindex="-1"></a>C <span class="op">=</span> np.array([<span class="fl">3.0</span>, <span class="fl">2.0</span>, <span class="fl">1.0</span>])</span>
+<span id="cb6-385"><a href="#cb6-385" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> opt_flows(r):</span>
+<span id="cb6-386"><a href="#cb6-386" aria-hidden="true" tabindex="-1"></a>    active <span class="op">=</span> np.array([<span class="va">True</span>, <span class="va">True</span>, <span class="va">True</span>])</span>
+<span id="cb6-387"><a href="#cb6-387" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">3</span>):</span>
+<span id="cb6-388"><a href="#cb6-388" aria-hidden="true" tabindex="-1"></a>        Ca <span class="op">=</span> C[active]</span>
+<span id="cb6-389"><a href="#cb6-389" aria-hidden="true" tabindex="-1"></a>        s <span class="op">=</span> np.<span class="bu">sum</span>(np.sqrt(Ca)) <span class="op">/</span> (np.<span class="bu">sum</span>(Ca) <span class="op">-</span> r)</span>
+<span id="cb6-390"><a href="#cb6-390" aria-hidden="true" tabindex="-1"></a>        f <span class="op">=</span> np.zeros(<span class="dv">3</span>)</span>
+<span id="cb6-391"><a href="#cb6-391" aria-hidden="true" tabindex="-1"></a>        f[active] <span class="op">=</span> Ca <span class="op">-</span> np.sqrt(Ca)<span class="op">/</span>s</span>
+<span id="cb6-392"><a href="#cb6-392" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> np.<span class="bu">all</span>(f[active] <span class="op">&gt;=</span> <span class="op">-</span><span class="fl">1e-9</span>):</span>
+<span id="cb6-393"><a href="#cb6-393" aria-hidden="true" tabindex="-1"></a>            f[f <span class="op">&lt;</span> <span class="dv">0</span>] <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="cf">return</span> f</span>
+<span id="cb6-394"><a href="#cb6-394" aria-hidden="true" tabindex="-1"></a>        active <span class="op">=</span> f <span class="op">&gt;</span> <span class="fl">1e-9</span></span>
+<span id="cb6-395"><a href="#cb6-395" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.clip(f, <span class="dv">0</span>, <span class="va">None</span>)</span>
+<span id="cb6-396"><a href="#cb6-396" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-397"><a href="#cb6-397" aria-hidden="true" tabindex="-1"></a>R <span class="op">=</span> np.linspace(<span class="fl">0.3</span>, <span class="fl">5.5</span>, <span class="dv">200</span>)</span>
+<span id="cb6-398"><a href="#cb6-398" aria-hidden="true" tabindex="-1"></a>F <span class="op">=</span> np.array([opt_flows(r) <span class="cf">for</span> r <span class="kw">in</span> R])</span>
+<span id="cb6-399"><a href="#cb6-399" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots()</span>
+<span id="cb6-400"><a href="#cb6-400" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, c <span class="kw">in</span> <span class="bu">enumerate</span>(C):</span>
+<span id="cb6-401"><a href="#cb6-401" aria-hidden="true" tabindex="-1"></a>    ax.plot(R, F[:, i], lw<span class="op">=</span><span class="dv">2</span>, label<span class="op">=</span><span class="ss">f"$f_</span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">$ (link $C=</span><span class="sc">{</span>c<span class="sc">:g}</span><span class="ss">$)"</span>)</span>
+<span id="cb6-402"><a href="#cb6-402" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="st">"total rate $r$"</span>)<span class="op">;</span> ax.set_ylabel(<span class="st">"path flow $f_i$"</span>)</span>
+<span id="cb6-403"><a href="#cb6-403" aria-hidden="true" tabindex="-1"></a>ax.legend()<span class="op">;</span> plt.tight_layout()</span>
+<span id="cb6-404"><a href="#cb6-404" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-405"><a href="#cb6-405" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-406"><a href="#cb6-406" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="<span class="co">[</span><span class="ot">시험 포인트</span><span class="co">]</span> 최적 rate/routing"}</span>
+<span id="cb6-407"><a href="#cb6-407" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>핵심 동작은 **한계비용 등화**: $\dfrac{C_i}{(C_i-f_i)^2}$ 를 모두 같게 + $\sum f_i=r$.</span>
+<span id="cb6-408"><a href="#cb6-408" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>단일/소수 링크라 사실상 **대수 계산 한 번**이면 끝 (일차방정식 수준).</span>
+<span id="cb6-409"><a href="#cb6-409" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>음수 flow → 그 링크 비활성 처리, 라는 경계 케이스 한 줄 챙기기.</span>
+<span id="cb6-410"><a href="#cb6-410" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-411"><a href="#cb6-411" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-412"><a href="#cb6-412" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb6-413"><a href="#cb6-413" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-414"><a href="#cb6-414" aria-hidden="true" tabindex="-1"></a><span class="fu"># Max-Min Fairness {#sec-maxmin}</span></span>
+<span id="cb6-415"><a href="#cb6-415" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-416"><a href="#cb6-416" aria-hidden="true" tabindex="-1"></a>목표가 비용이 아니라 **공정성**으로 바뀐다. 고정·단일경로, 세션 율 $r_p$, 링크 부하 $F_a=\sum_{p\ni a}r_p\le C_a$.</span>
+<span id="cb6-417"><a href="#cb6-417" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-418"><a href="#cb6-418" aria-hidden="true" tabindex="-1"></a><span class="fu">## 정의</span></span>
+<span id="cb6-419"><a href="#cb6-419" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-420"><a href="#cb6-420" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; $r$이 feasible이고, 어떤 $r_p$ 도 — 자신보다 작거나 같은 다른 $r_{p'}\le r_p$ 를 줄이지 않고는 — 더 늘릴 수 없으면 **max-min fair**.</span></span>
+<span id="cb6-421"><a href="#cb6-421" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-422"><a href="#cb6-422" aria-hidden="true" tabindex="-1"></a>직관: 가장 작은 율부터 최대한 끌어올리는 lexicographic 최대화.</span>
+<span id="cb6-423"><a href="#cb6-423" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-424"><a href="#cb6-424" aria-hidden="true" tabindex="-1"></a><span class="fu">## Bottleneck과 명제</span></span>
+<span id="cb6-425"><a href="#cb6-425" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-426"><a href="#cb6-426" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; 링크 $a$가 세션 $p$의 **bottleneck**: $F_a=C_a$ (포화) 이고 $a$ 위 모든 세션 중 $p$가 최대 율 ($r_p\ge r_{p'}$).</span></span>
+<span id="cb6-427"><a href="#cb6-427" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-428"><a href="#cb6-428" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; **Proposition:** $r$이 max-min fair $\Leftrightarrow$ 모든 세션이 적어도 하나의 bottleneck을 가짐.</span></span>
+<span id="cb6-429"><a href="#cb6-429" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-430"><a href="#cb6-430" aria-hidden="true" tabindex="-1"></a><span class="fu">## Water-filling 알고리즘</span></span>
+<span id="cb6-431"><a href="#cb6-431" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-432"><a href="#cb6-432" aria-hidden="true" tabindex="-1"></a>모든 링크에서 율을 같은 속도로 올리다 포화 링크가 생기면 그 위 세션을 동결, 반복.</span>
+<span id="cb6-433"><a href="#cb6-433" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-434"><a href="#cb6-434" aria-hidden="true" tabindex="-1"></a>초기: $k=1,\ F_a^0=0,\ r_p^0=0,\ P^1=P,\ A^1=A$.</span>
+<span id="cb6-435"><a href="#cb6-435" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-436"><a href="#cb6-436" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>$n_a^k$ = 링크 $a$ 위 미동결 세션 수.</span>
+<span id="cb6-437"><a href="#cb6-437" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>$\displaystyle \tilde r^k=\min_{a\in A^k}\frac{C_a-F_a^{k-1}}{n_a^k}$ → 다음 bottleneck.</span>
+<span id="cb6-438"><a href="#cb6-438" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>$r_p^k=r_p^{k-1}+\tilde r^k$ (활성 $p$), 나머지 유지.</span>
+<span id="cb6-439"><a href="#cb6-439" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>$F_a^k=\sum_{p\ni a}r_p^k$.</span>
+<span id="cb6-440"><a href="#cb6-440" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>$A^{k+1}=<span class="sc">\{</span>a:C_a-F_a^k&gt;0<span class="sc">\}</span>$.</span>
+<span id="cb6-441"><a href="#cb6-441" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>$P^{k+1}=<span class="sc">\{</span>p:p$가 포화 링크를 지나지 않음$<span class="sc">\}</span>$.</span>
+<span id="cb6-442"><a href="#cb6-442" aria-hidden="true" tabindex="-1"></a><span class="ss">7. </span>$k<span class="sc">\!</span>\leftarrow<span class="sc">\!</span>k+1$. 8. $P$ 비면 정지.</span>
+<span id="cb6-443"><a href="#cb6-443" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-444"><a href="#cb6-444" aria-hidden="true" tabindex="-1"></a><span class="fu">## 예제</span></span>
+<span id="cb6-445"><a href="#cb6-445" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-448"><a href="#cb6-448" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb6-449"><a href="#cb6-449" aria-hidden="true" tabindex="-1"></a>%%| label: fig-maxmin</span>
+<span id="cb6-450"><a href="#cb6-450" aria-hidden="true" tabindex="-1"></a>%%| fig-cap: <span class="ot">"</span><span class="st">직렬 두 링크(용량 1). 세션 0,1,2는 첫 링크 공유, 세션 3은 둘째 링크만 사용.</span><span class="ot">"</span></span>
+<span id="cb6-451"><a href="#cb6-451" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
+<span id="cb6-452"><a href="#cb6-452" aria-hidden="true" tabindex="-1"></a>    A((A)) --&gt;|<span class="ot">"</span><span class="st">link1, C=1</span><span class="ot">"</span>| B((B))</span>
+<span id="cb6-453"><a href="#cb6-453" aria-hidden="true" tabindex="-1"></a>    B --&gt;|<span class="ot">"</span><span class="st">link2, C=1</span><span class="ot">"</span>| D((C))</span>
+<span id="cb6-454"><a href="#cb6-454" aria-hidden="true" tabindex="-1"></a>    S012[<span class="ot">"</span><span class="st">세션 0,1,2</span><span class="ot">"</span>] -.-&gt; A</span>
+<span id="cb6-455"><a href="#cb6-455" aria-hidden="true" tabindex="-1"></a>    S3[<span class="ot">"</span><span class="st">세션 3</span><span class="ot">"</span>] -.-&gt; B</span>
+<span id="cb6-456"><a href="#cb6-456" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-457"><a href="#cb6-457" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-458"><a href="#cb6-458" aria-hidden="true" tabindex="-1"></a>첫 링크는 0·1·2가 균등 분할 → 각 $1/3$. 둘째 링크는 세션 3 혼자라 남은 $1-1/3=2/3$ 전부 → $r_3=2/3$. **남는 용량을 낭비하지 않는 것**이 max-min의 특징(단순 균등분배 아님).</span>
+<span id="cb6-459"><a href="#cb6-459" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-460"><a href="#cb6-460" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="<span class="co">[</span><span class="ot">시험 포인트</span><span class="co">]</span> Max-Min"}</span>
+<span id="cb6-461"><a href="#cb6-461" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>정의(증가시키려면 ≤인 누군가를 깎아야)와 bottleneck 명제(iff)를 정확히.</span>
+<span id="cb6-462"><a href="#cb6-462" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>계산은 작은 토폴로지에서 **water-filling 손계산** 몇 단계.</span>
+<span id="cb6-463"><a href="#cb6-463" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>"max-min ≠ 균등분배" — 여유 용량을 독점 세션이 흡수하는 예가 단골.</span>
+<span id="cb6-464"><a href="#cb6-464" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-465"><a href="#cb6-465" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-466"><a href="#cb6-466" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb6-467"><a href="#cb6-467" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-468"><a href="#cb6-468" aria-hidden="true" tabindex="-1"></a><span class="fu"># Proportional Fair Scheduling {#sec-pf}</span></span>
+<span id="cb6-469"><a href="#cb6-469" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-470"><a href="#cb6-470" aria-hidden="true" tabindex="-1"></a>무선 시변 채널에서의 공정성. **throughput과 fairness의 절충**(max-min의 절대 보호와 대비).</span>
+<span id="cb6-471"><a href="#cb6-471" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-472"><a href="#cb6-472" aria-hidden="true" tabindex="-1"></a><span class="fu">## 스케줄링 규칙</span></span>
+<span id="cb6-473"><a href="#cb6-473" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-474"><a href="#cb6-474" aria-hidden="true" tabindex="-1"></a>순시 데이터율 $\mathrm{DRC}_k(t)$, 지수평균률 $R_k(t)$. 매 slot</span>
+<span id="cb6-475"><a href="#cb6-475" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-476"><a href="#cb6-476" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-477"><a href="#cb6-477" aria-hidden="true" tabindex="-1"></a>k^*=\arg\max_k\frac{\mathrm{DRC}_k(t)}{R_k(t)},</span>
 <span id="cb6-478"><a href="#cb6-478" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-479"><a href="#cb6-479" aria-hidden="true" tabindex="-1"></a>R_k(t+1)=\begin{cases}</span>
-<span id="cb6-480"><a href="#cb6-480" aria-hidden="true" tabindex="-1"></a>\left(1-\tfrac1{t_c}\right)R_k(t)+\tfrac1{t_c}\,\mathrm{DRC}_k(t),&amp; k\ \text{선택}<span class="sc">\\</span><span class="co">[</span><span class="ot">4pt</span><span class="co">]</span></span>
-<span id="cb6-481"><a href="#cb6-481" aria-hidden="true" tabindex="-1"></a>\left(1-\tfrac1{t_c}\right)R_k(t),&amp; k\ \text{미선택}</span>
-<span id="cb6-482"><a href="#cb6-482" aria-hidden="true" tabindex="-1"></a>\end{cases}</span>
-<span id="cb6-483"><a href="#cb6-483" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-484"><a href="#cb6-484" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-485"><a href="#cb6-485" aria-hidden="true" tabindex="-1"></a>"순시채널이 **자기 평균 대비** 얼마나 좋은가"가 최대인 사용자에게 준다.</span>
-<span id="cb6-486"><a href="#cb6-486" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-487"><a href="#cb6-487" aria-hidden="true" tabindex="-1"></a><span class="fu">## 왜 proportional fair인가</span></span>
-<span id="cb6-488"><a href="#cb6-488" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-489"><a href="#cb6-489" aria-hidden="true" tabindex="-1"></a>이 규칙은 다음을 (점근적으로) 최대화한다:</span>
-<span id="cb6-490"><a href="#cb6-490" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-491"><a href="#cb6-491" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-492"><a href="#cb6-492" aria-hidden="true" tabindex="-1"></a>P=\arg\max\sum_{k\in U}\log R_k.</span>
-<span id="cb6-493"><a href="#cb6-493" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb6-494"><a href="#cb6-494" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-495"><a href="#cb6-495" aria-hidden="true" tabindex="-1"></a>$\partial(\log R_k)/\partial R_k=1/R_k$ — 이미 평균률 높은 사용자에게 1단위 더 주는 가치는 작고, 낮은 사용자에게 주는 가치는 크다. 그래서 매 slot $\mathrm{DRC}_k/R_k$ 최대화가 곧 $\sum\log R_k$ 의 상승 방향(gradient).</span>
-<span id="cb6-496"><a href="#cb6-496" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-497"><a href="#cb6-497" aria-hidden="true" tabindex="-1"></a>정의적 성질: 어떤 재할당도 $\sum_k \Delta R_k/R_k\le0$ (한 사용자를 비례적으로 키우면 다른 누군가가 더 줄어듦).</span>
-<span id="cb6-498"><a href="#cb6-498" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-499"><a href="#cb6-499" aria-hidden="true" tabindex="-1"></a><span class="fu">## 3-사용자 해석 + Multiuser diversity</span></span>
-<span id="cb6-500"><a href="#cb6-500" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-501"><a href="#cb6-501" aria-hidden="true" tabindex="-1"></a>채널이 가장 좋은 사용자에게 전 대역을 주면 시스템 throughput은 최대이나, 평균 채널이 나쁜(셀 경계) 사용자는 굶는다. PF는 $R_k$ 로 정규화해 **각 사용자를 자기 채널이 상대적 peak일 때** 서비스 → fading을 공정성 손상 없이 throughput으로 활용(**multiuser diversity**).</span>
-<span id="cb6-502"><a href="#cb6-502" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-503"><a href="#cb6-503" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 기준 <span class="pp">|</span> Max-Min <span class="pp">|</span> Proportional Fair <span class="pp">|</span></span>
-<span id="cb6-504"><a href="#cb6-504" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
-<span id="cb6-505"><a href="#cb6-505" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 공정성 <span class="pp">|</span> 절대적(최소 율 보호) <span class="pp">|</span> 상대적(비례) <span class="pp">|</span></span>
-<span id="cb6-506"><a href="#cb6-506" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 채널 변동 활용 <span class="pp">|</span> 안 함 <span class="pp">|</span> 기회적으로 활용 <span class="pp">|</span></span>
-<span id="cb6-507"><a href="#cb6-507" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> throughput <span class="pp">|</span> 손해 가능 <span class="pp">|</span> throughput–fairness 절충 <span class="pp">|</span></span>
-<span id="cb6-508"><a href="#cb6-508" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-509"><a href="#cb6-509" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="<span class="co">[</span><span class="ot">시험 포인트</span><span class="co">]</span> Proportional Fair"}</span>
-<span id="cb6-510"><a href="#cb6-510" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>목적함수 $\sum\log R_k$ 와 규칙 $\arg\max \mathrm{DRC}_k/R_k$ 를 쓰고, 3 사용자로 "좋은 채널 순간에 각자 서비스된다"를 서술하면 핵심 득점.</span>
-<span id="cb6-511"><a href="#cb6-511" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>max-min과의 1줄 대비(절대 vs 비례, 변동 활용 여부)를 덧붙인다.</span>
-<span id="cb6-512"><a href="#cb6-512" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb6-513"><a href="#cb6-513" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-514"><a href="#cb6-514" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb6-515"><a href="#cb6-515" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-516"><a href="#cb6-516" aria-hidden="true" tabindex="-1"></a><span class="fu"># 시험 우선순위 종합 {#sec-priority}</span></span>
-<span id="cb6-517"><a href="#cb6-517" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-518"><a href="#cb6-518" aria-hidden="true" tabindex="-1"></a>::: {.callout-important title="이차방정식(일반) → 일차방정식(시험)"}</span>
-<span id="cb6-519"><a href="#cb6-519" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 주제 <span class="pp">|</span> 일반해(슬라이드) <span class="pp">|</span> 시험에서 묻는 단순 인스턴스 <span class="pp">|</span></span>
-<span id="cb6-520"><a href="#cb6-520" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
-<span id="cb6-521"><a href="#cb6-521" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Window <span class="pp">|</span> $r=\min<span class="co">[</span><span class="ot">1/X,W/d</span><span class="co">]</span>$ 의 그래프·BDP <span class="pp">|</span> 숫자 대입 / full-speed 판정 <span class="pp">|</span></span>
-<span id="cb6-522"><a href="#cb6-522" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Token bucket <span class="pp">|</span> 무한상태 chain + Little 일반식 <span class="pp">|</span> **작은 MC** 그려 선형계 풀고 $p_0,T$ 계산 <span class="pp">|</span></span>
-<span id="cb6-523"><a href="#cb6-523" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 최적 rate/routing <span class="pp">|</span> 다중경로 KKT 한계비용 <span class="pp">|</span> 단일·소수 링크 **한계비용 등화** 대수 <span class="pp">|</span></span>
-<span id="cb6-524"><a href="#cb6-524" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Max-Min <span class="pp">|</span> bottleneck iff 명제 <span class="pp">|</span> 작은 토폴로지 **water-filling 손계산** <span class="pp">|</span></span>
-<span id="cb6-525"><a href="#cb6-525" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Proportional Fair <span class="pp">|</span> $\sum\log R_k$ 최적성 <span class="pp">|</span> 규칙 + 3-사용자 **서술** <span class="pp">|</span></span>
-<span id="cb6-526"><a href="#cb6-526" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb6-527"><a href="#cb6-527" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-528"><a href="#cb6-528" aria-hidden="true" tabindex="-1"></a>가장 계산량이 큰 둘은 **token bucket**(@sec-bucket-example)과 **소수 링크 최적 분배**(@sec-three-link)이며, 나머지는 정의·규칙·작은 손계산 또는 서술형이다. token bucket은 "상태 정의 → 작은 MC → 선형 balance → $N_w/\lambda$" 의 4단계를, 최적 분배는 "한계비용 등화 + $\sum f_i=r$" 한 줄을 반복 숙달하는 것이 핵심이다.</span>
+<span id="cb6-479"><a href="#cb6-479" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-480"><a href="#cb6-480" aria-hidden="true" tabindex="-1"></a>R_k(t+1)=\begin{cases}</span>
+<span id="cb6-481"><a href="#cb6-481" aria-hidden="true" tabindex="-1"></a>\left(1-\tfrac1{t_c}\right)R_k(t)+\tfrac1{t_c}\,\mathrm{DRC}_k(t),&amp; k\ \text{선택}<span class="sc">\\</span><span class="co">[</span><span class="ot">4pt</span><span class="co">]</span></span>
+<span id="cb6-482"><a href="#cb6-482" aria-hidden="true" tabindex="-1"></a>\left(1-\tfrac1{t_c}\right)R_k(t),&amp; k\ \text{미선택}</span>
+<span id="cb6-483"><a href="#cb6-483" aria-hidden="true" tabindex="-1"></a>\end{cases}</span>
+<span id="cb6-484"><a href="#cb6-484" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-485"><a href="#cb6-485" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-486"><a href="#cb6-486" aria-hidden="true" tabindex="-1"></a>"순시채널이 **자기 평균 대비** 얼마나 좋은가"가 최대인 사용자에게 준다.</span>
+<span id="cb6-487"><a href="#cb6-487" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-488"><a href="#cb6-488" aria-hidden="true" tabindex="-1"></a><span class="fu">## 왜 proportional fair인가</span></span>
+<span id="cb6-489"><a href="#cb6-489" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-490"><a href="#cb6-490" aria-hidden="true" tabindex="-1"></a>이 규칙은 다음을 (점근적으로) 최대화한다:</span>
+<span id="cb6-491"><a href="#cb6-491" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-492"><a href="#cb6-492" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-493"><a href="#cb6-493" aria-hidden="true" tabindex="-1"></a>P=\arg\max\sum_{k\in U}\log R_k.</span>
+<span id="cb6-494"><a href="#cb6-494" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-495"><a href="#cb6-495" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-496"><a href="#cb6-496" aria-hidden="true" tabindex="-1"></a>$\partial(\log R_k)/\partial R_k=1/R_k$ — 이미 평균률 높은 사용자에게 1단위 더 주는 가치는 작고, 낮은 사용자에게 주는 가치는 크다. 그래서 매 slot $\mathrm{DRC}_k/R_k$ 최대화가 곧 $\sum\log R_k$ 의 상승 방향(gradient).</span>
+<span id="cb6-497"><a href="#cb6-497" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-498"><a href="#cb6-498" aria-hidden="true" tabindex="-1"></a>정의적 성질: 어떤 재할당도 $\sum_k \Delta R_k/R_k\le0$ (한 사용자를 비례적으로 키우면 다른 누군가가 더 줄어듦).</span>
+<span id="cb6-499"><a href="#cb6-499" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-500"><a href="#cb6-500" aria-hidden="true" tabindex="-1"></a><span class="fu">## 3-사용자 해석 + Multiuser diversity</span></span>
+<span id="cb6-501"><a href="#cb6-501" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-502"><a href="#cb6-502" aria-hidden="true" tabindex="-1"></a>채널이 가장 좋은 사용자에게 전 대역을 주면 시스템 throughput은 최대이나, 평균 채널이 나쁜(셀 경계) 사용자는 굶는다. PF는 $R_k$ 로 정규화해 **각 사용자를 자기 채널이 상대적 peak일 때** 서비스 → fading을 공정성 손상 없이 throughput으로 활용(**multiuser diversity**).</span>
+<span id="cb6-503"><a href="#cb6-503" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-504"><a href="#cb6-504" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 기준 <span class="pp">|</span> Max-Min <span class="pp">|</span> Proportional Fair <span class="pp">|</span></span>
+<span id="cb6-505"><a href="#cb6-505" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb6-506"><a href="#cb6-506" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 공정성 <span class="pp">|</span> 절대적(최소 율 보호) <span class="pp">|</span> 상대적(비례) <span class="pp">|</span></span>
+<span id="cb6-507"><a href="#cb6-507" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 채널 변동 활용 <span class="pp">|</span> 안 함 <span class="pp">|</span> 기회적으로 활용 <span class="pp">|</span></span>
+<span id="cb6-508"><a href="#cb6-508" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> throughput <span class="pp">|</span> 손해 가능 <span class="pp">|</span> throughput–fairness 절충 <span class="pp">|</span></span>
+<span id="cb6-509"><a href="#cb6-509" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-510"><a href="#cb6-510" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip title="<span class="co">[</span><span class="ot">시험 포인트</span><span class="co">]</span> Proportional Fair"}</span>
+<span id="cb6-511"><a href="#cb6-511" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>목적함수 $\sum\log R_k$ 와 규칙 $\arg\max \mathrm{DRC}_k/R_k$ 를 쓰고, 3 사용자로 "좋은 채널 순간에 각자 서비스된다"를 서술하면 핵심 득점.</span>
+<span id="cb6-512"><a href="#cb6-512" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>max-min과의 1줄 대비(절대 vs 비례, 변동 활용 여부)를 덧붙인다.</span>
+<span id="cb6-513"><a href="#cb6-513" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-514"><a href="#cb6-514" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-515"><a href="#cb6-515" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb6-516"><a href="#cb6-516" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-517"><a href="#cb6-517" aria-hidden="true" tabindex="-1"></a><span class="fu"># 시험 우선순위 종합 {#sec-priority}</span></span>
+<span id="cb6-518"><a href="#cb6-518" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-519"><a href="#cb6-519" aria-hidden="true" tabindex="-1"></a>::: {.callout-important title="이차방정식(일반) → 일차방정식(시험)"}</span>
+<span id="cb6-520"><a href="#cb6-520" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 주제 <span class="pp">|</span> 일반해(슬라이드) <span class="pp">|</span> 시험에서 묻는 단순 인스턴스 <span class="pp">|</span></span>
+<span id="cb6-521"><a href="#cb6-521" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb6-522"><a href="#cb6-522" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Window <span class="pp">|</span> $r=\min<span class="co">[</span><span class="ot">1/X,W/d</span><span class="co">]</span>$ 의 그래프·BDP <span class="pp">|</span> 숫자 대입 / full-speed 판정 <span class="pp">|</span></span>
+<span id="cb6-523"><a href="#cb6-523" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Token bucket <span class="pp">|</span> 무한상태 chain + Little 일반식 <span class="pp">|</span> **작은 MC** 그려 선형계 풀고 $p_0,T$ 계산 <span class="pp">|</span></span>
+<span id="cb6-524"><a href="#cb6-524" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 최적 rate/routing <span class="pp">|</span> 다중경로 KKT 한계비용 <span class="pp">|</span> 단일·소수 링크 **한계비용 등화** 대수 <span class="pp">|</span></span>
+<span id="cb6-525"><a href="#cb6-525" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Max-Min <span class="pp">|</span> bottleneck iff 명제 <span class="pp">|</span> 작은 토폴로지 **water-filling 손계산** <span class="pp">|</span></span>
+<span id="cb6-526"><a href="#cb6-526" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Proportional Fair <span class="pp">|</span> $\sum\log R_k$ 최적성 <span class="pp">|</span> 규칙 + 3-사용자 **서술** <span class="pp">|</span></span>
+<span id="cb6-527"><a href="#cb6-527" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-528"><a href="#cb6-528" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-529"><a href="#cb6-529" aria-hidden="true" tabindex="-1"></a>가장 계산량이 큰 둘은 **token bucket**(@sec-bucket-example)과 **소수 링크 최적 분배**(@sec-three-link)이며, 나머지는 정의·규칙·작은 손계산 또는 서술형이다. token bucket은 "상태 정의 → 작은 MC → 선형 balance → $N_w/\lambda$" 의 4단계를, 최적 분배는 "한계비용 등화 + $\sum f_i=r$" 한 줄을 반복 숙달하는 것이 핵심이다.</span>
 </code></pre></div><button title="클립보드 복사" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

@@ -1303,412 +1303,413 @@ q_*(s,a) &amp;= R_s^a + \gamma \sum_{s'} P_{ss'}^a \max_{a'} q_*(s',a')
   </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">소스 코드</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Markov Decision Processes"</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="an">aliases:</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">  - "/study/data-network/markov-decision-processes.html"</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-06-07"</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="an">lang:</span><span class="co"> ko</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-title: "목차"</span></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: true</span></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: cosmo</span></span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co">    mainfont: "Noto Sans KR"</span></span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co">    html-math-method: katex</span></span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co">  pdf:</span></span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="co">    documentclass: scrartcl</span></span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="co">    geometry: margin=2.5cm</span></span>
-<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="co">    include-in-header:</span></span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="co">      text: |</span></span>
-<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="co">        \usepackage{kotex}</span></span>
-<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="an">execute:</span></span>
-<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="co">  warning: false</span></span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="co">  message: false</span></span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="fu"># 큰 그림: 왜 MDP인가</span></span>
-<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>MDP는 **완전 관측 가능(fully observable)** 환경을 형식화하는 표준 틀이다.</span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>"현재 상태가 미래를 결정하는 데 필요한 모든 정보를 담고 있다"는 Markov 성질 위에,</span>
-<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>**보상(reward)** 과 **행동(action)** 을 차례로 얹어 나가는 구조를 갖는다.</span>
-<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>\underbrace{\langle S, P\rangle}_{\text{Markov Process}}</span>
-<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>\;\xrightarrow{+\,R,\;\gamma}\;</span>
-<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>\underbrace{\langle S, P, R, \gamma\rangle}_{\text{MRP}}</span>
-<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>\;\xrightarrow{+\,A}\;</span>
-<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>\underbrace{\langle S, A, P, R, \gamma\rangle}_{\text{MDP}}</span>
-<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
-<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="fu">## 한 문장으로 압축한 핵심</span></span>
-<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>**MDP에 정책 $\pi$를 고정하면 즉시 MRP가 되고, MRP는 다시 Markov Process가 된다.**</span>
-<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>따라서 정책 평가(evaluation)는 언제나 "유도된 MRP의 가치 계산"으로 환원된다.</span>
-<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a><span class="fu"># Markov Process</span></span>
-<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a><span class="fu">## Markov 성질</span></span>
-<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>\mathbb{P}<span class="co">[</span><span class="ot">S_{t+1}\mid S_t</span><span class="co">]</span> = \mathbb{P}<span class="co">[</span><span class="ot">S_{t+1}\mid S_1,\dots,S_t</span><span class="co">]</span></span>
-<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>상태 $S_t$는 미래에 대한 **충분통계량(sufficient statistic)** 이다.</span>
-<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>일단 상태를 알면 과거 history는 버려도 된다.</span>
-<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a><span class="fu">## 상태 전이 행렬</span></span>
-<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>P_{ss'} = \mathbb{P}<span class="co">[</span><span class="ot">S_{t+1}=s'\mid S_t=s</span><span class="co">]</span>, \qquad \sum_{s'} P_{ss'} = 1 \;\;(\text{각 행의 합}=1)</span>
-<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>**Markov Process (Chain)** 는 튜플 $\langle S, P\rangle$ — 상태 집합 $S$와 전이 행렬 $P$만으로 정의된다.</span>
-<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>보상도 행동도 없다.</span>
-<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a><span class="fu">## Student Markov Chain 예제</span></span>
-<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
-<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>%%| label: fig-mc</span>
-<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a>%%| fig-cap: <span class="ot">"</span><span class="st">Student Markov Chain</span><span class="ot">"</span></span>
-<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
-<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>  C1((Class <span class="dv">1</span>)) --&gt;|<span class="fl">0.5</span>| C2((Class <span class="dv">2</span>))</span>
-<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>  C1 --&gt;|<span class="fl">0.5</span>| FB((Facebook))</span>
-<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a>  FB --&gt;|<span class="fl">0.9</span>| FB</span>
-<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a>  FB --&gt;|<span class="fl">0.1</span>| C1</span>
-<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a>  C2 --&gt;|<span class="fl">0.8</span>| C3((Class <span class="dv">3</span>))</span>
-<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a>  C2 --&gt;|<span class="fl">0.2</span>| SL[Sleep]</span>
-<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a>  C3 --&gt;|<span class="fl">0.6</span>| PA((Pass))</span>
-<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a>  C3 --&gt;|<span class="fl">0.4</span>| PU((Pub))</span>
-<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a>  PA --&gt;|<span class="fl">1.0</span>| SL</span>
-<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a>  PU --&gt;|<span class="fl">0.2</span>| C1</span>
-<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a>  PU --&gt;|<span class="fl">0.4</span>| C2</span>
-<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a>  PU --&gt;|<span class="fl">0.4</span>| C3</span>
-<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a>표본 경로(sample episode) 예: <span class="in">`C1 → C2 → C3 → Pass → Sleep`</span>,</span>
-<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a><span class="in">`C1 → FB → FB → C1 → C2 → Sleep`</span> 등.</span>
-<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a><span class="fu"># Markov Reward Process (MRP)</span></span>
-<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a>MRP $=\langle S, P, R, \gamma\rangle$ — Markov chain에 **가치(value)** 를 붙인 것.</span>
-<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>보상 함수: $\;R_s = \mathbb{E}[R_{t+1}\mid S_t = s]$</span>
-<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>할인율: $\;\gamma \in <span class="co">[</span><span class="ot">0,1</span><span class="co">]</span>$</span>
-<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a><span class="fu">## Return (누적 할인 보상)</span></span>
-<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a>G_t = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots = \sum_{k=0}^{\infty}\gamma^k R_{t+k+1}</span>
-<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a><span class="fu">## 표기 주의</span></span>
-<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a>상태 $s$에 들어가서 받는 보상의 인덱스는 $R_{t+1}$이다. $G_t$는 확률변수이고,</span>
-<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a>그 기댓값이 가치함수 $v(s)$이다.</span>
-<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a><span class="fu">## 왜 할인하는가 — $\gamma$의 정당화</span></span>
-<span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>수학적 편의 (수렴 보장)</span>
-<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>순환(cyclic) Markov process에서 **무한 return 방지**</span>
-<span id="cb2-123"><a href="#cb2-123" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>미래 불확실성을 모형이 완전히 담지 못함</span>
-<span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>금전적 보상이면 즉시 보상이 이자 측면에서 유리</span>
-<span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>동물/인간이 즉시 보상을 선호</span>
-<span id="cb2-126"><a href="#cb2-126" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>모든 경로가 종료(terminate)하면 $\gamma=1$ (undiscounted)도 가능</span>
-<span id="cb2-127"><a href="#cb2-127" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-128"><a href="#cb2-128" aria-hidden="true" tabindex="-1"></a><span class="fu">## 가치함수와 Bellman Equation</span></span>
-<span id="cb2-129"><a href="#cb2-129" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-130"><a href="#cb2-130" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-131"><a href="#cb2-131" aria-hidden="true" tabindex="-1"></a>v(s) = \mathbb{E}<span class="co">[</span><span class="ot">G_t \mid S_t = s</span><span class="co">]</span></span>
-<span id="cb2-132"><a href="#cb2-132" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-133"><a href="#cb2-133" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-134"><a href="#cb2-134" aria-hidden="true" tabindex="-1"></a>Return을 즉시 보상 + 할인된 다음 상태 가치로 분해한다.</span>
-<span id="cb2-135"><a href="#cb2-135" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-136"><a href="#cb2-136" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-137"><a href="#cb2-137" aria-hidden="true" tabindex="-1"></a>\begin{aligned}</span>
-<span id="cb2-138"><a href="#cb2-138" aria-hidden="true" tabindex="-1"></a>v(s) &amp;= \mathbb{E}<span class="co">[</span><span class="ot">R_{t+1} + \gamma G_{t+1}\mid S_t = s</span><span class="co">]</span> <span class="sc">\\</span></span>
-<span id="cb2-139"><a href="#cb2-139" aria-hidden="true" tabindex="-1"></a>&amp;= \mathbb{E}<span class="co">[</span><span class="ot">R_{t+1} + \gamma\, v(S_{t+1})\mid S_t = s</span><span class="co">]</span> <span class="sc">\\</span></span>
-<span id="cb2-140"><a href="#cb2-140" aria-hidden="true" tabindex="-1"></a>&amp;= R_s + \gamma \sum_{s'} P_{ss'}\, v(s')</span>
-<span id="cb2-141"><a href="#cb2-141" aria-hidden="true" tabindex="-1"></a>\end{aligned}</span>
-<span id="cb2-142"><a href="#cb2-142" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-143"><a href="#cb2-143" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-144"><a href="#cb2-144" aria-hidden="true" tabindex="-1"></a>분해의 핵심은 $\mathbb{E}<span class="co">[</span><span class="ot">G_{t+1}\mid S_{t+1}=s'</span><span class="co">]</span>=v(s')$이고 tower property로 한 칸만 펼치는 것이다.</span>
-<span id="cb2-145"><a href="#cb2-145" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-146"><a href="#cb2-146" aria-hidden="true" tabindex="-1"></a><span class="fu">## 행렬형과 직접 해</span></span>
-<span id="cb2-147"><a href="#cb2-147" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-148"><a href="#cb2-148" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-149"><a href="#cb2-149" aria-hidden="true" tabindex="-1"></a>v = R + \gamma P v</span>
-<span id="cb2-150"><a href="#cb2-150" aria-hidden="true" tabindex="-1"></a>\;\;\Longrightarrow\;\;</span>
-<span id="cb2-151"><a href="#cb2-151" aria-hidden="true" tabindex="-1"></a>(I-\gamma P)\,v = R</span>
-<span id="cb2-152"><a href="#cb2-152" aria-hidden="true" tabindex="-1"></a>\;\;\Longrightarrow\;\;</span>
-<span id="cb2-153"><a href="#cb2-153" aria-hidden="true" tabindex="-1"></a>v = (I-\gamma P)^{-1}R</span>
-<span id="cb2-154"><a href="#cb2-154" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-155"><a href="#cb2-155" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-156"><a href="#cb2-156" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>선형 방정식이므로 **직접 풀 수 있음**, 계산복잡도 $O(n^3)$ ($n=|S|$).</span>
-<span id="cb2-157"><a href="#cb2-157" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\gamma&lt;1$이면 $\rho(\gamma P)&lt;1$이므로 $(I-\gamma P)$는 가역.</span>
-<span id="cb2-158"><a href="#cb2-158" aria-hidden="true" tabindex="-1"></a>  큰 $n$에서는 DP / Monte-Carlo / TD 같은 반복법을 사용한다.</span>
-<span id="cb2-159"><a href="#cb2-159" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-160"><a href="#cb2-160" aria-hidden="true" tabindex="-1"></a><span class="fu">## $\gamma$에 따른 가치 전파 시각화</span></span>
-<span id="cb2-161"><a href="#cb2-161" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-162"><a href="#cb2-162" aria-hidden="true" tabindex="-1"></a>흡수상태 Sleep을 종단(terminal, $v=0$)으로 두고 전이상태 집합</span>
-<span id="cb2-163"><a href="#cb2-163" aria-hidden="true" tabindex="-1"></a>$<span class="sc">\{</span>C1, C2, C3, \text{Pass}, \text{Pub}, FB<span class="sc">\}</span>$에 대해</span>
-<span id="cb2-164"><a href="#cb2-164" aria-hidden="true" tabindex="-1"></a>$v_T = (I-\gamma Q)^{-1} R_T$ 를 직접 푼다. 여기서 $Q$는 전이상태끼리의 부분확률행렬이며,</span>
-<span id="cb2-165"><a href="#cb2-165" aria-hidden="true" tabindex="-1"></a>이 경우 $\gamma=1$에서도 $\rho(Q)&lt;1$이라 역행렬이 존재한다.</span>
-<span id="cb2-166"><a href="#cb2-166" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-169"><a href="#cb2-169" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb2-170"><a href="#cb2-170" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-value-gamma</span></span>
-<span id="cb2-171"><a href="#cb2-171" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "할인율 gamma에 따른 각 상태의 가치 v(s) 변화"</span></span>
-<span id="cb2-172"><a href="#cb2-172" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
-<span id="cb2-173"><a href="#cb2-173" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
-<span id="cb2-174"><a href="#cb2-174" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-175"><a href="#cb2-175" aria-hidden="true" tabindex="-1"></a>states <span class="op">=</span> [<span class="st">"C1"</span>, <span class="st">"C2"</span>, <span class="st">"C3"</span>, <span class="st">"Pass"</span>, <span class="st">"Pub"</span>, <span class="st">"FB"</span>]</span>
-<span id="cb2-176"><a href="#cb2-176" aria-hidden="true" tabindex="-1"></a>idx <span class="op">=</span> {s: i <span class="cf">for</span> i, s <span class="kw">in</span> <span class="bu">enumerate</span>(states)}</span>
-<span id="cb2-177"><a href="#cb2-177" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-178"><a href="#cb2-178" aria-hidden="true" tabindex="-1"></a>Q <span class="op">=</span> np.zeros((<span class="dv">6</span>, <span class="dv">6</span>))</span>
-<span id="cb2-179"><a href="#cb2-179" aria-hidden="true" tabindex="-1"></a>Q[idx[<span class="st">"C1"</span>], idx[<span class="st">"FB"</span>]] <span class="op">=</span> <span class="fl">0.5</span><span class="op">;</span>  Q[idx[<span class="st">"C1"</span>], idx[<span class="st">"C2"</span>]] <span class="op">=</span> <span class="fl">0.5</span></span>
-<span id="cb2-180"><a href="#cb2-180" aria-hidden="true" tabindex="-1"></a>Q[idx[<span class="st">"C2"</span>], idx[<span class="st">"C3"</span>]] <span class="op">=</span> <span class="fl">0.8</span>                     <span class="co"># C2 -&gt; Sleep 0.2 (terminal)</span></span>
-<span id="cb2-181"><a href="#cb2-181" aria-hidden="true" tabindex="-1"></a>Q[idx[<span class="st">"C3"</span>], idx[<span class="st">"Pub"</span>]] <span class="op">=</span> <span class="fl">0.4</span><span class="op">;</span> Q[idx[<span class="st">"C3"</span>], idx[<span class="st">"Pass"</span>]] <span class="op">=</span> <span class="fl">0.6</span></span>
-<span id="cb2-182"><a href="#cb2-182" aria-hidden="true" tabindex="-1"></a><span class="co"># Pass -&gt; Sleep 1.0 (terminal): 행 전체 0</span></span>
-<span id="cb2-183"><a href="#cb2-183" aria-hidden="true" tabindex="-1"></a>Q[idx[<span class="st">"Pub"</span>], idx[<span class="st">"C1"</span>]] <span class="op">=</span> <span class="fl">0.2</span></span>
-<span id="cb2-184"><a href="#cb2-184" aria-hidden="true" tabindex="-1"></a>Q[idx[<span class="st">"Pub"</span>], idx[<span class="st">"C2"</span>]] <span class="op">=</span> <span class="fl">0.4</span></span>
-<span id="cb2-185"><a href="#cb2-185" aria-hidden="true" tabindex="-1"></a>Q[idx[<span class="st">"Pub"</span>], idx[<span class="st">"C3"</span>]] <span class="op">=</span> <span class="fl">0.4</span></span>
-<span id="cb2-186"><a href="#cb2-186" aria-hidden="true" tabindex="-1"></a>Q[idx[<span class="st">"FB"</span>], idx[<span class="st">"FB"</span>]] <span class="op">=</span> <span class="fl">0.9</span><span class="op">;</span>  Q[idx[<span class="st">"FB"</span>], idx[<span class="st">"C1"</span>]] <span class="op">=</span> <span class="fl">0.1</span></span>
-<span id="cb2-187"><a href="#cb2-187" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-188"><a href="#cb2-188" aria-hidden="true" tabindex="-1"></a>R <span class="op">=</span> np.array([<span class="op">-</span><span class="dv">2</span>, <span class="op">-</span><span class="dv">2</span>, <span class="op">-</span><span class="dv">2</span>, <span class="dv">10</span>, <span class="dv">1</span>, <span class="op">-</span><span class="dv">1</span>], dtype<span class="op">=</span><span class="bu">float</span>)</span>
-<span id="cb2-189"><a href="#cb2-189" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-190"><a href="#cb2-190" aria-hidden="true" tabindex="-1"></a>gammas <span class="op">=</span> np.linspace(<span class="fl">0.0</span>, <span class="fl">1.0</span>, <span class="dv">51</span>)</span>
-<span id="cb2-191"><a href="#cb2-191" aria-hidden="true" tabindex="-1"></a>V <span class="op">=</span> np.array([np.linalg.solve(np.eye(<span class="dv">6</span>) <span class="op">-</span> g <span class="op">*</span> Q, R) <span class="cf">for</span> g <span class="kw">in</span> gammas])</span>
-<span id="cb2-192"><a href="#cb2-192" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-193"><a href="#cb2-193" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">5</span>))</span>
-<span id="cb2-194"><a href="#cb2-194" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> j, s <span class="kw">in</span> <span class="bu">enumerate</span>(states):</span>
-<span id="cb2-195"><a href="#cb2-195" aria-hidden="true" tabindex="-1"></a>    ax.plot(gammas, V[:, j], marker<span class="op">=</span><span class="st">""</span>, linewidth<span class="op">=</span><span class="dv">2</span>, label<span class="op">=</span>s)</span>
-<span id="cb2-196"><a href="#cb2-196" aria-hidden="true" tabindex="-1"></a>ax.axhline(<span class="dv">0</span>, color<span class="op">=</span><span class="st">"gray"</span>, linewidth<span class="op">=</span><span class="fl">0.8</span>, linestyle<span class="op">=</span><span class="st">"--"</span>)</span>
-<span id="cb2-197"><a href="#cb2-197" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="vs">r"discount factor </span><span class="dv">$</span><span class="er">\</span><span class="vs">gamma</span><span class="dv">$</span><span class="vs">"</span>)</span>
-<span id="cb2-198"><a href="#cb2-198" aria-hidden="true" tabindex="-1"></a>ax.set_ylabel(<span class="vs">r"state value </span><span class="dv">$</span><span class="vs">v</span><span class="kw">(</span><span class="vs">s</span><span class="kw">)</span><span class="dv">$</span><span class="vs">"</span>)</span>
-<span id="cb2-199"><a href="#cb2-199" aria-hidden="true" tabindex="-1"></a>ax.set_title(<span class="st">"Student MRP: value function vs. discount factor"</span>)</span>
-<span id="cb2-200"><a href="#cb2-200" aria-hidden="true" tabindex="-1"></a>ax.legend(ncol<span class="op">=</span><span class="dv">3</span>, fontsize<span class="op">=</span><span class="dv">9</span>)</span>
-<span id="cb2-201"><a href="#cb2-201" aria-hidden="true" tabindex="-1"></a>ax.grid(alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
-<span id="cb2-202"><a href="#cb2-202" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
-<span id="cb2-203"><a href="#cb2-203" aria-hidden="true" tabindex="-1"></a>plt.show()</span>
-<span id="cb2-204"><a href="#cb2-204" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb2-205"><a href="#cb2-205" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-206"><a href="#cb2-206" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb2-207"><a href="#cb2-207" aria-hidden="true" tabindex="-1"></a><span class="fu">## 읽는 법</span></span>
-<span id="cb2-208"><a href="#cb2-208" aria-hidden="true" tabindex="-1"></a>$\gamma=0$에서는 $v(s)=R_s$ (즉시 보상 그 자체)다. $\gamma$를 키울수록 미래,</span>
-<span id="cb2-209"><a href="#cb2-209" aria-hidden="true" tabindex="-1"></a>특히 $R=+10$인 Pass의 영향이 앞선 상태로 전파되어 $C3, C2$의 가치가 올라간다.</span>
-<span id="cb2-210"><a href="#cb2-210" aria-hidden="true" tabindex="-1"></a>반대로 자기 자신으로 0.9 확률로 머무는 FB는 $\gamma$가 커질수록 $R=-1$이 길게</span>
-<span id="cb2-211"><a href="#cb2-211" aria-hidden="true" tabindex="-1"></a>누적되어 급격히 음수로 발산하는 경향을 보인다 ($\gamma=1$에서 $v(FB)\approx -22.5$).</span>
-<span id="cb2-212"><a href="#cb2-212" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-213"><a href="#cb2-213" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-214"><a href="#cb2-214" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\gamma$ <span class="pp">|</span> C1 <span class="pp">|</span> C2 <span class="pp">|</span> C3 <span class="pp">|</span> Pass <span class="pp">|</span> Pub <span class="pp">|</span> FB <span class="pp">|</span></span>
-<span id="cb2-215"><a href="#cb2-215" aria-hidden="true" tabindex="-1"></a><span class="pp">|---:|---:|---:|---:|---:|---:|---:|</span></span>
-<span id="cb2-216"><a href="#cb2-216" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 0.0 <span class="pp">|</span> $-2.00$ <span class="pp">|</span> $-2.00$ <span class="pp">|</span> $-2.00$ <span class="pp">|</span> $+10.00$ <span class="pp">|</span> $+1.00$ <span class="pp">|</span> $-1.00$ <span class="pp">|</span></span>
-<span id="cb2-217"><a href="#cb2-217" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 0.5 <span class="pp">|</span> $-2.91$ <span class="pp">|</span> $-1.55$ <span class="pp">|</span> $+1.12$ <span class="pp">|</span> $+10.00$ <span class="pp">|</span> $+0.62$ <span class="pp">|</span> $-2.08$ <span class="pp">|</span></span>
-<span id="cb2-218"><a href="#cb2-218" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 0.9 <span class="pp">|</span> $-5.01$ <span class="pp">|</span> $+0.94$ <span class="pp">|</span> $+4.09$ <span class="pp">|</span> $+10.00$ <span class="pp">|</span> $+1.91$ <span class="pp">|</span> $-7.64$ <span class="pp">|</span></span>
-<span id="cb2-219"><a href="#cb2-219" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 1.0 <span class="pp">|</span> $-12.54$ <span class="pp">|</span> $+1.46$ <span class="pp">|</span> $+4.32$ <span class="pp">|</span> $+10.00$ <span class="pp">|</span> $+0.80$ <span class="pp">|</span> $-22.54$ <span class="pp">|</span></span>
-<span id="cb2-220"><a href="#cb2-220" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-221"><a href="#cb2-221" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb2-222"><a href="#cb2-222" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-223"><a href="#cb2-223" aria-hidden="true" tabindex="-1"></a><span class="fu"># Markov Decision Process (MDP)</span></span>
-<span id="cb2-224"><a href="#cb2-224" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-225"><a href="#cb2-225" aria-hidden="true" tabindex="-1"></a>MDP $=\langle S, A, P, R, \gamma\rangle$ — MRP에 **행동(decision)** 을 추가한 것.</span>
-<span id="cb2-226"><a href="#cb2-226" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-227"><a href="#cb2-227" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-228"><a href="#cb2-228" aria-hidden="true" tabindex="-1"></a>P_{ss'}^{a} = \mathbb{P}<span class="co">[</span><span class="ot">S_{t+1}=s'\mid S_t=s,\, A_t=a</span><span class="co">]</span>, \qquad</span>
-<span id="cb2-229"><a href="#cb2-229" aria-hidden="true" tabindex="-1"></a>R_s^{a} = \mathbb{E}<span class="co">[</span><span class="ot">R_{t+1}\mid S_t=s,\, A_t=a</span><span class="co">]</span></span>
-<span id="cb2-230"><a href="#cb2-230" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-231"><a href="#cb2-231" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-232"><a href="#cb2-232" aria-hidden="true" tabindex="-1"></a><span class="fu">## 정책 (policy)</span></span>
-<span id="cb2-233"><a href="#cb2-233" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-234"><a href="#cb2-234" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-235"><a href="#cb2-235" aria-hidden="true" tabindex="-1"></a>\pi(a\mid s) = \mathbb{P}<span class="co">[</span><span class="ot">A_t = a \mid S_t = s</span><span class="co">]</span></span>
-<span id="cb2-236"><a href="#cb2-236" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-237"><a href="#cb2-237" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-238"><a href="#cb2-238" aria-hidden="true" tabindex="-1"></a>정책은 **현재 상태에만 의존**하며(stationary), 시간 불변이다.</span>
-<span id="cb2-239"><a href="#cb2-239" aria-hidden="true" tabindex="-1"></a>정책이 history가 아니라 상태에만 의존해도 충분한 이유가 곧 Markov 성질이다.</span>
-<span id="cb2-240"><a href="#cb2-240" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-241"><a href="#cb2-241" aria-hidden="true" tabindex="-1"></a><span class="fu">## Student MDP 예제</span></span>
-<span id="cb2-242"><a href="#cb2-242" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-245"><a href="#cb2-245" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
-<span id="cb2-246"><a href="#cb2-246" aria-hidden="true" tabindex="-1"></a>%%| label: fig-mdp</span>
-<span id="cb2-247"><a href="#cb2-247" aria-hidden="true" tabindex="-1"></a>%%| fig-cap: <span class="ot">"</span><span class="st">Student MDP (빨간 글씨 = action / reward)</span><span class="ot">"</span></span>
-<span id="cb2-248"><a href="#cb2-248" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
-<span id="cb2-249"><a href="#cb2-249" aria-hidden="true" tabindex="-1"></a>  S1((Class <span class="dv">1</span>))</span>
-<span id="cb2-250"><a href="#cb2-250" aria-hidden="true" tabindex="-1"></a>  S2((Class <span class="dv">2</span>))</span>
-<span id="cb2-251"><a href="#cb2-251" aria-hidden="true" tabindex="-1"></a>  S3((Class <span class="dv">3</span>))</span>
-<span id="cb2-252"><a href="#cb2-252" aria-hidden="true" tabindex="-1"></a>  FB((Facebook))</span>
-<span id="cb2-253"><a href="#cb2-253" aria-hidden="true" tabindex="-1"></a>  SL[Sleep]</span>
-<span id="cb2-254"><a href="#cb2-254" aria-hidden="true" tabindex="-1"></a>  PUB{{<span class="ot">"</span><span class="st">Pub (R=+1)</span><span class="ot">"</span>}}</span>
-<span id="cb2-255"><a href="#cb2-255" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-256"><a href="#cb2-256" aria-hidden="true" tabindex="-1"></a>  S1 --&gt;|<span class="ot">"</span><span class="st">Facebook, R=-1</span><span class="ot">"</span>| FB</span>
-<span id="cb2-257"><a href="#cb2-257" aria-hidden="true" tabindex="-1"></a>  FB --&gt;|<span class="ot">"</span><span class="st">Facebook, R=-1</span><span class="ot">"</span>| FB</span>
-<span id="cb2-258"><a href="#cb2-258" aria-hidden="true" tabindex="-1"></a>  FB --&gt;|<span class="ot">"</span><span class="st">Quit, R=0</span><span class="ot">"</span>| S1</span>
-<span id="cb2-259"><a href="#cb2-259" aria-hidden="true" tabindex="-1"></a>  S1 --&gt;|<span class="ot">"</span><span class="st">Study, R=-2</span><span class="ot">"</span>| S2</span>
-<span id="cb2-260"><a href="#cb2-260" aria-hidden="true" tabindex="-1"></a>  S2 --&gt;|<span class="ot">"</span><span class="st">Sleep, R=0</span><span class="ot">"</span>| SL</span>
-<span id="cb2-261"><a href="#cb2-261" aria-hidden="true" tabindex="-1"></a>  S2 --&gt;|<span class="ot">"</span><span class="st">Study, R=-2</span><span class="ot">"</span>| S3</span>
-<span id="cb2-262"><a href="#cb2-262" aria-hidden="true" tabindex="-1"></a>  S3 --&gt;|<span class="ot">"</span><span class="st">Study, R=+10</span><span class="ot">"</span>| SL</span>
-<span id="cb2-263"><a href="#cb2-263" aria-hidden="true" tabindex="-1"></a>  S3 --&gt;|<span class="ot">"</span><span class="st">Pub</span><span class="ot">"</span>| PUB</span>
-<span id="cb2-264"><a href="#cb2-264" aria-hidden="true" tabindex="-1"></a>  PUB --&gt;|<span class="fl">0.2</span>| S1</span>
-<span id="cb2-265"><a href="#cb2-265" aria-hidden="true" tabindex="-1"></a>  PUB --&gt;|<span class="fl">0.4</span>| S2</span>
-<span id="cb2-266"><a href="#cb2-266" aria-hidden="true" tabindex="-1"></a>  PUB --&gt;|<span class="fl">0.4</span>| S3</span>
-<span id="cb2-267"><a href="#cb2-267" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb2-268"><a href="#cb2-268" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-269"><a href="#cb2-269" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb2-270"><a href="#cb2-270" aria-hidden="true" tabindex="-1"></a>MRP에서 "환경이 던지던" 분기 확률 일부가, MDP에서는 "내가 선택하는" 행동으로 바뀐다.</span>
-<span id="cb2-271"><a href="#cb2-271" aria-hidden="true" tabindex="-1"></a>Pub 행동만 결과가 확률적(0.2/0.4/0.4)이고, 나머지 행동은 결정적 전이를 갖는다.</span>
-<span id="cb2-272"><a href="#cb2-272" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-273"><a href="#cb2-273" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-274"><a href="#cb2-274" aria-hidden="true" tabindex="-1"></a><span class="fu">## 정책 고정 → MRP로 환원</span></span>
-<span id="cb2-275"><a href="#cb2-275" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-276"><a href="#cb2-276" aria-hidden="true" tabindex="-1"></a>정책 $\pi$를 고정하면 상태열 $S_1, S_2,\dots$은 Markov process $\langle S, P^\pi\rangle$,</span>
-<span id="cb2-277"><a href="#cb2-277" aria-hidden="true" tabindex="-1"></a>상태-보상열은 MRP $\langle S, P^\pi, R^\pi, \gamma\rangle$가 된다.</span>
-<span id="cb2-278"><a href="#cb2-278" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-279"><a href="#cb2-279" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-280"><a href="#cb2-280" aria-hidden="true" tabindex="-1"></a>P^\pi_{ss'} = \sum_{a} \pi(a\mid s)\,P_{ss'}^{a}, \qquad</span>
-<span id="cb2-281"><a href="#cb2-281" aria-hidden="true" tabindex="-1"></a>R^\pi_{s} = \sum_{a} \pi(a\mid s)\,R_s^{a}</span>
-<span id="cb2-282"><a href="#cb2-282" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-283"><a href="#cb2-283" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-284"><a href="#cb2-284" aria-hidden="true" tabindex="-1"></a><span class="fu">## 두 가지 가치함수</span></span>
-<span id="cb2-285"><a href="#cb2-285" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-286"><a href="#cb2-286" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-287"><a href="#cb2-287" aria-hidden="true" tabindex="-1"></a>v_\pi(s) = \mathbb{E}_\pi<span class="co">[</span><span class="ot">G_t\mid S_t=s</span><span class="co">]</span>, \qquad</span>
-<span id="cb2-288"><a href="#cb2-288" aria-hidden="true" tabindex="-1"></a>q_\pi(s,a) = \mathbb{E}_\pi<span class="co">[</span><span class="ot">G_t\mid S_t=s,\, A_t=a</span><span class="co">]</span></span>
-<span id="cb2-289"><a href="#cb2-289" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-290"><a href="#cb2-290" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-291"><a href="#cb2-291" aria-hidden="true" tabindex="-1"></a>$v_\pi$는 상태가치, $q_\pi$는 (상태, 행동) 가치다. 둘의 구분은 표기 정확성과 직결된다.</span>
-<span id="cb2-292"><a href="#cb2-292" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-293"><a href="#cb2-293" aria-hidden="true" tabindex="-1"></a><span class="fu">## Bellman Expectation Equation</span></span>
-<span id="cb2-294"><a href="#cb2-294" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-295"><a href="#cb2-295" aria-hidden="true" tabindex="-1"></a>$v$와 $q$를 서로 한 단계씩 펼치는 네 관계가 핵심이다.</span>
-<span id="cb2-296"><a href="#cb2-296" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-297"><a href="#cb2-297" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-298"><a href="#cb2-298" aria-hidden="true" tabindex="-1"></a>\begin{aligned}</span>
-<span id="cb2-299"><a href="#cb2-299" aria-hidden="true" tabindex="-1"></a>v_\pi(s) &amp;= \sum_a \pi(a\mid s)\, q_\pi(s,a) <span class="sc">\\</span><span class="co">[</span><span class="ot">2pt</span><span class="co">]</span></span>
-<span id="cb2-300"><a href="#cb2-300" aria-hidden="true" tabindex="-1"></a>q_\pi(s,a) &amp;= R_s^a + \gamma \sum_{s'} P_{ss'}^a\, v_\pi(s') <span class="sc">\\</span><span class="co">[</span><span class="ot">2pt</span><span class="co">]</span></span>
-<span id="cb2-301"><a href="#cb2-301" aria-hidden="true" tabindex="-1"></a>v_\pi(s) &amp;= \sum_a \pi(a\mid s)\Big(R_s^a + \gamma \sum_{s'} P_{ss'}^a\, v_\pi(s')\Big) <span class="sc">\\</span><span class="co">[</span><span class="ot">2pt</span><span class="co">]</span></span>
-<span id="cb2-302"><a href="#cb2-302" aria-hidden="true" tabindex="-1"></a>q_\pi(s,a) &amp;= R_s^a + \gamma \sum_{s'} P_{ss'}^a \sum_{a'} \pi(a'\mid s')\, q_\pi(s',a')</span>
-<span id="cb2-303"><a href="#cb2-303" aria-hidden="true" tabindex="-1"></a>\end{aligned}</span>
-<span id="cb2-304"><a href="#cb2-304" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-305"><a href="#cb2-305" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-306"><a href="#cb2-306" aria-hidden="true" tabindex="-1"></a>행렬형:</span>
-<span id="cb2-307"><a href="#cb2-307" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-308"><a href="#cb2-308" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-309"><a href="#cb2-309" aria-hidden="true" tabindex="-1"></a>v_\pi = R^\pi + \gamma P^\pi v_\pi</span>
-<span id="cb2-310"><a href="#cb2-310" aria-hidden="true" tabindex="-1"></a>\;\;\Longrightarrow\;\;</span>
-<span id="cb2-311"><a href="#cb2-311" aria-hidden="true" tabindex="-1"></a>v_\pi = (I - \gamma P^\pi)^{-1} R^\pi</span>
-<span id="cb2-312"><a href="#cb2-312" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-313"><a href="#cb2-313" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-314"><a href="#cb2-314" aria-hidden="true" tabindex="-1"></a>MRP와 완전히 같은 구조다.</span>
-<span id="cb2-315"><a href="#cb2-315" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-316"><a href="#cb2-316" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb2-317"><a href="#cb2-317" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-318"><a href="#cb2-318" aria-hidden="true" tabindex="-1"></a><span class="fu"># 최적성 (Optimality)</span></span>
-<span id="cb2-319"><a href="#cb2-319" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-320"><a href="#cb2-320" aria-hidden="true" tabindex="-1"></a><span class="fu">## 최적 가치함수</span></span>
-<span id="cb2-321"><a href="#cb2-321" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-322"><a href="#cb2-322" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-323"><a href="#cb2-323" aria-hidden="true" tabindex="-1"></a>v_*(s) = \max_\pi v_\pi(s), \qquad q_*(s,a) = \max_\pi q_\pi(s,a)</span>
-<span id="cb2-324"><a href="#cb2-324" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-325"><a href="#cb2-325" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-326"><a href="#cb2-326" aria-hidden="true" tabindex="-1"></a>MDP가 "풀렸다"는 것은 곧 $v_*$ (또는 $q_*$)를 안다는 뜻이다.</span>
-<span id="cb2-327"><a href="#cb2-327" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-328"><a href="#cb2-328" aria-hidden="true" tabindex="-1"></a><span class="fu">## 최적 정책 정리</span></span>
-<span id="cb2-329"><a href="#cb2-329" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-330"><a href="#cb2-330" aria-hidden="true" tabindex="-1"></a>모든 MDP에 대해 다음이 성립한다.</span>
-<span id="cb2-331"><a href="#cb2-331" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-332"><a href="#cb2-332" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>다른 모든 정책보다 좋거나 같은 최적 정책 $\pi_*$가 **반드시 존재**한다.</span>
-<span id="cb2-333"><a href="#cb2-333" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>모든 최적 정책은 최적 상태가치 $v_{\pi_*}(s)=v_*(s)$를 달성한다.</span>
-<span id="cb2-334"><a href="#cb2-334" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>모든 최적 정책은 최적 행동가치 $q_{\pi_*}(s,a)=q_*(s,a)$를 달성한다.</span>
-<span id="cb2-335"><a href="#cb2-335" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-336"><a href="#cb2-336" aria-hidden="true" tabindex="-1"></a><span class="fu">## 최적 정책 찾기</span></span>
-<span id="cb2-337"><a href="#cb2-337" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-338"><a href="#cb2-338" aria-hidden="true" tabindex="-1"></a>$q_*$를 알면 즉시 greedy하게 결정적(deterministic) 정책을 얻는다.</span>
-<span id="cb2-339"><a href="#cb2-339" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-340"><a href="#cb2-340" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-341"><a href="#cb2-341" aria-hidden="true" tabindex="-1"></a>\pi_*(a\mid s) =</span>
-<span id="cb2-342"><a href="#cb2-342" aria-hidden="true" tabindex="-1"></a>\begin{cases}</span>
-<span id="cb2-343"><a href="#cb2-343" aria-hidden="true" tabindex="-1"></a>1 &amp; \text{if } a = \arg\max_{a\in A} q_*(s,a)<span class="sc">\\</span></span>
-<span id="cb2-344"><a href="#cb2-344" aria-hidden="true" tabindex="-1"></a>0 &amp; \text{otherwise}</span>
-<span id="cb2-345"><a href="#cb2-345" aria-hidden="true" tabindex="-1"></a>\end{cases}</span>
-<span id="cb2-346"><a href="#cb2-346" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-347"><a href="#cb2-347" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-348"><a href="#cb2-348" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
-<span id="cb2-349"><a href="#cb2-349" aria-hidden="true" tabindex="-1"></a>**결정적 최적 정책은 항상 존재**한다. 즉 $q_*$만 구하면 MDP는 끝난다.</span>
-<span id="cb2-350"><a href="#cb2-350" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-351"><a href="#cb2-351" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-352"><a href="#cb2-352" aria-hidden="true" tabindex="-1"></a><span class="fu">## Bellman Optimality Equation</span></span>
-<span id="cb2-353"><a href="#cb2-353" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-354"><a href="#cb2-354" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-355"><a href="#cb2-355" aria-hidden="true" tabindex="-1"></a>\begin{aligned}</span>
-<span id="cb2-356"><a href="#cb2-356" aria-hidden="true" tabindex="-1"></a>v_*(s) &amp;= \max_a q_*(s,a) <span class="sc">\\</span><span class="co">[</span><span class="ot">2pt</span><span class="co">]</span></span>
-<span id="cb2-357"><a href="#cb2-357" aria-hidden="true" tabindex="-1"></a>q_*(s,a) &amp;= R_s^a + \gamma \sum_{s'} P_{ss'}^a\, v_*(s') <span class="sc">\\</span><span class="co">[</span><span class="ot">2pt</span><span class="co">]</span></span>
-<span id="cb2-358"><a href="#cb2-358" aria-hidden="true" tabindex="-1"></a>v_*(s) &amp;= \max_a \Big(R_s^a + \gamma \sum_{s'} P_{ss'}^a\, v_*(s')\Big) <span class="sc">\\</span><span class="co">[</span><span class="ot">2pt</span><span class="co">]</span></span>
-<span id="cb2-359"><a href="#cb2-359" aria-hidden="true" tabindex="-1"></a>q_*(s,a) &amp;= R_s^a + \gamma \sum_{s'} P_{ss'}^a \max_{a'} q_*(s',a')</span>
-<span id="cb2-360"><a href="#cb2-360" aria-hidden="true" tabindex="-1"></a>\end{aligned}</span>
-<span id="cb2-361"><a href="#cb2-361" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb2-362"><a href="#cb2-362" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-363"><a href="#cb2-363" aria-hidden="true" tabindex="-1"></a><span class="fu">## Expectation vs. Optimality</span></span>
-<span id="cb2-364"><a href="#cb2-364" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-365"><a href="#cb2-365" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 구분 <span class="pp">|</span> 연산자 <span class="pp">|</span> 선형성 <span class="pp">|</span> 해법 <span class="pp">|</span></span>
-<span id="cb2-366"><a href="#cb2-366" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|:---:|---|</span></span>
-<span id="cb2-367"><a href="#cb2-367" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Bellman **Expectation** | $\sum_a \pi(a\mid s)\,(\cdot)$ (정책 평균) | **선형** <span class="pp">|</span> 직접 해 $(I-\gamma P^\pi)^{-1}R^\pi$ <span class="pp">|</span></span>
-<span id="cb2-368"><a href="#cb2-368" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Bellman **Optimality** | $\max_a(\cdot)$ | **비선형** <span class="pp">|</span> 직접 해 없음 → 반복법 <span class="pp">|</span></span>
-<span id="cb2-369"><a href="#cb2-369" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-370"><a href="#cb2-370" aria-hidden="true" tabindex="-1"></a>$\max$ 때문에 최적성 방정식은 닫힌 형 해가 없고,</span>
-<span id="cb2-371"><a href="#cb2-371" aria-hidden="true" tabindex="-1"></a>**Value Iteration, Policy Iteration, Q-learning, Sarsa** 같은 반복 알고리즘으로 푼다.</span>
-<span id="cb2-372"><a href="#cb2-372" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-373"><a href="#cb2-373" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb2-374"><a href="#cb2-374" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-375"><a href="#cb2-375" aria-hidden="true" tabindex="-1"></a><span class="fu"># Extensions to MDPs</span></span>
-<span id="cb2-376"><a href="#cb2-376" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-377"><a href="#cb2-377" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무한 · 연속 MDP</span></span>
-<span id="cb2-378"><a href="#cb2-378" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-379"><a href="#cb2-379" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>가산 무한(countably infinite) 상태/행동: 대체로 그대로 확장 가능</span>
-<span id="cb2-380"><a href="#cb2-380" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>연속 상태/행동: 선형-2차(LQR) 모델에서는 닫힌 형 해 존재</span>
-<span id="cb2-381"><a href="#cb2-381" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>연속 시간: 편미분방정식 필요 → **HJB(Hamilton-Jacobi-Bellman) 방정식**,</span>
-<span id="cb2-382"><a href="#cb2-382" aria-hidden="true" tabindex="-1"></a>  Bellman 방정식에서 time-step $\to 0$ 극한</span>
-<span id="cb2-383"><a href="#cb2-383" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-384"><a href="#cb2-384" aria-hidden="true" tabindex="-1"></a><span class="fu">## POMDP (부분 관측)</span></span>
-<span id="cb2-385"><a href="#cb2-385" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-386"><a href="#cb2-386" aria-hidden="true" tabindex="-1"></a>$\langle S, A, O, P, R, Z, \gamma\rangle$. 상태가 숨겨진 MDP = 행동이 있는 HMM.</span>
-<span id="cb2-387"><a href="#cb2-387" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-388"><a href="#cb2-388" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Belief state** $b(h)$: history $h$가 주어졌을 때 상태에 대한 확률분포</span>
-<span id="cb2-389"><a href="#cb2-389" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>POMDP는 (무한) **history tree** 또는 (무한) **belief state tree** 로 환원 가능</span>
-<span id="cb2-390"><a href="#cb2-390" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-391"><a href="#cb2-391" aria-hidden="true" tabindex="-1"></a><span class="fu">## Undiscounted / 평균 보상 MDP</span></span>
-<span id="cb2-392"><a href="#cb2-392" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-393"><a href="#cb2-393" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Ergodic** Markov process = recurrent(각 상태 무한 방문) + aperiodic(주기 없음)</span>
-<span id="cb2-394"><a href="#cb2-394" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>어떤 정책 $\pi$가 유도하는 chain이 항상 ergodic이면 MDP가 ergodic</span>
-<span id="cb2-395"><a href="#cb2-395" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>ergodic MDP는 시작 상태와 무관한 **단위 시간당 평균 보상** $\rho^\pi$를 가짐</span>
-<span id="cb2-396"><a href="#cb2-396" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>대응되는 **average-reward Bellman equation** (차분 가치함수 differential value function 사용)이 존재</span>
-<span id="cb2-397"><a href="#cb2-397" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-398"><a href="#cb2-398" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb2-399"><a href="#cb2-399" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-400"><a href="#cb2-400" aria-hidden="true" tabindex="-1"></a><span class="fu"># 기말 대비 체크리스트</span></span>
-<span id="cb2-401"><a href="#cb2-401" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-402"><a href="#cb2-402" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb2-403"><a href="#cb2-403" aria-hidden="true" tabindex="-1"></a><span class="fu">## 반드시 손으로 쓸 수 있어야 하는 것</span></span>
-<span id="cb2-404"><a href="#cb2-404" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**$v=(I-\gamma P)^{-1}R$ 유도** — Bellman 분해부터 행렬형까지.</span>
-<span id="cb2-405"><a href="#cb2-405" aria-hidden="true" tabindex="-1"></a>   (MRP/leaky bucket의 정상상태 · 평균지연 계산과 같은 근육)</span>
-<span id="cb2-406"><a href="#cb2-406" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Expectation vs. Optimality 방정식 4종** — $v\leftrightarrow q$ 상호 전개.</span>
-<span id="cb2-407"><a href="#cb2-407" aria-hidden="true" tabindex="-1"></a>   $\max$ vs. $\sum_a\pi$가 선형/비선형을 가르는 지점을 설명할 수 있을 것.</span>
-<span id="cb2-408"><a href="#cb2-408" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**$\gamma$ 정당화 6가지** 단답.</span>
-<span id="cb2-409"><a href="#cb2-409" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**결정적 최적 정책 존재성** + $q_*$로부터 greedy 추출 논리.</span>
-<span id="cb2-410"><a href="#cb2-410" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**정책 고정 → MRP 환원** ($P^\pi, R^\pi$ 정의) — 개념 서술형.</span>
-<span id="cb2-411"><a href="#cb2-411" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-412"><a href="#cb2-412" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-413"><a href="#cb2-413" aria-hidden="true" tabindex="-1"></a>기말의 leaky bucket · contention 문제처럼 "Markov chain을 직접 세우고</span>
-<span id="cb2-414"><a href="#cb2-414" aria-hidden="true" tabindex="-1"></a>정상상태확률을 푸는" 능력이 핵심이고, 그 토대가 이 챕터의 가치 계산 구조다.</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="an">number:</span><span class="co"> 5</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="an">aliases:</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">  - "/study/data-network/markov-decision-processes.html"</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-06-07"</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="an">lang:</span><span class="co"> ko</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-title: "목차"</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: true</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: cosmo</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co">    mainfont: "Noto Sans KR"</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co">    html-math-method: katex</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="co">  pdf:</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="co">    documentclass: scrartcl</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="co">    geometry: margin=2.5cm</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="co">    include-in-header:</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="co">      text: |</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="co">        \usepackage{kotex}</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="an">execute:</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="co">  warning: false</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="co">  message: false</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="fu"># 큰 그림: 왜 MDP인가</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>MDP는 **완전 관측 가능(fully observable)** 환경을 형식화하는 표준 틀이다.</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>"현재 상태가 미래를 결정하는 데 필요한 모든 정보를 담고 있다"는 Markov 성질 위에,</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>**보상(reward)** 과 **행동(action)** 을 차례로 얹어 나가는 구조를 갖는다.</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>\underbrace{\langle S, P\rangle}_{\text{Markov Process}}</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>\;\xrightarrow{+\,R,\;\gamma}\;</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>\underbrace{\langle S, P, R, \gamma\rangle}_{\text{MRP}}</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>\;\xrightarrow{+\,A}\;</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>\underbrace{\langle S, A, P, R, \gamma\rangle}_{\text{MDP}}</span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a><span class="fu">## 한 문장으로 압축한 핵심</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>**MDP에 정책 $\pi$를 고정하면 즉시 MRP가 되고, MRP는 다시 Markov Process가 된다.**</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>따라서 정책 평가(evaluation)는 언제나 "유도된 MRP의 가치 계산"으로 환원된다.</span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a><span class="fu"># Markov Process</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a><span class="fu">## Markov 성질</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>\mathbb{P}<span class="co">[</span><span class="ot">S_{t+1}\mid S_t</span><span class="co">]</span> = \mathbb{P}<span class="co">[</span><span class="ot">S_{t+1}\mid S_1,\dots,S_t</span><span class="co">]</span></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>상태 $S_t$는 미래에 대한 **충분통계량(sufficient statistic)** 이다.</span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>일단 상태를 알면 과거 history는 버려도 된다.</span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a><span class="fu">## 상태 전이 행렬</span></span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>P_{ss'} = \mathbb{P}<span class="co">[</span><span class="ot">S_{t+1}=s'\mid S_t=s</span><span class="co">]</span>, \qquad \sum_{s'} P_{ss'} = 1 \;\;(\text{각 행의 합}=1)</span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>**Markov Process (Chain)** 는 튜플 $\langle S, P\rangle$ — 상태 집합 $S$와 전이 행렬 $P$만으로 정의된다.</span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>보상도 행동도 없다.</span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a><span class="fu">## Student Markov Chain 예제</span></span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a>%%| label: fig-mc</span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>%%| fig-cap: <span class="ot">"</span><span class="st">Student Markov Chain</span><span class="ot">"</span></span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>  C1((Class <span class="dv">1</span>)) --&gt;|<span class="fl">0.5</span>| C2((Class <span class="dv">2</span>))</span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a>  C1 --&gt;|<span class="fl">0.5</span>| FB((Facebook))</span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a>  FB --&gt;|<span class="fl">0.9</span>| FB</span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a>  FB --&gt;|<span class="fl">0.1</span>| C1</span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a>  C2 --&gt;|<span class="fl">0.8</span>| C3((Class <span class="dv">3</span>))</span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a>  C2 --&gt;|<span class="fl">0.2</span>| SL[Sleep]</span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a>  C3 --&gt;|<span class="fl">0.6</span>| PA((Pass))</span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a>  C3 --&gt;|<span class="fl">0.4</span>| PU((Pub))</span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a>  PA --&gt;|<span class="fl">1.0</span>| SL</span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a>  PU --&gt;|<span class="fl">0.2</span>| C1</span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a>  PU --&gt;|<span class="fl">0.4</span>| C2</span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a>  PU --&gt;|<span class="fl">0.4</span>| C3</span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a>표본 경로(sample episode) 예: <span class="in">`C1 → C2 → C3 → Pass → Sleep`</span>,</span>
+<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a><span class="in">`C1 → FB → FB → C1 → C2 → Sleep`</span> 등.</span>
+<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a><span class="fu"># Markov Reward Process (MRP)</span></span>
+<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a>MRP $=\langle S, P, R, \gamma\rangle$ — Markov chain에 **가치(value)** 를 붙인 것.</span>
+<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>보상 함수: $\;R_s = \mathbb{E}[R_{t+1}\mid S_t = s]$</span>
+<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>할인율: $\;\gamma \in <span class="co">[</span><span class="ot">0,1</span><span class="co">]</span>$</span>
+<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a><span class="fu">## Return (누적 할인 보상)</span></span>
+<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a>G_t = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots = \sum_{k=0}^{\infty}\gamma^k R_{t+k+1}</span>
+<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a><span class="fu">## 표기 주의</span></span>
+<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a>상태 $s$에 들어가서 받는 보상의 인덱스는 $R_{t+1}$이다. $G_t$는 확률변수이고,</span>
+<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a>그 기댓값이 가치함수 $v(s)$이다.</span>
+<span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a><span class="fu">## 왜 할인하는가 — $\gamma$의 정당화</span></span>
+<span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>수학적 편의 (수렴 보장)</span>
+<span id="cb2-123"><a href="#cb2-123" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>순환(cyclic) Markov process에서 **무한 return 방지**</span>
+<span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>미래 불확실성을 모형이 완전히 담지 못함</span>
+<span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>금전적 보상이면 즉시 보상이 이자 측면에서 유리</span>
+<span id="cb2-126"><a href="#cb2-126" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>동물/인간이 즉시 보상을 선호</span>
+<span id="cb2-127"><a href="#cb2-127" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>모든 경로가 종료(terminate)하면 $\gamma=1$ (undiscounted)도 가능</span>
+<span id="cb2-128"><a href="#cb2-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-129"><a href="#cb2-129" aria-hidden="true" tabindex="-1"></a><span class="fu">## 가치함수와 Bellman Equation</span></span>
+<span id="cb2-130"><a href="#cb2-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-131"><a href="#cb2-131" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-132"><a href="#cb2-132" aria-hidden="true" tabindex="-1"></a>v(s) = \mathbb{E}<span class="co">[</span><span class="ot">G_t \mid S_t = s</span><span class="co">]</span></span>
+<span id="cb2-133"><a href="#cb2-133" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-134"><a href="#cb2-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-135"><a href="#cb2-135" aria-hidden="true" tabindex="-1"></a>Return을 즉시 보상 + 할인된 다음 상태 가치로 분해한다.</span>
+<span id="cb2-136"><a href="#cb2-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-137"><a href="#cb2-137" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-138"><a href="#cb2-138" aria-hidden="true" tabindex="-1"></a>\begin{aligned}</span>
+<span id="cb2-139"><a href="#cb2-139" aria-hidden="true" tabindex="-1"></a>v(s) &amp;= \mathbb{E}<span class="co">[</span><span class="ot">R_{t+1} + \gamma G_{t+1}\mid S_t = s</span><span class="co">]</span> <span class="sc">\\</span></span>
+<span id="cb2-140"><a href="#cb2-140" aria-hidden="true" tabindex="-1"></a>&amp;= \mathbb{E}<span class="co">[</span><span class="ot">R_{t+1} + \gamma\, v(S_{t+1})\mid S_t = s</span><span class="co">]</span> <span class="sc">\\</span></span>
+<span id="cb2-141"><a href="#cb2-141" aria-hidden="true" tabindex="-1"></a>&amp;= R_s + \gamma \sum_{s'} P_{ss'}\, v(s')</span>
+<span id="cb2-142"><a href="#cb2-142" aria-hidden="true" tabindex="-1"></a>\end{aligned}</span>
+<span id="cb2-143"><a href="#cb2-143" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-144"><a href="#cb2-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-145"><a href="#cb2-145" aria-hidden="true" tabindex="-1"></a>분해의 핵심은 $\mathbb{E}<span class="co">[</span><span class="ot">G_{t+1}\mid S_{t+1}=s'</span><span class="co">]</span>=v(s')$이고 tower property로 한 칸만 펼치는 것이다.</span>
+<span id="cb2-146"><a href="#cb2-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-147"><a href="#cb2-147" aria-hidden="true" tabindex="-1"></a><span class="fu">## 행렬형과 직접 해</span></span>
+<span id="cb2-148"><a href="#cb2-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-149"><a href="#cb2-149" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-150"><a href="#cb2-150" aria-hidden="true" tabindex="-1"></a>v = R + \gamma P v</span>
+<span id="cb2-151"><a href="#cb2-151" aria-hidden="true" tabindex="-1"></a>\;\;\Longrightarrow\;\;</span>
+<span id="cb2-152"><a href="#cb2-152" aria-hidden="true" tabindex="-1"></a>(I-\gamma P)\,v = R</span>
+<span id="cb2-153"><a href="#cb2-153" aria-hidden="true" tabindex="-1"></a>\;\;\Longrightarrow\;\;</span>
+<span id="cb2-154"><a href="#cb2-154" aria-hidden="true" tabindex="-1"></a>v = (I-\gamma P)^{-1}R</span>
+<span id="cb2-155"><a href="#cb2-155" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-156"><a href="#cb2-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-157"><a href="#cb2-157" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>선형 방정식이므로 **직접 풀 수 있음**, 계산복잡도 $O(n^3)$ ($n=|S|$).</span>
+<span id="cb2-158"><a href="#cb2-158" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\gamma&lt;1$이면 $\rho(\gamma P)&lt;1$이므로 $(I-\gamma P)$는 가역.</span>
+<span id="cb2-159"><a href="#cb2-159" aria-hidden="true" tabindex="-1"></a>  큰 $n$에서는 DP / Monte-Carlo / TD 같은 반복법을 사용한다.</span>
+<span id="cb2-160"><a href="#cb2-160" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-161"><a href="#cb2-161" aria-hidden="true" tabindex="-1"></a><span class="fu">## $\gamma$에 따른 가치 전파 시각화</span></span>
+<span id="cb2-162"><a href="#cb2-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-163"><a href="#cb2-163" aria-hidden="true" tabindex="-1"></a>흡수상태 Sleep을 종단(terminal, $v=0$)으로 두고 전이상태 집합</span>
+<span id="cb2-164"><a href="#cb2-164" aria-hidden="true" tabindex="-1"></a>$<span class="sc">\{</span>C1, C2, C3, \text{Pass}, \text{Pub}, FB<span class="sc">\}</span>$에 대해</span>
+<span id="cb2-165"><a href="#cb2-165" aria-hidden="true" tabindex="-1"></a>$v_T = (I-\gamma Q)^{-1} R_T$ 를 직접 푼다. 여기서 $Q$는 전이상태끼리의 부분확률행렬이며,</span>
+<span id="cb2-166"><a href="#cb2-166" aria-hidden="true" tabindex="-1"></a>이 경우 $\gamma=1$에서도 $\rho(Q)&lt;1$이라 역행렬이 존재한다.</span>
+<span id="cb2-167"><a href="#cb2-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-170"><a href="#cb2-170" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb2-171"><a href="#cb2-171" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-value-gamma</span></span>
+<span id="cb2-172"><a href="#cb2-172" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "할인율 gamma에 따른 각 상태의 가치 v(s) 변화"</span></span>
+<span id="cb2-173"><a href="#cb2-173" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb2-174"><a href="#cb2-174" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb2-175"><a href="#cb2-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-176"><a href="#cb2-176" aria-hidden="true" tabindex="-1"></a>states <span class="op">=</span> [<span class="st">"C1"</span>, <span class="st">"C2"</span>, <span class="st">"C3"</span>, <span class="st">"Pass"</span>, <span class="st">"Pub"</span>, <span class="st">"FB"</span>]</span>
+<span id="cb2-177"><a href="#cb2-177" aria-hidden="true" tabindex="-1"></a>idx <span class="op">=</span> {s: i <span class="cf">for</span> i, s <span class="kw">in</span> <span class="bu">enumerate</span>(states)}</span>
+<span id="cb2-178"><a href="#cb2-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-179"><a href="#cb2-179" aria-hidden="true" tabindex="-1"></a>Q <span class="op">=</span> np.zeros((<span class="dv">6</span>, <span class="dv">6</span>))</span>
+<span id="cb2-180"><a href="#cb2-180" aria-hidden="true" tabindex="-1"></a>Q[idx[<span class="st">"C1"</span>], idx[<span class="st">"FB"</span>]] <span class="op">=</span> <span class="fl">0.5</span><span class="op">;</span>  Q[idx[<span class="st">"C1"</span>], idx[<span class="st">"C2"</span>]] <span class="op">=</span> <span class="fl">0.5</span></span>
+<span id="cb2-181"><a href="#cb2-181" aria-hidden="true" tabindex="-1"></a>Q[idx[<span class="st">"C2"</span>], idx[<span class="st">"C3"</span>]] <span class="op">=</span> <span class="fl">0.8</span>                     <span class="co"># C2 -&gt; Sleep 0.2 (terminal)</span></span>
+<span id="cb2-182"><a href="#cb2-182" aria-hidden="true" tabindex="-1"></a>Q[idx[<span class="st">"C3"</span>], idx[<span class="st">"Pub"</span>]] <span class="op">=</span> <span class="fl">0.4</span><span class="op">;</span> Q[idx[<span class="st">"C3"</span>], idx[<span class="st">"Pass"</span>]] <span class="op">=</span> <span class="fl">0.6</span></span>
+<span id="cb2-183"><a href="#cb2-183" aria-hidden="true" tabindex="-1"></a><span class="co"># Pass -&gt; Sleep 1.0 (terminal): 행 전체 0</span></span>
+<span id="cb2-184"><a href="#cb2-184" aria-hidden="true" tabindex="-1"></a>Q[idx[<span class="st">"Pub"</span>], idx[<span class="st">"C1"</span>]] <span class="op">=</span> <span class="fl">0.2</span></span>
+<span id="cb2-185"><a href="#cb2-185" aria-hidden="true" tabindex="-1"></a>Q[idx[<span class="st">"Pub"</span>], idx[<span class="st">"C2"</span>]] <span class="op">=</span> <span class="fl">0.4</span></span>
+<span id="cb2-186"><a href="#cb2-186" aria-hidden="true" tabindex="-1"></a>Q[idx[<span class="st">"Pub"</span>], idx[<span class="st">"C3"</span>]] <span class="op">=</span> <span class="fl">0.4</span></span>
+<span id="cb2-187"><a href="#cb2-187" aria-hidden="true" tabindex="-1"></a>Q[idx[<span class="st">"FB"</span>], idx[<span class="st">"FB"</span>]] <span class="op">=</span> <span class="fl">0.9</span><span class="op">;</span>  Q[idx[<span class="st">"FB"</span>], idx[<span class="st">"C1"</span>]] <span class="op">=</span> <span class="fl">0.1</span></span>
+<span id="cb2-188"><a href="#cb2-188" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-189"><a href="#cb2-189" aria-hidden="true" tabindex="-1"></a>R <span class="op">=</span> np.array([<span class="op">-</span><span class="dv">2</span>, <span class="op">-</span><span class="dv">2</span>, <span class="op">-</span><span class="dv">2</span>, <span class="dv">10</span>, <span class="dv">1</span>, <span class="op">-</span><span class="dv">1</span>], dtype<span class="op">=</span><span class="bu">float</span>)</span>
+<span id="cb2-190"><a href="#cb2-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-191"><a href="#cb2-191" aria-hidden="true" tabindex="-1"></a>gammas <span class="op">=</span> np.linspace(<span class="fl">0.0</span>, <span class="fl">1.0</span>, <span class="dv">51</span>)</span>
+<span id="cb2-192"><a href="#cb2-192" aria-hidden="true" tabindex="-1"></a>V <span class="op">=</span> np.array([np.linalg.solve(np.eye(<span class="dv">6</span>) <span class="op">-</span> g <span class="op">*</span> Q, R) <span class="cf">for</span> g <span class="kw">in</span> gammas])</span>
+<span id="cb2-193"><a href="#cb2-193" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-194"><a href="#cb2-194" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">5</span>))</span>
+<span id="cb2-195"><a href="#cb2-195" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> j, s <span class="kw">in</span> <span class="bu">enumerate</span>(states):</span>
+<span id="cb2-196"><a href="#cb2-196" aria-hidden="true" tabindex="-1"></a>    ax.plot(gammas, V[:, j], marker<span class="op">=</span><span class="st">""</span>, linewidth<span class="op">=</span><span class="dv">2</span>, label<span class="op">=</span>s)</span>
+<span id="cb2-197"><a href="#cb2-197" aria-hidden="true" tabindex="-1"></a>ax.axhline(<span class="dv">0</span>, color<span class="op">=</span><span class="st">"gray"</span>, linewidth<span class="op">=</span><span class="fl">0.8</span>, linestyle<span class="op">=</span><span class="st">"--"</span>)</span>
+<span id="cb2-198"><a href="#cb2-198" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="vs">r"discount factor </span><span class="dv">$</span><span class="er">\</span><span class="vs">gamma</span><span class="dv">$</span><span class="vs">"</span>)</span>
+<span id="cb2-199"><a href="#cb2-199" aria-hidden="true" tabindex="-1"></a>ax.set_ylabel(<span class="vs">r"state value </span><span class="dv">$</span><span class="vs">v</span><span class="kw">(</span><span class="vs">s</span><span class="kw">)</span><span class="dv">$</span><span class="vs">"</span>)</span>
+<span id="cb2-200"><a href="#cb2-200" aria-hidden="true" tabindex="-1"></a>ax.set_title(<span class="st">"Student MRP: value function vs. discount factor"</span>)</span>
+<span id="cb2-201"><a href="#cb2-201" aria-hidden="true" tabindex="-1"></a>ax.legend(ncol<span class="op">=</span><span class="dv">3</span>, fontsize<span class="op">=</span><span class="dv">9</span>)</span>
+<span id="cb2-202"><a href="#cb2-202" aria-hidden="true" tabindex="-1"></a>ax.grid(alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
+<span id="cb2-203"><a href="#cb2-203" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb2-204"><a href="#cb2-204" aria-hidden="true" tabindex="-1"></a>plt.show()</span>
+<span id="cb2-205"><a href="#cb2-205" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb2-206"><a href="#cb2-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-207"><a href="#cb2-207" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb2-208"><a href="#cb2-208" aria-hidden="true" tabindex="-1"></a><span class="fu">## 읽는 법</span></span>
+<span id="cb2-209"><a href="#cb2-209" aria-hidden="true" tabindex="-1"></a>$\gamma=0$에서는 $v(s)=R_s$ (즉시 보상 그 자체)다. $\gamma$를 키울수록 미래,</span>
+<span id="cb2-210"><a href="#cb2-210" aria-hidden="true" tabindex="-1"></a>특히 $R=+10$인 Pass의 영향이 앞선 상태로 전파되어 $C3, C2$의 가치가 올라간다.</span>
+<span id="cb2-211"><a href="#cb2-211" aria-hidden="true" tabindex="-1"></a>반대로 자기 자신으로 0.9 확률로 머무는 FB는 $\gamma$가 커질수록 $R=-1$이 길게</span>
+<span id="cb2-212"><a href="#cb2-212" aria-hidden="true" tabindex="-1"></a>누적되어 급격히 음수로 발산하는 경향을 보인다 ($\gamma=1$에서 $v(FB)\approx -22.5$).</span>
+<span id="cb2-213"><a href="#cb2-213" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-214"><a href="#cb2-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-215"><a href="#cb2-215" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\gamma$ <span class="pp">|</span> C1 <span class="pp">|</span> C2 <span class="pp">|</span> C3 <span class="pp">|</span> Pass <span class="pp">|</span> Pub <span class="pp">|</span> FB <span class="pp">|</span></span>
+<span id="cb2-216"><a href="#cb2-216" aria-hidden="true" tabindex="-1"></a><span class="pp">|---:|---:|---:|---:|---:|---:|---:|</span></span>
+<span id="cb2-217"><a href="#cb2-217" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 0.0 <span class="pp">|</span> $-2.00$ <span class="pp">|</span> $-2.00$ <span class="pp">|</span> $-2.00$ <span class="pp">|</span> $+10.00$ <span class="pp">|</span> $+1.00$ <span class="pp">|</span> $-1.00$ <span class="pp">|</span></span>
+<span id="cb2-218"><a href="#cb2-218" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 0.5 <span class="pp">|</span> $-2.91$ <span class="pp">|</span> $-1.55$ <span class="pp">|</span> $+1.12$ <span class="pp">|</span> $+10.00$ <span class="pp">|</span> $+0.62$ <span class="pp">|</span> $-2.08$ <span class="pp">|</span></span>
+<span id="cb2-219"><a href="#cb2-219" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 0.9 <span class="pp">|</span> $-5.01$ <span class="pp">|</span> $+0.94$ <span class="pp">|</span> $+4.09$ <span class="pp">|</span> $+10.00$ <span class="pp">|</span> $+1.91$ <span class="pp">|</span> $-7.64$ <span class="pp">|</span></span>
+<span id="cb2-220"><a href="#cb2-220" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 1.0 <span class="pp">|</span> $-12.54$ <span class="pp">|</span> $+1.46$ <span class="pp">|</span> $+4.32$ <span class="pp">|</span> $+10.00$ <span class="pp">|</span> $+0.80$ <span class="pp">|</span> $-22.54$ <span class="pp">|</span></span>
+<span id="cb2-221"><a href="#cb2-221" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-222"><a href="#cb2-222" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb2-223"><a href="#cb2-223" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-224"><a href="#cb2-224" aria-hidden="true" tabindex="-1"></a><span class="fu"># Markov Decision Process (MDP)</span></span>
+<span id="cb2-225"><a href="#cb2-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-226"><a href="#cb2-226" aria-hidden="true" tabindex="-1"></a>MDP $=\langle S, A, P, R, \gamma\rangle$ — MRP에 **행동(decision)** 을 추가한 것.</span>
+<span id="cb2-227"><a href="#cb2-227" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-228"><a href="#cb2-228" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-229"><a href="#cb2-229" aria-hidden="true" tabindex="-1"></a>P_{ss'}^{a} = \mathbb{P}<span class="co">[</span><span class="ot">S_{t+1}=s'\mid S_t=s,\, A_t=a</span><span class="co">]</span>, \qquad</span>
+<span id="cb2-230"><a href="#cb2-230" aria-hidden="true" tabindex="-1"></a>R_s^{a} = \mathbb{E}<span class="co">[</span><span class="ot">R_{t+1}\mid S_t=s,\, A_t=a</span><span class="co">]</span></span>
+<span id="cb2-231"><a href="#cb2-231" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-232"><a href="#cb2-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-233"><a href="#cb2-233" aria-hidden="true" tabindex="-1"></a><span class="fu">## 정책 (policy)</span></span>
+<span id="cb2-234"><a href="#cb2-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-235"><a href="#cb2-235" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-236"><a href="#cb2-236" aria-hidden="true" tabindex="-1"></a>\pi(a\mid s) = \mathbb{P}<span class="co">[</span><span class="ot">A_t = a \mid S_t = s</span><span class="co">]</span></span>
+<span id="cb2-237"><a href="#cb2-237" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-238"><a href="#cb2-238" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-239"><a href="#cb2-239" aria-hidden="true" tabindex="-1"></a>정책은 **현재 상태에만 의존**하며(stationary), 시간 불변이다.</span>
+<span id="cb2-240"><a href="#cb2-240" aria-hidden="true" tabindex="-1"></a>정책이 history가 아니라 상태에만 의존해도 충분한 이유가 곧 Markov 성질이다.</span>
+<span id="cb2-241"><a href="#cb2-241" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-242"><a href="#cb2-242" aria-hidden="true" tabindex="-1"></a><span class="fu">## Student MDP 예제</span></span>
+<span id="cb2-243"><a href="#cb2-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-246"><a href="#cb2-246" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb2-247"><a href="#cb2-247" aria-hidden="true" tabindex="-1"></a>%%| label: fig-mdp</span>
+<span id="cb2-248"><a href="#cb2-248" aria-hidden="true" tabindex="-1"></a>%%| fig-cap: <span class="ot">"</span><span class="st">Student MDP (빨간 글씨 = action / reward)</span><span class="ot">"</span></span>
+<span id="cb2-249"><a href="#cb2-249" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
+<span id="cb2-250"><a href="#cb2-250" aria-hidden="true" tabindex="-1"></a>  S1((Class <span class="dv">1</span>))</span>
+<span id="cb2-251"><a href="#cb2-251" aria-hidden="true" tabindex="-1"></a>  S2((Class <span class="dv">2</span>))</span>
+<span id="cb2-252"><a href="#cb2-252" aria-hidden="true" tabindex="-1"></a>  S3((Class <span class="dv">3</span>))</span>
+<span id="cb2-253"><a href="#cb2-253" aria-hidden="true" tabindex="-1"></a>  FB((Facebook))</span>
+<span id="cb2-254"><a href="#cb2-254" aria-hidden="true" tabindex="-1"></a>  SL[Sleep]</span>
+<span id="cb2-255"><a href="#cb2-255" aria-hidden="true" tabindex="-1"></a>  PUB{{<span class="ot">"</span><span class="st">Pub (R=+1)</span><span class="ot">"</span>}}</span>
+<span id="cb2-256"><a href="#cb2-256" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-257"><a href="#cb2-257" aria-hidden="true" tabindex="-1"></a>  S1 --&gt;|<span class="ot">"</span><span class="st">Facebook, R=-1</span><span class="ot">"</span>| FB</span>
+<span id="cb2-258"><a href="#cb2-258" aria-hidden="true" tabindex="-1"></a>  FB --&gt;|<span class="ot">"</span><span class="st">Facebook, R=-1</span><span class="ot">"</span>| FB</span>
+<span id="cb2-259"><a href="#cb2-259" aria-hidden="true" tabindex="-1"></a>  FB --&gt;|<span class="ot">"</span><span class="st">Quit, R=0</span><span class="ot">"</span>| S1</span>
+<span id="cb2-260"><a href="#cb2-260" aria-hidden="true" tabindex="-1"></a>  S1 --&gt;|<span class="ot">"</span><span class="st">Study, R=-2</span><span class="ot">"</span>| S2</span>
+<span id="cb2-261"><a href="#cb2-261" aria-hidden="true" tabindex="-1"></a>  S2 --&gt;|<span class="ot">"</span><span class="st">Sleep, R=0</span><span class="ot">"</span>| SL</span>
+<span id="cb2-262"><a href="#cb2-262" aria-hidden="true" tabindex="-1"></a>  S2 --&gt;|<span class="ot">"</span><span class="st">Study, R=-2</span><span class="ot">"</span>| S3</span>
+<span id="cb2-263"><a href="#cb2-263" aria-hidden="true" tabindex="-1"></a>  S3 --&gt;|<span class="ot">"</span><span class="st">Study, R=+10</span><span class="ot">"</span>| SL</span>
+<span id="cb2-264"><a href="#cb2-264" aria-hidden="true" tabindex="-1"></a>  S3 --&gt;|<span class="ot">"</span><span class="st">Pub</span><span class="ot">"</span>| PUB</span>
+<span id="cb2-265"><a href="#cb2-265" aria-hidden="true" tabindex="-1"></a>  PUB --&gt;|<span class="fl">0.2</span>| S1</span>
+<span id="cb2-266"><a href="#cb2-266" aria-hidden="true" tabindex="-1"></a>  PUB --&gt;|<span class="fl">0.4</span>| S2</span>
+<span id="cb2-267"><a href="#cb2-267" aria-hidden="true" tabindex="-1"></a>  PUB --&gt;|<span class="fl">0.4</span>| S3</span>
+<span id="cb2-268"><a href="#cb2-268" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb2-269"><a href="#cb2-269" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-270"><a href="#cb2-270" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb2-271"><a href="#cb2-271" aria-hidden="true" tabindex="-1"></a>MRP에서 "환경이 던지던" 분기 확률 일부가, MDP에서는 "내가 선택하는" 행동으로 바뀐다.</span>
+<span id="cb2-272"><a href="#cb2-272" aria-hidden="true" tabindex="-1"></a>Pub 행동만 결과가 확률적(0.2/0.4/0.4)이고, 나머지 행동은 결정적 전이를 갖는다.</span>
+<span id="cb2-273"><a href="#cb2-273" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-274"><a href="#cb2-274" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-275"><a href="#cb2-275" aria-hidden="true" tabindex="-1"></a><span class="fu">## 정책 고정 → MRP로 환원</span></span>
+<span id="cb2-276"><a href="#cb2-276" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-277"><a href="#cb2-277" aria-hidden="true" tabindex="-1"></a>정책 $\pi$를 고정하면 상태열 $S_1, S_2,\dots$은 Markov process $\langle S, P^\pi\rangle$,</span>
+<span id="cb2-278"><a href="#cb2-278" aria-hidden="true" tabindex="-1"></a>상태-보상열은 MRP $\langle S, P^\pi, R^\pi, \gamma\rangle$가 된다.</span>
+<span id="cb2-279"><a href="#cb2-279" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-280"><a href="#cb2-280" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-281"><a href="#cb2-281" aria-hidden="true" tabindex="-1"></a>P^\pi_{ss'} = \sum_{a} \pi(a\mid s)\,P_{ss'}^{a}, \qquad</span>
+<span id="cb2-282"><a href="#cb2-282" aria-hidden="true" tabindex="-1"></a>R^\pi_{s} = \sum_{a} \pi(a\mid s)\,R_s^{a}</span>
+<span id="cb2-283"><a href="#cb2-283" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-284"><a href="#cb2-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-285"><a href="#cb2-285" aria-hidden="true" tabindex="-1"></a><span class="fu">## 두 가지 가치함수</span></span>
+<span id="cb2-286"><a href="#cb2-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-287"><a href="#cb2-287" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-288"><a href="#cb2-288" aria-hidden="true" tabindex="-1"></a>v_\pi(s) = \mathbb{E}_\pi<span class="co">[</span><span class="ot">G_t\mid S_t=s</span><span class="co">]</span>, \qquad</span>
+<span id="cb2-289"><a href="#cb2-289" aria-hidden="true" tabindex="-1"></a>q_\pi(s,a) = \mathbb{E}_\pi<span class="co">[</span><span class="ot">G_t\mid S_t=s,\, A_t=a</span><span class="co">]</span></span>
+<span id="cb2-290"><a href="#cb2-290" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-291"><a href="#cb2-291" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-292"><a href="#cb2-292" aria-hidden="true" tabindex="-1"></a>$v_\pi$는 상태가치, $q_\pi$는 (상태, 행동) 가치다. 둘의 구분은 표기 정확성과 직결된다.</span>
+<span id="cb2-293"><a href="#cb2-293" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-294"><a href="#cb2-294" aria-hidden="true" tabindex="-1"></a><span class="fu">## Bellman Expectation Equation</span></span>
+<span id="cb2-295"><a href="#cb2-295" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-296"><a href="#cb2-296" aria-hidden="true" tabindex="-1"></a>$v$와 $q$를 서로 한 단계씩 펼치는 네 관계가 핵심이다.</span>
+<span id="cb2-297"><a href="#cb2-297" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-298"><a href="#cb2-298" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-299"><a href="#cb2-299" aria-hidden="true" tabindex="-1"></a>\begin{aligned}</span>
+<span id="cb2-300"><a href="#cb2-300" aria-hidden="true" tabindex="-1"></a>v_\pi(s) &amp;= \sum_a \pi(a\mid s)\, q_\pi(s,a) <span class="sc">\\</span><span class="co">[</span><span class="ot">2pt</span><span class="co">]</span></span>
+<span id="cb2-301"><a href="#cb2-301" aria-hidden="true" tabindex="-1"></a>q_\pi(s,a) &amp;= R_s^a + \gamma \sum_{s'} P_{ss'}^a\, v_\pi(s') <span class="sc">\\</span><span class="co">[</span><span class="ot">2pt</span><span class="co">]</span></span>
+<span id="cb2-302"><a href="#cb2-302" aria-hidden="true" tabindex="-1"></a>v_\pi(s) &amp;= \sum_a \pi(a\mid s)\Big(R_s^a + \gamma \sum_{s'} P_{ss'}^a\, v_\pi(s')\Big) <span class="sc">\\</span><span class="co">[</span><span class="ot">2pt</span><span class="co">]</span></span>
+<span id="cb2-303"><a href="#cb2-303" aria-hidden="true" tabindex="-1"></a>q_\pi(s,a) &amp;= R_s^a + \gamma \sum_{s'} P_{ss'}^a \sum_{a'} \pi(a'\mid s')\, q_\pi(s',a')</span>
+<span id="cb2-304"><a href="#cb2-304" aria-hidden="true" tabindex="-1"></a>\end{aligned}</span>
+<span id="cb2-305"><a href="#cb2-305" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-306"><a href="#cb2-306" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-307"><a href="#cb2-307" aria-hidden="true" tabindex="-1"></a>행렬형:</span>
+<span id="cb2-308"><a href="#cb2-308" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-309"><a href="#cb2-309" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-310"><a href="#cb2-310" aria-hidden="true" tabindex="-1"></a>v_\pi = R^\pi + \gamma P^\pi v_\pi</span>
+<span id="cb2-311"><a href="#cb2-311" aria-hidden="true" tabindex="-1"></a>\;\;\Longrightarrow\;\;</span>
+<span id="cb2-312"><a href="#cb2-312" aria-hidden="true" tabindex="-1"></a>v_\pi = (I - \gamma P^\pi)^{-1} R^\pi</span>
+<span id="cb2-313"><a href="#cb2-313" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-314"><a href="#cb2-314" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-315"><a href="#cb2-315" aria-hidden="true" tabindex="-1"></a>MRP와 완전히 같은 구조다.</span>
+<span id="cb2-316"><a href="#cb2-316" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-317"><a href="#cb2-317" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb2-318"><a href="#cb2-318" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-319"><a href="#cb2-319" aria-hidden="true" tabindex="-1"></a><span class="fu"># 최적성 (Optimality)</span></span>
+<span id="cb2-320"><a href="#cb2-320" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-321"><a href="#cb2-321" aria-hidden="true" tabindex="-1"></a><span class="fu">## 최적 가치함수</span></span>
+<span id="cb2-322"><a href="#cb2-322" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-323"><a href="#cb2-323" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-324"><a href="#cb2-324" aria-hidden="true" tabindex="-1"></a>v_*(s) = \max_\pi v_\pi(s), \qquad q_*(s,a) = \max_\pi q_\pi(s,a)</span>
+<span id="cb2-325"><a href="#cb2-325" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-326"><a href="#cb2-326" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-327"><a href="#cb2-327" aria-hidden="true" tabindex="-1"></a>MDP가 "풀렸다"는 것은 곧 $v_*$ (또는 $q_*$)를 안다는 뜻이다.</span>
+<span id="cb2-328"><a href="#cb2-328" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-329"><a href="#cb2-329" aria-hidden="true" tabindex="-1"></a><span class="fu">## 최적 정책 정리</span></span>
+<span id="cb2-330"><a href="#cb2-330" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-331"><a href="#cb2-331" aria-hidden="true" tabindex="-1"></a>모든 MDP에 대해 다음이 성립한다.</span>
+<span id="cb2-332"><a href="#cb2-332" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-333"><a href="#cb2-333" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>다른 모든 정책보다 좋거나 같은 최적 정책 $\pi_*$가 **반드시 존재**한다.</span>
+<span id="cb2-334"><a href="#cb2-334" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>모든 최적 정책은 최적 상태가치 $v_{\pi_*}(s)=v_*(s)$를 달성한다.</span>
+<span id="cb2-335"><a href="#cb2-335" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>모든 최적 정책은 최적 행동가치 $q_{\pi_*}(s,a)=q_*(s,a)$를 달성한다.</span>
+<span id="cb2-336"><a href="#cb2-336" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-337"><a href="#cb2-337" aria-hidden="true" tabindex="-1"></a><span class="fu">## 최적 정책 찾기</span></span>
+<span id="cb2-338"><a href="#cb2-338" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-339"><a href="#cb2-339" aria-hidden="true" tabindex="-1"></a>$q_*$를 알면 즉시 greedy하게 결정적(deterministic) 정책을 얻는다.</span>
+<span id="cb2-340"><a href="#cb2-340" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-341"><a href="#cb2-341" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-342"><a href="#cb2-342" aria-hidden="true" tabindex="-1"></a>\pi_*(a\mid s) =</span>
+<span id="cb2-343"><a href="#cb2-343" aria-hidden="true" tabindex="-1"></a>\begin{cases}</span>
+<span id="cb2-344"><a href="#cb2-344" aria-hidden="true" tabindex="-1"></a>1 &amp; \text{if } a = \arg\max_{a\in A} q_*(s,a)<span class="sc">\\</span></span>
+<span id="cb2-345"><a href="#cb2-345" aria-hidden="true" tabindex="-1"></a>0 &amp; \text{otherwise}</span>
+<span id="cb2-346"><a href="#cb2-346" aria-hidden="true" tabindex="-1"></a>\end{cases}</span>
+<span id="cb2-347"><a href="#cb2-347" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-348"><a href="#cb2-348" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-349"><a href="#cb2-349" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb2-350"><a href="#cb2-350" aria-hidden="true" tabindex="-1"></a>**결정적 최적 정책은 항상 존재**한다. 즉 $q_*$만 구하면 MDP는 끝난다.</span>
+<span id="cb2-351"><a href="#cb2-351" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-352"><a href="#cb2-352" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-353"><a href="#cb2-353" aria-hidden="true" tabindex="-1"></a><span class="fu">## Bellman Optimality Equation</span></span>
+<span id="cb2-354"><a href="#cb2-354" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-355"><a href="#cb2-355" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-356"><a href="#cb2-356" aria-hidden="true" tabindex="-1"></a>\begin{aligned}</span>
+<span id="cb2-357"><a href="#cb2-357" aria-hidden="true" tabindex="-1"></a>v_*(s) &amp;= \max_a q_*(s,a) <span class="sc">\\</span><span class="co">[</span><span class="ot">2pt</span><span class="co">]</span></span>
+<span id="cb2-358"><a href="#cb2-358" aria-hidden="true" tabindex="-1"></a>q_*(s,a) &amp;= R_s^a + \gamma \sum_{s'} P_{ss'}^a\, v_*(s') <span class="sc">\\</span><span class="co">[</span><span class="ot">2pt</span><span class="co">]</span></span>
+<span id="cb2-359"><a href="#cb2-359" aria-hidden="true" tabindex="-1"></a>v_*(s) &amp;= \max_a \Big(R_s^a + \gamma \sum_{s'} P_{ss'}^a\, v_*(s')\Big) <span class="sc">\\</span><span class="co">[</span><span class="ot">2pt</span><span class="co">]</span></span>
+<span id="cb2-360"><a href="#cb2-360" aria-hidden="true" tabindex="-1"></a>q_*(s,a) &amp;= R_s^a + \gamma \sum_{s'} P_{ss'}^a \max_{a'} q_*(s',a')</span>
+<span id="cb2-361"><a href="#cb2-361" aria-hidden="true" tabindex="-1"></a>\end{aligned}</span>
+<span id="cb2-362"><a href="#cb2-362" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-363"><a href="#cb2-363" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-364"><a href="#cb2-364" aria-hidden="true" tabindex="-1"></a><span class="fu">## Expectation vs. Optimality</span></span>
+<span id="cb2-365"><a href="#cb2-365" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-366"><a href="#cb2-366" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 구분 <span class="pp">|</span> 연산자 <span class="pp">|</span> 선형성 <span class="pp">|</span> 해법 <span class="pp">|</span></span>
+<span id="cb2-367"><a href="#cb2-367" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|:---:|---|</span></span>
+<span id="cb2-368"><a href="#cb2-368" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Bellman **Expectation** | $\sum_a \pi(a\mid s)\,(\cdot)$ (정책 평균) | **선형** <span class="pp">|</span> 직접 해 $(I-\gamma P^\pi)^{-1}R^\pi$ <span class="pp">|</span></span>
+<span id="cb2-369"><a href="#cb2-369" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Bellman **Optimality** | $\max_a(\cdot)$ | **비선형** <span class="pp">|</span> 직접 해 없음 → 반복법 <span class="pp">|</span></span>
+<span id="cb2-370"><a href="#cb2-370" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-371"><a href="#cb2-371" aria-hidden="true" tabindex="-1"></a>$\max$ 때문에 최적성 방정식은 닫힌 형 해가 없고,</span>
+<span id="cb2-372"><a href="#cb2-372" aria-hidden="true" tabindex="-1"></a>**Value Iteration, Policy Iteration, Q-learning, Sarsa** 같은 반복 알고리즘으로 푼다.</span>
+<span id="cb2-373"><a href="#cb2-373" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-374"><a href="#cb2-374" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb2-375"><a href="#cb2-375" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-376"><a href="#cb2-376" aria-hidden="true" tabindex="-1"></a><span class="fu"># Extensions to MDPs</span></span>
+<span id="cb2-377"><a href="#cb2-377" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-378"><a href="#cb2-378" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무한 · 연속 MDP</span></span>
+<span id="cb2-379"><a href="#cb2-379" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-380"><a href="#cb2-380" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>가산 무한(countably infinite) 상태/행동: 대체로 그대로 확장 가능</span>
+<span id="cb2-381"><a href="#cb2-381" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>연속 상태/행동: 선형-2차(LQR) 모델에서는 닫힌 형 해 존재</span>
+<span id="cb2-382"><a href="#cb2-382" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>연속 시간: 편미분방정식 필요 → **HJB(Hamilton-Jacobi-Bellman) 방정식**,</span>
+<span id="cb2-383"><a href="#cb2-383" aria-hidden="true" tabindex="-1"></a>  Bellman 방정식에서 time-step $\to 0$ 극한</span>
+<span id="cb2-384"><a href="#cb2-384" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-385"><a href="#cb2-385" aria-hidden="true" tabindex="-1"></a><span class="fu">## POMDP (부분 관측)</span></span>
+<span id="cb2-386"><a href="#cb2-386" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-387"><a href="#cb2-387" aria-hidden="true" tabindex="-1"></a>$\langle S, A, O, P, R, Z, \gamma\rangle$. 상태가 숨겨진 MDP = 행동이 있는 HMM.</span>
+<span id="cb2-388"><a href="#cb2-388" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-389"><a href="#cb2-389" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Belief state** $b(h)$: history $h$가 주어졌을 때 상태에 대한 확률분포</span>
+<span id="cb2-390"><a href="#cb2-390" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>POMDP는 (무한) **history tree** 또는 (무한) **belief state tree** 로 환원 가능</span>
+<span id="cb2-391"><a href="#cb2-391" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-392"><a href="#cb2-392" aria-hidden="true" tabindex="-1"></a><span class="fu">## Undiscounted / 평균 보상 MDP</span></span>
+<span id="cb2-393"><a href="#cb2-393" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-394"><a href="#cb2-394" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Ergodic** Markov process = recurrent(각 상태 무한 방문) + aperiodic(주기 없음)</span>
+<span id="cb2-395"><a href="#cb2-395" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>어떤 정책 $\pi$가 유도하는 chain이 항상 ergodic이면 MDP가 ergodic</span>
+<span id="cb2-396"><a href="#cb2-396" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>ergodic MDP는 시작 상태와 무관한 **단위 시간당 평균 보상** $\rho^\pi$를 가짐</span>
+<span id="cb2-397"><a href="#cb2-397" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>대응되는 **average-reward Bellman equation** (차분 가치함수 differential value function 사용)이 존재</span>
+<span id="cb2-398"><a href="#cb2-398" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-399"><a href="#cb2-399" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb2-400"><a href="#cb2-400" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-401"><a href="#cb2-401" aria-hidden="true" tabindex="-1"></a><span class="fu"># 기말 대비 체크리스트</span></span>
+<span id="cb2-402"><a href="#cb2-402" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-403"><a href="#cb2-403" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb2-404"><a href="#cb2-404" aria-hidden="true" tabindex="-1"></a><span class="fu">## 반드시 손으로 쓸 수 있어야 하는 것</span></span>
+<span id="cb2-405"><a href="#cb2-405" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**$v=(I-\gamma P)^{-1}R$ 유도** — Bellman 분해부터 행렬형까지.</span>
+<span id="cb2-406"><a href="#cb2-406" aria-hidden="true" tabindex="-1"></a>   (MRP/leaky bucket의 정상상태 · 평균지연 계산과 같은 근육)</span>
+<span id="cb2-407"><a href="#cb2-407" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Expectation vs. Optimality 방정식 4종** — $v\leftrightarrow q$ 상호 전개.</span>
+<span id="cb2-408"><a href="#cb2-408" aria-hidden="true" tabindex="-1"></a>   $\max$ vs. $\sum_a\pi$가 선형/비선형을 가르는 지점을 설명할 수 있을 것.</span>
+<span id="cb2-409"><a href="#cb2-409" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**$\gamma$ 정당화 6가지** 단답.</span>
+<span id="cb2-410"><a href="#cb2-410" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**결정적 최적 정책 존재성** + $q_*$로부터 greedy 추출 논리.</span>
+<span id="cb2-411"><a href="#cb2-411" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**정책 고정 → MRP 환원** ($P^\pi, R^\pi$ 정의) — 개념 서술형.</span>
+<span id="cb2-412"><a href="#cb2-412" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-413"><a href="#cb2-413" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-414"><a href="#cb2-414" aria-hidden="true" tabindex="-1"></a>기말의 leaky bucket · contention 문제처럼 "Markov chain을 직접 세우고</span>
+<span id="cb2-415"><a href="#cb2-415" aria-hidden="true" tabindex="-1"></a>정상상태확률을 푸는" 능력이 핵심이고, 그 토대가 이 챕터의 가치 계산 구조다.</span>
 </code></pre></div><button title="클립보드 복사" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

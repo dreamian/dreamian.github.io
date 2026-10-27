@@ -1811,637 +1811,638 @@ L^{\text{CLIP}}(\theta) = \mathbb{E}_t\Big[\min\big(r_t(\theta)\,\hat{A}_t,\;\op
   </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">소스 코드</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "강화학습에서 PPO·GRPO까지: 정책 경사 기반 최적화"</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="an">aliases:</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="co">  - "/study/deep-learning/DL-lecture-260601-notes.html"</span></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "MDP · 가치함수 · 정책 경사 정리 · REINFORCE · Actor-Critic · TRPO · PPO · GRPO"</span></span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "이승현"</span></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-06-01"</span></span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="an">lang:</span><span class="co"> ko</span></span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-title: "목차"</span></span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a><span class="co">    number-depth: 3</span></span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a><span class="co">    highlight-style: github</span></span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: false</span></span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
-<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a><span class="co">    df-print: paged</span></span>
-<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a><span class="co">    fig-cap-location: bottom</span></span>
-<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a><span class="co">    mermaid:</span></span>
-<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a><span class="co">      theme: neutral</span></span>
-<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a><span class="an">execute:</span></span>
-<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a><span class="co">  echo: true</span></span>
-<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a><span class="co">  warning: false</span></span>
-<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a><span class="co">  eval: false</span></span>
-<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a><span class="fu"># 한눈에 보는 전체 그림 {#sec-overview}</span></span>
-<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a><span class="fu">## 핵심 한 줄 요약</span></span>
-<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a>강화학습(RL)은 **MDP**라는 수학적 골격 위에서, 보상의 기대 누적값을 최대화하는 **정책 $\pi$** 를 찾는 문제다.</span>
-<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a>정책을 직접 $\theta$ 로 매개변수화하면 **정책 경사 정리**가 학습의 기본 방정식이 되고,</span>
-<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a>여기서 **분산을 줄이고**(baseline·advantage·actor-critic) **갱신 폭을 통제하는**(TRPO·PPO·GRPO) 방향으로 알고리즘이 발전한다.</span>
-<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-38"><a href="#cb9-38" aria-hidden="true" tabindex="-1"></a>오늘 다루는 알고리즘들은 모두 하나의 계보 위에 있다. 출발점은 정책 경사를 그대로 쓰는 **REINFORCE**이고, 그것의 분산을 줄이려고 **Actor-Critic**이 나오며, 갱신이 너무 커서 학습이 불안정해지는 문제를 신뢰 영역으로 묶는 **TRPO**가 등장하고, 그 복잡한 2차 최적화를 단순한 클리핑으로 근사한 것이 **PPO**, 그리고 PPO에서 critic(가치망)을 통째로 들어내고 advantage를 그룹 통계로 대체한 것이 **GRPO**다.</span>
-<span id="cb9-39"><a href="#cb9-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-42"><a href="#cb9-42" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
-<span id="cb9-43"><a href="#cb9-43" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
-<span id="cb9-44"><a href="#cb9-44" aria-hidden="true" tabindex="-1"></a>    A[<span class="ot">"</span><span class="st">MDP&lt;br/&gt;(상태·행동·보상)</span><span class="ot">"</span>] --&gt; B[<span class="ot">"</span><span class="st">가치함수&lt;br/&gt;v_π, q_π</span><span class="ot">"</span>]</span>
-<span id="cb9-45"><a href="#cb9-45" aria-hidden="true" tabindex="-1"></a>    B --&gt; C[<span class="ot">"</span><span class="st">벨만 방정식&lt;br/&gt;(재귀 관계)</span><span class="ot">"</span>]</span>
-<span id="cb9-46"><a href="#cb9-46" aria-hidden="true" tabindex="-1"></a>    C --&gt; D[<span class="ot">"</span><span class="st">GPI&lt;br/&gt;(정책반복)</span><span class="ot">"</span>]</span>
-<span id="cb9-47"><a href="#cb9-47" aria-hidden="true" tabindex="-1"></a>    D --&gt; E[<span class="ot">"</span><span class="st">정책 경사 정리&lt;br/&gt;∇J(θ)</span><span class="ot">"</span>]</span>
-<span id="cb9-48"><a href="#cb9-48" aria-hidden="true" tabindex="-1"></a>    E --&gt; F[<span class="ot">"</span><span class="st">REINFORCE&lt;br/&gt;(Monte Carlo PG)</span><span class="ot">"</span>]</span>
-<span id="cb9-49"><a href="#cb9-49" aria-hidden="true" tabindex="-1"></a>    F --&gt;|<span class="ot">"</span><span class="st">분산 ↓&lt;br/&gt;baseline/critic</span><span class="ot">"</span>| G[<span class="ot">"</span><span class="st">Actor-Critic</span><span class="ot">"</span>]</span>
-<span id="cb9-50"><a href="#cb9-50" aria-hidden="true" tabindex="-1"></a>    G --&gt;|<span class="ot">"</span><span class="st">갱신 폭 통제&lt;br/&gt;KL 제약</span><span class="ot">"</span>| H[<span class="ot">"</span><span class="st">TRPO</span><span class="ot">"</span>]</span>
-<span id="cb9-51"><a href="#cb9-51" aria-hidden="true" tabindex="-1"></a>    H --&gt;|<span class="ot">"</span><span class="st">클리핑으로 근사</span><span class="ot">"</span>| I[<span class="ot">"</span><span class="st">PPO</span><span class="ot">"</span>]</span>
-<span id="cb9-52"><a href="#cb9-52" aria-hidden="true" tabindex="-1"></a>    I --&gt;|<span class="ot">"</span><span class="st">critic 제거&lt;br/&gt;그룹 정규화</span><span class="ot">"</span>| J[<span class="ot">"</span><span class="st">GRPO</span><span class="ot">"</span>]</span>
-<span id="cb9-53"><a href="#cb9-53" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb9-54"><a href="#cb9-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-55"><a href="#cb9-55" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb9-56"><a href="#cb9-56" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 전공자를 위한 진입점</span></span>
-<span id="cb9-57"><a href="#cb9-57" aria-hidden="true" tabindex="-1"></a>RL의 핵심 수식들은 신호처리에서 익숙한 도구들과 정확히 같은 모양을 한다. 할인 누적 보상은 **망각 인자(forgetting factor)를 가진 IIR 누적**, 벨만 재귀는 **재귀 필터(RLS) 갱신**, baseline 차감은 **DC 제거 / 제어 변량(control variate)**, GRPO의 정규화는 **CFAR/AGC 정규화**, TRPO·PPO의 갱신 제약은 **NLMS의 정규화된 스텝 크기 제어**에 대응한다. 각 절 끝의 *무선통신 대응* 박스에서 짝을 맞춰 둔다.</span>
-<span id="cb9-58"><a href="#cb9-58" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-59"><a href="#cb9-59" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-60"><a href="#cb9-60" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb9-61"><a href="#cb9-61" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-62"><a href="#cb9-62" aria-hidden="true" tabindex="-1"></a><span class="fu"># 강화학습의 4요소와 문제 정의 {#sec-elements}</span></span>
-<span id="cb9-63"><a href="#cb9-63" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-64"><a href="#cb9-64" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답: RL이 푸는 것 {#sec-elements-answer}</span></span>
-<span id="cb9-65"><a href="#cb9-65" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-66"><a href="#cb9-66" aria-hidden="true" tabindex="-1"></a>RL은 환경과 상호작용하며 **수치 보상 신호**를 받는 에이전트가, 미래 보상의 기대 누적을 최대화하도록 **행동 선택 규칙(정책)** 을 학습하는 문제다.</span>
-<span id="cb9-67"><a href="#cb9-67" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-68"><a href="#cb9-68" aria-hidden="true" tabindex="-1"></a><span class="fu">## 네 가지 구성요소 {#sec-elements-four}</span></span>
-<span id="cb9-69"><a href="#cb9-69" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-70"><a href="#cb9-70" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 요소 <span class="pp">|</span> 기호 <span class="pp">|</span> 정의 <span class="pp">|</span> 역할 <span class="pp">|</span></span>
-<span id="cb9-71"><a href="#cb9-71" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|</span></span>
-<span id="cb9-72"><a href="#cb9-72" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 정책(Policy) <span class="pp">|</span> $\pi(a\mid s)$ <span class="pp">|</span> 상태에서 행동으로의 매핑(확률) <span class="pp">|</span> 에이전트의 **행동 자체**를 정의 <span class="pp">|</span></span>
-<span id="cb9-73"><a href="#cb9-73" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 보상(Reward) <span class="pp">|</span> $r$ <span class="pp">|</span> 매 시점 환경이 주는 단일 숫자 <span class="pp">|</span> 최대화 **대상이 되는 신호** <span class="pp">|</span></span>
-<span id="cb9-74"><a href="#cb9-74" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 가치함수(Value) <span class="pp">|</span> $v_\pi, q_\pi$ <span class="pp">|</span> 미래 보상의 기대 누적 <span class="pp">|</span> 어떤 행동이 좋은지 **추정하는 도구** <span class="pp">|</span></span>
-<span id="cb9-75"><a href="#cb9-75" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 모델(Model, 선택) <span class="pp">|</span> $p(s',r\mid s,a)$ <span class="pp">|</span> 환경 동역학의 모사 <span class="pp">|</span> 환경의 **프록시**(없어도 학습 가능) <span class="pp">|</span></span>
-<span id="cb9-76"><a href="#cb9-76" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-77"><a href="#cb9-77" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
-<span id="cb9-78"><a href="#cb9-78" aria-hidden="true" tabindex="-1"></a>보상은 **환경에서 오는 외생 신호**이고, 가치함수는 **에이전트가 만든 프록시**라는 점이 핵심이다. 정책은 가치함수를 길잡이 삼아 갱신되며, 모델은 있으면(model-based) 환경을 시뮬레이션해 표본 효율을 높이지만 없어도(model-free) 학습된다. 오늘 다루는 알고리즘은 전부 **model-free** 계열이다.</span>
-<span id="cb9-79"><a href="#cb9-79" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-80"><a href="#cb9-80" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-81"><a href="#cb9-81" aria-hidden="true" tabindex="-1"></a>"강화(reinforcement)"라는 이름은, 좋은 상태–행동 쌍이 반복적 상호작용을 통해 점점 **강화되어** 또렷해진다는 데서 왔다. 역사적으로 RL은 제어 이론(optimal control)에서 출발했고, Bellman이 동역학계의 상태와 가치함수(최적 반환 함수)를 도입하면서 **벨만 방정식**과 그 풀이로서의 **동적 계획법**이 등장했다. 이를 이산·확률 버전으로 일반화한 것이 **MDP**다.</span>
-<span id="cb9-82"><a href="#cb9-82" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-83"><a href="#cb9-83" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb9-84"><a href="#cb9-84" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-85"><a href="#cb9-85" aria-hidden="true" tabindex="-1"></a><span class="fu"># 마르코프 결정 과정(MDP) {#sec-mdp}</span></span>
-<span id="cb9-86"><a href="#cb9-86" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-87"><a href="#cb9-87" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답: 왜 MDP인가 {#sec-mdp-answer}</span></span>
-<span id="cb9-88"><a href="#cb9-88" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-89"><a href="#cb9-89" aria-hidden="true" tabindex="-1"></a>학습 가능한 에이전트를 정의하려면 에이전트와 환경의 행동을 규정하는 수학적 골격이 필요하다. **마르코프 성질**을 가정하면, 다음 상태·보상의 확률이 **바로 직전 상태와 행동에만** 의존하므로 분석이 결정적으로 단순해진다.</span>
-<span id="cb9-90"><a href="#cb9-90" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-91"><a href="#cb9-91" aria-hidden="true" tabindex="-1"></a><span class="fu">## 정의와 마르코프 성질 {#sec-mdp-def}</span></span>
-<span id="cb9-92"><a href="#cb9-92" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-93"><a href="#cb9-93" aria-hidden="true" tabindex="-1"></a>시점 $t\in<span class="sc">\{</span>0,1,2,\dots<span class="sc">\}</span>$, 상태 $s\in S$, 행동 $a\in A(s)$, 보상 $r\in R$ 에 대해 환경 동역학은</span>
-<span id="cb9-94"><a href="#cb9-94" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-95"><a href="#cb9-95" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-96"><a href="#cb9-96" aria-hidden="true" tabindex="-1"></a>p(s', r \mid s, a) = \Pr\big(S_{t+1}=s',\, R_{t+1}=r \mid S_t=s,\, A_t=a\big).</span>
-<span id="cb9-97"><a href="#cb9-97" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-98"><a href="#cb9-98" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-99"><a href="#cb9-99" aria-hidden="true" tabindex="-1"></a>여기서 우변이 $S_t, A_t$ **하나에만** 조건부라는 것이 마르코프 성질이다. 즉 전체 과거 $(S_0,A_0,\dots,S_{t-1},A_{t-1})$ 가 아니라 현재 한 시점만 보면 미래의 통계가 결정된다.</span>
-<span id="cb9-100"><a href="#cb9-100" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-101"><a href="#cb9-101" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb9-102"><a href="#cb9-102" aria-hidden="true" tabindex="-1"></a><span class="fu">## 에피소드 = 데이터 한 점</span></span>
-<span id="cb9-103"><a href="#cb9-103" aria-hidden="true" tabindex="-1"></a>시점 1부터 $T$까지의 상호작용 한 묶음 $(R_1, R_2, \dots, R_T)$ 를 **에피소드**라 하며, 이것이 학습의 데이터 한 점이다. 자연스럽게 끝이 나뉘면 *episodic task*, 하나의 긴 흐름이면 *continuing task*다.</span>
-<span id="cb9-104"><a href="#cb9-104" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-105"><a href="#cb9-105" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-106"><a href="#cb9-106" aria-hidden="true" tabindex="-1"></a><span class="fu">## 할인 반환(discounted return)과 목표 {#sec-mdp-return}</span></span>
-<span id="cb9-107"><a href="#cb9-107" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-108"><a href="#cb9-108" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-109"><a href="#cb9-109" aria-hidden="true" tabindex="-1"></a>G_t = \sum_{k=t+1}^{T} \gamma^{\,k-t-1} R_k</span>
-<span id="cb9-110"><a href="#cb9-110" aria-hidden="true" tabindex="-1"></a>    = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots,</span>
-<span id="cb9-111"><a href="#cb9-111" aria-hidden="true" tabindex="-1"></a>\qquad 0 \le \gamma \le 1.</span>
-<span id="cb9-112"><a href="#cb9-112" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-113"><a href="#cb9-113" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-114"><a href="#cb9-114" aria-hidden="true" tabindex="-1"></a>미래 보상일수록 불확실성이 크므로 할인 인자 $\gamma$ 로 가중을 줄인다. 여기서 곧바로 **재귀 형태**가 나온다:</span>
-<span id="cb9-115"><a href="#cb9-115" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-116"><a href="#cb9-116" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-117"><a href="#cb9-117" aria-hidden="true" tabindex="-1"></a>\boxed{\,G_t = R_{t+1} + \gamma\, G_{t+1}\,}</span>
-<span id="cb9-118"><a href="#cb9-118" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-119"><a href="#cb9-119" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-120"><a href="#cb9-120" aria-hidden="true" tabindex="-1"></a>학습의 목표는 정책에 대한 기대 반환의 최대화다:</span>
-<span id="cb9-121"><a href="#cb9-121" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-122"><a href="#cb9-122" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-123"><a href="#cb9-123" aria-hidden="true" tabindex="-1"></a>\max_{\pi}\; \mathbb{E}_\pi<span class="co">[</span><span class="ot">G_t</span><span class="co">]</span>.</span>
-<span id="cb9-124"><a href="#cb9-124" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-125"><a href="#cb9-125" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-126"><a href="#cb9-126" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb9-127"><a href="#cb9-127" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — 망각 인자를 가진 IIR 누적</span></span>
-<span id="cb9-128"><a href="#cb9-128" aria-hidden="true" tabindex="-1"></a>$G_t = R_{t+1} + \gamma G_{t+1}$ 은 망각 인자 $\lambda$ 를 가진 1차 IIR/지수가중 누적과 같은 구조다. $\gamma$ 가 1에 가까울수록 먼 미래까지 기억(긴 시정수)하고, 0에 가까울수록 근시안적(짧은 시정수)이 된다. RLS의 forgetting factor가 과거 오차를 얼마나 오래 반영할지 정하는 것과 정확히 같은 역할이다.</span>
-<span id="cb9-129"><a href="#cb9-129" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-130"><a href="#cb9-130" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-131"><a href="#cb9-131" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb9-132"><a href="#cb9-132" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-133"><a href="#cb9-133" aria-hidden="true" tabindex="-1"></a><span class="fu"># 가치함수와 최적 정책 {#sec-value}</span></span>
-<span id="cb9-134"><a href="#cb9-134" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-135"><a href="#cb9-135" aria-hidden="true" tabindex="-1"></a><span class="fu">## 두 가지 가치함수 {#sec-value-two}</span></span>
-<span id="cb9-136"><a href="#cb9-136" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-137"><a href="#cb9-137" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-138"><a href="#cb9-138" aria-hidden="true" tabindex="-1"></a>v_\pi(s) = \mathbb{E}_\pi<span class="co">[</span><span class="ot">G_t \mid S_t = s</span><span class="co">]</span>,</span>
-<span id="cb9-139"><a href="#cb9-139" aria-hidden="true" tabindex="-1"></a>\qquad</span>
-<span id="cb9-140"><a href="#cb9-140" aria-hidden="true" tabindex="-1"></a>q_\pi(s,a) = \mathbb{E}_\pi<span class="co">[</span><span class="ot">G_t \mid S_t = s,\, A_t = a</span><span class="co">]</span>.</span>
-<span id="cb9-141"><a href="#cb9-141" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-142"><a href="#cb9-142" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-143"><a href="#cb9-143" aria-hidden="true" tabindex="-1"></a>상태가치 $v_\pi$ 는 **상태만**, 행동가치 $q_\pi$ 는 **상태와 행동 둘 다**를 입력으로 받는다. 둘 다 정확히 구하기는 매우 어려워 근사한다.</span>
-<span id="cb9-144"><a href="#cb9-144" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-145"><a href="#cb9-145" aria-hidden="true" tabindex="-1"></a><span class="fu">## 최적 정책 {#sec-value-optimal}</span></span>
-<span id="cb9-146"><a href="#cb9-146" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-147"><a href="#cb9-147" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-148"><a href="#cb9-148" aria-hidden="true" tabindex="-1"></a>v_*(s) = \max_\pi v_\pi(s),</span>
-<span id="cb9-149"><a href="#cb9-149" aria-hidden="true" tabindex="-1"></a>\qquad</span>
-<span id="cb9-150"><a href="#cb9-150" aria-hidden="true" tabindex="-1"></a>q_*(s,a) = \max_\pi q_\pi(s,a).</span>
-<span id="cb9-151"><a href="#cb9-151" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-152"><a href="#cb9-152" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-153"><a href="#cb9-153" aria-hidden="true" tabindex="-1"></a>최적 정책은 보통 **행동가치** $q_*$ 로 얻는다. $q$ 는 행동을 입력으로 받으므로 어떤 행동이 그 상태에서 가치를 높이는지 직접 비교할 수 있는 반면, $v$ 는 행동의 효과를 직접 담지 못하기 때문이다. 결정론적 정책에서는</span>
-<span id="cb9-154"><a href="#cb9-154" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-155"><a href="#cb9-155" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-156"><a href="#cb9-156" aria-hidden="true" tabindex="-1"></a>\pi_*(s) = \operatorname*{arg\,max}_a q_*(s,a).</span>
-<span id="cb9-157"><a href="#cb9-157" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-158"><a href="#cb9-158" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-159"><a href="#cb9-159" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
-<span id="cb9-160"><a href="#cb9-160" aria-hidden="true" tabindex="-1"></a>**$v$ 로 최적화하는 것처럼 보이지만 내부적으로는 $q$ 를 쓴다.** 뒤의 벨만 방정식에서 $v_\pi(s)=\sum_a \pi(a\mid s)\,q_\pi(s,a)$ 로 둘이 연결되기 때문에, 표면상 $v$ 최적화가 실제로는 $q$ 비교로 환원된다.</span>
-<span id="cb9-161"><a href="#cb9-161" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-162"><a href="#cb9-162" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-163"><a href="#cb9-163" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb9-164"><a href="#cb9-164" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-165"><a href="#cb9-165" aria-hidden="true" tabindex="-1"></a><span class="fu"># 벨만 방정식: 재귀 관계 {#sec-bellman}</span></span>
-<span id="cb9-166"><a href="#cb9-166" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-167"><a href="#cb9-167" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답: 무엇이 재귀인가 {#sec-bellman-answer}</span></span>
-<span id="cb9-168"><a href="#cb9-168" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-169"><a href="#cb9-169" aria-hidden="true" tabindex="-1"></a>벨만 방정식은 **현재 시점의 가치함수**를 **다음 시점의 가치함수**로 표현하는 재귀식이다. 이 재귀가 있어야 정책반복을 반복적 갱신으로 돌릴 수 있다.</span>
-<span id="cb9-170"><a href="#cb9-170" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-171"><a href="#cb9-171" aria-hidden="true" tabindex="-1"></a><span class="fu">## $v_\pi$ 와 $q_\pi$ 의 연결 {#sec-bellman-link}</span></span>
-<span id="cb9-172"><a href="#cb9-172" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-173"><a href="#cb9-173" aria-hidden="true" tabindex="-1"></a>상태가치를 행동에 대해 주변화(marginalize)하면:</span>
-<span id="cb9-174"><a href="#cb9-174" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-175"><a href="#cb9-175" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-176"><a href="#cb9-176" aria-hidden="true" tabindex="-1"></a>v_\pi(s) = \sum_{a\in A(s)} \pi(a\mid s)\, q_\pi(s,a)</span>
-<span id="cb9-177"><a href="#cb9-177" aria-hidden="true" tabindex="-1"></a>        \;\le\; \max_a q_\pi(s,a).</span>
-<span id="cb9-178"><a href="#cb9-178" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-179"><a href="#cb9-179" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-180"><a href="#cb9-180" aria-hidden="true" tabindex="-1"></a>부등식은 "기댓값은 최댓값을 넘지 못한다"는 사실이며, 정책개선의 상한을 준다.</span>
-<span id="cb9-181"><a href="#cb9-181" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-182"><a href="#cb9-182" aria-hidden="true" tabindex="-1"></a><span class="fu">## $q_\pi$ 의 재귀 전개 {#sec-bellman-q}</span></span>
-<span id="cb9-183"><a href="#cb9-183" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-184"><a href="#cb9-184" aria-hidden="true" tabindex="-1"></a>반환의 재귀 $G_t = R_{t+1} + \gamma G_{t+1}$ 를 행동가치 정의에 넣는다. 핵심 단계는 **기댓값 안에서** $G_{t+1}$ 을 $v_\pi(S_{t+1})$ 로 바꿀 수 있다는 점이다(둘은 밖에서는 다르지만 조건부 기댓값으로는 같다):</span>
-<span id="cb9-185"><a href="#cb9-185" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-186"><a href="#cb9-186" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-187"><a href="#cb9-187" aria-hidden="true" tabindex="-1"></a>\mathbb{E}_\pi[v_\pi(S_{t+1}) \mid S_t=s, a] = \mathbb{E}_\pi[G_{t+1}\mid S_t=s, a].</span>
-<span id="cb9-188"><a href="#cb9-188" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-189"><a href="#cb9-189" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-190"><a href="#cb9-190" aria-hidden="true" tabindex="-1"></a>따라서</span>
-<span id="cb9-191"><a href="#cb9-191" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-192"><a href="#cb9-192" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-193"><a href="#cb9-193" aria-hidden="true" tabindex="-1"></a>q_\pi(s,a) = \mathbb{E}_\pi\big[R_{t+1}+\gamma G_{t+1}\mid s,a\big]</span>
-<span id="cb9-194"><a href="#cb9-194" aria-hidden="true" tabindex="-1"></a>           = \sum_{s',r} p(s',r\mid s,a)\,\big<span class="co">[</span><span class="ot">\,r + \gamma\, v_\pi(s')\,\big</span><span class="co">]</span>.</span>
-<span id="cb9-195"><a href="#cb9-195" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-196"><a href="#cb9-196" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-197"><a href="#cb9-197" aria-hidden="true" tabindex="-1"></a>이를 $v_\pi$ 식에 대입하면 **벨만 기대 방정식**이 완성된다:</span>
-<span id="cb9-198"><a href="#cb9-198" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-199"><a href="#cb9-199" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-200"><a href="#cb9-200" aria-hidden="true" tabindex="-1"></a>\boxed{\;</span>
-<span id="cb9-201"><a href="#cb9-201" aria-hidden="true" tabindex="-1"></a>v_\pi(s) = \underbrace{\sum_{a}\pi(a\mid s)}_{\text{에이전트가 하는 일(정책)}}</span>
-<span id="cb9-202"><a href="#cb9-202" aria-hidden="true" tabindex="-1"></a>           \underbrace{\sum_{s',r} p(s',r\mid s,a)}_{\text{환경의 반응(전이·보상)}}</span>
-<span id="cb9-203"><a href="#cb9-203" aria-hidden="true" tabindex="-1"></a>           \big<span class="co">[</span><span class="ot">\,r + \gamma\, v_\pi(s')\,\big</span><span class="co">]</span></span>
-<span id="cb9-204"><a href="#cb9-204" aria-hidden="true" tabindex="-1"></a>\;}</span>
-<span id="cb9-205"><a href="#cb9-205" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-206"><a href="#cb9-206" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-207"><a href="#cb9-207" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb9-208"><a href="#cb9-208" aria-hidden="true" tabindex="-1"></a>**구조 해석(3단 인과 사슬):** 정책이 행동 분포를 결정 → 환경이 전이·보상으로 반응 → 즉시 보상 $r$ 과 다음 상태의 미래가치 $\gamma v_\pi(s')$ 가 합쳐져 현재가치가 된다. 분리 가능한 두 항(정책 항 / 환경 항)으로 나뉘는 점이 뒤의 정책 경사 정리에서 결정적으로 쓰인다 — 환경 항은 $\theta$ 와 무관해 미분에서 빠진다.</span>
-<span id="cb9-209"><a href="#cb9-209" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-210"><a href="#cb9-210" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-211"><a href="#cb9-211" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb9-212"><a href="#cb9-212" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — 재귀 필터(RLS) 갱신</span></span>
-<span id="cb9-213"><a href="#cb9-213" aria-hidden="true" tabindex="-1"></a>$v_\pi(s) = \mathbb{E}<span class="co">[</span><span class="ot">\,r + \gamma v_\pi(s')\,</span><span class="co">]</span>$ 는 "현재 추정 = 새 관측 + 할인된 다음 추정" 형태로, RLS·칼만 필터의 예측–갱신 재귀와 같은 골격이다. $\gamma$ 가 상태 전이 게인 역할을 하는 안정한 1차 재귀로 보면 직관이 선다.</span>
-<span id="cb9-214"><a href="#cb9-214" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-215"><a href="#cb9-215" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-216"><a href="#cb9-216" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb9-217"><a href="#cb9-217" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-218"><a href="#cb9-218" aria-hidden="true" tabindex="-1"></a><span class="fu"># 정책반복과 GPI {#sec-gpi}</span></span>
-<span id="cb9-219"><a href="#cb9-219" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-220"><a href="#cb9-220" aria-hidden="true" tabindex="-1"></a><span class="fu">## 정책개선 정리 {#sec-gpi-pit}</span></span>
-<span id="cb9-221"><a href="#cb9-221" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-222"><a href="#cb9-222" aria-hidden="true" tabindex="-1"></a>현재 정책 $\pi$ 의 행동가치로 탐욕적 새 정책을 정의하면</span>
-<span id="cb9-223"><a href="#cb9-223" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-224"><a href="#cb9-224" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-225"><a href="#cb9-225" aria-hidden="true" tabindex="-1"></a>\pi'(s) = \operatorname*{arg\,max}_a q_\pi(s,a)</span>
-<span id="cb9-226"><a href="#cb9-226" aria-hidden="true" tabindex="-1"></a>\quad\Longrightarrow\quad</span>
-<span id="cb9-227"><a href="#cb9-227" aria-hidden="true" tabindex="-1"></a>v_\pi(s) \le v_{\pi'}(s).</span>
-<span id="cb9-228"><a href="#cb9-228" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-229"><a href="#cb9-229" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-230"><a href="#cb9-230" aria-hidden="true" tabindex="-1"></a>즉 "현재 가치함수를 최대화하는 행동"으로 정책을 바꾸면 가치가 결코 나빠지지 않는다.</span>
-<span id="cb9-231"><a href="#cb9-231" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-232"><a href="#cb9-232" aria-hidden="true" tabindex="-1"></a><span class="fu">## 일반화 정책반복(GPI) {#sec-gpi-loop}</span></span>
-<span id="cb9-233"><a href="#cb9-233" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-236"><a href="#cb9-236" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
-<span id="cb9-237"><a href="#cb9-237" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
-<span id="cb9-238"><a href="#cb9-238" aria-hidden="true" tabindex="-1"></a>    P[<span class="ot">"</span><span class="st">정책 π</span><span class="ot">"</span>] --&gt;|<span class="ot">"</span><span class="st">평가&lt;br/&gt;(가치 추정)</span><span class="ot">"</span>| V[<span class="ot">"</span><span class="st">가치함수 v_π</span><span class="ot">"</span>]</span>
-<span id="cb9-239"><a href="#cb9-239" aria-hidden="true" tabindex="-1"></a>    V --&gt;|<span class="ot">"</span><span class="st">개선&lt;br/&gt;(탐욕적 갱신)</span><span class="ot">"</span>| P</span>
-<span id="cb9-240"><a href="#cb9-240" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb9-241"><a href="#cb9-241" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-242"><a href="#cb9-242" aria-hidden="true" tabindex="-1"></a>평가(가치 추정)와 개선(정책 갱신)을 번갈아 반복하면 최적 정책 $\pi_*$ 와 최적 가치 $v_*$ 로 수렴한다. 두 과정이 서로를 끌어올리는 **협력적 반복**이다.</span>
-<span id="cb9-243"><a href="#cb9-243" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-244"><a href="#cb9-244" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb9-245"><a href="#cb9-245" aria-hidden="true" tabindex="-1"></a><span class="fu">## GPI의 한계 → 정책 경사로 넘어가는 동기</span></span>
-<span id="cb9-246"><a href="#cb9-246" aria-hidden="true" tabindex="-1"></a>GPI는 $\arg\max$ 라는 **미분 불가능**한 탐욕 연산을 쓴다. 게다가 탐욕 갱신은 정책 분포를 **급격히** 바꿀 수 있어, 한 스텝에 에이전트 행동이 돌변하고 학습 곡선이 출렁인다. 신경망으로 미분 가능하게 학습하려면, $\arg\max$ 대신 **정책을 $\theta$ 로 매개변수화하고 경사로 천천히 갱신**해야 한다. 이것이 정책 경사법의 출발 동기다.</span>
-<span id="cb9-247"><a href="#cb9-247" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-248"><a href="#cb9-248" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-249"><a href="#cb9-249" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb9-250"><a href="#cb9-250" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-251"><a href="#cb9-251" aria-hidden="true" tabindex="-1"></a><span class="fu"># 정책 경사법(PGM)과 정책 경사 정리 {#sec-pg}</span></span>
-<span id="cb9-252"><a href="#cb9-252" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-253"><a href="#cb9-253" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답: 정책 경사 정리 {#sec-pg-answer}</span></span>
-<span id="cb9-254"><a href="#cb9-254" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-255"><a href="#cb9-255" aria-hidden="true" tabindex="-1"></a>정책을 $\pi(a\mid s;\theta)$ 로 두고 목적함수를 시작 상태의 상태가치 $J(\theta)=v_{\pi_\theta}(s_0)$ 로 정의하면, ($\gamma=1$ 가정) 그 경사는</span>
-<span id="cb9-256"><a href="#cb9-256" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-257"><a href="#cb9-257" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-258"><a href="#cb9-258" aria-hidden="true" tabindex="-1"></a>\boxed{\;\nabla J(\theta) \;\propto\; \sum_s \mu(s) \sum_a q_\pi(s,a)\, \nabla \pi(a\mid s,\theta)\;}</span>
-<span id="cb9-259"><a href="#cb9-259" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-260"><a href="#cb9-260" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-261"><a href="#cb9-261" aria-hidden="true" tabindex="-1"></a>여기서 $\mu(s)$ 는 정책이 유도하는 **상태 분포**(상태 $s$ 에 머무는 평균 시간 비율)다.</span>
-<span id="cb9-262"><a href="#cb9-262" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-263"><a href="#cb9-263" aria-hidden="true" tabindex="-1"></a><span class="fu">## 정리의 의미 {#sec-pg-meaning}</span></span>
-<span id="cb9-264"><a href="#cb9-264" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-265"><a href="#cb9-265" aria-hidden="true" tabindex="-1"></a>목적함수의 경사는 세 요소의 곱으로 분해된다: 상태 분포 $\mu(s)$, 행동가치 $q_\pi(s,a)$, 그리고 **정책 자체의 경사** $\nabla\pi$. 핵심은 미분이 **정책 항에만** 걸리고, 환경의 전이확률 $p(s'\mid s,a)$ 는 $\theta$ 와 무관해 사라진다는 점이다.</span>
-<span id="cb9-266"><a href="#cb9-266" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-267"><a href="#cb9-267" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb9-268"><a href="#cb9-268" aria-hidden="true" tabindex="-1"></a><span class="fu">## 증명 골격(개요)</span></span>
-<span id="cb9-269"><a href="#cb9-269" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>$\nabla v_\pi(s)$ 에 정의 $v_\pi(s)=\sum_a \pi(a\mid s)q_\pi(s,a)$ 를 넣고 **곱의 미분**을 적용한다: $\nabla(\pi\,q) = (\nabla\pi)q + \pi(\nabla q)$.</span>
-<span id="cb9-270"><a href="#cb9-270" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>$\nabla q_\pi(s,a)$ 안에서 보상·전이확률은 $\theta$ 무관 상수이므로 미분이 다음 상태의 $\nabla v_\pi(s')$ 로 **재귀적으로** 넘어간다.</span>
-<span id="cb9-271"><a href="#cb9-271" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>이 재귀를 반복 전개하면, $\nabla v_\pi(s)$ 가 "$s$ 에서 $x$ 로 $k$ 스텝에 도달할 확률 $\Pr(s\to x,k,\pi)$ 의 합 $\times\ \nabla\pi(\cdot\mid x)\, q_\pi(x,\cdot)$" 형태로 정리된다.</span>
-<span id="cb9-272"><a href="#cb9-272" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>$\sum_k \Pr(s\to x,k,\pi)$ 를 정규화하면 그것이 바로 상태 분포 $\mu(x)$ — "한 에피소드에서 상태 $s$ 에 머무는 평균 시간 수"의 의미를 갖는다. 이를 대입해 비례식이 닫힌다.</span>
-<span id="cb9-273"><a href="#cb9-273" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-274"><a href="#cb9-274" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-275"><a href="#cb9-275" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb9-276"><a href="#cb9-276" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — 미분 가능한 부분만 적응</span></span>
-<span id="cb9-277"><a href="#cb9-277" aria-hidden="true" tabindex="-1"></a>환경 전이는 우리가 통제 못 하는 채널(고정 확률)이고, 정책만 우리가 적응시키는 가중치다. 채널은 미분에서 빠지고 가중치 갱신항만 남는 구조는, 채널을 고정한 채 등화기(equalizer) 계수만 적응시키는 적응 필터와 같은 분리 구도다.</span>
-<span id="cb9-278"><a href="#cb9-278" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-279"><a href="#cb9-279" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-280"><a href="#cb9-280" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb9-281"><a href="#cb9-281" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-282"><a href="#cb9-282" aria-hidden="true" tabindex="-1"></a><span class="fu"># REINFORCE: 몬테카를로 정책 경사 {#sec-reinforce}</span></span>
-<span id="cb9-283"><a href="#cb9-283" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-284"><a href="#cb9-284" aria-hidden="true" tabindex="-1"></a><span class="fu">## 로그-미분 트릭과 갱신식 {#sec-reinforce-trick}</span></span>
-<span id="cb9-285"><a href="#cb9-285" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-286"><a href="#cb9-286" aria-hidden="true" tabindex="-1"></a>정책 경사 정리를 기댓값으로 다시 쓰면</span>
-<span id="cb9-287"><a href="#cb9-287" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-288"><a href="#cb9-288" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-289"><a href="#cb9-289" aria-hidden="true" tabindex="-1"></a>\nabla J(\theta) = \mathbb{E}_\pi\!\Big[\sum_a q_\pi(s,a)\,\nabla\pi(a\mid s,\theta)\Big].</span>
-<span id="cb9-290"><a href="#cb9-290" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-291"><a href="#cb9-291" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-292"><a href="#cb9-292" aria-hidden="true" tabindex="-1"></a>여기에 **로그-미분(score function) 트릭** $\nabla_\theta \ln f = \dfrac{\nabla_\theta f}{f}$ 을 적용하면 표본화 가능한 형태가 된다:</span>
-<span id="cb9-293"><a href="#cb9-293" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-294"><a href="#cb9-294" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-295"><a href="#cb9-295" aria-hidden="true" tabindex="-1"></a>\boxed{\;\theta_{t+1} = \theta_t + \alpha\, G_t\, \nabla \ln \pi(A_t\mid S_t, \theta_t)\;}</span>
-<span id="cb9-296"><a href="#cb9-296" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-297"><a href="#cb9-297" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-298"><a href="#cb9-298" aria-hidden="true" tabindex="-1"></a>반환 $G_t$ 가 큰(좋은) 궤적이 나온 행동의 로그확률을 끌어올리는 방향으로 갱신한다.</span>
-<span id="cb9-299"><a href="#cb9-299" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-300"><a href="#cb9-300" aria-hidden="true" tabindex="-1"></a><span class="fu">## 알고리즘 {#sec-reinforce-algo}</span></span>
-<span id="cb9-301"><a href="#cb9-301" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-302"><a href="#cb9-302" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb9-303"><a href="#cb9-303" aria-hidden="true" tabindex="-1"></a><span class="fu">## REINFORCE 절차</span></span>
-<span id="cb9-304"><a href="#cb9-304" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>함수형 $\pi(a\mid s;\theta)$(보통 신경망), 초기 $\theta$, 스텝 크기 $\alpha$ 를 정한다.</span>
-<span id="cb9-305"><a href="#cb9-305" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>반복: 현재 정책으로 **에피소드 하나를 무작위 생성** → 각 시점의 $G_t$ 계산 → $\theta \leftarrow \theta + \alpha G_t \nabla\ln\pi(A_t\mid S_t,\theta)$ 로 모든 시점 갱신 → 새 에피소드로 반복.</span>
-<span id="cb9-306"><a href="#cb9-306" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>표본 궤적으로 경사를 추정하므로 **Monte Carlo 정책 경사 제어**라 부른다.</span>
-<span id="cb9-307"><a href="#cb9-307" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-308"><a href="#cb9-308" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-309"><a href="#cb9-309" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb9-310"><a href="#cb9-310" aria-hidden="true" tabindex="-1"></a><span class="fu">## REINFORCE의 약점</span></span>
-<span id="cb9-311"><a href="#cb9-311" aria-hidden="true" tabindex="-1"></a>에피소드를 끝까지 무작위로 굴려 $G_t$ 를 만들기 때문에 **표본 분산이 매우 크다**. 학습이 불안정하고(큰 정책 갱신), 표본 효율·강건성이 떨어진다. 학습 곡선이 출렁이고 에이전트가 엉뚱한 행동(넘어지기, 헛디딤)을 자주 보이는 이유다. 이 분산을 줄이는 것이 다음 단계들의 일관된 동기다.</span>
-<span id="cb9-312"><a href="#cb9-312" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-313"><a href="#cb9-313" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-314"><a href="#cb9-314" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb9-315"><a href="#cb9-315" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — 잡음 큰 경사 추정</span></span>
-<span id="cb9-316"><a href="#cb9-316" aria-hidden="true" tabindex="-1"></a>$G_t$ 는 한 번의 무작위 실현으로 얻은 추정이라 분산이 큰 노이즈 섞인 경사다. 단일 스냅샷으로 채널을 추정하면 분산이 큰 것과 같으며, 다음 절의 baseline 차감은 추정량의 분산을 줄이는 전처리에 해당한다.</span>
-<span id="cb9-317"><a href="#cb9-317" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-318"><a href="#cb9-318" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-319"><a href="#cb9-319" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb9-320"><a href="#cb9-320" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-321"><a href="#cb9-321" aria-hidden="true" tabindex="-1"></a><span class="fu"># 분산 감소: Baseline · Advantage · Actor-Critic {#sec-ac}</span></span>
-<span id="cb9-322"><a href="#cb9-322" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-323"><a href="#cb9-323" aria-hidden="true" tabindex="-1"></a><span class="fu">## Baseline은 편향 없이 분산만 줄인다 {#sec-ac-baseline}</span></span>
-<span id="cb9-324"><a href="#cb9-324" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-325"><a href="#cb9-325" aria-hidden="true" tabindex="-1"></a>기댓값에 **상태에만 의존하는** baseline $b(S_t)$ 를 빼도 경사의 기댓값은 변하지 않는다(불편):</span>
-<span id="cb9-326"><a href="#cb9-326" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-327"><a href="#cb9-327" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-328"><a href="#cb9-328" aria-hidden="true" tabindex="-1"></a>\nabla J(\theta) = \mathbb{E}_\pi\big<span class="co">[</span><span class="ot">(G_t - b(S_t))\,\nabla\ln\pi(A_t\mid S_t,\theta)\big</span><span class="co">]</span>.</span>
-<span id="cb9-329"><a href="#cb9-329" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-330"><a href="#cb9-330" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-331"><a href="#cb9-331" aria-hidden="true" tabindex="-1"></a>이유는 $\mathbb{E}_\pi<span class="co">[</span><span class="ot">\,b(S_t)\nabla\ln\pi\,</span><span class="co">]</span>=b(S_t)\sum_a \nabla\pi = b(S_t)\nabla<span class="sc">\!</span>\sum_a\pi = 0$ 이기 때문이다($\sum_a\pi=1$).</span>
-<span id="cb9-332"><a href="#cb9-332" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-333"><a href="#cb9-333" aria-hidden="true" tabindex="-1"></a><span class="fu">## Advantage 함수 {#sec-ac-adv}</span></span>
-<span id="cb9-334"><a href="#cb9-334" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-335"><a href="#cb9-335" aria-hidden="true" tabindex="-1"></a>자연스러운 baseline은 상태가치 $v_\pi(S_t)$ 다. 한 스텝 전개로 $G_t$ 를 끝까지 굴리지 않고 근사하면 **TD 오차**가 나오고, 이것이 곧 advantage다:</span>
-<span id="cb9-336"><a href="#cb9-336" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-337"><a href="#cb9-337" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-338"><a href="#cb9-338" aria-hidden="true" tabindex="-1"></a>\delta_t = R_{t+1} + \gamma\, v_\pi(S_{t+1}) - v_\pi(S_t)</span>
-<span id="cb9-339"><a href="#cb9-339" aria-hidden="true" tabindex="-1"></a>\;\approx\; G_t - v_\pi(S_t) \;=\; A_\pi(S_t, A_t),</span>
-<span id="cb9-340"><a href="#cb9-340" aria-hidden="true" tabindex="-1"></a>\qquad</span>
-<span id="cb9-341"><a href="#cb9-341" aria-hidden="true" tabindex="-1"></a>\nabla J(\theta) = \mathbb{E}_\pi<span class="co">[</span><span class="ot">\delta_t\,\nabla\ln\pi</span><span class="co">]</span>.</span>
-<span id="cb9-342"><a href="#cb9-342" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-343"><a href="#cb9-343" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-344"><a href="#cb9-344" aria-hidden="true" tabindex="-1"></a>advantage는 "그 행동이 그 상태의 평균보다 얼마나 더 좋은가"를 재며, 절대 보상의 큰 출렁임을 평균 대비 상대값으로 바꿔 분산을 줄인다.</span>
-<span id="cb9-345"><a href="#cb9-345" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-346"><a href="#cb9-346" aria-hidden="true" tabindex="-1"></a><span class="fu">## Actor-Critic {#sec-ac-actor-critic}</span></span>
-<span id="cb9-347"><a href="#cb9-347" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-348"><a href="#cb9-348" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 구성 <span class="pp">|</span> 역할 <span class="pp">|</span> 수식 <span class="pp">|</span></span>
-<span id="cb9-349"><a href="#cb9-349" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
-<span id="cb9-350"><a href="#cb9-350" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Actor(정책망) <span class="pp">|</span> 어떤 행동을 할지 결정 <span class="pp">|</span> $\pi_\theta(s)$ <span class="pp">|</span></span>
-<span id="cb9-351"><a href="#cb9-351" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Critic(가치망) <span class="pp">|</span> 그 행동의 질을 추정 <span class="pp">|</span> $Q(s,a)$ 또는 $v(s)$, $\delta_t$ <span class="pp">|</span></span>
-<span id="cb9-352"><a href="#cb9-352" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-353"><a href="#cb9-353" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb9-354"><a href="#cb9-354" aria-hidden="true" tabindex="-1"></a>**critic은 actor를 직접 지휘하지 않고 보조한다.** 초기에는 정책이 미숙하니 critic도 noisy해 거의 통제하지 못하지만, 반복이 진행되며 정책이 좋아지면 critic의 피드백도 정확해지고, 그러면 actor의 갱신을 더 잘 제약해 빠르고 안정적으로 수렴시킨다. 다만 이는 **간접적 정규화**일 뿐, 한 스텝에 정책이 급변하지 않는다는 **보장은 없다**. 그 보장을 직접 거는 것이 다음의 신뢰 영역 방법이다.</span>
-<span id="cb9-355"><a href="#cb9-355" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-356"><a href="#cb9-356" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-357"><a href="#cb9-357" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb9-358"><a href="#cb9-358" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — DC 제거 / 제어 변량</span></span>
-<span id="cb9-359"><a href="#cb9-359" aria-hidden="true" tabindex="-1"></a>baseline 차감은 추정 전에 평균(DC)을 빼 분산을 줄이는 control variate 기법이다. 신호의 평균을 제거한 뒤 변동분만 추정하면 추정 분산이 작아지는 것과 같으며, 본문 검증에서 분산이 약 7배(21.8→3.1) 줄어든 것이 이 효과다.</span>
-<span id="cb9-360"><a href="#cb9-360" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-361"><a href="#cb9-361" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-362"><a href="#cb9-362" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb9-363"><a href="#cb9-363" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-364"><a href="#cb9-364" aria-hidden="true" tabindex="-1"></a><span class="fu"># 신뢰 영역 방법(TRPO) {#sec-trpo}</span></span>
-<span id="cb9-365"><a href="#cb9-365" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-366"><a href="#cb9-366" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답: 무엇을 제약하나 {#sec-trpo-answer}</span></span>
-<span id="cb9-367"><a href="#cb9-367" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-368"><a href="#cb9-368" aria-hidden="true" tabindex="-1"></a>한 스텝만에도 actor 파라미터가 급변해 학습이 무너질 수 있다. 해법은 **새 정책이 이전 정책에서 너무 멀어지지 않도록** KL 발산으로 갱신 영역을 묶는 것이다:</span>
-<span id="cb9-369"><a href="#cb9-369" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-370"><a href="#cb9-370" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-371"><a href="#cb9-371" aria-hidden="true" tabindex="-1"></a>D_{\mathrm{KL}}\big(\pi_{\theta_{\text{old}}} \,<span class="sc">\|</span>\, \pi_\theta\big) \le \epsilon.</span>
-<span id="cb9-372"><a href="#cb9-372" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-373"><a href="#cb9-373" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-374"><a href="#cb9-374" aria-hidden="true" tabindex="-1"></a><span class="fu">## 대리 목적함수와 확률 비율 {#sec-trpo-surrogate}</span></span>
-<span id="cb9-375"><a href="#cb9-375" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-376"><a href="#cb9-376" aria-hidden="true" tabindex="-1"></a>$\nabla\ln\pi$ 항을 **확률 비율**로 근사한다($\theta_{\text{old}}$ 에서 1차 전개하면 같은 경사를 준다):</span>
-<span id="cb9-377"><a href="#cb9-377" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-378"><a href="#cb9-378" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-379"><a href="#cb9-379" aria-hidden="true" tabindex="-1"></a>r_t(\theta) = \frac{\pi_\theta(a_t\mid s_t)}{\pi_{\theta_{\text{old}}}(a_t\mid s_t)}.</span>
-<span id="cb9-380"><a href="#cb9-380" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-381"><a href="#cb9-381" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-382"><a href="#cb9-382" aria-hidden="true" tabindex="-1"></a>TRPO는 제약 하에서 대리 목적</span>
-<span id="cb9-383"><a href="#cb9-383" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-384"><a href="#cb9-384" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-385"><a href="#cb9-385" aria-hidden="true" tabindex="-1"></a>\max_\theta\; \mathbb{E}_t\big<span class="co">[</span><span class="ot">r_t(\theta)\,\hat{A}_t\big</span><span class="co">]</span></span>
-<span id="cb9-386"><a href="#cb9-386" aria-hidden="true" tabindex="-1"></a>\quad \text{s.t.}\quad D_{\mathrm{KL}}\le \delta</span>
-<span id="cb9-387"><a href="#cb9-387" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-388"><a href="#cb9-388" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-389"><a href="#cb9-389" aria-hidden="true" tabindex="-1"></a>를 최대화한다. 비제약 형태로는 KL 페널티 $-\beta D_{\mathrm{KL}}$ 를 목적에 더한다.</span>
-<span id="cb9-390"><a href="#cb9-390" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-391"><a href="#cb9-391" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb9-392"><a href="#cb9-392" aria-hidden="true" tabindex="-1"></a><span class="fu">## TRPO의 한계</span></span>
-<span id="cb9-393"><a href="#cb9-393" aria-hidden="true" tabindex="-1"></a>KL 제약을 정확히 다루려면 KL의 2차 근사(헤시안 포함)가 필요한 **복잡한 2차 방법**이고, KL 페널티 계수 $\beta$ 를 모든 문제에 통하는 고정값으로 잡기 어렵다. 계산이 무겁다는 이 약점이 PPO로 가는 동기다.</span>
-<span id="cb9-394"><a href="#cb9-394" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-395"><a href="#cb9-395" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-396"><a href="#cb9-396" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb9-397"><a href="#cb9-397" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — 정규화된 스텝 크기 제어(NLMS)</span></span>
-<span id="cb9-398"><a href="#cb9-398" aria-hidden="true" tabindex="-1"></a>KL 제약은 적응 갱신의 발산을 막으려고 스텝 크기를 정규화/제한하는 NLMS의 사상과 같다. 입력 에너지가 클 때 스텝을 줄여 안정성을 지키듯, 정책이 멀리 튀려 하면 KL 제약이 갱신을 끌어당겨 "신뢰할 수 있는" 영역 안에 둔다.</span>
-<span id="cb9-399"><a href="#cb9-399" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-400"><a href="#cb9-400" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-401"><a href="#cb9-401" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb9-402"><a href="#cb9-402" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-403"><a href="#cb9-403" aria-hidden="true" tabindex="-1"></a><span class="fu"># 근위 정책 최적화(PPO) {#sec-ppo}</span></span>
-<span id="cb9-404"><a href="#cb9-404" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-405"><a href="#cb9-405" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답: 클리핑 한 줄 {#sec-ppo-answer}</span></span>
-<span id="cb9-406"><a href="#cb9-406" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-407"><a href="#cb9-407" aria-hidden="true" tabindex="-1"></a>PPO는 TRPO의 복잡한 KL 계산을, 확률 비율을 $<span class="co">[</span><span class="ot">1-\epsilon,\,1+\epsilon</span><span class="co">]</span>$ 로 **자르는(clip)** 단순 연산으로 대체한다:</span>
-<span id="cb9-408"><a href="#cb9-408" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-409"><a href="#cb9-409" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-410"><a href="#cb9-410" aria-hidden="true" tabindex="-1"></a>\boxed{\;</span>
-<span id="cb9-411"><a href="#cb9-411" aria-hidden="true" tabindex="-1"></a>L^{\text{CLIP}}(\theta) = \mathbb{E}_t\Big<span class="co">[</span><span class="ot">\min\big(r_t(\theta)\,\hat{A}_t,\;\operatorname{clip}(r_t(\theta),\,1-\epsilon,\,1+\epsilon)\,\hat{A}_t\big)\Big</span><span class="co">]</span></span>
-<span id="cb9-412"><a href="#cb9-412" aria-hidden="true" tabindex="-1"></a>\;}</span>
-<span id="cb9-413"><a href="#cb9-413" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-414"><a href="#cb9-414" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-415"><a href="#cb9-415" aria-hidden="true" tabindex="-1"></a><span class="fu">## 클리핑의 동작 {#sec-ppo-clip}</span></span>
-<span id="cb9-416"><a href="#cb9-416" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-417"><a href="#cb9-417" aria-hidden="true" tabindex="-1"></a>$r_t$ 가 1에서 멀어지는(=정책이 많이 바뀌는) 갱신을 벌점화한다. 본문 수치 검증의 결과로 동작을 읽으면:</span>
-<span id="cb9-418"><a href="#cb9-418" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-419"><a href="#cb9-419" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 상황 <span class="pp">|</span> $r_t$ 작음 <span class="pp">|</span> $r_t=1$ <span class="pp">|</span> $r_t$ 큼 <span class="pp">|</span></span>
-<span id="cb9-420"><a href="#cb9-420" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|</span></span>
-<span id="cb9-421"><a href="#cb9-421" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\hat A&gt;0$ (좋은 행동) <span class="pp">|</span> 그대로 반영 <span class="pp">|</span> 1.0 <span class="pp">|</span> **$1+\epsilon$ 에서 상한** (과한 증폭 차단) <span class="pp">|</span></span>
-<span id="cb9-422"><a href="#cb9-422" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\hat A&lt;0$ (나쁜 행동) <span class="pp">|</span> **$1-\epsilon$ 에서 하한** <span class="pp">|</span> $-1.0$ <span class="pp">|</span> 그대로 벌점(억제) <span class="pp">|</span></span>
-<span id="cb9-423"><a href="#cb9-423" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-424"><a href="#cb9-424" aria-hidden="true" tabindex="-1"></a>즉 좋은 행동을 지나치게 밀어붙이거나 나쁜 행동을 과하게 끌어내려 정책이 튀는 것을 양쪽에서 막는다. 클리핑 대신 KL 페널티 변형 $L - \beta D_{\mathrm{KL}}$ 도 쓸 수 있어, PPO는 KL 페널티 방식을 포함하는 일반 틀로 볼 수 있다.</span>
-<span id="cb9-425"><a href="#cb9-425" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-426"><a href="#cb9-426" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb9-427"><a href="#cb9-427" aria-hidden="true" tabindex="-1"></a><span class="fu">## PPO의 장점</span></span>
-<span id="cb9-428"><a href="#cb9-428" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>여러 epoch의 확률적 경사 상승으로 같은 데이터를 재활용 → 표본 효율↑</span>
-<span id="cb9-429"><a href="#cb9-429" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>신뢰 영역 방법의 안정성·신뢰성을 유지</span>
-<span id="cb9-430"><a href="#cb9-430" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>구현이 단순(1차 방법, 비율+클립만 계산; KL 헤시안 불필요)</span>
-<span id="cb9-431"><a href="#cb9-431" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-432"><a href="#cb9-432" aria-hidden="true" tabindex="-1"></a>이 단순함 덕분에 PPO는 **RLHF**의 표준 도구가 되었고, GPT → InstructGPT → ChatGPT 계열의 지시 미세조정에 핵심으로 쓰였다.</span>
-<span id="cb9-433"><a href="#cb9-433" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-434"><a href="#cb9-434" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-435"><a href="#cb9-435" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb9-436"><a href="#cb9-436" aria-hidden="true" tabindex="-1"></a>한계도 분명하다. 지역 최적해에 갇힐 수 있고, 클리핑이 누적되며 새 정책이 결국 이전 정책에서 **너무 멀어질** 가능성이 남는다.</span>
-<span id="cb9-437"><a href="#cb9-437" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-438"><a href="#cb9-438" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-439"><a href="#cb9-439" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb9-440"><a href="#cb9-440" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — 피드백 루프의 리미터/경사 클리핑</span></span>
-<span id="cb9-441"><a href="#cb9-441" aria-hidden="true" tabindex="-1"></a>$r_t$ 를 $<span class="co">[</span><span class="ot">1-\epsilon,1+\epsilon</span><span class="co">]</span>$ 로 자르는 것은 피드백 루프의 진폭 리미터·경사 클리핑과 같다. 루프 게인이 과도해 발진하지 않도록 출력을 포화시키는 보호 장치이며, 복잡한 안정도 해석 없이도 안정성을 확보하는 실용적 방식이라는 점까지 닮았다.</span>
-<span id="cb9-442"><a href="#cb9-442" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-443"><a href="#cb9-443" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-444"><a href="#cb9-444" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb9-445"><a href="#cb9-445" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-446"><a href="#cb9-446" aria-hidden="true" tabindex="-1"></a><span class="fu"># 그룹 상대 정책 최적화(GRPO) {#sec-grpo}</span></span>
-<span id="cb9-447"><a href="#cb9-447" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-448"><a href="#cb9-448" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답: critic 제거 + 그룹 정규화 {#sec-grpo-answer}</span></span>
-<span id="cb9-449"><a href="#cb9-449" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-450"><a href="#cb9-450" aria-hidden="true" tabindex="-1"></a>PPO에서 advantage 계산(GAE)은 baseline을 위해 별도 **critic(가치망)** 을 학습해야 해 비싸다. GRPO는 critic을 통째로 버리고, advantage를 **그룹 내 보상의 상대 위치**로 대체한다:</span>
-<span id="cb9-451"><a href="#cb9-451" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-452"><a href="#cb9-452" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-453"><a href="#cb9-453" aria-hidden="true" tabindex="-1"></a>\boxed{\;\hat{A}^{\text{GRPO}}_t = \frac{R - \mu_g}{\sigma_g + \delta}\;}</span>
-<span id="cb9-454"><a href="#cb9-454" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb9-455"><a href="#cb9-455" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-456"><a href="#cb9-456" aria-hidden="true" tabindex="-1"></a>$R$: 해당 출력의 보상, $\mu_g$: 그룹 평균 보상, $\sigma_g$: 그룹 표준편차, $\delta$: 분모가 0이 되지 않게 하는 작은 상수.</span>
-<span id="cb9-457"><a href="#cb9-457" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-458"><a href="#cb9-458" aria-hidden="true" tabindex="-1"></a><span class="fu">## 아이디어 {#sec-grpo-idea}</span></span>
-<span id="cb9-459"><a href="#cb9-459" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-460"><a href="#cb9-460" aria-hidden="true" tabindex="-1"></a>같은 프롬프트에 대해 여러 출력(그룹/배치)을 만들고, 각 출력의 보상을 **그룹 평균 대비 상대값**으로 정규화해 advantage로 쓴다. 미래 보상의 누적 추정도, critic도 필요 없이 **현재 보상의 그룹 통계**만으로 advantage를 만든다. PPO와 목적함수의 클리핑·(선택적) KL 항은 거의 동일하고, **advantage 정의만 다르다**.</span>
-<span id="cb9-461"><a href="#cb9-461" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-462"><a href="#cb9-462" aria-hidden="true" tabindex="-1"></a><span class="fu">## PPO vs GRPO {#sec-grpo-compare}</span></span>
-<span id="cb9-463"><a href="#cb9-463" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-464"><a href="#cb9-464" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 항목 <span class="pp">|</span> PPO <span class="pp">|</span> GRPO <span class="pp">|</span></span>
-<span id="cb9-465"><a href="#cb9-465" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
-<span id="cb9-466"><a href="#cb9-466" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 핵심 구조 <span class="pp">|</span> 정책 경사(Actor-Critic) <span class="pp">|</span> 정책 경사(**Critic-Free**) <span class="pp">|</span></span>
-<span id="cb9-467"><a href="#cb9-467" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Advantage <span class="pp">|</span> $\hat A_t = R_t - V(s_t)$ (GAE) <span class="pp">|</span> $\hat A_t = \dfrac{R-\mu_g}{\sigma_g+\delta}$ <span class="pp">|</span></span>
-<span id="cb9-468"><a href="#cb9-468" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 가치망(critic) <span class="pp">|</span> **필요** (별도 $V(s)$ 학습) | **불필요** (그룹 통계로 대체) <span class="pp">|</span></span>
-<span id="cb9-469"><a href="#cb9-469" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> advantage 초점 <span class="pp">|</span> critic 예측 상태가치 대비 행동의 가치 <span class="pp">|</span> 현재 배치 평균 결과 $\mu_g$ 대비 결과의 가치 <span class="pp">|</span></span>
-<span id="cb9-470"><a href="#cb9-470" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 장점 <span class="pp">|</span> 정밀한 가치 추정 → 낮은 분산·안정 <span class="pp">|</span> **메모리·계산 효율**(critic 제거) <span class="pp">|</span></span>
-<span id="cb9-471"><a href="#cb9-471" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 적합 영역 <span class="pp">|</span> 정밀 가치·저분산이 필요한 일반 RL <span class="pp">|</span> **대규모 LLM RLHF** (메모리 병목, 희소·이진 보상) <span class="pp">|</span></span>
-<span id="cb9-472"><a href="#cb9-472" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-473"><a href="#cb9-473" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb9-474"><a href="#cb9-474" aria-hidden="true" tabindex="-1"></a>advantage가 PPO보다 정밀하진 않지만 계산 효율이 크고, 반복이 진행되면 대개 PPO와 비슷하거나 그 중간 수준으로 수렴한다. **DeepSeek-Math/V3** 등 최신 LLM 학습에서 핵심적으로 쓰였고, 메모리가 병목이고 보상이 희소·이진인 LLM 환경에 잘 맞는다.</span>
-<span id="cb9-475"><a href="#cb9-475" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-476"><a href="#cb9-476" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-477"><a href="#cb9-477" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb9-478"><a href="#cb9-478" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — CFAR / AGC 정규화</span></span>
-<span id="cb9-479"><a href="#cb9-479" aria-hidden="true" tabindex="-1"></a>$\hat A=\dfrac{R-\mu_g}{\sigma_g+\delta}$ 는 레이더의 **CFAR** 검출과 같은 발상이다. 시험 셀의 전력을 주변 셀로 추정한 잡음 통계(평균·표준편차)로 나눠 절대 스케일에 무관한 검출 통계를 만들듯, GRPO는 한 출력의 보상을 그룹의 평균·표준편차로 정규화해 보상 스케일에 둔감한 advantage를 만든다. AGC가 신호 레벨을 그룹 통계로 정규화하는 것과도 같으며, 별도 기준 추정기(critic) 없이 **이웃/배치 통계만으로** 정규화한다는 점이 정확히 대응한다.</span>
-<span id="cb9-480"><a href="#cb9-480" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-481"><a href="#cb9-481" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-482"><a href="#cb9-482" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb9-483"><a href="#cb9-483" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-484"><a href="#cb9-484" aria-hidden="true" tabindex="-1"></a><span class="fu"># RL 분류 체계 {#sec-taxonomy}</span></span>
-<span id="cb9-485"><a href="#cb9-485" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-486"><a href="#cb9-486" aria-hidden="true" tabindex="-1"></a>오늘 다룬 알고리즘들이 전체 지도에서 어디에 있는지 정리한다.</span>
-<span id="cb9-487"><a href="#cb9-487" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-490"><a href="#cb9-490" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
-<span id="cb9-491"><a href="#cb9-491" aria-hidden="true" tabindex="-1"></a>flowchart TD</span>
-<span id="cb9-492"><a href="#cb9-492" aria-hidden="true" tabindex="-1"></a>    RL[<span class="ot">"</span><span class="st">RL 알고리즘</span><span class="ot">"</span>] --&gt; MF[<span class="ot">"</span><span class="st">Model-Free&lt;br/&gt;(환경 프록시 없음)</span><span class="ot">"</span>]</span>
-<span id="cb9-493"><a href="#cb9-493" aria-hidden="true" tabindex="-1"></a>    RL --&gt; MB[<span class="ot">"</span><span class="st">Model-Based&lt;br/&gt;(환경 프록시 있음)</span><span class="ot">"</span>]</span>
-<span id="cb9-494"><a href="#cb9-494" aria-hidden="true" tabindex="-1"></a>    MF --&gt; PO[<span class="ot">"</span><span class="st">Policy Optimization&lt;br/&gt;(정책 최적화)</span><span class="ot">"</span>]</span>
-<span id="cb9-495"><a href="#cb9-495" aria-hidden="true" tabindex="-1"></a>    MF --&gt; QL[<span class="ot">"</span><span class="st">Q-Learning</span><span class="ot">"</span>]</span>
-<span id="cb9-496"><a href="#cb9-496" aria-hidden="true" tabindex="-1"></a>    PO --&gt; PG[<span class="ot">"</span><span class="st">REINFORCE / PGM</span><span class="ot">"</span>]</span>
-<span id="cb9-497"><a href="#cb9-497" aria-hidden="true" tabindex="-1"></a>    PO --&gt; ACx[<span class="ot">"</span><span class="st">A2C / A3C (Actor-Critic)</span><span class="ot">"</span>]</span>
-<span id="cb9-498"><a href="#cb9-498" aria-hidden="true" tabindex="-1"></a>    PO --&gt; TR[<span class="ot">"</span><span class="st">TRPO → PPO → GRPO</span><span class="ot">"</span>]</span>
-<span id="cb9-499"><a href="#cb9-499" aria-hidden="true" tabindex="-1"></a>    QL --&gt; DQN[<span class="ot">"</span><span class="st">Q-learning / DQN</span><span class="ot">"</span>]</span>
-<span id="cb9-500"><a href="#cb9-500" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb9-501"><a href="#cb9-501" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-502"><a href="#cb9-502" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 구분 <span class="pp">|</span> 정의 <span class="pp">|</span> 예 <span class="pp">|</span></span>
-<span id="cb9-503"><a href="#cb9-503" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
-<span id="cb9-504"><a href="#cb9-504" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Model-free <span class="pp">|</span> 환경 프록시 없이 표본만으로 학습 <span class="pp">|</span> REINFORCE, PPO, GRPO, DQN <span class="pp">|</span></span>
-<span id="cb9-505"><a href="#cb9-505" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Model-based <span class="pp">|</span> 환경 프록시로 시뮬레이션 활용 <span class="pp">|</span> (본 노트 범위 밖) <span class="pp">|</span></span>
-<span id="cb9-506"><a href="#cb9-506" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> On-policy <span class="pp">|</span> **현재 정책**이 만든 데이터로 평가·개선 | REINFORCE, **PPO**, GRPO <span class="pp">|</span></span>
-<span id="cb9-507"><a href="#cb9-507" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Off-policy <span class="pp">|</span> **다른 정책**이 만든 데이터로 평가·개선 | Q-learning, **DQN** <span class="pp">|</span></span>
-<span id="cb9-508"><a href="#cb9-508" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-509"><a href="#cb9-509" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb9-510"><a href="#cb9-510" aria-hidden="true" tabindex="-1"></a>오늘의 TRPO·PPO·GRPO는 모두 **Model-free → Policy Optimization → On-policy** 가지에 속한다. 이들이 현대 LLM 정렬(RLHF, PEFT 등)의 기반이 된다.</span>
-<span id="cb9-511"><a href="#cb9-511" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-512"><a href="#cb9-512" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-513"><a href="#cb9-513" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb9-514"><a href="#cb9-514" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-515"><a href="#cb9-515" aria-hidden="true" tabindex="-1"></a><span class="fu"># 핵심 요약 {#sec-summary}</span></span>
-<span id="cb9-516"><a href="#cb9-516" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-517"><a href="#cb9-517" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
-<span id="cb9-518"><a href="#cb9-518" aria-hidden="true" tabindex="-1"></a><span class="fu">## 한 페이지 정리</span></span>
-<span id="cb9-519"><a href="#cb9-519" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**RL = MDP 위에서 기대 누적 보상을 최대화하는 정책 학습.** 4요소: 정책·보상·가치함수·(선택)모델.</span>
-<span id="cb9-520"><a href="#cb9-520" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**벨만 방정식**이 현재가치를 다음가치로 잇는 재귀를 주고, 이를 반복하는 것이 **GPI**.</span>
-<span id="cb9-521"><a href="#cb9-521" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>GPI의 $\arg\max$ 가 미분 불가능·급변이라, 정책을 $\theta$ 로 두고 경사로 갱신하는 **정책 경사 정리**로 전환.</span>
-<span id="cb9-522"><a href="#cb9-522" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**REINFORCE**는 그 직접 구현이나 **분산이 큼** → baseline·**advantage**·**Actor-Critic**으로 분산 감소.</span>
-<span id="cb9-523"><a href="#cb9-523" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>갱신이 급변하는 불안정 → **TRPO**(KL 제약, 2차·복잡) → **PPO**(클리핑, 1차·단순) → **GRPO**(critic 제거, 그룹 정규화).</span>
-<span id="cb9-524"><a href="#cb9-524" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>PPO·GRPO는 **RLHF의 핵심**이며, GRPO는 메모리 병목의 **대규모 LLM**에 특히 적합.</span>
-<span id="cb9-525"><a href="#cb9-525" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb9-526"><a href="#cb9-526" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-527"><a href="#cb9-527" aria-hidden="true" tabindex="-1"></a>핵심 변천을 한 표로:</span>
-<span id="cb9-528"><a href="#cb9-528" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-529"><a href="#cb9-529" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 알고리즘 <span class="pp">|</span> 핵심 아이디어 <span class="pp">|</span> 무엇을 추가/제거 <span class="pp">|</span></span>
-<span id="cb9-530"><a href="#cb9-530" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
-<span id="cb9-531"><a href="#cb9-531" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> REINFORCE <span class="pp">|</span> Monte Carlo 정책 경사 <span class="pp">|</span> (기준선) — <span class="pp">|</span></span>
-<span id="cb9-532"><a href="#cb9-532" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Actor-Critic <span class="pp">|</span> baseline=critic으로 분산↓ <span class="pp">|</span> **critic 추가** <span class="pp">|</span></span>
-<span id="cb9-533"><a href="#cb9-533" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> TRPO <span class="pp">|</span> KL 제약으로 갱신 폭 통제 <span class="pp">|</span> **신뢰 영역 제약 추가** <span class="pp">|</span></span>
-<span id="cb9-534"><a href="#cb9-534" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PPO <span class="pp">|</span> 클리핑으로 제약 근사 <span class="pp">|</span> **2차 KL 계산 제거** <span class="pp">|</span></span>
-<span id="cb9-535"><a href="#cb9-535" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> GRPO <span class="pp">|</span> 그룹 통계로 advantage <span class="pp">|</span> **critic 제거** <span class="pp">|</span></span>
-<span id="cb9-536"><a href="#cb9-536" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-537"><a href="#cb9-537" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb9-538"><a href="#cb9-538" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-539"><a href="#cb9-539" aria-hidden="true" tabindex="-1"></a><span class="fu"># 부록: 실행 가능한 Python/NumPy 검증 {#sec-appendix}</span></span>
-<span id="cb9-540"><a href="#cb9-540" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-541"><a href="#cb9-541" aria-hidden="true" tabindex="-1"></a>아래 코드는 본문 수식을 수치로 확인한다.</span>
-<span id="cb9-542"><a href="#cb9-542" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-543"><a href="#cb9-543" aria-hidden="true" tabindex="-1"></a><span class="fu">## 로그-미분 항등식과 baseline 불편성 {#sec-appendix-score}</span></span>
-<span id="cb9-544"><a href="#cb9-544" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-547"><a href="#cb9-547" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb9-548"><a href="#cb9-548" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: score-baseline</span></span>
-<span id="cb9-549"><a href="#cb9-549" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
-<span id="cb9-550"><a href="#cb9-550" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">0</span>)</span>
-<span id="cb9-551"><a href="#cb9-551" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-552"><a href="#cb9-552" aria-hidden="true" tabindex="-1"></a><span class="co"># softmax 정책: pi(a) = softmax(theta)_a, grad_theta log pi(a) = e_a - pi</span></span>
-<span id="cb9-553"><a href="#cb9-553" aria-hidden="true" tabindex="-1"></a>theta <span class="op">=</span> rng.normal(size<span class="op">=</span><span class="dv">4</span>)</span>
-<span id="cb9-554"><a href="#cb9-554" aria-hidden="true" tabindex="-1"></a>pi <span class="op">=</span> np.exp(theta) <span class="op">/</span> np.exp(theta).<span class="bu">sum</span>()</span>
-<span id="cb9-555"><a href="#cb9-555" aria-hidden="true" tabindex="-1"></a>grad_logpi <span class="op">=</span> np.eye(<span class="dv">4</span>) <span class="op">-</span> pi[<span class="va">None</span>, :]            <span class="co"># 행 a = grad log pi(a)</span></span>
-<span id="cb9-556"><a href="#cb9-556" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-557"><a href="#cb9-557" aria-hidden="true" tabindex="-1"></a><span class="co"># (1) score function 항등식: E_{a~pi}[ grad log pi ] = 0</span></span>
-<span id="cb9-558"><a href="#cb9-558" aria-hidden="true" tabindex="-1"></a>E_score <span class="op">=</span> (pi[:, <span class="va">None</span>] <span class="op">*</span> grad_logpi).<span class="bu">sum</span>(<span class="dv">0</span>)</span>
-<span id="cb9-559"><a href="#cb9-559" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"E[grad log pi]      :"</span>, np.<span class="bu">round</span>(E_score, <span class="dv">12</span>))   <span class="co"># ~ 0</span></span>
-<span id="cb9-560"><a href="#cb9-560" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-561"><a href="#cb9-561" aria-hidden="true" tabindex="-1"></a><span class="co"># (2) 상수 baseline b 는 경사를 편향시키지 않음: E[ b * grad log pi ] = 0</span></span>
-<span id="cb9-562"><a href="#cb9-562" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> <span class="fl">3.7</span></span>
-<span id="cb9-563"><a href="#cb9-563" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"E[b * grad log pi]  :"</span>, np.<span class="bu">round</span>((pi[:, <span class="va">None</span>] <span class="op">*</span> b <span class="op">*</span> grad_logpi).<span class="bu">sum</span>(<span class="dv">0</span>), <span class="dv">12</span>))</span>
-<span id="cb9-564"><a href="#cb9-564" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb9-565"><a href="#cb9-565" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-566"><a href="#cb9-566" aria-hidden="true" tabindex="-1"></a><span class="fu">## Baseline의 분산 감소 효과 {#sec-appendix-var}</span></span>
-<span id="cb9-567"><a href="#cb9-567" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-570"><a href="#cb9-570" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb9-571"><a href="#cb9-571" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: variance-reduction</span></span>
-<span id="cb9-572"><a href="#cb9-572" aria-hidden="true" tabindex="-1"></a><span class="co"># 반환 G ~ N(5, 2), 행동을 pi에서 샘플 → G*score 대 (G - mean)*score 의 분산 비교</span></span>
-<span id="cb9-573"><a href="#cb9-573" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="dv">100_000</span></span>
-<span id="cb9-574"><a href="#cb9-574" aria-hidden="true" tabindex="-1"></a>G <span class="op">=</span> rng.normal(<span class="fl">5.0</span>, <span class="fl">2.0</span>, size<span class="op">=</span>N)</span>
-<span id="cb9-575"><a href="#cb9-575" aria-hidden="true" tabindex="-1"></a>a <span class="op">=</span> rng.integers(<span class="dv">0</span>, <span class="dv">4</span>, size<span class="op">=</span>N)</span>
-<span id="cb9-576"><a href="#cb9-576" aria-hidden="true" tabindex="-1"></a>score <span class="op">=</span> grad_logpi[a]                            <span class="co"># (N, 4)</span></span>
-<span id="cb9-577"><a href="#cb9-577" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-578"><a href="#cb9-578" aria-hidden="true" tabindex="-1"></a>est_no <span class="op">=</span> G[:, <span class="va">None</span>] <span class="op">*</span> score                       <span class="co"># baseline 없음</span></span>
-<span id="cb9-579"><a href="#cb9-579" aria-hidden="true" tabindex="-1"></a>est_bl <span class="op">=</span> (G <span class="op">-</span> G.mean())[:, <span class="va">None</span>] <span class="op">*</span> score          <span class="co"># baseline = 평균</span></span>
-<span id="cb9-580"><a href="#cb9-580" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-581"><a href="#cb9-581" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"trace Var (no baseline):"</span>, <span class="bu">round</span>(np.cov(est_no.T).trace(), <span class="dv">3</span>))</span>
-<span id="cb9-582"><a href="#cb9-582" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"trace Var (w/ baseline):"</span>, <span class="bu">round</span>(np.cov(est_bl.T).trace(), <span class="dv">3</span>))</span>
-<span id="cb9-583"><a href="#cb9-583" aria-hidden="true" tabindex="-1"></a><span class="co"># baseline 차감으로 분산이 크게 감소 (약 7배)</span></span>
-<span id="cb9-584"><a href="#cb9-584" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb9-585"><a href="#cb9-585" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-586"><a href="#cb9-586" aria-hidden="true" tabindex="-1"></a><span class="fu">## GRPO 그룹 상대 advantage {#sec-appendix-grpo}</span></span>
-<span id="cb9-587"><a href="#cb9-587" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-590"><a href="#cb9-590" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb9-591"><a href="#cb9-591" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: grpo-advantage</span></span>
-<span id="cb9-592"><a href="#cb9-592" aria-hidden="true" tabindex="-1"></a><span class="co"># 그룹 내 이진 보상 → (R - mu)/(sigma + delta) 로 정규화</span></span>
-<span id="cb9-593"><a href="#cb9-593" aria-hidden="true" tabindex="-1"></a>R <span class="op">=</span> np.array([<span class="fl">0.</span>, <span class="fl">1.</span>, <span class="fl">1.</span>, <span class="fl">0.</span>, <span class="fl">1.</span>, <span class="fl">0.</span>, <span class="fl">0.</span>, <span class="fl">1.</span>])</span>
-<span id="cb9-594"><a href="#cb9-594" aria-hidden="true" tabindex="-1"></a>mu, sd <span class="op">=</span> R.mean(), R.std()</span>
-<span id="cb9-595"><a href="#cb9-595" aria-hidden="true" tabindex="-1"></a>A_grpo <span class="op">=</span> (R <span class="op">-</span> mu) <span class="op">/</span> (sd <span class="op">+</span> <span class="fl">1e-8</span>)</span>
-<span id="cb9-596"><a href="#cb9-596" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"GRPO advantage:"</span>, np.<span class="bu">round</span>(A_grpo, <span class="dv">3</span>))</span>
-<span id="cb9-597"><a href="#cb9-597" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"mean ~ 0:"</span>, <span class="bu">round</span>(A_grpo.mean(), <span class="dv">6</span>), <span class="st">"| std ~ 1:"</span>, <span class="bu">round</span>(A_grpo.std(), <span class="dv">4</span>))</span>
-<span id="cb9-598"><a href="#cb9-598" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb9-599"><a href="#cb9-599" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-600"><a href="#cb9-600" aria-hidden="true" tabindex="-1"></a><span class="fu">## PPO 클리핑 대리 목적 {#sec-appendix-ppo}</span></span>
-<span id="cb9-601"><a href="#cb9-601" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-604"><a href="#cb9-604" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb9-605"><a href="#cb9-605" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: ppo-clip</span></span>
-<span id="cb9-606"><a href="#cb9-606" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> ppo_clip(r, A, eps<span class="op">=</span><span class="fl">0.2</span>):</span>
-<span id="cb9-607"><a href="#cb9-607" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""L^CLIP = min( r*A , clip(r,1-eps,1+eps)*A )"""</span></span>
-<span id="cb9-608"><a href="#cb9-608" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.minimum(r <span class="op">*</span> A, np.clip(r, <span class="dv">1</span> <span class="op">-</span> eps, <span class="dv">1</span> <span class="op">+</span> eps) <span class="op">*</span> A)</span>
-<span id="cb9-609"><a href="#cb9-609" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-610"><a href="#cb9-610" aria-hidden="true" tabindex="-1"></a>ratios <span class="op">=</span> np.array([<span class="fl">0.5</span>, <span class="fl">0.9</span>, <span class="fl">1.0</span>, <span class="fl">1.1</span>, <span class="fl">1.5</span>])</span>
-<span id="cb9-611"><a href="#cb9-611" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"A&gt;0 (좋은 행동) r:"</span>, ratios, <span class="st">"-&gt; L:"</span>, np.<span class="bu">round</span>(ppo_clip(ratios, <span class="op">+</span><span class="fl">1.0</span>), <span class="dv">3</span>))</span>
-<span id="cb9-612"><a href="#cb9-612" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"A&lt;0 (나쁜 행동) r:"</span>, ratios, <span class="st">"-&gt; L:"</span>, np.<span class="bu">round</span>(ppo_clip(ratios, <span class="op">-</span><span class="fl">1.0</span>), <span class="dv">3</span>))</span>
-<span id="cb9-613"><a href="#cb9-613" aria-hidden="true" tabindex="-1"></a><span class="co"># A&gt;0: r가 1+eps=1.2 위로 가면 상한에서 포화 (과한 증폭 차단)</span></span>
-<span id="cb9-614"><a href="#cb9-614" aria-hidden="true" tabindex="-1"></a><span class="co"># A&lt;0: r가 1-eps=0.8 아래로 가면 하한에서 포화</span></span>
-<span id="cb9-615"><a href="#cb9-615" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb9-616"><a href="#cb9-616" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-617"><a href="#cb9-617" aria-hidden="true" tabindex="-1"></a><span class="fu">## 작은 REINFORCE 학습 데모(2상태 밴딧 유사) {#sec-appendix-reinforce}</span></span>
-<span id="cb9-618"><a href="#cb9-618" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-621"><a href="#cb9-621" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb9-622"><a href="#cb9-622" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: reinforce-demo</span></span>
-<span id="cb9-623"><a href="#cb9-623" aria-hidden="true" tabindex="-1"></a><span class="co"># 단순 2행동 문제: 행동 1의 기대보상이 더 높음 → 정책이 행동 1로 수렴하는지 확인</span></span>
-<span id="cb9-624"><a href="#cb9-624" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">1</span>)</span>
-<span id="cb9-625"><a href="#cb9-625" aria-hidden="true" tabindex="-1"></a>theta <span class="op">=</span> np.zeros(<span class="dv">2</span>)                 <span class="co"># softmax 로짓</span></span>
-<span id="cb9-626"><a href="#cb9-626" aria-hidden="true" tabindex="-1"></a>alpha <span class="op">=</span> <span class="fl">0.1</span></span>
-<span id="cb9-627"><a href="#cb9-627" aria-hidden="true" tabindex="-1"></a>true_reward <span class="op">=</span> np.array([<span class="fl">0.2</span>, <span class="fl">0.8</span>])  <span class="co"># 행동별 기대 보상</span></span>
-<span id="cb9-628"><a href="#cb9-628" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-629"><a href="#cb9-629" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> softmax(z):</span>
-<span id="cb9-630"><a href="#cb9-630" aria-hidden="true" tabindex="-1"></a>    z <span class="op">=</span> z <span class="op">-</span> z.<span class="bu">max</span>()</span>
-<span id="cb9-631"><a href="#cb9-631" aria-hidden="true" tabindex="-1"></a>    e <span class="op">=</span> np.exp(z)</span>
-<span id="cb9-632"><a href="#cb9-632" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> e <span class="op">/</span> e.<span class="bu">sum</span>()</span>
-<span id="cb9-633"><a href="#cb9-633" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-634"><a href="#cb9-634" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> step <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">2000</span>):</span>
-<span id="cb9-635"><a href="#cb9-635" aria-hidden="true" tabindex="-1"></a>    p <span class="op">=</span> softmax(theta)</span>
-<span id="cb9-636"><a href="#cb9-636" aria-hidden="true" tabindex="-1"></a>    a <span class="op">=</span> rng.choice(<span class="dv">2</span>, p<span class="op">=</span>p)                          <span class="co"># 현재 정책에서 행동 샘플</span></span>
-<span id="cb9-637"><a href="#cb9-637" aria-hidden="true" tabindex="-1"></a>    G <span class="op">=</span> rng.normal(true_reward[a], <span class="fl">0.1</span>)             <span class="co"># 보상(반환) 샘플</span></span>
-<span id="cb9-638"><a href="#cb9-638" aria-hidden="true" tabindex="-1"></a>    grad_logpi <span class="op">=</span> (np.eye(<span class="dv">2</span>)[a] <span class="op">-</span> p)                 <span class="co"># grad log pi(a)</span></span>
-<span id="cb9-639"><a href="#cb9-639" aria-hidden="true" tabindex="-1"></a>    theta <span class="op">+=</span> alpha <span class="op">*</span> G <span class="op">*</span> grad_logpi                 <span class="co"># REINFORCE 갱신</span></span>
-<span id="cb9-640"><a href="#cb9-640" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-641"><a href="#cb9-641" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"최종 정책 분포:"</span>, np.<span class="bu">round</span>(softmax(theta), <span class="dv">3</span>))  <span class="co"># 행동 1 확률이 1에 근접</span></span>
-<span id="cb9-642"><a href="#cb9-642" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb9-643"><a href="#cb9-643" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-644"><a href="#cb9-644" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb9-645"><a href="#cb9-645" aria-hidden="true" tabindex="-1"></a><span class="fu">## 재현 메모</span></span>
-<span id="cb9-646"><a href="#cb9-646" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>모든 난수는 시드 고정(<span class="in">`default_rng`</span>)으로 재현 가능하다.</span>
-<span id="cb9-647"><a href="#cb9-647" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>본문의 분산 비교(약 21.8 → 3.1)는 시드·표본 수에 따라 소폭 달라질 수 있으나 감소 경향은 동일하다.</span>
-<span id="cb9-648"><a href="#cb9-648" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`format`</span>은 <span class="in">`html`</span>만 두었으므로 <span class="in">`quarto render DL-lecture-260601-notes.qmd`</span> 로 바로 렌더된다. Python 청크를 실행해 확인하려면 상단 <span class="in">`execute.eval`</span> 을 <span class="in">`true`</span> 로 바꾼다.</span>
-<span id="cb9-649"><a href="#cb9-649" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="an">number:</span><span class="co"> 29</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="an">aliases:</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="co">  - "/study/deep-learning/DL-lecture-260601-notes.html"</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "MDP · 가치함수 · 정책 경사 정리 · REINFORCE · Actor-Critic · TRPO · PPO · GRPO"</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "이승현"</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-06-01"</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="an">lang:</span><span class="co"> ko</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-title: "목차"</span></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a><span class="co">    number-depth: 3</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a><span class="co">    highlight-style: github</span></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: false</span></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a><span class="co">    df-print: paged</span></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a><span class="co">    fig-cap-location: bottom</span></span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a><span class="co">    mermaid:</span></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a><span class="co">      theme: neutral</span></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a><span class="an">execute:</span></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a><span class="co">  echo: true</span></span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a><span class="co">  warning: false</span></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a><span class="co">  eval: false</span></span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a><span class="fu"># 한눈에 보는 전체 그림 {#sec-overview}</span></span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a><span class="fu">## 핵심 한 줄 요약</span></span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a>강화학습(RL)은 **MDP**라는 수학적 골격 위에서, 보상의 기대 누적값을 최대화하는 **정책 $\pi$** 를 찾는 문제다.</span>
+<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a>정책을 직접 $\theta$ 로 매개변수화하면 **정책 경사 정리**가 학습의 기본 방정식이 되고,</span>
+<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a>여기서 **분산을 줄이고**(baseline·advantage·actor-critic) **갱신 폭을 통제하는**(TRPO·PPO·GRPO) 방향으로 알고리즘이 발전한다.</span>
+<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-38"><a href="#cb9-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-39"><a href="#cb9-39" aria-hidden="true" tabindex="-1"></a>오늘 다루는 알고리즘들은 모두 하나의 계보 위에 있다. 출발점은 정책 경사를 그대로 쓰는 **REINFORCE**이고, 그것의 분산을 줄이려고 **Actor-Critic**이 나오며, 갱신이 너무 커서 학습이 불안정해지는 문제를 신뢰 영역으로 묶는 **TRPO**가 등장하고, 그 복잡한 2차 최적화를 단순한 클리핑으로 근사한 것이 **PPO**, 그리고 PPO에서 critic(가치망)을 통째로 들어내고 advantage를 그룹 통계로 대체한 것이 **GRPO**다.</span>
+<span id="cb9-40"><a href="#cb9-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-43"><a href="#cb9-43" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb9-44"><a href="#cb9-44" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
+<span id="cb9-45"><a href="#cb9-45" aria-hidden="true" tabindex="-1"></a>    A[<span class="ot">"</span><span class="st">MDP&lt;br/&gt;(상태·행동·보상)</span><span class="ot">"</span>] --&gt; B[<span class="ot">"</span><span class="st">가치함수&lt;br/&gt;v_π, q_π</span><span class="ot">"</span>]</span>
+<span id="cb9-46"><a href="#cb9-46" aria-hidden="true" tabindex="-1"></a>    B --&gt; C[<span class="ot">"</span><span class="st">벨만 방정식&lt;br/&gt;(재귀 관계)</span><span class="ot">"</span>]</span>
+<span id="cb9-47"><a href="#cb9-47" aria-hidden="true" tabindex="-1"></a>    C --&gt; D[<span class="ot">"</span><span class="st">GPI&lt;br/&gt;(정책반복)</span><span class="ot">"</span>]</span>
+<span id="cb9-48"><a href="#cb9-48" aria-hidden="true" tabindex="-1"></a>    D --&gt; E[<span class="ot">"</span><span class="st">정책 경사 정리&lt;br/&gt;∇J(θ)</span><span class="ot">"</span>]</span>
+<span id="cb9-49"><a href="#cb9-49" aria-hidden="true" tabindex="-1"></a>    E --&gt; F[<span class="ot">"</span><span class="st">REINFORCE&lt;br/&gt;(Monte Carlo PG)</span><span class="ot">"</span>]</span>
+<span id="cb9-50"><a href="#cb9-50" aria-hidden="true" tabindex="-1"></a>    F --&gt;|<span class="ot">"</span><span class="st">분산 ↓&lt;br/&gt;baseline/critic</span><span class="ot">"</span>| G[<span class="ot">"</span><span class="st">Actor-Critic</span><span class="ot">"</span>]</span>
+<span id="cb9-51"><a href="#cb9-51" aria-hidden="true" tabindex="-1"></a>    G --&gt;|<span class="ot">"</span><span class="st">갱신 폭 통제&lt;br/&gt;KL 제약</span><span class="ot">"</span>| H[<span class="ot">"</span><span class="st">TRPO</span><span class="ot">"</span>]</span>
+<span id="cb9-52"><a href="#cb9-52" aria-hidden="true" tabindex="-1"></a>    H --&gt;|<span class="ot">"</span><span class="st">클리핑으로 근사</span><span class="ot">"</span>| I[<span class="ot">"</span><span class="st">PPO</span><span class="ot">"</span>]</span>
+<span id="cb9-53"><a href="#cb9-53" aria-hidden="true" tabindex="-1"></a>    I --&gt;|<span class="ot">"</span><span class="st">critic 제거&lt;br/&gt;그룹 정규화</span><span class="ot">"</span>| J[<span class="ot">"</span><span class="st">GRPO</span><span class="ot">"</span>]</span>
+<span id="cb9-54"><a href="#cb9-54" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-55"><a href="#cb9-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-56"><a href="#cb9-56" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb9-57"><a href="#cb9-57" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 전공자를 위한 진입점</span></span>
+<span id="cb9-58"><a href="#cb9-58" aria-hidden="true" tabindex="-1"></a>RL의 핵심 수식들은 신호처리에서 익숙한 도구들과 정확히 같은 모양을 한다. 할인 누적 보상은 **망각 인자(forgetting factor)를 가진 IIR 누적**, 벨만 재귀는 **재귀 필터(RLS) 갱신**, baseline 차감은 **DC 제거 / 제어 변량(control variate)**, GRPO의 정규화는 **CFAR/AGC 정규화**, TRPO·PPO의 갱신 제약은 **NLMS의 정규화된 스텝 크기 제어**에 대응한다. 각 절 끝의 *무선통신 대응* 박스에서 짝을 맞춰 둔다.</span>
+<span id="cb9-59"><a href="#cb9-59" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-60"><a href="#cb9-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-61"><a href="#cb9-61" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb9-62"><a href="#cb9-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-63"><a href="#cb9-63" aria-hidden="true" tabindex="-1"></a><span class="fu"># 강화학습의 4요소와 문제 정의 {#sec-elements}</span></span>
+<span id="cb9-64"><a href="#cb9-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-65"><a href="#cb9-65" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답: RL이 푸는 것 {#sec-elements-answer}</span></span>
+<span id="cb9-66"><a href="#cb9-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-67"><a href="#cb9-67" aria-hidden="true" tabindex="-1"></a>RL은 환경과 상호작용하며 **수치 보상 신호**를 받는 에이전트가, 미래 보상의 기대 누적을 최대화하도록 **행동 선택 규칙(정책)** 을 학습하는 문제다.</span>
+<span id="cb9-68"><a href="#cb9-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-69"><a href="#cb9-69" aria-hidden="true" tabindex="-1"></a><span class="fu">## 네 가지 구성요소 {#sec-elements-four}</span></span>
+<span id="cb9-70"><a href="#cb9-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-71"><a href="#cb9-71" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 요소 <span class="pp">|</span> 기호 <span class="pp">|</span> 정의 <span class="pp">|</span> 역할 <span class="pp">|</span></span>
+<span id="cb9-72"><a href="#cb9-72" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|</span></span>
+<span id="cb9-73"><a href="#cb9-73" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 정책(Policy) <span class="pp">|</span> $\pi(a\mid s)$ <span class="pp">|</span> 상태에서 행동으로의 매핑(확률) <span class="pp">|</span> 에이전트의 **행동 자체**를 정의 <span class="pp">|</span></span>
+<span id="cb9-74"><a href="#cb9-74" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 보상(Reward) <span class="pp">|</span> $r$ <span class="pp">|</span> 매 시점 환경이 주는 단일 숫자 <span class="pp">|</span> 최대화 **대상이 되는 신호** <span class="pp">|</span></span>
+<span id="cb9-75"><a href="#cb9-75" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 가치함수(Value) <span class="pp">|</span> $v_\pi, q_\pi$ <span class="pp">|</span> 미래 보상의 기대 누적 <span class="pp">|</span> 어떤 행동이 좋은지 **추정하는 도구** <span class="pp">|</span></span>
+<span id="cb9-76"><a href="#cb9-76" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 모델(Model, 선택) <span class="pp">|</span> $p(s',r\mid s,a)$ <span class="pp">|</span> 환경 동역학의 모사 <span class="pp">|</span> 환경의 **프록시**(없어도 학습 가능) <span class="pp">|</span></span>
+<span id="cb9-77"><a href="#cb9-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-78"><a href="#cb9-78" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb9-79"><a href="#cb9-79" aria-hidden="true" tabindex="-1"></a>보상은 **환경에서 오는 외생 신호**이고, 가치함수는 **에이전트가 만든 프록시**라는 점이 핵심이다. 정책은 가치함수를 길잡이 삼아 갱신되며, 모델은 있으면(model-based) 환경을 시뮬레이션해 표본 효율을 높이지만 없어도(model-free) 학습된다. 오늘 다루는 알고리즘은 전부 **model-free** 계열이다.</span>
+<span id="cb9-80"><a href="#cb9-80" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-81"><a href="#cb9-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-82"><a href="#cb9-82" aria-hidden="true" tabindex="-1"></a>"강화(reinforcement)"라는 이름은, 좋은 상태–행동 쌍이 반복적 상호작용을 통해 점점 **강화되어** 또렷해진다는 데서 왔다. 역사적으로 RL은 제어 이론(optimal control)에서 출발했고, Bellman이 동역학계의 상태와 가치함수(최적 반환 함수)를 도입하면서 **벨만 방정식**과 그 풀이로서의 **동적 계획법**이 등장했다. 이를 이산·확률 버전으로 일반화한 것이 **MDP**다.</span>
+<span id="cb9-83"><a href="#cb9-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-84"><a href="#cb9-84" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb9-85"><a href="#cb9-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-86"><a href="#cb9-86" aria-hidden="true" tabindex="-1"></a><span class="fu"># 마르코프 결정 과정(MDP) {#sec-mdp}</span></span>
+<span id="cb9-87"><a href="#cb9-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-88"><a href="#cb9-88" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답: 왜 MDP인가 {#sec-mdp-answer}</span></span>
+<span id="cb9-89"><a href="#cb9-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-90"><a href="#cb9-90" aria-hidden="true" tabindex="-1"></a>학습 가능한 에이전트를 정의하려면 에이전트와 환경의 행동을 규정하는 수학적 골격이 필요하다. **마르코프 성질**을 가정하면, 다음 상태·보상의 확률이 **바로 직전 상태와 행동에만** 의존하므로 분석이 결정적으로 단순해진다.</span>
+<span id="cb9-91"><a href="#cb9-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-92"><a href="#cb9-92" aria-hidden="true" tabindex="-1"></a><span class="fu">## 정의와 마르코프 성질 {#sec-mdp-def}</span></span>
+<span id="cb9-93"><a href="#cb9-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-94"><a href="#cb9-94" aria-hidden="true" tabindex="-1"></a>시점 $t\in<span class="sc">\{</span>0,1,2,\dots<span class="sc">\}</span>$, 상태 $s\in S$, 행동 $a\in A(s)$, 보상 $r\in R$ 에 대해 환경 동역학은</span>
+<span id="cb9-95"><a href="#cb9-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-96"><a href="#cb9-96" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-97"><a href="#cb9-97" aria-hidden="true" tabindex="-1"></a>p(s', r \mid s, a) = \Pr\big(S_{t+1}=s',\, R_{t+1}=r \mid S_t=s,\, A_t=a\big).</span>
+<span id="cb9-98"><a href="#cb9-98" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-99"><a href="#cb9-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-100"><a href="#cb9-100" aria-hidden="true" tabindex="-1"></a>여기서 우변이 $S_t, A_t$ **하나에만** 조건부라는 것이 마르코프 성질이다. 즉 전체 과거 $(S_0,A_0,\dots,S_{t-1},A_{t-1})$ 가 아니라 현재 한 시점만 보면 미래의 통계가 결정된다.</span>
+<span id="cb9-101"><a href="#cb9-101" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-102"><a href="#cb9-102" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb9-103"><a href="#cb9-103" aria-hidden="true" tabindex="-1"></a><span class="fu">## 에피소드 = 데이터 한 점</span></span>
+<span id="cb9-104"><a href="#cb9-104" aria-hidden="true" tabindex="-1"></a>시점 1부터 $T$까지의 상호작용 한 묶음 $(R_1, R_2, \dots, R_T)$ 를 **에피소드**라 하며, 이것이 학습의 데이터 한 점이다. 자연스럽게 끝이 나뉘면 *episodic task*, 하나의 긴 흐름이면 *continuing task*다.</span>
+<span id="cb9-105"><a href="#cb9-105" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-106"><a href="#cb9-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-107"><a href="#cb9-107" aria-hidden="true" tabindex="-1"></a><span class="fu">## 할인 반환(discounted return)과 목표 {#sec-mdp-return}</span></span>
+<span id="cb9-108"><a href="#cb9-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-109"><a href="#cb9-109" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-110"><a href="#cb9-110" aria-hidden="true" tabindex="-1"></a>G_t = \sum_{k=t+1}^{T} \gamma^{\,k-t-1} R_k</span>
+<span id="cb9-111"><a href="#cb9-111" aria-hidden="true" tabindex="-1"></a>    = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots,</span>
+<span id="cb9-112"><a href="#cb9-112" aria-hidden="true" tabindex="-1"></a>\qquad 0 \le \gamma \le 1.</span>
+<span id="cb9-113"><a href="#cb9-113" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-114"><a href="#cb9-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-115"><a href="#cb9-115" aria-hidden="true" tabindex="-1"></a>미래 보상일수록 불확실성이 크므로 할인 인자 $\gamma$ 로 가중을 줄인다. 여기서 곧바로 **재귀 형태**가 나온다:</span>
+<span id="cb9-116"><a href="#cb9-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-117"><a href="#cb9-117" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-118"><a href="#cb9-118" aria-hidden="true" tabindex="-1"></a>\boxed{\,G_t = R_{t+1} + \gamma\, G_{t+1}\,}</span>
+<span id="cb9-119"><a href="#cb9-119" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-120"><a href="#cb9-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-121"><a href="#cb9-121" aria-hidden="true" tabindex="-1"></a>학습의 목표는 정책에 대한 기대 반환의 최대화다:</span>
+<span id="cb9-122"><a href="#cb9-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-123"><a href="#cb9-123" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-124"><a href="#cb9-124" aria-hidden="true" tabindex="-1"></a>\max_{\pi}\; \mathbb{E}_\pi<span class="co">[</span><span class="ot">G_t</span><span class="co">]</span>.</span>
+<span id="cb9-125"><a href="#cb9-125" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-126"><a href="#cb9-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-127"><a href="#cb9-127" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb9-128"><a href="#cb9-128" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — 망각 인자를 가진 IIR 누적</span></span>
+<span id="cb9-129"><a href="#cb9-129" aria-hidden="true" tabindex="-1"></a>$G_t = R_{t+1} + \gamma G_{t+1}$ 은 망각 인자 $\lambda$ 를 가진 1차 IIR/지수가중 누적과 같은 구조다. $\gamma$ 가 1에 가까울수록 먼 미래까지 기억(긴 시정수)하고, 0에 가까울수록 근시안적(짧은 시정수)이 된다. RLS의 forgetting factor가 과거 오차를 얼마나 오래 반영할지 정하는 것과 정확히 같은 역할이다.</span>
+<span id="cb9-130"><a href="#cb9-130" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-131"><a href="#cb9-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-132"><a href="#cb9-132" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb9-133"><a href="#cb9-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-134"><a href="#cb9-134" aria-hidden="true" tabindex="-1"></a><span class="fu"># 가치함수와 최적 정책 {#sec-value}</span></span>
+<span id="cb9-135"><a href="#cb9-135" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-136"><a href="#cb9-136" aria-hidden="true" tabindex="-1"></a><span class="fu">## 두 가지 가치함수 {#sec-value-two}</span></span>
+<span id="cb9-137"><a href="#cb9-137" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-138"><a href="#cb9-138" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-139"><a href="#cb9-139" aria-hidden="true" tabindex="-1"></a>v_\pi(s) = \mathbb{E}_\pi<span class="co">[</span><span class="ot">G_t \mid S_t = s</span><span class="co">]</span>,</span>
+<span id="cb9-140"><a href="#cb9-140" aria-hidden="true" tabindex="-1"></a>\qquad</span>
+<span id="cb9-141"><a href="#cb9-141" aria-hidden="true" tabindex="-1"></a>q_\pi(s,a) = \mathbb{E}_\pi<span class="co">[</span><span class="ot">G_t \mid S_t = s,\, A_t = a</span><span class="co">]</span>.</span>
+<span id="cb9-142"><a href="#cb9-142" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-143"><a href="#cb9-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-144"><a href="#cb9-144" aria-hidden="true" tabindex="-1"></a>상태가치 $v_\pi$ 는 **상태만**, 행동가치 $q_\pi$ 는 **상태와 행동 둘 다**를 입력으로 받는다. 둘 다 정확히 구하기는 매우 어려워 근사한다.</span>
+<span id="cb9-145"><a href="#cb9-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-146"><a href="#cb9-146" aria-hidden="true" tabindex="-1"></a><span class="fu">## 최적 정책 {#sec-value-optimal}</span></span>
+<span id="cb9-147"><a href="#cb9-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-148"><a href="#cb9-148" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-149"><a href="#cb9-149" aria-hidden="true" tabindex="-1"></a>v_*(s) = \max_\pi v_\pi(s),</span>
+<span id="cb9-150"><a href="#cb9-150" aria-hidden="true" tabindex="-1"></a>\qquad</span>
+<span id="cb9-151"><a href="#cb9-151" aria-hidden="true" tabindex="-1"></a>q_*(s,a) = \max_\pi q_\pi(s,a).</span>
+<span id="cb9-152"><a href="#cb9-152" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-153"><a href="#cb9-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-154"><a href="#cb9-154" aria-hidden="true" tabindex="-1"></a>최적 정책은 보통 **행동가치** $q_*$ 로 얻는다. $q$ 는 행동을 입력으로 받으므로 어떤 행동이 그 상태에서 가치를 높이는지 직접 비교할 수 있는 반면, $v$ 는 행동의 효과를 직접 담지 못하기 때문이다. 결정론적 정책에서는</span>
+<span id="cb9-155"><a href="#cb9-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-156"><a href="#cb9-156" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-157"><a href="#cb9-157" aria-hidden="true" tabindex="-1"></a>\pi_*(s) = \operatorname*{arg\,max}_a q_*(s,a).</span>
+<span id="cb9-158"><a href="#cb9-158" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-159"><a href="#cb9-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-160"><a href="#cb9-160" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb9-161"><a href="#cb9-161" aria-hidden="true" tabindex="-1"></a>**$v$ 로 최적화하는 것처럼 보이지만 내부적으로는 $q$ 를 쓴다.** 뒤의 벨만 방정식에서 $v_\pi(s)=\sum_a \pi(a\mid s)\,q_\pi(s,a)$ 로 둘이 연결되기 때문에, 표면상 $v$ 최적화가 실제로는 $q$ 비교로 환원된다.</span>
+<span id="cb9-162"><a href="#cb9-162" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-163"><a href="#cb9-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-164"><a href="#cb9-164" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb9-165"><a href="#cb9-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-166"><a href="#cb9-166" aria-hidden="true" tabindex="-1"></a><span class="fu"># 벨만 방정식: 재귀 관계 {#sec-bellman}</span></span>
+<span id="cb9-167"><a href="#cb9-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-168"><a href="#cb9-168" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답: 무엇이 재귀인가 {#sec-bellman-answer}</span></span>
+<span id="cb9-169"><a href="#cb9-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-170"><a href="#cb9-170" aria-hidden="true" tabindex="-1"></a>벨만 방정식은 **현재 시점의 가치함수**를 **다음 시점의 가치함수**로 표현하는 재귀식이다. 이 재귀가 있어야 정책반복을 반복적 갱신으로 돌릴 수 있다.</span>
+<span id="cb9-171"><a href="#cb9-171" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-172"><a href="#cb9-172" aria-hidden="true" tabindex="-1"></a><span class="fu">## $v_\pi$ 와 $q_\pi$ 의 연결 {#sec-bellman-link}</span></span>
+<span id="cb9-173"><a href="#cb9-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-174"><a href="#cb9-174" aria-hidden="true" tabindex="-1"></a>상태가치를 행동에 대해 주변화(marginalize)하면:</span>
+<span id="cb9-175"><a href="#cb9-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-176"><a href="#cb9-176" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-177"><a href="#cb9-177" aria-hidden="true" tabindex="-1"></a>v_\pi(s) = \sum_{a\in A(s)} \pi(a\mid s)\, q_\pi(s,a)</span>
+<span id="cb9-178"><a href="#cb9-178" aria-hidden="true" tabindex="-1"></a>        \;\le\; \max_a q_\pi(s,a).</span>
+<span id="cb9-179"><a href="#cb9-179" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-180"><a href="#cb9-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-181"><a href="#cb9-181" aria-hidden="true" tabindex="-1"></a>부등식은 "기댓값은 최댓값을 넘지 못한다"는 사실이며, 정책개선의 상한을 준다.</span>
+<span id="cb9-182"><a href="#cb9-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-183"><a href="#cb9-183" aria-hidden="true" tabindex="-1"></a><span class="fu">## $q_\pi$ 의 재귀 전개 {#sec-bellman-q}</span></span>
+<span id="cb9-184"><a href="#cb9-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-185"><a href="#cb9-185" aria-hidden="true" tabindex="-1"></a>반환의 재귀 $G_t = R_{t+1} + \gamma G_{t+1}$ 를 행동가치 정의에 넣는다. 핵심 단계는 **기댓값 안에서** $G_{t+1}$ 을 $v_\pi(S_{t+1})$ 로 바꿀 수 있다는 점이다(둘은 밖에서는 다르지만 조건부 기댓값으로는 같다):</span>
+<span id="cb9-186"><a href="#cb9-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-187"><a href="#cb9-187" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-188"><a href="#cb9-188" aria-hidden="true" tabindex="-1"></a>\mathbb{E}_\pi[v_\pi(S_{t+1}) \mid S_t=s, a] = \mathbb{E}_\pi[G_{t+1}\mid S_t=s, a].</span>
+<span id="cb9-189"><a href="#cb9-189" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-190"><a href="#cb9-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-191"><a href="#cb9-191" aria-hidden="true" tabindex="-1"></a>따라서</span>
+<span id="cb9-192"><a href="#cb9-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-193"><a href="#cb9-193" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-194"><a href="#cb9-194" aria-hidden="true" tabindex="-1"></a>q_\pi(s,a) = \mathbb{E}_\pi\big[R_{t+1}+\gamma G_{t+1}\mid s,a\big]</span>
+<span id="cb9-195"><a href="#cb9-195" aria-hidden="true" tabindex="-1"></a>           = \sum_{s',r} p(s',r\mid s,a)\,\big<span class="co">[</span><span class="ot">\,r + \gamma\, v_\pi(s')\,\big</span><span class="co">]</span>.</span>
+<span id="cb9-196"><a href="#cb9-196" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-197"><a href="#cb9-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-198"><a href="#cb9-198" aria-hidden="true" tabindex="-1"></a>이를 $v_\pi$ 식에 대입하면 **벨만 기대 방정식**이 완성된다:</span>
+<span id="cb9-199"><a href="#cb9-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-200"><a href="#cb9-200" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-201"><a href="#cb9-201" aria-hidden="true" tabindex="-1"></a>\boxed{\;</span>
+<span id="cb9-202"><a href="#cb9-202" aria-hidden="true" tabindex="-1"></a>v_\pi(s) = \underbrace{\sum_{a}\pi(a\mid s)}_{\text{에이전트가 하는 일(정책)}}</span>
+<span id="cb9-203"><a href="#cb9-203" aria-hidden="true" tabindex="-1"></a>           \underbrace{\sum_{s',r} p(s',r\mid s,a)}_{\text{환경의 반응(전이·보상)}}</span>
+<span id="cb9-204"><a href="#cb9-204" aria-hidden="true" tabindex="-1"></a>           \big<span class="co">[</span><span class="ot">\,r + \gamma\, v_\pi(s')\,\big</span><span class="co">]</span></span>
+<span id="cb9-205"><a href="#cb9-205" aria-hidden="true" tabindex="-1"></a>\;}</span>
+<span id="cb9-206"><a href="#cb9-206" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-207"><a href="#cb9-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-208"><a href="#cb9-208" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb9-209"><a href="#cb9-209" aria-hidden="true" tabindex="-1"></a>**구조 해석(3단 인과 사슬):** 정책이 행동 분포를 결정 → 환경이 전이·보상으로 반응 → 즉시 보상 $r$ 과 다음 상태의 미래가치 $\gamma v_\pi(s')$ 가 합쳐져 현재가치가 된다. 분리 가능한 두 항(정책 항 / 환경 항)으로 나뉘는 점이 뒤의 정책 경사 정리에서 결정적으로 쓰인다 — 환경 항은 $\theta$ 와 무관해 미분에서 빠진다.</span>
+<span id="cb9-210"><a href="#cb9-210" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-211"><a href="#cb9-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-212"><a href="#cb9-212" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb9-213"><a href="#cb9-213" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — 재귀 필터(RLS) 갱신</span></span>
+<span id="cb9-214"><a href="#cb9-214" aria-hidden="true" tabindex="-1"></a>$v_\pi(s) = \mathbb{E}<span class="co">[</span><span class="ot">\,r + \gamma v_\pi(s')\,</span><span class="co">]</span>$ 는 "현재 추정 = 새 관측 + 할인된 다음 추정" 형태로, RLS·칼만 필터의 예측–갱신 재귀와 같은 골격이다. $\gamma$ 가 상태 전이 게인 역할을 하는 안정한 1차 재귀로 보면 직관이 선다.</span>
+<span id="cb9-215"><a href="#cb9-215" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-216"><a href="#cb9-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-217"><a href="#cb9-217" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb9-218"><a href="#cb9-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-219"><a href="#cb9-219" aria-hidden="true" tabindex="-1"></a><span class="fu"># 정책반복과 GPI {#sec-gpi}</span></span>
+<span id="cb9-220"><a href="#cb9-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-221"><a href="#cb9-221" aria-hidden="true" tabindex="-1"></a><span class="fu">## 정책개선 정리 {#sec-gpi-pit}</span></span>
+<span id="cb9-222"><a href="#cb9-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-223"><a href="#cb9-223" aria-hidden="true" tabindex="-1"></a>현재 정책 $\pi$ 의 행동가치로 탐욕적 새 정책을 정의하면</span>
+<span id="cb9-224"><a href="#cb9-224" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-225"><a href="#cb9-225" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-226"><a href="#cb9-226" aria-hidden="true" tabindex="-1"></a>\pi'(s) = \operatorname*{arg\,max}_a q_\pi(s,a)</span>
+<span id="cb9-227"><a href="#cb9-227" aria-hidden="true" tabindex="-1"></a>\quad\Longrightarrow\quad</span>
+<span id="cb9-228"><a href="#cb9-228" aria-hidden="true" tabindex="-1"></a>v_\pi(s) \le v_{\pi'}(s).</span>
+<span id="cb9-229"><a href="#cb9-229" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-230"><a href="#cb9-230" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-231"><a href="#cb9-231" aria-hidden="true" tabindex="-1"></a>즉 "현재 가치함수를 최대화하는 행동"으로 정책을 바꾸면 가치가 결코 나빠지지 않는다.</span>
+<span id="cb9-232"><a href="#cb9-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-233"><a href="#cb9-233" aria-hidden="true" tabindex="-1"></a><span class="fu">## 일반화 정책반복(GPI) {#sec-gpi-loop}</span></span>
+<span id="cb9-234"><a href="#cb9-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-237"><a href="#cb9-237" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb9-238"><a href="#cb9-238" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
+<span id="cb9-239"><a href="#cb9-239" aria-hidden="true" tabindex="-1"></a>    P[<span class="ot">"</span><span class="st">정책 π</span><span class="ot">"</span>] --&gt;|<span class="ot">"</span><span class="st">평가&lt;br/&gt;(가치 추정)</span><span class="ot">"</span>| V[<span class="ot">"</span><span class="st">가치함수 v_π</span><span class="ot">"</span>]</span>
+<span id="cb9-240"><a href="#cb9-240" aria-hidden="true" tabindex="-1"></a>    V --&gt;|<span class="ot">"</span><span class="st">개선&lt;br/&gt;(탐욕적 갱신)</span><span class="ot">"</span>| P</span>
+<span id="cb9-241"><a href="#cb9-241" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-242"><a href="#cb9-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-243"><a href="#cb9-243" aria-hidden="true" tabindex="-1"></a>평가(가치 추정)와 개선(정책 갱신)을 번갈아 반복하면 최적 정책 $\pi_*$ 와 최적 가치 $v_*$ 로 수렴한다. 두 과정이 서로를 끌어올리는 **협력적 반복**이다.</span>
+<span id="cb9-244"><a href="#cb9-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-245"><a href="#cb9-245" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb9-246"><a href="#cb9-246" aria-hidden="true" tabindex="-1"></a><span class="fu">## GPI의 한계 → 정책 경사로 넘어가는 동기</span></span>
+<span id="cb9-247"><a href="#cb9-247" aria-hidden="true" tabindex="-1"></a>GPI는 $\arg\max$ 라는 **미분 불가능**한 탐욕 연산을 쓴다. 게다가 탐욕 갱신은 정책 분포를 **급격히** 바꿀 수 있어, 한 스텝에 에이전트 행동이 돌변하고 학습 곡선이 출렁인다. 신경망으로 미분 가능하게 학습하려면, $\arg\max$ 대신 **정책을 $\theta$ 로 매개변수화하고 경사로 천천히 갱신**해야 한다. 이것이 정책 경사법의 출발 동기다.</span>
+<span id="cb9-248"><a href="#cb9-248" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-249"><a href="#cb9-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-250"><a href="#cb9-250" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb9-251"><a href="#cb9-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-252"><a href="#cb9-252" aria-hidden="true" tabindex="-1"></a><span class="fu"># 정책 경사법(PGM)과 정책 경사 정리 {#sec-pg}</span></span>
+<span id="cb9-253"><a href="#cb9-253" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-254"><a href="#cb9-254" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답: 정책 경사 정리 {#sec-pg-answer}</span></span>
+<span id="cb9-255"><a href="#cb9-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-256"><a href="#cb9-256" aria-hidden="true" tabindex="-1"></a>정책을 $\pi(a\mid s;\theta)$ 로 두고 목적함수를 시작 상태의 상태가치 $J(\theta)=v_{\pi_\theta}(s_0)$ 로 정의하면, ($\gamma=1$ 가정) 그 경사는</span>
+<span id="cb9-257"><a href="#cb9-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-258"><a href="#cb9-258" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-259"><a href="#cb9-259" aria-hidden="true" tabindex="-1"></a>\boxed{\;\nabla J(\theta) \;\propto\; \sum_s \mu(s) \sum_a q_\pi(s,a)\, \nabla \pi(a\mid s,\theta)\;}</span>
+<span id="cb9-260"><a href="#cb9-260" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-261"><a href="#cb9-261" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-262"><a href="#cb9-262" aria-hidden="true" tabindex="-1"></a>여기서 $\mu(s)$ 는 정책이 유도하는 **상태 분포**(상태 $s$ 에 머무는 평균 시간 비율)다.</span>
+<span id="cb9-263"><a href="#cb9-263" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-264"><a href="#cb9-264" aria-hidden="true" tabindex="-1"></a><span class="fu">## 정리의 의미 {#sec-pg-meaning}</span></span>
+<span id="cb9-265"><a href="#cb9-265" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-266"><a href="#cb9-266" aria-hidden="true" tabindex="-1"></a>목적함수의 경사는 세 요소의 곱으로 분해된다: 상태 분포 $\mu(s)$, 행동가치 $q_\pi(s,a)$, 그리고 **정책 자체의 경사** $\nabla\pi$. 핵심은 미분이 **정책 항에만** 걸리고, 환경의 전이확률 $p(s'\mid s,a)$ 는 $\theta$ 와 무관해 사라진다는 점이다.</span>
+<span id="cb9-267"><a href="#cb9-267" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-268"><a href="#cb9-268" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb9-269"><a href="#cb9-269" aria-hidden="true" tabindex="-1"></a><span class="fu">## 증명 골격(개요)</span></span>
+<span id="cb9-270"><a href="#cb9-270" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>$\nabla v_\pi(s)$ 에 정의 $v_\pi(s)=\sum_a \pi(a\mid s)q_\pi(s,a)$ 를 넣고 **곱의 미분**을 적용한다: $\nabla(\pi\,q) = (\nabla\pi)q + \pi(\nabla q)$.</span>
+<span id="cb9-271"><a href="#cb9-271" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>$\nabla q_\pi(s,a)$ 안에서 보상·전이확률은 $\theta$ 무관 상수이므로 미분이 다음 상태의 $\nabla v_\pi(s')$ 로 **재귀적으로** 넘어간다.</span>
+<span id="cb9-272"><a href="#cb9-272" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>이 재귀를 반복 전개하면, $\nabla v_\pi(s)$ 가 "$s$ 에서 $x$ 로 $k$ 스텝에 도달할 확률 $\Pr(s\to x,k,\pi)$ 의 합 $\times\ \nabla\pi(\cdot\mid x)\, q_\pi(x,\cdot)$" 형태로 정리된다.</span>
+<span id="cb9-273"><a href="#cb9-273" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>$\sum_k \Pr(s\to x,k,\pi)$ 를 정규화하면 그것이 바로 상태 분포 $\mu(x)$ — "한 에피소드에서 상태 $s$ 에 머무는 평균 시간 수"의 의미를 갖는다. 이를 대입해 비례식이 닫힌다.</span>
+<span id="cb9-274"><a href="#cb9-274" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-275"><a href="#cb9-275" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-276"><a href="#cb9-276" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb9-277"><a href="#cb9-277" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — 미분 가능한 부분만 적응</span></span>
+<span id="cb9-278"><a href="#cb9-278" aria-hidden="true" tabindex="-1"></a>환경 전이는 우리가 통제 못 하는 채널(고정 확률)이고, 정책만 우리가 적응시키는 가중치다. 채널은 미분에서 빠지고 가중치 갱신항만 남는 구조는, 채널을 고정한 채 등화기(equalizer) 계수만 적응시키는 적응 필터와 같은 분리 구도다.</span>
+<span id="cb9-279"><a href="#cb9-279" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-280"><a href="#cb9-280" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-281"><a href="#cb9-281" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb9-282"><a href="#cb9-282" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-283"><a href="#cb9-283" aria-hidden="true" tabindex="-1"></a><span class="fu"># REINFORCE: 몬테카를로 정책 경사 {#sec-reinforce}</span></span>
+<span id="cb9-284"><a href="#cb9-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-285"><a href="#cb9-285" aria-hidden="true" tabindex="-1"></a><span class="fu">## 로그-미분 트릭과 갱신식 {#sec-reinforce-trick}</span></span>
+<span id="cb9-286"><a href="#cb9-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-287"><a href="#cb9-287" aria-hidden="true" tabindex="-1"></a>정책 경사 정리를 기댓값으로 다시 쓰면</span>
+<span id="cb9-288"><a href="#cb9-288" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-289"><a href="#cb9-289" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-290"><a href="#cb9-290" aria-hidden="true" tabindex="-1"></a>\nabla J(\theta) = \mathbb{E}_\pi\!\Big[\sum_a q_\pi(s,a)\,\nabla\pi(a\mid s,\theta)\Big].</span>
+<span id="cb9-291"><a href="#cb9-291" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-292"><a href="#cb9-292" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-293"><a href="#cb9-293" aria-hidden="true" tabindex="-1"></a>여기에 **로그-미분(score function) 트릭** $\nabla_\theta \ln f = \dfrac{\nabla_\theta f}{f}$ 을 적용하면 표본화 가능한 형태가 된다:</span>
+<span id="cb9-294"><a href="#cb9-294" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-295"><a href="#cb9-295" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-296"><a href="#cb9-296" aria-hidden="true" tabindex="-1"></a>\boxed{\;\theta_{t+1} = \theta_t + \alpha\, G_t\, \nabla \ln \pi(A_t\mid S_t, \theta_t)\;}</span>
+<span id="cb9-297"><a href="#cb9-297" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-298"><a href="#cb9-298" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-299"><a href="#cb9-299" aria-hidden="true" tabindex="-1"></a>반환 $G_t$ 가 큰(좋은) 궤적이 나온 행동의 로그확률을 끌어올리는 방향으로 갱신한다.</span>
+<span id="cb9-300"><a href="#cb9-300" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-301"><a href="#cb9-301" aria-hidden="true" tabindex="-1"></a><span class="fu">## 알고리즘 {#sec-reinforce-algo}</span></span>
+<span id="cb9-302"><a href="#cb9-302" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-303"><a href="#cb9-303" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb9-304"><a href="#cb9-304" aria-hidden="true" tabindex="-1"></a><span class="fu">## REINFORCE 절차</span></span>
+<span id="cb9-305"><a href="#cb9-305" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>함수형 $\pi(a\mid s;\theta)$(보통 신경망), 초기 $\theta$, 스텝 크기 $\alpha$ 를 정한다.</span>
+<span id="cb9-306"><a href="#cb9-306" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>반복: 현재 정책으로 **에피소드 하나를 무작위 생성** → 각 시점의 $G_t$ 계산 → $\theta \leftarrow \theta + \alpha G_t \nabla\ln\pi(A_t\mid S_t,\theta)$ 로 모든 시점 갱신 → 새 에피소드로 반복.</span>
+<span id="cb9-307"><a href="#cb9-307" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>표본 궤적으로 경사를 추정하므로 **Monte Carlo 정책 경사 제어**라 부른다.</span>
+<span id="cb9-308"><a href="#cb9-308" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-309"><a href="#cb9-309" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-310"><a href="#cb9-310" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb9-311"><a href="#cb9-311" aria-hidden="true" tabindex="-1"></a><span class="fu">## REINFORCE의 약점</span></span>
+<span id="cb9-312"><a href="#cb9-312" aria-hidden="true" tabindex="-1"></a>에피소드를 끝까지 무작위로 굴려 $G_t$ 를 만들기 때문에 **표본 분산이 매우 크다**. 학습이 불안정하고(큰 정책 갱신), 표본 효율·강건성이 떨어진다. 학습 곡선이 출렁이고 에이전트가 엉뚱한 행동(넘어지기, 헛디딤)을 자주 보이는 이유다. 이 분산을 줄이는 것이 다음 단계들의 일관된 동기다.</span>
+<span id="cb9-313"><a href="#cb9-313" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-314"><a href="#cb9-314" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-315"><a href="#cb9-315" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb9-316"><a href="#cb9-316" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — 잡음 큰 경사 추정</span></span>
+<span id="cb9-317"><a href="#cb9-317" aria-hidden="true" tabindex="-1"></a>$G_t$ 는 한 번의 무작위 실현으로 얻은 추정이라 분산이 큰 노이즈 섞인 경사다. 단일 스냅샷으로 채널을 추정하면 분산이 큰 것과 같으며, 다음 절의 baseline 차감은 추정량의 분산을 줄이는 전처리에 해당한다.</span>
+<span id="cb9-318"><a href="#cb9-318" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-319"><a href="#cb9-319" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-320"><a href="#cb9-320" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb9-321"><a href="#cb9-321" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-322"><a href="#cb9-322" aria-hidden="true" tabindex="-1"></a><span class="fu"># 분산 감소: Baseline · Advantage · Actor-Critic {#sec-ac}</span></span>
+<span id="cb9-323"><a href="#cb9-323" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-324"><a href="#cb9-324" aria-hidden="true" tabindex="-1"></a><span class="fu">## Baseline은 편향 없이 분산만 줄인다 {#sec-ac-baseline}</span></span>
+<span id="cb9-325"><a href="#cb9-325" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-326"><a href="#cb9-326" aria-hidden="true" tabindex="-1"></a>기댓값에 **상태에만 의존하는** baseline $b(S_t)$ 를 빼도 경사의 기댓값은 변하지 않는다(불편):</span>
+<span id="cb9-327"><a href="#cb9-327" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-328"><a href="#cb9-328" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-329"><a href="#cb9-329" aria-hidden="true" tabindex="-1"></a>\nabla J(\theta) = \mathbb{E}_\pi\big<span class="co">[</span><span class="ot">(G_t - b(S_t))\,\nabla\ln\pi(A_t\mid S_t,\theta)\big</span><span class="co">]</span>.</span>
+<span id="cb9-330"><a href="#cb9-330" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-331"><a href="#cb9-331" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-332"><a href="#cb9-332" aria-hidden="true" tabindex="-1"></a>이유는 $\mathbb{E}_\pi<span class="co">[</span><span class="ot">\,b(S_t)\nabla\ln\pi\,</span><span class="co">]</span>=b(S_t)\sum_a \nabla\pi = b(S_t)\nabla<span class="sc">\!</span>\sum_a\pi = 0$ 이기 때문이다($\sum_a\pi=1$).</span>
+<span id="cb9-333"><a href="#cb9-333" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-334"><a href="#cb9-334" aria-hidden="true" tabindex="-1"></a><span class="fu">## Advantage 함수 {#sec-ac-adv}</span></span>
+<span id="cb9-335"><a href="#cb9-335" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-336"><a href="#cb9-336" aria-hidden="true" tabindex="-1"></a>자연스러운 baseline은 상태가치 $v_\pi(S_t)$ 다. 한 스텝 전개로 $G_t$ 를 끝까지 굴리지 않고 근사하면 **TD 오차**가 나오고, 이것이 곧 advantage다:</span>
+<span id="cb9-337"><a href="#cb9-337" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-338"><a href="#cb9-338" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-339"><a href="#cb9-339" aria-hidden="true" tabindex="-1"></a>\delta_t = R_{t+1} + \gamma\, v_\pi(S_{t+1}) - v_\pi(S_t)</span>
+<span id="cb9-340"><a href="#cb9-340" aria-hidden="true" tabindex="-1"></a>\;\approx\; G_t - v_\pi(S_t) \;=\; A_\pi(S_t, A_t),</span>
+<span id="cb9-341"><a href="#cb9-341" aria-hidden="true" tabindex="-1"></a>\qquad</span>
+<span id="cb9-342"><a href="#cb9-342" aria-hidden="true" tabindex="-1"></a>\nabla J(\theta) = \mathbb{E}_\pi<span class="co">[</span><span class="ot">\delta_t\,\nabla\ln\pi</span><span class="co">]</span>.</span>
+<span id="cb9-343"><a href="#cb9-343" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-344"><a href="#cb9-344" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-345"><a href="#cb9-345" aria-hidden="true" tabindex="-1"></a>advantage는 "그 행동이 그 상태의 평균보다 얼마나 더 좋은가"를 재며, 절대 보상의 큰 출렁임을 평균 대비 상대값으로 바꿔 분산을 줄인다.</span>
+<span id="cb9-346"><a href="#cb9-346" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-347"><a href="#cb9-347" aria-hidden="true" tabindex="-1"></a><span class="fu">## Actor-Critic {#sec-ac-actor-critic}</span></span>
+<span id="cb9-348"><a href="#cb9-348" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-349"><a href="#cb9-349" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 구성 <span class="pp">|</span> 역할 <span class="pp">|</span> 수식 <span class="pp">|</span></span>
+<span id="cb9-350"><a href="#cb9-350" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb9-351"><a href="#cb9-351" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Actor(정책망) <span class="pp">|</span> 어떤 행동을 할지 결정 <span class="pp">|</span> $\pi_\theta(s)$ <span class="pp">|</span></span>
+<span id="cb9-352"><a href="#cb9-352" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Critic(가치망) <span class="pp">|</span> 그 행동의 질을 추정 <span class="pp">|</span> $Q(s,a)$ 또는 $v(s)$, $\delta_t$ <span class="pp">|</span></span>
+<span id="cb9-353"><a href="#cb9-353" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-354"><a href="#cb9-354" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb9-355"><a href="#cb9-355" aria-hidden="true" tabindex="-1"></a>**critic은 actor를 직접 지휘하지 않고 보조한다.** 초기에는 정책이 미숙하니 critic도 noisy해 거의 통제하지 못하지만, 반복이 진행되며 정책이 좋아지면 critic의 피드백도 정확해지고, 그러면 actor의 갱신을 더 잘 제약해 빠르고 안정적으로 수렴시킨다. 다만 이는 **간접적 정규화**일 뿐, 한 스텝에 정책이 급변하지 않는다는 **보장은 없다**. 그 보장을 직접 거는 것이 다음의 신뢰 영역 방법이다.</span>
+<span id="cb9-356"><a href="#cb9-356" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-357"><a href="#cb9-357" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-358"><a href="#cb9-358" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb9-359"><a href="#cb9-359" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — DC 제거 / 제어 변량</span></span>
+<span id="cb9-360"><a href="#cb9-360" aria-hidden="true" tabindex="-1"></a>baseline 차감은 추정 전에 평균(DC)을 빼 분산을 줄이는 control variate 기법이다. 신호의 평균을 제거한 뒤 변동분만 추정하면 추정 분산이 작아지는 것과 같으며, 본문 검증에서 분산이 약 7배(21.8→3.1) 줄어든 것이 이 효과다.</span>
+<span id="cb9-361"><a href="#cb9-361" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-362"><a href="#cb9-362" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-363"><a href="#cb9-363" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb9-364"><a href="#cb9-364" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-365"><a href="#cb9-365" aria-hidden="true" tabindex="-1"></a><span class="fu"># 신뢰 영역 방법(TRPO) {#sec-trpo}</span></span>
+<span id="cb9-366"><a href="#cb9-366" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-367"><a href="#cb9-367" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답: 무엇을 제약하나 {#sec-trpo-answer}</span></span>
+<span id="cb9-368"><a href="#cb9-368" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-369"><a href="#cb9-369" aria-hidden="true" tabindex="-1"></a>한 스텝만에도 actor 파라미터가 급변해 학습이 무너질 수 있다. 해법은 **새 정책이 이전 정책에서 너무 멀어지지 않도록** KL 발산으로 갱신 영역을 묶는 것이다:</span>
+<span id="cb9-370"><a href="#cb9-370" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-371"><a href="#cb9-371" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-372"><a href="#cb9-372" aria-hidden="true" tabindex="-1"></a>D_{\mathrm{KL}}\big(\pi_{\theta_{\text{old}}} \,<span class="sc">\|</span>\, \pi_\theta\big) \le \epsilon.</span>
+<span id="cb9-373"><a href="#cb9-373" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-374"><a href="#cb9-374" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-375"><a href="#cb9-375" aria-hidden="true" tabindex="-1"></a><span class="fu">## 대리 목적함수와 확률 비율 {#sec-trpo-surrogate}</span></span>
+<span id="cb9-376"><a href="#cb9-376" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-377"><a href="#cb9-377" aria-hidden="true" tabindex="-1"></a>$\nabla\ln\pi$ 항을 **확률 비율**로 근사한다($\theta_{\text{old}}$ 에서 1차 전개하면 같은 경사를 준다):</span>
+<span id="cb9-378"><a href="#cb9-378" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-379"><a href="#cb9-379" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-380"><a href="#cb9-380" aria-hidden="true" tabindex="-1"></a>r_t(\theta) = \frac{\pi_\theta(a_t\mid s_t)}{\pi_{\theta_{\text{old}}}(a_t\mid s_t)}.</span>
+<span id="cb9-381"><a href="#cb9-381" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-382"><a href="#cb9-382" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-383"><a href="#cb9-383" aria-hidden="true" tabindex="-1"></a>TRPO는 제약 하에서 대리 목적</span>
+<span id="cb9-384"><a href="#cb9-384" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-385"><a href="#cb9-385" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-386"><a href="#cb9-386" aria-hidden="true" tabindex="-1"></a>\max_\theta\; \mathbb{E}_t\big<span class="co">[</span><span class="ot">r_t(\theta)\,\hat{A}_t\big</span><span class="co">]</span></span>
+<span id="cb9-387"><a href="#cb9-387" aria-hidden="true" tabindex="-1"></a>\quad \text{s.t.}\quad D_{\mathrm{KL}}\le \delta</span>
+<span id="cb9-388"><a href="#cb9-388" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-389"><a href="#cb9-389" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-390"><a href="#cb9-390" aria-hidden="true" tabindex="-1"></a>를 최대화한다. 비제약 형태로는 KL 페널티 $-\beta D_{\mathrm{KL}}$ 를 목적에 더한다.</span>
+<span id="cb9-391"><a href="#cb9-391" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-392"><a href="#cb9-392" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb9-393"><a href="#cb9-393" aria-hidden="true" tabindex="-1"></a><span class="fu">## TRPO의 한계</span></span>
+<span id="cb9-394"><a href="#cb9-394" aria-hidden="true" tabindex="-1"></a>KL 제약을 정확히 다루려면 KL의 2차 근사(헤시안 포함)가 필요한 **복잡한 2차 방법**이고, KL 페널티 계수 $\beta$ 를 모든 문제에 통하는 고정값으로 잡기 어렵다. 계산이 무겁다는 이 약점이 PPO로 가는 동기다.</span>
+<span id="cb9-395"><a href="#cb9-395" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-396"><a href="#cb9-396" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-397"><a href="#cb9-397" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb9-398"><a href="#cb9-398" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — 정규화된 스텝 크기 제어(NLMS)</span></span>
+<span id="cb9-399"><a href="#cb9-399" aria-hidden="true" tabindex="-1"></a>KL 제약은 적응 갱신의 발산을 막으려고 스텝 크기를 정규화/제한하는 NLMS의 사상과 같다. 입력 에너지가 클 때 스텝을 줄여 안정성을 지키듯, 정책이 멀리 튀려 하면 KL 제약이 갱신을 끌어당겨 "신뢰할 수 있는" 영역 안에 둔다.</span>
+<span id="cb9-400"><a href="#cb9-400" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-401"><a href="#cb9-401" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-402"><a href="#cb9-402" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb9-403"><a href="#cb9-403" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-404"><a href="#cb9-404" aria-hidden="true" tabindex="-1"></a><span class="fu"># 근위 정책 최적화(PPO) {#sec-ppo}</span></span>
+<span id="cb9-405"><a href="#cb9-405" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-406"><a href="#cb9-406" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답: 클리핑 한 줄 {#sec-ppo-answer}</span></span>
+<span id="cb9-407"><a href="#cb9-407" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-408"><a href="#cb9-408" aria-hidden="true" tabindex="-1"></a>PPO는 TRPO의 복잡한 KL 계산을, 확률 비율을 $<span class="co">[</span><span class="ot">1-\epsilon,\,1+\epsilon</span><span class="co">]</span>$ 로 **자르는(clip)** 단순 연산으로 대체한다:</span>
+<span id="cb9-409"><a href="#cb9-409" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-410"><a href="#cb9-410" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-411"><a href="#cb9-411" aria-hidden="true" tabindex="-1"></a>\boxed{\;</span>
+<span id="cb9-412"><a href="#cb9-412" aria-hidden="true" tabindex="-1"></a>L^{\text{CLIP}}(\theta) = \mathbb{E}_t\Big<span class="co">[</span><span class="ot">\min\big(r_t(\theta)\,\hat{A}_t,\;\operatorname{clip}(r_t(\theta),\,1-\epsilon,\,1+\epsilon)\,\hat{A}_t\big)\Big</span><span class="co">]</span></span>
+<span id="cb9-413"><a href="#cb9-413" aria-hidden="true" tabindex="-1"></a>\;}</span>
+<span id="cb9-414"><a href="#cb9-414" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-415"><a href="#cb9-415" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-416"><a href="#cb9-416" aria-hidden="true" tabindex="-1"></a><span class="fu">## 클리핑의 동작 {#sec-ppo-clip}</span></span>
+<span id="cb9-417"><a href="#cb9-417" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-418"><a href="#cb9-418" aria-hidden="true" tabindex="-1"></a>$r_t$ 가 1에서 멀어지는(=정책이 많이 바뀌는) 갱신을 벌점화한다. 본문 수치 검증의 결과로 동작을 읽으면:</span>
+<span id="cb9-419"><a href="#cb9-419" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-420"><a href="#cb9-420" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 상황 <span class="pp">|</span> $r_t$ 작음 <span class="pp">|</span> $r_t=1$ <span class="pp">|</span> $r_t$ 큼 <span class="pp">|</span></span>
+<span id="cb9-421"><a href="#cb9-421" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|</span></span>
+<span id="cb9-422"><a href="#cb9-422" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\hat A&gt;0$ (좋은 행동) <span class="pp">|</span> 그대로 반영 <span class="pp">|</span> 1.0 <span class="pp">|</span> **$1+\epsilon$ 에서 상한** (과한 증폭 차단) <span class="pp">|</span></span>
+<span id="cb9-423"><a href="#cb9-423" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\hat A&lt;0$ (나쁜 행동) <span class="pp">|</span> **$1-\epsilon$ 에서 하한** <span class="pp">|</span> $-1.0$ <span class="pp">|</span> 그대로 벌점(억제) <span class="pp">|</span></span>
+<span id="cb9-424"><a href="#cb9-424" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-425"><a href="#cb9-425" aria-hidden="true" tabindex="-1"></a>즉 좋은 행동을 지나치게 밀어붙이거나 나쁜 행동을 과하게 끌어내려 정책이 튀는 것을 양쪽에서 막는다. 클리핑 대신 KL 페널티 변형 $L - \beta D_{\mathrm{KL}}$ 도 쓸 수 있어, PPO는 KL 페널티 방식을 포함하는 일반 틀로 볼 수 있다.</span>
+<span id="cb9-426"><a href="#cb9-426" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-427"><a href="#cb9-427" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb9-428"><a href="#cb9-428" aria-hidden="true" tabindex="-1"></a><span class="fu">## PPO의 장점</span></span>
+<span id="cb9-429"><a href="#cb9-429" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>여러 epoch의 확률적 경사 상승으로 같은 데이터를 재활용 → 표본 효율↑</span>
+<span id="cb9-430"><a href="#cb9-430" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>신뢰 영역 방법의 안정성·신뢰성을 유지</span>
+<span id="cb9-431"><a href="#cb9-431" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>구현이 단순(1차 방법, 비율+클립만 계산; KL 헤시안 불필요)</span>
+<span id="cb9-432"><a href="#cb9-432" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-433"><a href="#cb9-433" aria-hidden="true" tabindex="-1"></a>이 단순함 덕분에 PPO는 **RLHF**의 표준 도구가 되었고, GPT → InstructGPT → ChatGPT 계열의 지시 미세조정에 핵심으로 쓰였다.</span>
+<span id="cb9-434"><a href="#cb9-434" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-435"><a href="#cb9-435" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-436"><a href="#cb9-436" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb9-437"><a href="#cb9-437" aria-hidden="true" tabindex="-1"></a>한계도 분명하다. 지역 최적해에 갇힐 수 있고, 클리핑이 누적되며 새 정책이 결국 이전 정책에서 **너무 멀어질** 가능성이 남는다.</span>
+<span id="cb9-438"><a href="#cb9-438" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-439"><a href="#cb9-439" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-440"><a href="#cb9-440" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb9-441"><a href="#cb9-441" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — 피드백 루프의 리미터/경사 클리핑</span></span>
+<span id="cb9-442"><a href="#cb9-442" aria-hidden="true" tabindex="-1"></a>$r_t$ 를 $<span class="co">[</span><span class="ot">1-\epsilon,1+\epsilon</span><span class="co">]</span>$ 로 자르는 것은 피드백 루프의 진폭 리미터·경사 클리핑과 같다. 루프 게인이 과도해 발진하지 않도록 출력을 포화시키는 보호 장치이며, 복잡한 안정도 해석 없이도 안정성을 확보하는 실용적 방식이라는 점까지 닮았다.</span>
+<span id="cb9-443"><a href="#cb9-443" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-444"><a href="#cb9-444" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-445"><a href="#cb9-445" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb9-446"><a href="#cb9-446" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-447"><a href="#cb9-447" aria-hidden="true" tabindex="-1"></a><span class="fu"># 그룹 상대 정책 최적화(GRPO) {#sec-grpo}</span></span>
+<span id="cb9-448"><a href="#cb9-448" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-449"><a href="#cb9-449" aria-hidden="true" tabindex="-1"></a><span class="fu">## 직접 답: critic 제거 + 그룹 정규화 {#sec-grpo-answer}</span></span>
+<span id="cb9-450"><a href="#cb9-450" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-451"><a href="#cb9-451" aria-hidden="true" tabindex="-1"></a>PPO에서 advantage 계산(GAE)은 baseline을 위해 별도 **critic(가치망)** 을 학습해야 해 비싸다. GRPO는 critic을 통째로 버리고, advantage를 **그룹 내 보상의 상대 위치**로 대체한다:</span>
+<span id="cb9-452"><a href="#cb9-452" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-453"><a href="#cb9-453" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-454"><a href="#cb9-454" aria-hidden="true" tabindex="-1"></a>\boxed{\;\hat{A}^{\text{GRPO}}_t = \frac{R - \mu_g}{\sigma_g + \delta}\;}</span>
+<span id="cb9-455"><a href="#cb9-455" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-456"><a href="#cb9-456" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-457"><a href="#cb9-457" aria-hidden="true" tabindex="-1"></a>$R$: 해당 출력의 보상, $\mu_g$: 그룹 평균 보상, $\sigma_g$: 그룹 표준편차, $\delta$: 분모가 0이 되지 않게 하는 작은 상수.</span>
+<span id="cb9-458"><a href="#cb9-458" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-459"><a href="#cb9-459" aria-hidden="true" tabindex="-1"></a><span class="fu">## 아이디어 {#sec-grpo-idea}</span></span>
+<span id="cb9-460"><a href="#cb9-460" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-461"><a href="#cb9-461" aria-hidden="true" tabindex="-1"></a>같은 프롬프트에 대해 여러 출력(그룹/배치)을 만들고, 각 출력의 보상을 **그룹 평균 대비 상대값**으로 정규화해 advantage로 쓴다. 미래 보상의 누적 추정도, critic도 필요 없이 **현재 보상의 그룹 통계**만으로 advantage를 만든다. PPO와 목적함수의 클리핑·(선택적) KL 항은 거의 동일하고, **advantage 정의만 다르다**.</span>
+<span id="cb9-462"><a href="#cb9-462" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-463"><a href="#cb9-463" aria-hidden="true" tabindex="-1"></a><span class="fu">## PPO vs GRPO {#sec-grpo-compare}</span></span>
+<span id="cb9-464"><a href="#cb9-464" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-465"><a href="#cb9-465" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 항목 <span class="pp">|</span> PPO <span class="pp">|</span> GRPO <span class="pp">|</span></span>
+<span id="cb9-466"><a href="#cb9-466" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb9-467"><a href="#cb9-467" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 핵심 구조 <span class="pp">|</span> 정책 경사(Actor-Critic) <span class="pp">|</span> 정책 경사(**Critic-Free**) <span class="pp">|</span></span>
+<span id="cb9-468"><a href="#cb9-468" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Advantage <span class="pp">|</span> $\hat A_t = R_t - V(s_t)$ (GAE) <span class="pp">|</span> $\hat A_t = \dfrac{R-\mu_g}{\sigma_g+\delta}$ <span class="pp">|</span></span>
+<span id="cb9-469"><a href="#cb9-469" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 가치망(critic) <span class="pp">|</span> **필요** (별도 $V(s)$ 학습) | **불필요** (그룹 통계로 대체) <span class="pp">|</span></span>
+<span id="cb9-470"><a href="#cb9-470" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> advantage 초점 <span class="pp">|</span> critic 예측 상태가치 대비 행동의 가치 <span class="pp">|</span> 현재 배치 평균 결과 $\mu_g$ 대비 결과의 가치 <span class="pp">|</span></span>
+<span id="cb9-471"><a href="#cb9-471" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 장점 <span class="pp">|</span> 정밀한 가치 추정 → 낮은 분산·안정 <span class="pp">|</span> **메모리·계산 효율**(critic 제거) <span class="pp">|</span></span>
+<span id="cb9-472"><a href="#cb9-472" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 적합 영역 <span class="pp">|</span> 정밀 가치·저분산이 필요한 일반 RL <span class="pp">|</span> **대규모 LLM RLHF** (메모리 병목, 희소·이진 보상) <span class="pp">|</span></span>
+<span id="cb9-473"><a href="#cb9-473" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-474"><a href="#cb9-474" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb9-475"><a href="#cb9-475" aria-hidden="true" tabindex="-1"></a>advantage가 PPO보다 정밀하진 않지만 계산 효율이 크고, 반복이 진행되면 대개 PPO와 비슷하거나 그 중간 수준으로 수렴한다. **DeepSeek-Math/V3** 등 최신 LLM 학습에서 핵심적으로 쓰였고, 메모리가 병목이고 보상이 희소·이진인 LLM 환경에 잘 맞는다.</span>
+<span id="cb9-476"><a href="#cb9-476" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-477"><a href="#cb9-477" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-478"><a href="#cb9-478" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb9-479"><a href="#cb9-479" aria-hidden="true" tabindex="-1"></a><span class="fu">## 무선통신 대응 — CFAR / AGC 정규화</span></span>
+<span id="cb9-480"><a href="#cb9-480" aria-hidden="true" tabindex="-1"></a>$\hat A=\dfrac{R-\mu_g}{\sigma_g+\delta}$ 는 레이더의 **CFAR** 검출과 같은 발상이다. 시험 셀의 전력을 주변 셀로 추정한 잡음 통계(평균·표준편차)로 나눠 절대 스케일에 무관한 검출 통계를 만들듯, GRPO는 한 출력의 보상을 그룹의 평균·표준편차로 정규화해 보상 스케일에 둔감한 advantage를 만든다. AGC가 신호 레벨을 그룹 통계로 정규화하는 것과도 같으며, 별도 기준 추정기(critic) 없이 **이웃/배치 통계만으로** 정규화한다는 점이 정확히 대응한다.</span>
+<span id="cb9-481"><a href="#cb9-481" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-482"><a href="#cb9-482" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-483"><a href="#cb9-483" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb9-484"><a href="#cb9-484" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-485"><a href="#cb9-485" aria-hidden="true" tabindex="-1"></a><span class="fu"># RL 분류 체계 {#sec-taxonomy}</span></span>
+<span id="cb9-486"><a href="#cb9-486" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-487"><a href="#cb9-487" aria-hidden="true" tabindex="-1"></a>오늘 다룬 알고리즘들이 전체 지도에서 어디에 있는지 정리한다.</span>
+<span id="cb9-488"><a href="#cb9-488" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-491"><a href="#cb9-491" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb9-492"><a href="#cb9-492" aria-hidden="true" tabindex="-1"></a>flowchart TD</span>
+<span id="cb9-493"><a href="#cb9-493" aria-hidden="true" tabindex="-1"></a>    RL[<span class="ot">"</span><span class="st">RL 알고리즘</span><span class="ot">"</span>] --&gt; MF[<span class="ot">"</span><span class="st">Model-Free&lt;br/&gt;(환경 프록시 없음)</span><span class="ot">"</span>]</span>
+<span id="cb9-494"><a href="#cb9-494" aria-hidden="true" tabindex="-1"></a>    RL --&gt; MB[<span class="ot">"</span><span class="st">Model-Based&lt;br/&gt;(환경 프록시 있음)</span><span class="ot">"</span>]</span>
+<span id="cb9-495"><a href="#cb9-495" aria-hidden="true" tabindex="-1"></a>    MF --&gt; PO[<span class="ot">"</span><span class="st">Policy Optimization&lt;br/&gt;(정책 최적화)</span><span class="ot">"</span>]</span>
+<span id="cb9-496"><a href="#cb9-496" aria-hidden="true" tabindex="-1"></a>    MF --&gt; QL[<span class="ot">"</span><span class="st">Q-Learning</span><span class="ot">"</span>]</span>
+<span id="cb9-497"><a href="#cb9-497" aria-hidden="true" tabindex="-1"></a>    PO --&gt; PG[<span class="ot">"</span><span class="st">REINFORCE / PGM</span><span class="ot">"</span>]</span>
+<span id="cb9-498"><a href="#cb9-498" aria-hidden="true" tabindex="-1"></a>    PO --&gt; ACx[<span class="ot">"</span><span class="st">A2C / A3C (Actor-Critic)</span><span class="ot">"</span>]</span>
+<span id="cb9-499"><a href="#cb9-499" aria-hidden="true" tabindex="-1"></a>    PO --&gt; TR[<span class="ot">"</span><span class="st">TRPO → PPO → GRPO</span><span class="ot">"</span>]</span>
+<span id="cb9-500"><a href="#cb9-500" aria-hidden="true" tabindex="-1"></a>    QL --&gt; DQN[<span class="ot">"</span><span class="st">Q-learning / DQN</span><span class="ot">"</span>]</span>
+<span id="cb9-501"><a href="#cb9-501" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-502"><a href="#cb9-502" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-503"><a href="#cb9-503" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 구분 <span class="pp">|</span> 정의 <span class="pp">|</span> 예 <span class="pp">|</span></span>
+<span id="cb9-504"><a href="#cb9-504" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb9-505"><a href="#cb9-505" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Model-free <span class="pp">|</span> 환경 프록시 없이 표본만으로 학습 <span class="pp">|</span> REINFORCE, PPO, GRPO, DQN <span class="pp">|</span></span>
+<span id="cb9-506"><a href="#cb9-506" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Model-based <span class="pp">|</span> 환경 프록시로 시뮬레이션 활용 <span class="pp">|</span> (본 노트 범위 밖) <span class="pp">|</span></span>
+<span id="cb9-507"><a href="#cb9-507" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> On-policy <span class="pp">|</span> **현재 정책**이 만든 데이터로 평가·개선 | REINFORCE, **PPO**, GRPO <span class="pp">|</span></span>
+<span id="cb9-508"><a href="#cb9-508" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Off-policy <span class="pp">|</span> **다른 정책**이 만든 데이터로 평가·개선 | Q-learning, **DQN** <span class="pp">|</span></span>
+<span id="cb9-509"><a href="#cb9-509" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-510"><a href="#cb9-510" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb9-511"><a href="#cb9-511" aria-hidden="true" tabindex="-1"></a>오늘의 TRPO·PPO·GRPO는 모두 **Model-free → Policy Optimization → On-policy** 가지에 속한다. 이들이 현대 LLM 정렬(RLHF, PEFT 등)의 기반이 된다.</span>
+<span id="cb9-512"><a href="#cb9-512" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-513"><a href="#cb9-513" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-514"><a href="#cb9-514" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb9-515"><a href="#cb9-515" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-516"><a href="#cb9-516" aria-hidden="true" tabindex="-1"></a><span class="fu"># 핵심 요약 {#sec-summary}</span></span>
+<span id="cb9-517"><a href="#cb9-517" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-518"><a href="#cb9-518" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb9-519"><a href="#cb9-519" aria-hidden="true" tabindex="-1"></a><span class="fu">## 한 페이지 정리</span></span>
+<span id="cb9-520"><a href="#cb9-520" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**RL = MDP 위에서 기대 누적 보상을 최대화하는 정책 학습.** 4요소: 정책·보상·가치함수·(선택)모델.</span>
+<span id="cb9-521"><a href="#cb9-521" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**벨만 방정식**이 현재가치를 다음가치로 잇는 재귀를 주고, 이를 반복하는 것이 **GPI**.</span>
+<span id="cb9-522"><a href="#cb9-522" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>GPI의 $\arg\max$ 가 미분 불가능·급변이라, 정책을 $\theta$ 로 두고 경사로 갱신하는 **정책 경사 정리**로 전환.</span>
+<span id="cb9-523"><a href="#cb9-523" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**REINFORCE**는 그 직접 구현이나 **분산이 큼** → baseline·**advantage**·**Actor-Critic**으로 분산 감소.</span>
+<span id="cb9-524"><a href="#cb9-524" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>갱신이 급변하는 불안정 → **TRPO**(KL 제약, 2차·복잡) → **PPO**(클리핑, 1차·단순) → **GRPO**(critic 제거, 그룹 정규화).</span>
+<span id="cb9-525"><a href="#cb9-525" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>PPO·GRPO는 **RLHF의 핵심**이며, GRPO는 메모리 병목의 **대규모 LLM**에 특히 적합.</span>
+<span id="cb9-526"><a href="#cb9-526" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb9-527"><a href="#cb9-527" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-528"><a href="#cb9-528" aria-hidden="true" tabindex="-1"></a>핵심 변천을 한 표로:</span>
+<span id="cb9-529"><a href="#cb9-529" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-530"><a href="#cb9-530" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 알고리즘 <span class="pp">|</span> 핵심 아이디어 <span class="pp">|</span> 무엇을 추가/제거 <span class="pp">|</span></span>
+<span id="cb9-531"><a href="#cb9-531" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb9-532"><a href="#cb9-532" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> REINFORCE <span class="pp">|</span> Monte Carlo 정책 경사 <span class="pp">|</span> (기준선) — <span class="pp">|</span></span>
+<span id="cb9-533"><a href="#cb9-533" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Actor-Critic <span class="pp">|</span> baseline=critic으로 분산↓ <span class="pp">|</span> **critic 추가** <span class="pp">|</span></span>
+<span id="cb9-534"><a href="#cb9-534" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> TRPO <span class="pp">|</span> KL 제약으로 갱신 폭 통제 <span class="pp">|</span> **신뢰 영역 제약 추가** <span class="pp">|</span></span>
+<span id="cb9-535"><a href="#cb9-535" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PPO <span class="pp">|</span> 클리핑으로 제약 근사 <span class="pp">|</span> **2차 KL 계산 제거** <span class="pp">|</span></span>
+<span id="cb9-536"><a href="#cb9-536" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> GRPO <span class="pp">|</span> 그룹 통계로 advantage <span class="pp">|</span> **critic 제거** <span class="pp">|</span></span>
+<span id="cb9-537"><a href="#cb9-537" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-538"><a href="#cb9-538" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb9-539"><a href="#cb9-539" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-540"><a href="#cb9-540" aria-hidden="true" tabindex="-1"></a><span class="fu"># 부록: 실행 가능한 Python/NumPy 검증 {#sec-appendix}</span></span>
+<span id="cb9-541"><a href="#cb9-541" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-542"><a href="#cb9-542" aria-hidden="true" tabindex="-1"></a>아래 코드는 본문 수식을 수치로 확인한다.</span>
+<span id="cb9-543"><a href="#cb9-543" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-544"><a href="#cb9-544" aria-hidden="true" tabindex="-1"></a><span class="fu">## 로그-미분 항등식과 baseline 불편성 {#sec-appendix-score}</span></span>
+<span id="cb9-545"><a href="#cb9-545" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-548"><a href="#cb9-548" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-549"><a href="#cb9-549" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: score-baseline</span></span>
+<span id="cb9-550"><a href="#cb9-550" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb9-551"><a href="#cb9-551" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">0</span>)</span>
+<span id="cb9-552"><a href="#cb9-552" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-553"><a href="#cb9-553" aria-hidden="true" tabindex="-1"></a><span class="co"># softmax 정책: pi(a) = softmax(theta)_a, grad_theta log pi(a) = e_a - pi</span></span>
+<span id="cb9-554"><a href="#cb9-554" aria-hidden="true" tabindex="-1"></a>theta <span class="op">=</span> rng.normal(size<span class="op">=</span><span class="dv">4</span>)</span>
+<span id="cb9-555"><a href="#cb9-555" aria-hidden="true" tabindex="-1"></a>pi <span class="op">=</span> np.exp(theta) <span class="op">/</span> np.exp(theta).<span class="bu">sum</span>()</span>
+<span id="cb9-556"><a href="#cb9-556" aria-hidden="true" tabindex="-1"></a>grad_logpi <span class="op">=</span> np.eye(<span class="dv">4</span>) <span class="op">-</span> pi[<span class="va">None</span>, :]            <span class="co"># 행 a = grad log pi(a)</span></span>
+<span id="cb9-557"><a href="#cb9-557" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-558"><a href="#cb9-558" aria-hidden="true" tabindex="-1"></a><span class="co"># (1) score function 항등식: E_{a~pi}[ grad log pi ] = 0</span></span>
+<span id="cb9-559"><a href="#cb9-559" aria-hidden="true" tabindex="-1"></a>E_score <span class="op">=</span> (pi[:, <span class="va">None</span>] <span class="op">*</span> grad_logpi).<span class="bu">sum</span>(<span class="dv">0</span>)</span>
+<span id="cb9-560"><a href="#cb9-560" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"E[grad log pi]      :"</span>, np.<span class="bu">round</span>(E_score, <span class="dv">12</span>))   <span class="co"># ~ 0</span></span>
+<span id="cb9-561"><a href="#cb9-561" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-562"><a href="#cb9-562" aria-hidden="true" tabindex="-1"></a><span class="co"># (2) 상수 baseline b 는 경사를 편향시키지 않음: E[ b * grad log pi ] = 0</span></span>
+<span id="cb9-563"><a href="#cb9-563" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> <span class="fl">3.7</span></span>
+<span id="cb9-564"><a href="#cb9-564" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"E[b * grad log pi]  :"</span>, np.<span class="bu">round</span>((pi[:, <span class="va">None</span>] <span class="op">*</span> b <span class="op">*</span> grad_logpi).<span class="bu">sum</span>(<span class="dv">0</span>), <span class="dv">12</span>))</span>
+<span id="cb9-565"><a href="#cb9-565" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-566"><a href="#cb9-566" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-567"><a href="#cb9-567" aria-hidden="true" tabindex="-1"></a><span class="fu">## Baseline의 분산 감소 효과 {#sec-appendix-var}</span></span>
+<span id="cb9-568"><a href="#cb9-568" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-571"><a href="#cb9-571" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-572"><a href="#cb9-572" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: variance-reduction</span></span>
+<span id="cb9-573"><a href="#cb9-573" aria-hidden="true" tabindex="-1"></a><span class="co"># 반환 G ~ N(5, 2), 행동을 pi에서 샘플 → G*score 대 (G - mean)*score 의 분산 비교</span></span>
+<span id="cb9-574"><a href="#cb9-574" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="dv">100_000</span></span>
+<span id="cb9-575"><a href="#cb9-575" aria-hidden="true" tabindex="-1"></a>G <span class="op">=</span> rng.normal(<span class="fl">5.0</span>, <span class="fl">2.0</span>, size<span class="op">=</span>N)</span>
+<span id="cb9-576"><a href="#cb9-576" aria-hidden="true" tabindex="-1"></a>a <span class="op">=</span> rng.integers(<span class="dv">0</span>, <span class="dv">4</span>, size<span class="op">=</span>N)</span>
+<span id="cb9-577"><a href="#cb9-577" aria-hidden="true" tabindex="-1"></a>score <span class="op">=</span> grad_logpi[a]                            <span class="co"># (N, 4)</span></span>
+<span id="cb9-578"><a href="#cb9-578" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-579"><a href="#cb9-579" aria-hidden="true" tabindex="-1"></a>est_no <span class="op">=</span> G[:, <span class="va">None</span>] <span class="op">*</span> score                       <span class="co"># baseline 없음</span></span>
+<span id="cb9-580"><a href="#cb9-580" aria-hidden="true" tabindex="-1"></a>est_bl <span class="op">=</span> (G <span class="op">-</span> G.mean())[:, <span class="va">None</span>] <span class="op">*</span> score          <span class="co"># baseline = 평균</span></span>
+<span id="cb9-581"><a href="#cb9-581" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-582"><a href="#cb9-582" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"trace Var (no baseline):"</span>, <span class="bu">round</span>(np.cov(est_no.T).trace(), <span class="dv">3</span>))</span>
+<span id="cb9-583"><a href="#cb9-583" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"trace Var (w/ baseline):"</span>, <span class="bu">round</span>(np.cov(est_bl.T).trace(), <span class="dv">3</span>))</span>
+<span id="cb9-584"><a href="#cb9-584" aria-hidden="true" tabindex="-1"></a><span class="co"># baseline 차감으로 분산이 크게 감소 (약 7배)</span></span>
+<span id="cb9-585"><a href="#cb9-585" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-586"><a href="#cb9-586" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-587"><a href="#cb9-587" aria-hidden="true" tabindex="-1"></a><span class="fu">## GRPO 그룹 상대 advantage {#sec-appendix-grpo}</span></span>
+<span id="cb9-588"><a href="#cb9-588" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-591"><a href="#cb9-591" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-592"><a href="#cb9-592" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: grpo-advantage</span></span>
+<span id="cb9-593"><a href="#cb9-593" aria-hidden="true" tabindex="-1"></a><span class="co"># 그룹 내 이진 보상 → (R - mu)/(sigma + delta) 로 정규화</span></span>
+<span id="cb9-594"><a href="#cb9-594" aria-hidden="true" tabindex="-1"></a>R <span class="op">=</span> np.array([<span class="fl">0.</span>, <span class="fl">1.</span>, <span class="fl">1.</span>, <span class="fl">0.</span>, <span class="fl">1.</span>, <span class="fl">0.</span>, <span class="fl">0.</span>, <span class="fl">1.</span>])</span>
+<span id="cb9-595"><a href="#cb9-595" aria-hidden="true" tabindex="-1"></a>mu, sd <span class="op">=</span> R.mean(), R.std()</span>
+<span id="cb9-596"><a href="#cb9-596" aria-hidden="true" tabindex="-1"></a>A_grpo <span class="op">=</span> (R <span class="op">-</span> mu) <span class="op">/</span> (sd <span class="op">+</span> <span class="fl">1e-8</span>)</span>
+<span id="cb9-597"><a href="#cb9-597" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"GRPO advantage:"</span>, np.<span class="bu">round</span>(A_grpo, <span class="dv">3</span>))</span>
+<span id="cb9-598"><a href="#cb9-598" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"mean ~ 0:"</span>, <span class="bu">round</span>(A_grpo.mean(), <span class="dv">6</span>), <span class="st">"| std ~ 1:"</span>, <span class="bu">round</span>(A_grpo.std(), <span class="dv">4</span>))</span>
+<span id="cb9-599"><a href="#cb9-599" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-600"><a href="#cb9-600" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-601"><a href="#cb9-601" aria-hidden="true" tabindex="-1"></a><span class="fu">## PPO 클리핑 대리 목적 {#sec-appendix-ppo}</span></span>
+<span id="cb9-602"><a href="#cb9-602" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-605"><a href="#cb9-605" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-606"><a href="#cb9-606" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: ppo-clip</span></span>
+<span id="cb9-607"><a href="#cb9-607" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> ppo_clip(r, A, eps<span class="op">=</span><span class="fl">0.2</span>):</span>
+<span id="cb9-608"><a href="#cb9-608" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""L^CLIP = min( r*A , clip(r,1-eps,1+eps)*A )"""</span></span>
+<span id="cb9-609"><a href="#cb9-609" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.minimum(r <span class="op">*</span> A, np.clip(r, <span class="dv">1</span> <span class="op">-</span> eps, <span class="dv">1</span> <span class="op">+</span> eps) <span class="op">*</span> A)</span>
+<span id="cb9-610"><a href="#cb9-610" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-611"><a href="#cb9-611" aria-hidden="true" tabindex="-1"></a>ratios <span class="op">=</span> np.array([<span class="fl">0.5</span>, <span class="fl">0.9</span>, <span class="fl">1.0</span>, <span class="fl">1.1</span>, <span class="fl">1.5</span>])</span>
+<span id="cb9-612"><a href="#cb9-612" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"A&gt;0 (좋은 행동) r:"</span>, ratios, <span class="st">"-&gt; L:"</span>, np.<span class="bu">round</span>(ppo_clip(ratios, <span class="op">+</span><span class="fl">1.0</span>), <span class="dv">3</span>))</span>
+<span id="cb9-613"><a href="#cb9-613" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"A&lt;0 (나쁜 행동) r:"</span>, ratios, <span class="st">"-&gt; L:"</span>, np.<span class="bu">round</span>(ppo_clip(ratios, <span class="op">-</span><span class="fl">1.0</span>), <span class="dv">3</span>))</span>
+<span id="cb9-614"><a href="#cb9-614" aria-hidden="true" tabindex="-1"></a><span class="co"># A&gt;0: r가 1+eps=1.2 위로 가면 상한에서 포화 (과한 증폭 차단)</span></span>
+<span id="cb9-615"><a href="#cb9-615" aria-hidden="true" tabindex="-1"></a><span class="co"># A&lt;0: r가 1-eps=0.8 아래로 가면 하한에서 포화</span></span>
+<span id="cb9-616"><a href="#cb9-616" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-617"><a href="#cb9-617" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-618"><a href="#cb9-618" aria-hidden="true" tabindex="-1"></a><span class="fu">## 작은 REINFORCE 학습 데모(2상태 밴딧 유사) {#sec-appendix-reinforce}</span></span>
+<span id="cb9-619"><a href="#cb9-619" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-622"><a href="#cb9-622" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-623"><a href="#cb9-623" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: reinforce-demo</span></span>
+<span id="cb9-624"><a href="#cb9-624" aria-hidden="true" tabindex="-1"></a><span class="co"># 단순 2행동 문제: 행동 1의 기대보상이 더 높음 → 정책이 행동 1로 수렴하는지 확인</span></span>
+<span id="cb9-625"><a href="#cb9-625" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">1</span>)</span>
+<span id="cb9-626"><a href="#cb9-626" aria-hidden="true" tabindex="-1"></a>theta <span class="op">=</span> np.zeros(<span class="dv">2</span>)                 <span class="co"># softmax 로짓</span></span>
+<span id="cb9-627"><a href="#cb9-627" aria-hidden="true" tabindex="-1"></a>alpha <span class="op">=</span> <span class="fl">0.1</span></span>
+<span id="cb9-628"><a href="#cb9-628" aria-hidden="true" tabindex="-1"></a>true_reward <span class="op">=</span> np.array([<span class="fl">0.2</span>, <span class="fl">0.8</span>])  <span class="co"># 행동별 기대 보상</span></span>
+<span id="cb9-629"><a href="#cb9-629" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-630"><a href="#cb9-630" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> softmax(z):</span>
+<span id="cb9-631"><a href="#cb9-631" aria-hidden="true" tabindex="-1"></a>    z <span class="op">=</span> z <span class="op">-</span> z.<span class="bu">max</span>()</span>
+<span id="cb9-632"><a href="#cb9-632" aria-hidden="true" tabindex="-1"></a>    e <span class="op">=</span> np.exp(z)</span>
+<span id="cb9-633"><a href="#cb9-633" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> e <span class="op">/</span> e.<span class="bu">sum</span>()</span>
+<span id="cb9-634"><a href="#cb9-634" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-635"><a href="#cb9-635" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> step <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">2000</span>):</span>
+<span id="cb9-636"><a href="#cb9-636" aria-hidden="true" tabindex="-1"></a>    p <span class="op">=</span> softmax(theta)</span>
+<span id="cb9-637"><a href="#cb9-637" aria-hidden="true" tabindex="-1"></a>    a <span class="op">=</span> rng.choice(<span class="dv">2</span>, p<span class="op">=</span>p)                          <span class="co"># 현재 정책에서 행동 샘플</span></span>
+<span id="cb9-638"><a href="#cb9-638" aria-hidden="true" tabindex="-1"></a>    G <span class="op">=</span> rng.normal(true_reward[a], <span class="fl">0.1</span>)             <span class="co"># 보상(반환) 샘플</span></span>
+<span id="cb9-639"><a href="#cb9-639" aria-hidden="true" tabindex="-1"></a>    grad_logpi <span class="op">=</span> (np.eye(<span class="dv">2</span>)[a] <span class="op">-</span> p)                 <span class="co"># grad log pi(a)</span></span>
+<span id="cb9-640"><a href="#cb9-640" aria-hidden="true" tabindex="-1"></a>    theta <span class="op">+=</span> alpha <span class="op">*</span> G <span class="op">*</span> grad_logpi                 <span class="co"># REINFORCE 갱신</span></span>
+<span id="cb9-641"><a href="#cb9-641" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-642"><a href="#cb9-642" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"최종 정책 분포:"</span>, np.<span class="bu">round</span>(softmax(theta), <span class="dv">3</span>))  <span class="co"># 행동 1 확률이 1에 근접</span></span>
+<span id="cb9-643"><a href="#cb9-643" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-644"><a href="#cb9-644" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-645"><a href="#cb9-645" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb9-646"><a href="#cb9-646" aria-hidden="true" tabindex="-1"></a><span class="fu">## 재현 메모</span></span>
+<span id="cb9-647"><a href="#cb9-647" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>모든 난수는 시드 고정(<span class="in">`default_rng`</span>)으로 재현 가능하다.</span>
+<span id="cb9-648"><a href="#cb9-648" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>본문의 분산 비교(약 21.8 → 3.1)는 시드·표본 수에 따라 소폭 달라질 수 있으나 감소 경향은 동일하다.</span>
+<span id="cb9-649"><a href="#cb9-649" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`format`</span>은 <span class="in">`html`</span>만 두었으므로 <span class="in">`quarto render DL-lecture-260601-notes.qmd`</span> 로 바로 렌더된다. Python 청크를 실행해 확인하려면 상단 <span class="in">`execute.eval`</span> 을 <span class="in">`true`</span> 로 바꾼다.</span>
+<span id="cb9-650"><a href="#cb9-650" aria-hidden="true" tabindex="-1"></a>:::</span>
 </code></pre></div><button title="클립보드 복사" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
