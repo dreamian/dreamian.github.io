@@ -1,5 +1,5 @@
 ---
-title: "ML Basics II: 선형 회귀, 로지스틱 회귀, 그리고 SVM"
+title: "ML Basics II: Linear Regression, Logistic Regression, and SVM"
 number: 3
 aliases:
   - "/study/deep-learning/DL-lecture-260325-notes.html"
@@ -15,11 +15,11 @@ format:
     fig-align: center
 ---
 
-## 개요 {#sec-overview}
+## Overview {#sec-overview}
 
-딥러닝 모델의 핵심은 결국 **선형 모델(linear model)**이다. 신경망이 비선형 활성 함수를 포함하더라도, 각 층의 연산은 본질적으로 선형 변환이며, 그 위에 비선형성이 더해진 구조이다. 따라서 선형 회귀를 깊이 이해하는 것이 비선형 딥 네트워크를 이해하는 출발점이 된다.
+The core of a deep learning model is ultimately a **linear model**. Even though neural networks include non-linear activation functions, the operations of each layer are essentially linear transformations, with non-linearity added on top of them. Therefore, a deep understanding of linear regression serves as the starting point for understanding non-linear deep networks.
 
-이번 노트에서 다루는 내용의 전체 구조는 다음과 같다.
+The overall structure of the content covered in this note is as follows.
 
 ```{mermaid}
 flowchart TD
@@ -33,69 +33,69 @@ flowchart TD
     G --> H["KNN / 결정 트리<br/>(비선형 모델, 다음 주제)"]
 ```
 
-핵심 질문 세 가지를 중심으로 정리한다.
+Organize based on three key questions.
 
-1. 선형 회귀의 닫힌 해(closed-form solution)는 어떻게 유도되며, 왜 항상 구할 수 있는가? (볼록성)
-2. 최소제곱법(least squares)과 최대우도추정(MLE)은 어떤 관계인가?
-3. 회귀 모델인 로지스틱 "회귀"가 왜 가장 대표적인 분류 모델인가?
+1. How is the closed-form solution of linear regression derived, and why can it always be obtained? (Convexity)
+2. What is the relationship between the least squares method and maximum likelihood estimation (MLE)?
+3. Why is logistic "regression," a regression model, the most representative classification model?
 
 ---
 
-## 선형 회귀 (Linear Regression) {#sec-linreg}
+## Linear Regression {#sec-linreg}
 
-### 문제 정식화
+### Problem formulation
 
-관측 쌍 $\langle \mathbf{x}_i, t_i \rangle$, $i = 1, \dots, N$이 주어졌을 때, 입력 $\mathbf{x}$에서 목표값 $t(\mathbf{x})$로의 사상(mapping)을 학습한다. 가설 공간(hypothesis space)은 **기저 함수(basis function)** $\{h_1, \dots, h_K\}$, $h_k(\mathbf{x}) \in \mathbb{R}$의 선형 결합으로 제한한다.
+Given the observation pairs ZZZPH0006871ZZZ  $\langle \mathbf{x}_i, t_i \rangle$ and $i = 1, \dots, N$, learn the mapping from the input $\mathbf{x}$ to the target value $t(\mathbf{x})$. The hypothesis space is restricted to a linear combination of the **basis functions** $\{h_1, \dots, h_K\}$ and $h_k(\mathbf{x}) \in \mathbb{R}$.
 
 $$
 \hat{y}_i = \sum_{k=1}^{K} w_k \, h_k(\mathbf{x}_i)
 $$
 
-학습 대상은 계수 벡터 $\mathbf{w} = (w_1, \dots, w_K)$이다. 목적 함수로는 여러 선택지(교차 엔트로피, KL 발산 등)가 가능하지만, 가장 기본적인 형태는 **평균제곱오차(MSE)**이며, MSE 기반 선형 회귀 문제를 **Ordinary Least Squares (OLS)**라 부른다.
+The learning target is the coefficient vector $\mathbf{w} = (w_1, \dots, w_K)$. There are several options for the objective function (cross-entropy, KL divergence, etc.), but the most basic form is the **Mean Squared Error (MSE)**, and the MSE-based linear regression problem is called the **Ordinary Least Squares (OLS)**.
 
 $$
 \text{total error} = \sum_{i} (y_i - \hat{y}_i)^2 = \sum_{i} \Big( y_i - \sum_{k} w_k \, h_k(\mathbf{x}_i) \Big)^2
 $$
 
-여기서 $y_i - \hat{y}_i$를 **잔차(residual)**라 한다. 관측값과 모델 예측값 사이의 수직 거리를 제곱하여 모두 합한 양을 최소화하는 것이 목표다.
+Here, $y_i - \hat{y}_i$ is called the **residual**. The goal is to minimize the sum of the squared vertical distances between the observed values and the model predicted values.
 
-### "선형"의 정확한 의미 — 계수에 대한 선형성
+### The precise meaning of "linear" — linearity of coefficients
 
 ::: {.callout-important}
-## 선형 모델의 기준은 입력이 아니라 **파라미터**
+## The standard for a linear model is not the input, but the **parameters**
 
-기저 함수로 $h_1(x) = x^2,\ h_2(x) = x,\ h_3(x) = 1$을 선택하면 $x$–$y$ 관계는 포물선이 되지만, 이 모델은 여전히 **선형 회귀**다. 모델이 파라미터 $\mathbf{w}$에 대해 선형이기 때문이다.
+If $h_1(x) = x^2,\ h_2(x) = x,\ h_3(x) = 1$ is selected as the basis function, the relationship $x$–$y$ becomes a parabola, but this model is still **linear regression**. This is because the model is linear with respect to parameter $\mathbf{w}$.
 
 $$
 \hat{y} = w_1 x^2 + w_2 x + w_3 \quad \text{— } \mathbf{w} \text{에 대해 선형, } x \text{에 대해 비선형}
 $$
 
-입력이 어떤 비선형 변환 $h_k(\cdot)$를 거치든, 최적화 변수인 $\mathbf{w}$에 대한 선형성이 유지되는 한 OLS의 모든 이론(볼록성, 닫힌 해)이 그대로 성립한다. 2차원 입력이라면 $\{h_1 = x_1^2,\ h_2 = x_2^2,\ h_3 = x_1 x_2, \dots\}$처럼 임의의 기저를 자유롭게 정의할 수 있다.
+Regardless of the non-linear transformation ZZZPH0006877ZZZ  the input undergoes $h_k(\cdot)$, as long as linearity with respect to the optimization variable $\mathbf{w}$ is maintained, all the theories of OLS (convexity, closed solutions) hold true. For a 2D input, any basis can be freely defined as $\{h_1 = x_1^2,\ h_2 = x_2^2,\ h_3 = x_1 x_2, \dots\}$.
 :::
 
-기저 함수 $h_k$는 데이터를 표현 공간(representation space)으로 옮기는 **변환기(feature transformation)** 역할을 한다. 전통적 머신러닝에서는 이 $h_k$를 사람이 직접 설계(handcrafted feature)하고 $\mathbf{w}$만 학습했지만, 현대 딥러닝(CNN, Transformer)은 $h_k$ 내부에도 학습 가능한 파라미터를 두어 **표현 자체를 데이터로부터 학습**한다(representation learning). 이 경우 닫힌 해는 더 이상 존재하지 않고 반복적 최적화(gradient descent)에 의존하게 된다 — 이것이 곧 딥러닝 최적화가 어려운 근본 이유다.
+The basis function $h_k$ acts as a **feature transformation** that moves data into a representation space. In traditional machine learning, this $h_k$ was handcrafted and only $\mathbf{w}$ was trained, but modern deep learning (CNN, Transformer) places learnable parameters within $h_k$ as well to **learn the representation itself from the data** (representation learning). In this case, closed solutions no longer exist and dependence shifts to iterative optimization (gradient descent) — this is the fundamental reason why deep learning optimization is difficult.
 
-### 행렬 표기와 닫힌 해
+### Matrix Notation and Closed Solutions
 
-최적화 문제를 행렬로 다시 쓰자.
+Let's rewrite the optimization problem in matrix form.
 
 $$
 \mathbf{w}^\ast = \arg\min_{\mathbf{w}} \sum_{j=1}^{N} \Big( t(\mathbf{x}_j) - \sum_{i=1}^{K} w_i \, h_i(\mathbf{x}_j) \Big)^2
 $$
 
-설계 행렬(design matrix) $\mathbf{H} \in \mathbb{R}^{N \times K}$의 $j$번째 행은 $(h_1(\mathbf{x}_j), \dots, h_K(\mathbf{x}_j))$이고, $\mathbf{t} \in \mathbb{R}^{N}$은 관측 출력 벡터, $\mathbf{w} \in \mathbb{R}^{K}$는 가중치 벡터다. 그러면
+The $j$-th row of the design matrix $\mathbf{H} \in \mathbb{R}^{N \times K}$ is $(h_1(\mathbf{x}_j), \dots, h_K(\mathbf{x}_j))$, $\mathbf{t} \in \mathbb{R}^{N}$ is the observation output vector, and $\mathbf{w} \in \mathbb{R}^{K}$ is the weight vector. Then
 
 $$
 \mathbf{w}^\ast = \arg\min_{\mathbf{w}} \underbrace{(\mathbf{H}\mathbf{w} - \mathbf{t})^{T} (\mathbf{H}\mathbf{w} - \mathbf{t})}_{\text{residual error } F(\mathbf{w})}
 $$
 
-**유도.** $F(\mathbf{w})$는 $\mathbf{w}$에 대한 2차식(quadratic)이다. 전개하면
+**Derivation.** $F(\mathbf{w})$ is a quadratic expression in $\mathbf{w}$. Expanded
 
 $$
 F(\mathbf{w}) = \mathbf{w}^T \mathbf{H}^T \mathbf{H} \mathbf{w} - 2\, \mathbf{t}^T \mathbf{H} \mathbf{w} + \mathbf{t}^T \mathbf{t}
 $$
 
-그래디언트를 0으로 놓으면 (행렬 미분: $\nabla_{\mathbf{w}}\, \mathbf{w}^T A \mathbf{w} = 2A\mathbf{w}$ for symmetric $A$, $\nabla_{\mathbf{w}}\, \mathbf{b}^T\mathbf{w} = \mathbf{b}$)
+If we set the gradient to 0 (Matrix derivative: $\nabla_{\mathbf{w}}\, \mathbf{w}^T A \mathbf{w} = 2A\mathbf{w}$ for symmetric $A$, $\nabla_{\mathbf{w}}\, \mathbf{b}^T\mathbf{w} = \mathbf{b}$)
 
 $$
 \nabla_{\mathbf{w}} F = 2\,\mathbf{H}^T \mathbf{H} \mathbf{w} - 2\,\mathbf{H}^T \mathbf{t} = 0
@@ -106,140 +106,140 @@ $$
 \qquad \mathbf{A} = \mathbf{H}^T\mathbf{H} \in \mathbb{R}^{K \times K},\quad \mathbf{b} = \mathbf{H}^T\mathbf{t} \in \mathbb{R}^{K}
 $$
 
-$(\mathbf{H}^T\mathbf{H})^{-1}\mathbf{H}^T$는 $\mathbf{H}$의 **유사역행렬(Moore–Penrose pseudo-inverse)**이다. $\mathbf{A} = \mathbf{H}^T\mathbf{H}$는 변환된 데이터의 (비정규화된) 공분산 구조를 담는 $K \times K$ 행렬로 해석할 수 있다.
+$(\mathbf{H}^T\mathbf{H})^{-1}\mathbf{H}^T$ is the **Moore–Penrose pseudo-inverse** of $\mathbf{H}$. $\mathbf{A} = \mathbf{H}^T\mathbf{H}$ can be interpreted as the $K \times K$ matrix containing the (denormalized) covariance structure of the transformed data.
 
 ::: {.callout-note}
-## 왜 닫힌 해가 보장되는가 — 볼록성
+## Why Closed Solutions Are Guaranteed — Convexity
 
-$\mathbf{H}^T\mathbf{H}$는 임의의 $\mathbf{v}$에 대해 $\mathbf{v}^T \mathbf{H}^T \mathbf{H} \mathbf{v} = \|\mathbf{H}\mathbf{v}\|^2 \ge 0$이므로 **양반정치(positive semidefinite)**이고, 따라서 $F(\mathbf{w})$는 볼록(convex) 함수다. 볼록 2차 함수는 그래디언트가 0인 지점이 곧 전역 최솟값이므로, 미분해서 0으로 놓는 것만으로 전역 최적해를 얻는다. 1차원 직관으로는 $F(w) = aw^2 - 2bw + c,\ a \ge 0$ 형태의 아래로 볼록한 포물선이다.
+$\mathbf{H}^T\mathbf{H}$ is a positive semidefinite function because for any $\mathbf{v}$Z, it is $\mathbf{v}^T \mathbf{H}^T \mathbf{H} \mathbf{v} = \|\mathbf{H}\mathbf{v}\|^2 \ge 0$, and therefore $F(\mathbf{w})$ is a convex function. Since the point where the gradient is zero is the global minimum of a convex quadratic function, the global optimum is obtained simply by differentiating and setting it to zero. In one-dimensional intuition, it is a downward-concave parabola of the form $F(w) = aw^2 - 2bw + c,\ a \ge 0$.
 
-볼록성, PSD 행렬, 행렬 미분의 엄밀한 전개는 *Mathematics for Machine Learning* 노트의 quadratic forms와 convexity 챕터를 참고하라.
+For convexity, PSD matrices, and the rigorous derivation of matrix derivatives, refer to the quadratic forms and convexity chapters in the *Mathematics for Machine Learning* notes.
 
-반면 실제 딥러닝에서는 $h_k$ 자체가 학습되므로 목적 함수가 $\mathbf{w}$ 전체(모든 층의 파라미터)에 대해 비볼록(non-convex)이 되고, 수많은 국소 최솟값(local minima) 사이를 반복적 최적화로 탐색해야 한다.
+On the other hand, in actual deep learning, $h_k$ itself is learned, so the objective function becomes non-convex over the entire $\mathbf{w}$ (parameters of all layers), and must be explored through iterative optimization among numerous local minima.
 :::
 
 ::: {.callout-tip}
-## 계산 관점: $A\mathbf{x} = \mathbf{b}$와 BLAS
+## Computation Perspective: $A\mathbf{x} = \mathbf{b}$ and BLAS
 
-$\mathbf{A}\mathbf{w} = \mathbf{b}$ 형태의 선형계 풀이는 공학 시뮬레이션 전반에서 가장 흔한 연산이라, 고도로 최적화된 라이브러리 **BLAS**(Basic Linear Algebra Subprograms)가 표준으로 자리잡았다. NVIDIA는 이를 GPU 병렬 구조에 맞게 구현한 **cuBLAS**를 제공하며, PyTorch·TensorFlow의 밑바닥에서 결국 호출되는 것이 이 라이브러리들이다. 딥러닝 프레임워크의 행렬 연산 성능은 본질적으로 BLAS 계열 커널의 성능이다.
+Solving linear systems of the form $\mathbf{A}\mathbf{w} = \mathbf{b}$ is the most common operation across engineering simulations, so the highly optimized library **BLAS** (Basic Linear Algebra Subprograms) has established itself as the standard. NVIDIA provides **cuBLAS**, which implements this for GPU parallel architectures, and these libraries are ultimately called at the bottom of PyTorch and TensorFlow. The performance of matrix operations in deep learning frameworks is essentially the performance of BLAS-family kernels.
 :::
 
-### MLE와의 연결 — 최소제곱은 Gaussian 노이즈 모델의 MLE다
+### Connection with MLE — Least squares is the MLE of the Gaussian noise model
 
-이제 같은 문제를 확률적 관점에서 다시 본다. 예측을 "선형 함수 + Gaussian 노이즈"로 모델링하자.
+Now, let's look at the same problem again from a probabilistic perspective. Let's model the prediction as a "linear function + Gaussian noise".
 
 $$
 t(\mathbf{x}) = \sum_{i} w_i h_i(\mathbf{x}) + e, \qquad e \sim \mathcal{N}(0, \sigma^2)
 $$
 
-그러면 단일 관측의 우도(likelihood)는
+Then the likelihood of a single observation is
 
 $$
 P(t \mid \mathbf{x}, \mathbf{w}, \sigma) = \frac{1}{\sigma\sqrt{2\pi}} \exp\!\left( \frac{-\big[t - \sum_i w_i h_i(\mathbf{x})\big]^2}{2\sigma^2} \right)
 $$
 
 ::: {.callout-warning}
-## i.i.d. 데이터셋 전체의 우도 — 곱(product)을 빠뜨리지 말 것
+## Do not omit the product of the likelihoods of the entire iid dataset
 
-MLE 유도에서 가장 흔한 실수는 **단일 샘플의 우도만 쓰고 끝내는 것**이다. 데이터셋 $\mathcal{D} = \{(\mathbf{x}_j, t_j)\}_{j=1}^N$이 i.i.d.라면 전체 우도는 반드시 $N$개 항의 **곱**으로 시작해야 하고, 로그를 취한 뒤 **합**이 된다. 시험에서 $\prod_{j=1}^N$ 없이 단일 항으로 시작하면 이후 전개가 모두 무의미해진다.
+The most common mistake in deriving the MLE is **stopping with only the single-sample likelihood**. If the dataset $\mathcal{D} = \{(\mathbf{x}_j, t_j)\}_{j=1}^N$ is iid, the total likelihood must start as the **product** of $N$ terms, take the logarithm, and then become the **sum**. In the experiment, if you start with a single term without $\prod_{j=1}^N$, all subsequent expansions become meaningless.
 :::
 
-전체 데이터의 로그 우도를 $\mathbf{w}$에 대해 최대화하면:
+Maximizing the log-likelihood of the entire data for $\mathbf{w}$:
 
 $$
 \ln P(\mathcal{D} \mid \mathbf{w}, \sigma) = \ln \left( \frac{1}{\sigma\sqrt{2\pi}} \right)^{N} \prod_{j=1}^{N} \exp\!\left( \frac{-\big[t_j - \sum_i w_i h_i(\mathbf{x}_j)\big]^2}{2\sigma^2} \right)
 $$
 
-로그의 성질(곱 → 합, $\ln e^z = z$)을 적용하면 지수 함수가 사라지고:
+Applying the properties of logarithms (product → sum, $\ln e^z = z$), the exponential function disappears and:
 
 $$
 \arg\max_{\mathbf{w}} \underbrace{\ln \left( \frac{1}{\sigma\sqrt{2\pi}} \right)^{N}}_{\mathbf{w}\text{와 무관한 상수}} + \sum_{j=1}^{N} \frac{-\big[t_j - \sum_i w_i h_i(\mathbf{x}_j)\big]^2}{2\sigma^2}
 $$
 
-상수항은 $\arg\max$에 영향이 없으므로 제거하고, 분모 $2\sigma^2$도 $\mathbf{w}$와 무관하므로 제거하면, 음수 부호에 의해 max가 min으로 뒤집힌다.
+Since the constant term has no effect on $\arg\max$, it is removed; and since the denominator $2\sigma^2$ is also irrelevant to $\mathbf{w}$, it is removed as well, and the max is flipped to min due to the negative sign.
 
 $$
 = \arg\max_{\mathbf{w}} \sum_{j=1}^{N} -\big[t_j - \textstyle\sum_i w_i h_i(\mathbf{x}_j)\big]^2
 = \boxed{\ \arg\min_{\mathbf{w}} \sum_{j=1}^{N} \big[t_j - \textstyle\sum_i w_i h_i(\mathbf{x}_j)\big]^2\ }
 $$
 
-이것은 정확히 OLS 목적 함수다. 결론:
+This is exactly the OLS objective function. Conclusion:
 
-> **Least-squares 선형 회귀는 Gaussian 노이즈 모델 하에서의 MLE와 동치이다.**
+> **Least-squares linear regression is equivalent to MLE under a Gaussian noise model.**
 
-인과 사슬로 정리하면: ① 노이즈를 Gaussian으로 가정 → ② 우도가 지수족 형태가 되어 로그 우도가 음의 제곱 오차에 비례 → ③ 우도 최대화 = 제곱 오차 최소화. 자연 현상의 다수가 "신호 + Gaussian 노이즈"로 잘 모델링되기 때문에 선형 회귀가 이토록 광범위하게 쓰이는 것이다.
+To summarize the causal chain: ① Assume the noise is Gaussian → ② The likelihood takes the form of an exponential family, and the log-likelihood is proportional to the negative squared error → ③ Maximizing the likelihood = Minimizing the squared error. Linear regression is used so widely because many natural phenomena are well modeled as "signal + Gaussian noise."
 
 ::: {.callout-tip}
-## 무선통신 관점: AWGN 채널의 ML 검출과 LS 채널 추정
+## Wireless Communication Perspective: ML Detection and LS Channel Estimation of AWGN Channels
 
-이 동치 관계는 통신 이론에서 이미 익숙한 결과다.
+This equivalence relation is a result already familiar in communication theory.
 
-- **ML 검출 = 최소 거리 검출.** AWGN 채널 $r = s + n$, $n \sim \mathcal{N}(0, \sigma^2)$에서 송신 심볼의 ML 검출은 $\arg\max_s P(r \mid s) = \arg\min_s \|r - s\|^2$, 즉 수신 신호와 가장 가까운 성상점(constellation point)을 고르는 것과 동치다. 위의 "Gaussian 가정 → MLE = LS" 유도와 완전히 같은 구조다.
-- **LS 채널 추정.** 파일럿 행렬 $\mathbf{X}$와 수신 $\mathbf{y} = \mathbf{X}\mathbf{h} + \mathbf{n}$에서 LS 채널 추정치 $\hat{\mathbf{h}}_{LS} = (\mathbf{X}^H\mathbf{X})^{-1}\mathbf{X}^H\mathbf{y}$는 OLS 닫힌 해 $\mathbf{w}^\ast = (\mathbf{H}^T\mathbf{H})^{-1}\mathbf{H}^T\mathbf{t}$와 같은 식이다. 설계 행렬 $\mathbf{H}$가 파일럿 행렬, 가중치 $\mathbf{w}$가 채널 계수에 대응한다.
-- **디지털 통신이 가능한 이유.** 채널 노이즈가 Gaussian임을 *알면*, $\sigma$를 모르더라도 ML 추정으로 원 신호를 사실상 오류 없이 복원할 수 있다. 노이즈의 통계적 구조에 대한 지식이 곧 복원 능력이다 — 머신러닝에서 노이즈 모델 가정이 목적 함수를 결정하는 것과 정확히 같은 원리다.
+- **ML detection = minimum distance detection.** ML detection of a transmitted symbol in AWGN channels $r = s + n$ and $n \sim \mathcal{N}(0, \sigma^2)$ is equivalent to selecting $\arg\max_s P(r \mid s) = \arg\min_s \|r - s\|^2$, that is, the constellation point closest to the received signal. This has the exact same structure as the derivation "Gaussian assumption → MLE = LS" above.
+- **LS Channel Estimation.** The LS channel estimate $\hat{\mathbf{h}}_{LS} = (\mathbf{X}^H\mathbf{X})^{-1}\mathbf{X}^H\mathbf{y}$ from the pilot matrix $\mathbf{X}$ and the receiver $\mathbf{y} = \mathbf{X}\mathbf{h} + \mathbf{n}$ is the same as the OLS closed solution $\mathbf{w}^\ast = (\mathbf{H}^T\mathbf{H})^{-1}\mathbf{H}^T\mathbf{t}$. The design matrix $\mathbf{H}$ corresponds to the pilot matrix, and the weights $\mathbf{w}$ correspond to the channel coefficients.
+- **The reason digital communication is possible.** If we *know* that the channel noise is Gaussian, we can reconstruct the original signal virtually without error using ML estimation, even without knowing $\sigma$. Knowledge of the statistical structure of the noise is the ability to reconstruct it — this is exactly the same principle as how assumptions about the noise model determine the objective function in machine learning.
 
-MLE라는 도구 자체가 통신/검출 이론에서 깊게 발전해 왔고, 그래서 머신러닝과 디지털 통신은 같은 수학적 기반을 공유한다.
+The tool known as MLE itself has evolved deeply from communication/detection theory, and therefore machine learning and digital communication share the same mathematical foundation.
 :::
 
-### 왜 $P(Y \mid X)$인가 — 조건부 모델링의 이점
+### Why $P(Y \mid X)$ — Benefits of Conditional Modeling
 
-지도학습 데이터 $\mathcal{D} = \{(\mathbf{x}, y)\}$에 대해 원칙적인 우도는 결합분포 $P(\mathbf{x}, y \mid \theta)$이지만, 입력 공간 $\mathbf{x}$(예: 이미지)는 보통 초고차원이라 직접 모델링이 매우 어렵다. 그래서 대부분의 분류 문제는 $\mathbf{x}$를 **주어진 조건**으로 두고 $P(y \mid \mathbf{x}, \theta)$만 모델링하는 쉬운 버전으로 축소한다.
+For supervised learning data $\mathcal{D} = \{(\mathbf{x}, y)\}$, the principle likelihood is the joint distribution $P(\mathbf{x}, y \mid \theta)$; however, since the input space $\mathbf{x}$ (e.g., images) is usually ultra-high-dimensional, direct modeling is very difficult. Therefore, most classification problems are reduced to an easier version where $\mathbf{x}$ is set as a **given condition** and only $P(y \mid \mathbf{x}, \theta)$ is modeled.
 
-핵심적인 차이는 **기댓값 계산의 난이도**에 있다. $\mathbf{x}$까지 확률변수로 취급하면 미지의 고차원 분포에 대한 적분(기댓값)이 우도 계산에 끼어들어 사실상 계산 불가능해진다. 반면 $\mathbf{x}$를 조건으로 고정하면 설계 행렬 $\mathbf{H}$가 결정론적 상수가 되고, $y$는 저차원(분류라면 유한 클래스)이라 기댓값이 단순 카운팅 수준으로 쉬워진다. 모델링 형식 자체가 달라지는 것이 아니라, **계산 가능성**이 조건부 정식화를 선택하게 만드는 것이다.
+The key difference lies in the **difficulty of calculating the expected value**. If $\mathbf{x}$ is treated as a random variable, the integral (expected value) over an unknown high-dimensional distribution gets involved in the likelihood calculation, making it virtually impossible to compute. On the other hand, if $\mathbf{x}$ is fixed as a condition, the design matrix $\mathbf{H}$ becomes a deterministic constant, and since $y$ is low-dimensional (a finite class in the case of classification), calculating the expected value becomes as simple as counting. It is not that the modeling format itself changes, but rather that **computability** leads to the choice of conditional formulation.
 
 ---
 
-## 판별 모델 vs 생성 모델 {#sec-disc-gen}
+## Discriminant Model vs Generative Model {#sec-disc-gen}
 
-| 구분 | 생성 모델 (Generative) | 판별 모델 (Discriminative) |
+| Classification | Generative Model | Discriminative Model |
 |---|---|---|
-| 학습 대상 | $P(X, Y)$ (결합분포) | $P(Y \mid X)$ (조건부분포) |
-| 능력 | 데이터 $X$ 자체를 생성 가능 | 클래스 판별만 가능 |
-| 난이도 | 고차원 $X$ 공간 모델링 필요 → 어려움 | 의미(클래스) 공간만 모델링 → 상대적으로 쉬움 |
-| 대표 예 | VAE, GAN, Diffusion | 로지스틱 회귀, SVM |
+| Training Target | $P(X, Y)$ (Joint Distribution) | $P(Y \mid X)$ (Conditional Distribution) |
+| Ability | Data $X$ Can generate itself | Only class determination possible |
+| Difficulty | Requires modeling of high-dimensional $X$ space → Difficult | Modeling only semantic (class) space → Relatively easy |
+| Representative Examples | VAE, GAN, Diffusion | Logistic Regression, SVM |
 
-분류가 목적이라면 $P(X \mid Y)$를 배우는 데 노력을 쓰지 말고 $P(Y \mid X)$ 추정에 집중하자는 것이 판별 모델의 철학이며, 로지스틱 회귀가 그 대표 주자다. 생성 모델은 이후 VAE/GAN/Diffusion에서 본격적으로 다룬다.
+The philosophy of discriminant models is that if the goal is classification, one should not spend effort learning $P(X \mid Y)$ but rather focus on $P(Y \mid X)$ estimation, and logistic regression is a prime example. Generative models will be covered in detail later in VAE/GAN/Diffusion.
 
 ---
 
-## 로지스틱 회귀 (Logistic Regression) {#sec-logreg}
+## Logistic Regression {#sec-logreg}
 
-### "회귀"로 "분류"를 한다는 역설
+### The paradox of "classifying" as "regression"
 
-가장 대중적인 판별적 **분류** 모델의 이름이 로지스틱 **회귀**라는 것은 언뜻 모순처럼 보인다. 해소의 열쇠: **회귀하는 대상이 클래스 소속 확률**이다.
+It seems contradictory at first glance that the name of the most popular discriminative **classification** model is logistic **regression**. The key to resolving this: **the probability of a subject being regressed belonging to a class**.
 
-모델의 회귀 출력값을 "이 샘플이 해당 클래스일 확률"로 해석하고, 분류는 그 확률의 최댓값을 취하는 것으로 수행한다. 예컨대 어떤 이미지에 대해 개 0.8, 고양이 0.7, 꽃 0.2의 확률이 회귀되었다면 개로 분류한다. 즉,
+The model's regression output is interpreted as the "probability that this sample belongs to that class," and classification is performed by taking the maximum value of that probability. For example, if the regression probability for an image is Dog 0.8, Cat 0.7, and Flower 0.2, it is classified as a Dog. That is,
 
 $$
 \text{회귀 (확률 추정)} \;\xrightarrow{\;\arg\max\;}\; \text{분류 (결정)}
 $$
 
-### 로지스틱 함수
+### Logistic function
 
-확률을 회귀하려면 출력이 $[0, 1]$에 갇히는 함수가 필요하다. 일반형 로지스틱 함수는
+To regress the probability , a function is needed where the output is confined to $[0, 1]$. The general logistic function is
 
 $$
 f(x) = \frac{L}{1 + e^{-k(x - x_0)}}
 $$
 
-- $x_0$: 곡선의 중간점 (mid-point)
-- $L$: 곡선의 높이 (상한)
-- $k$: 곡선의 가파름 (steepness)
+- $x_0$: mid-point of the curve
+- $L$: Curve height (upper limit)
+- $k$: Curve steepness
 
-**시그모이드(sigmoid) 함수**는 $L = 1,\ k = 1,\ x_0 = 0$인 특수한 경우다.
+The **sigmoid function** is a special case of $L = 1,\ k = 1,\ x_0 = 0$.
 
 $$
 \sigma(x) = \frac{1}{1 + e^{-x}}
 $$
 
-로지스틱 함수가 분류기에 선호되는 성질:
+Properties that make the logistic function preferred for classifiers:
 
-1. **출력이 0–1 사이** — 확률처럼 해석 가능 (엄밀한 확률은 아니지만 구간이 일치)
-2. **매끄럽고 연속** — 지수 함수 기반이라 미분을 무한 번 취할 수 있어 gradient 기반 최적화에 적합
-3. **거울 대칭** ($\sigma(-x) = 1 - \sigma(x)$) — 일부 응용에서 유용
-4. **미분이 매우 저렴** — 아래 유도 참고
+1. **Output is between 0–1** — Can be interpreted as a probability (not a strict probability, but the interval matches)
+2. **Smooth and continuous** — Since it is based on an exponential function, it can take derivatives infinitely, making it suitable for gradient-based optimization.
+3. **Mirror Symmetry** ($\sigma(-x) = 1 - \sigma(x)$) — Useful in some applications
+4. **Very cheap to differentiate** — See derivation below
 
-**미분 유도.** 합성함수 미분으로
+**Derivative derivation.** By differentiation of composite functions
 
 $$
 \sigma'(x) = \frac{e^{-x}}{(1 + e^{-x})^2}
@@ -247,100 +247,100 @@ $$
 = \sigma(x)\,\big(1 - \sigma(x)\big)
 $$
 
-이미 계산해 둔 함숫값 $\sigma(x)$만으로 도함수를 얻으므로, 역전파(backpropagation)에서 추가 비용이 거의 없다.
+Since the derivative is obtained using only the pre-calculated function value $\sigma(x)$, there is almost no additional cost in backpropagation.
 
-### 확률 모델과 선형 결정 경계
+### Probabilistic Models and Linear Decision Boundaries
 
-이진 분류 $Y \in \{0, 1\}$에서 로지스틱 회귀의 확률 모델은
+The probabilistic model of logistic regression in binary classification $Y \in \{0, 1\}$ is
 
 $$
 P(Y = 0 \mid \mathbf{X}, \mathbf{w}) = \frac{1}{1 + \exp(w_0 + \sum_i w_i X_i)}, \qquad
 P(Y = 1 \mid \mathbf{X}, \mathbf{w}) = \frac{\exp(w_0 + \sum_i w_i X_i)}{1 + \exp(w_0 + \sum_i w_i X_i)}
 $$
 
-(지수의 부호는 관례에 따라 다르게 둘 수 있다 — 분자·분모에 $\exp$를 곱해 정리하면 부호가 흡수되어 동치인 표현이 되므로, $-$ 부호가 있는 정의와 없는 정의는 같은 모델이다.)
+(The signs of the exponents can be set differently according to convention — if the numerator and denominator are multiplied by $\exp$ and simplified, the signs are absorbed to become equivalent expressions, so $-$ The signed definition and the unsigned definition are the same model.)
 
-**결정 경계 유도.** $P(Y=1 \mid \mathbf{X}) \gtrless P(Y=0 \mid \mathbf{X})$로 분류한다고 하자. 두 확률의 비를 취하면 공통 분모가 소거되고,
+**Decision Boundary Derivation.** Let's assume we classify as $P(Y=1 \mid \mathbf{X}) \gtrless P(Y=0 \mid \mathbf{X})$. If we take the ratio of the two probabilities, the common denominator cancels out, and
 
 $$
 \frac{P(Y = 1 \mid \mathbf{X}, \mathbf{w})}{P(Y = 0 \mid \mathbf{X}, \mathbf{w})} = \exp\Big( w_0 + \sum_i w_i X_i \Big) \gtrless 1
 $$
 
-양변에 로그를 취하면 ($\exp$는 단조증가이므로 부등호 방향 유지):
+Taking the logarithm of both sides (since $\exp$ is monotonically increasing, keep the inequality direction):
 
 $$
 \boxed{\ w_0 + \sum_i w_i X_i \ \underset{0}{\overset{1}{\gtrless}}\ 0\ }
 $$
 
-즉 **결정 경계는 입력 공간의 선형(초평면) 경계**다. 확률 출력은 비선형(시그모이드)이지만, 결정 규칙 자체는 선형 분류기인 것이 로지스틱 회귀의 본질이다.
+That is, the **decision boundary is a linear (hyperplane) boundary of the input space**. The essence of logistic regression is that while the probability output is non-linear (sigmoid), the decision rule itself is a linear classifier.
 
 ::: {.callout-tip}
-## 무선통신 관점: log-odds는 곧 LLR이다
+## Wireless Communication Perspective: log-odds are LLR
 
-위에서 유도한 $\ln \frac{P(Y=1\mid \mathbf{x})}{P(Y=0 \mid \mathbf{x})} = w_0 + \sum_i w_i x_i$는 통신에서 매일 쓰는 **LLR(Log-Likelihood Ratio)**과 같은 객체다.
+The $\ln \frac{P(Y=1\mid \mathbf{x})}{P(Y=0 \mid \mathbf{x})} = w_0 + \sum_i w_i x_i$ derived above is an object similar to the **LLR(Log-Likelihood Ratio)** used daily in communication.
 
-- 채널 복호기(LDPC, Turbo)의 soft decision은 비트별 LLR $\ln \frac{P(b=1\mid r)}{P(b=0\mid r)}$을 계산하고 부호로 경판정(hard decision)한다 — 로지스틱 회귀가 log-odds의 부호로 분류하는 것과 동일한 구조다.
-- 시그모이드는 LLR을 확률로 되돌리는 변환이다: $P(b=1 \mid r) = \sigma(\text{LLR})$. BPSK over AWGN에서 LLR $= 2r/\sigma^2$이 수신값의 선형 함수인 것처럼, 로지스틱 회귀는 LLR을 특징의 선형 함수로 **모델링**하는 학습기라고 볼 수 있다.
+- The soft decision of the channel decoder (LDPC, Turbo) calculates bit-by-bit LLR $\ln \frac{P(b=1\mid r)}{P(b=0\mid r)}$ and makes a hard decision based on the sign — this is the same structure as logistic regression classifying based on the sign of log-odds.
+- Sigmoid is a transformation that converts LLR back into probabilities: $P(b=1 \mid r) = \sigma(\text{LLR})$. Just as LLR $= 2r/\sigma^2$ in BPSK over AWGN is a linear function of the received values, logistic regression can be viewed as a learner that **models** LLR as a linear function of the features.
 :::
 
-### 학습: MCLE (Maximum Conditional Likelihood Estimation)
+### Training: MCLE (Maximum Conditional Likelihood Estimation)
 
-$d$차원 특징에 대해 파라미터 $w_0, w_1, \dots, w_d$를 학습한다. 이상적으로는 결합 우도 $P(\mathcal{D}_X, \mathcal{D}_Y \mid \mathbf{w})$의 MLE를 쓰고 싶지만, 우리 모델은 $P(Y \mid X)$만 갖고 있다. 그래서 **조건부 데이터 우도(conditional data likelihood)**를 최대화한다.
+We train the parameters $w_0, w_1, \dots, w_d$ on the $d$-dimensional features. Ideally, we would like to use the MLE of the joint likelihood $P(\mathcal{D}_X, \mathcal{D}_Y \mid \mathbf{w})$, but our model only has $P(Y \mid X)$. Therefore, we maximize the **conditional data likelihood**.
 
 $$
 l(\mathbf{w}) = \ln P(\mathcal{D}_Y \mid \mathcal{D}_X, \mathbf{w}) = \sum_{j=1}^{N} \ln P(y^j \mid x^j, \mathbf{w})
 $$
 
-(기호 $l$은 loss의 l이지만 여기서는 최대화 대상인 목적 함수다.)
+(The symbol $l$ represents the loss l, but here it is the objective function to be maximized.)
 
-**유도.** 지시 함수(indicator function) $\mathbf{1}(\cdot)$를 이용해 두 클래스의 로그 우도를 한 줄로 쓴다.
+**Derivation.** Write the log-likelihood of the two classes in a single line using the indicator function $\mathbf{1}(\cdot)$.
 
 $$
 l(\mathbf{w}) = \sum_j \Big[ \mathbf{1}(y^j = 1) \ln P(Y=1 \mid X^j, \mathbf{w}) + \mathbf{1}(y^j = 0) \ln P(Y=0 \mid X^j, \mathbf{w}) \Big]
 $$
 
-레이블이 $\{0, 1\}$인 덕분에 $\mathbf{1}(y^j = 1) = y^j$, $\mathbf{1}(y^j = 0) = 1 - y^j$로 치환할 수 있다 (레이블을 $\{-1, +1\}$로 두면 이 트릭은 성립하지 않는다).
+Thanks to the label being $\{0, 1\}$, it can be replaced with $\mathbf{1}(y^j = 1) = y^j$ and $\mathbf{1}(y^j = 0) = 1 - y^j$ (this trick does not work if the label is set to $\{-1, +1\}$).
 
 $$
 = \sum_j \Big[ y^j \ln P(Y=1 \mid X^j, \mathbf{w}) + (1 - y^j) \ln P(Y=0 \mid X^j, \mathbf{w}) \Big]
 $$
 
-확률 모델 정의를 대입하고 정리하면:
+Substituting the definition of the probability model and simplifying:
 
 $$
 l(\mathbf{w}) = \sum_j \left[ y^j \Big( w_0 + \sum_i w_i x_i^j \Big) - \ln \Big( 1 + \exp\big( w_0 + \sum_i w_i x_i^j \big) \Big) \right]
 $$
 
 ::: {.callout-note}
-## 좋은 소식과 나쁜 소식
+## Good news and bad news
 
-- **좋은 소식:** $l(\mathbf{w})$는 $\mathbf{w}$의 **오목(concave)** 함수다 → 국소 최적해가 곧 전역 최적해.
-- **나쁜 소식:** 닫힌 해가 없다. $\nabla l = 0$을 풀려 해도 지수 항이 얽혀 대수적으로 풀리지 않는다.
-- **다시 좋은 소식:** 오목 함수는 최적화하기 쉽다. 전역 최적점이 유일하므로 산을 오르다 보면(gradient ascent) 반드시 정상 근처에 도달한다.
+- **Good news:** $l(\mathbf{w})$ is the **concave** function of $\mathbf{w}$ → The local optimum is the global optimum.
+- **Bad news:** There is no closed solution. Even if you try to solve $\nabla l = 0$, the exponential terms are tangled and cannot be solved algebraically.
+- **Good news again:** Concave functions are easy to optimize. Since the global optimal point is unique, as you ascend the mountain (gradient ascent), you will inevitably reach near the summit.
 
-(참고: 닫힌 해 부재나 해의 비유일성이 곧 비볼록성을 의미하는 것은 아니다 — 여기서는 목적 함수가 실제로 오목임이 증명된다.)
+(Note: The absence of a closed solution or the non-uniformity of the solution does not imply non-convexity — here, it is proven that the objective function is actually concave.)
 :::
 
 ### Gradient Ascent
 
-오목 함수의 최대화는 그래디언트 방향으로 올라가는 **gradient ascent**로 수행한다.
+Maximization of the concave function is performed using **gradient ascent** that goes up in the direction of the gradient.
 
-**그래디언트 유도** (3단계 인과 사슬):
+**Gradient Derivation** (3-step causal chain):
 
 $$
 \frac{\partial l(\mathbf{w})}{\partial w_i}
 = \sum_j \left[ \frac{\partial}{\partial w_i} y^j \Big( w_0 + \sum_i w_i x_i^j \Big) - \frac{\partial}{\partial w_i} \ln\Big( 1 + \exp\big(w_0 + \sum_i w_i x_i^j\big) \Big) \right]
 $$
 
-① 첫 항은 선형이라 $y^j x_i^j$. ② 둘째 항은 연쇄법칙으로 $\dfrac{x_i^j \exp(w_0 + \sum_i w_i x_i^j)}{1 + \exp(w_0 + \sum_i w_i x_i^j)} = x_i^j \, P(Y=1 \mid x^j, \mathbf{w})$. ③ 공통 인자 $x_i^j$로 묶으면:
+① The first term is linear, so $y^j x_i^j$. ② The second term follows the chain rule, so $\dfrac{x_i^j \exp(w_0 + \sum_i w_i x_i^j)}{1 + \exp(w_0 + \sum_i w_i x_i^j)} = x_i^j \, P(Y=1 \mid x^j, \mathbf{w})$. ③ When factored by the common factor $x_i^j$:
 
 $$
 \boxed{\ \frac{\partial l(\mathbf{w})}{\partial w_i} = \sum_j x_i^j \Big( y^j - P(Y^j = 1 \mid x^j, \mathbf{w}) \Big)\ }
 $$
 
-해석이 아름답다: 그래디언트는 **(실제 레이블 − 예측 확률) × 입력**의 합, 즉 **예측 오차에 입력을 가중한 양**이다. 레이블도 0/1, 예측도 0–1 사이 확률이므로 오차항 $y^j - P(\cdot)$는 $[-1, 1]$에 갇혀 모든 양이 자연스럽게 정규화된 스케일을 갖는다.
+The interpretation is beautiful: the gradient is the sum of **(actual label − predicted probability) × input**, i.e., **a quantity weighted by the input to the prediction error**. Since the label is 0/1 and the prediction probability is between 0 and 1, the error term $y^j - P(\cdot)$ is confined to $[-1, 1]$, so all quantities naturally have a normalized scale.
 
-**알고리즘.** 학습률 $\eta > 0$이 주어지면, 수렴할 때까지 반복:
+**Algorithm.** Given a learning rate $\eta > 0$, repeat until convergence:
 
 $$
 w_0^{(t+1)} \leftarrow w_0^{(t)} + \eta \sum_j \big[ y^j - P(Y^j = 1 \mid \mathbf{x}^j, \mathbf{w}) \big]
@@ -350,78 +350,78 @@ $$
 w_i^{(t+1)} \leftarrow w_i^{(t)} + \eta \sum_j x_i^j \big[ y^j - P(Y^j = 1 \mid \mathbf{x}^j, \mathbf{w}) \big] \qquad (i = 1, \dots, n)
 $$
 
-바깥 루프는 차원 $i$, 안쪽 합은 전체 학습 샘플 $j$에 대해 돈다. 종료 조건은 ① 고정 반복 횟수 도달, 또는 ② 그래디언트(또는 $\mathbf{w}$의 변화량)가 임계값 이하 — 후자가 "더 이상 움직이지 않는" 준최적점을 보장하는 방식이다.
+The outer loop runs on dimension $i$, and the inner sum runs over the entire training sample $j$. The termination conditions are ① reaching a fixed number of iterations, or ② the gradient (or the change in $\mathbf{w}$) becoming below a threshold—the latter is a method that guarantees a suboptimal point where it "no longer moves."
 
 ::: {.callout-note}
-## bias term $w_0$의 기하학적 의미
+## Geometric meaning of bias term $w_0$
 
-$w_0$는 입력 $x_i$가 곱해지지 않는 특별한 가중치로, 선형 모델의 **절편(intercept)**이다. $w_0$가 없으면 결정 초평면이 원점에 고정된 채 회전만 가능하고, $w_0$가 있어야 공간 전체를 자유롭게 평행이동할 수 있다. 이름이 "bias"지만 bias–variance tradeoff의 bias와는 무관한 별개 개념이니 혼동하지 말 것. 업데이트 식에서도 $w_0$만 입력 $x_i^j$ 없이 오차의 통계량만으로 갱신되는 것을 확인할 수 있다.
+$w_0$ is a special weight that is not multiplied by the input $x_i$, and it serves as the **intercept** of the linear model. Without $w_0$, the decision hyperplane remains fixed at the origin and can only rotate; $w_0$ is required to freely translate across the entire space. Although it is named "bias," it is a distinct concept unrelated to the bias in the bias–variance tradeoff, so do not confuse them. In the update equation as well, it can be observed that $w_0$ is updated solely by the error statistics, without the input $x_i^j$.
 :::
 
 ::: {.callout-warning}
-## 학습률 스케줄링 — 정상을 넘어가지 않으려면
+## Learning Rate Scheduling — To avoid going over the top
 
-학습률 $\eta$는 산의 지형(목적 함수의 곡률)을 모르는 채 보폭을 정하는 문제다. 정상(최적점) 근처에서 보폭이 너무 크면 정상을 **넘어가** 반대편으로 떨어지는 overshoot이 발생한다. 따라서 학습이 진행될수록 보폭을 줄이는 **learning rate scheduling**이 수렴 품질을 좌우한다. 딥러닝 라이브러리에서 "optimizer"라 부르는 것(Adagrad, RMSProp, Adam 등)의 실체는 gradient descent/ascent에 학습률 조절 규칙을 결합한 것이다 — 최적화 알고리즘의 골격은 동일하고, 학습률을 언제 얼마나 줄이느냐의 규칙이 다르다. 무선통신의 적응 필터에서 LMS 스텝 사이즈 $\mu$가 수렴 속도와 정상상태 오차(misadjustment)의 트레이드오프를 결정하는 것과 정확히 같은 구도다.
+The learning rate $\eta$ problem is like determining the step size without knowing the terrain of the mountain (the curvature of the objective function). If the step size is too large near the summit (optimal point), an overshoot occurs where the model **goes over** the summit and falls to the opposite side. Therefore, **learning rate scheduling**, which reduces the step size as training progresses, determines the quality of convergence. What is called an "optimizer" in deep learning libraries (Adagrad, RMSProp, Adam, etc.) is essentially a combination of gradient descent/ascent and learning rate adjustment rules — the framework of the optimization algorithm is the same, but the rules regarding when and how much to reduce the learning rate differ. This is exactly the same structure as the LMS step size $\mu$ in wireless communication adaptive filters determining the trade-off between convergence speed and steady-state error (misadjustment).
 :::
 
 ---
 
-## Support Vector Machine: 최대 마진 분류기 {#sec-svm}
+## Support Vector Machine: Max Margin Classifier {#sec-svm}
 
-### 어떤 선형 분류기가 가장 좋은가
+### Which linear classifier is the best
 
-선형 분리 가능한 이진 분류 문제에서, 학습 데이터를 완벽히 분리하는 직선은 무수히 많다. 모두 학습 오차 0인데 무엇이 더 나은가? 평가 기준은 머신러닝의 목표 그 자체, 즉 **일반화(generalization)**다.
+In linearly separable binary classification problems, there are infinitely many straight lines that perfectly separate the training data. Since they all have a learning error of 0, which one is better? The evaluation criterion is the goal of machine learning itself, namely **generalization**.
 
-직관: 각 클래스의 점들은 보이는 샘플 주변에 더 분포해 있을 것이므로, 두 클래스 사이의 **마진(margin)을 최대화**하는 경계가 미래 샘플에 대해 가장 안전하다. 이 직관을 구현한 것이 **Support Vector Machine (SVM)**이며, 직관·이론·실전 모두에서 타당성이 확인된 모델이다.
+Intuition: Since points of each class are likely to be more distributed around visible samples, the boundary that maximizes the **margin** between the two classes is the safest for future samples. The **Support Vector Machine (SVM)** implements this intuition and is a model whose validity has been confirmed in intuition, theory, and practice.
 
-### 이름의 해부
+### Anatomy of a name
 
-- **Machine** = 함수(분류기). 머신러닝에서 "machine"은 학습된 함수를 뜻한다.
-- **Support Vector** = 결정 경계와 마진을 **떠받치는(정의하는)** 소수의 데이터 포인트. 벡터 공간의 점이므로 vector다.
+- **Machine** = function (classifier). In machine learning, "machine" refers to a learned function.
+- **Support Vector** = A small number of data points that **support (define)** the decision boundary and margin. Since they are points in a vector space, they are vectors.
 
-핵심 통찰: 경계를 정의하는 데는 **경계에 가까운 헷갈리는 샘플들만** 필요하다. 나머지 멀리 있는 점들은 해에 전혀 기여하지 않는다. 마진은 support vector들에 의해 정의되고, 마진 자체를 최대화하는 것이 목적 함수가 되며, 수식을 전개하면 제약 조건이 있는 선형(볼록) 최적화 문제가 된다.
+Key Insight: To define the boundary, **only confusing samples close to the boundary** are needed. The remaining distant points contribute nothing to the solution. The margin is defined by support vectors, and maximizing the margin itself becomes the objective function; expanding the formula results in a constrained linear (convex) optimization problem.
 
-### 한계와 역사적 위치
+### Limitations and Historical Position
 
-- SVM은 선형 모델이므로 복잡한 비선형 경계는 직접 표현할 수 없다. **커널 SVM(kernel SVM)**으로 비선형 경계를 구현할 수 있으나 계산 비용이 크고, 그 정도 비용이면 딥 네트워크를 쓰는 것과 차이가 없어져 점차 딥러닝으로 대체되었다.
-- SVM은 딥러닝 이전 시대(~2010–2011년경)의 **THE classifier**였다. 한때 신경망이 "실패한 모델"로 취급되고 SVM이 지배하던 시기가 있었음을 기억할 것 — 지배적 패러다임은 순환한다.
-- 그럼에도 기억할 핵심: **SVM은 마진 개념을 내장한 선형 분류기이며, 탄탄한 일반화 이론(generalization theory)을 갖추고 있다.** 이 마진/일반화 아이디어는 신경망의 정규화 이론에도 이어진다.
+- Since SVM is a linear model, it cannot directly represent complex non-linear boundaries. Although non-linear boundaries can be implemented using **kernel SVM**, the computational cost is high, and at that level, there is no difference from using deep networks, so it has gradually been replaced by deep learning.
+- SVM was **THE classifier** of the pre-deep learning era (around 2010–2011). Remember that there was a time when neural networks were treated as "failed models" and SVMs dominated — dominant paradigms cycle.
+- Nevertheless, the key to remember: **SVM is a linear classifier with a built-in margin concept and possesses a robust generalization theory.** This margin/generalization idea extends to the regularization theory of neural networks as well.
 
 ::: {.callout-tip}
-## 무선통신 관점: 마진 = 최소 거리
+## Wireless communication perspective: Margin = Minimum distance
 
-최대 마진의 직관은 디지털 변조의 **최소 거리(minimum distance)** 설계와 같다. 성상도(constellation) 설계에서 심볼 간 최소 유클리드 거리 $d_{\min}$이 클수록 노이즈에 대한 오류 확률이 지수적으로 감소하듯이($P_e \sim Q(d_{\min}/2\sigma)$), 분류 경계의 마진이 클수록 새로운(노이즈 낀) 샘플이 경계를 넘어 오분류될 여지가 줄어든다. support vector는 결정 영역의 경계를 결정하는 "최근접 성상점 쌍"에 해당한다.
+The intuition of maximum margin is similar to the **minimum distance** design in digital modulation. Just as the probability of error due to noise decreases exponentially as the minimum Euclidean distance between symbols $d_{\min}$ increases in constellation design ($P_e \sim Q(d_{\min}/2\sigma)$), the larger the margin of the classification boundary, the less likely it is for a new (noisy) sample to cross the boundary and be misclassified. Support vectors correspond to the "nearest constellation point pairs" that determine the boundaries of the decision region.
 :::
 
 ---
 
-## 다음 주제 미리보기: KNN과 결정 트리 {#sec-preview}
+## Next Topic Preview: KNN and Decision Trees {#sec-preview}
 
-선형 모델 계열(선형 회귀 → 로지스틱 회귀 → SVM)과 달리, 다음의 두 지도학습 알고리즘은 비선형·비모수적 접근이다.
+Unlike the linear model family (linear regression → logistic regression → SVM), the following two supervised learning algorithms are non-linear and non-parametric approaches.
 
-- **K-Nearest Neighbor (KNN):** "가까운" 샘플들의 다수결(majority voting)로 분류. 두 가지 변형 — ① 가장 가까운 $K$개 ② 반경 $r$ 공 안의 이웃. "가깝다"의 정의는 거리(metric)가 결정한다. 학습 단계가 없으며(no training phase), 하이퍼파라미터는 $K$ 또는 ball radius.
-- **결정 트리(Decision Tree):** 특징에 대한 질문의 트리로 공간을 분할. 앙상블 버전인 Random Forest로 확장.
+- **K-Nearest Neighbor (KNN):** Classification by majority voting of "close" samples. Two variations — ① the closest $K$ samples ② neighbors within a radius $r$ of a ball. The definition of "close" is determined by the distance metric. There is no training phase, and the hyperparameter is $K$ or ball radius.
+- **Decision Tree:** Partitions space into a tree of feature questions. Extended to the ensemble version, Random Forest.
 
 ---
 
-## 요약 {#sec-summary}
+## Summary {#sec-summary}
 
-| 모델 | 종류 | 목적 함수 | 해법 | 결정 경계 |
+| Model | Type | Objective Function | Solution | Decision Boundary |
 |---|---|---|---|---|
-| 선형 회귀 (OLS) | 회귀 | MSE (= Gaussian MLE) | 닫힌 해 $(\mathbf{H}^T\mathbf{H})^{-1}\mathbf{H}^T\mathbf{t}$ | — |
-| 로지스틱 회귀 | 분류 (판별) | 조건부 로그 우도 (MCLE) | Gradient ascent (오목, 닫힌 해 없음) | 선형 |
-| SVM | 분류 (판별) | 마진 최대화 | 제약 볼록 최적화 | 선형 (커널로 비선형화) |
+| Linear Regression (OLS) | Regression | MSE (= Gaussian MLE) | Closed Solution $(\mathbf{H}^T\mathbf{H})^{-1}\mathbf{H}^T\mathbf{t}$ | — |
+| Logistic Regression | Classification (Discriminative) | Conditional Log-Likelihood (MCLE) | Gradient Ascent (Concavity, No Closed Solution) | Linear |
+| SVM | Classification (Discrimination) | Margin Maximization | Constraint Convex Optimization | Linear (Non-linearized with Kernel) |
 
-1. **선형 회귀는 현대 ML 모델의 기반**이다. 선형성의 기준은 입력이 아니라 파라미터이며, 기저 함수로 비선형 관계도 적합할 수 있다.
-2. OLS는 목적 함수가 볼록 2차식이라 **닫힌 해**를 갖고, 이는 **Gaussian 노이즈 가정 하의 MLE와 동치**다. 딥러닝은 표현($h_k$)까지 학습하므로 이 닫힌 해의 세계를 떠나 비볼록 반복 최적화의 세계로 들어간다.
-3. 로지스틱 회귀는 **확률을 회귀하여 분류하는** 판별 모델로, MCLE의 목적 함수가 오목하여 gradient ascent로 전역 최적에 도달한다. 그래디언트는 (오차 × 입력)의 합이라는 깔끔한 형태를 갖는다.
-4. SVM은 **마진 최대화**라는 일반화 원리를 내장한 선형 분류기로, 딥러닝 이전 시대의 표준이었다.
+1. **Linear regression is the foundation of modern ML models**. The criterion for linearity is parameters, not inputs, and non-linear relationships can also be fitted as basis functions.
+2. OLS has a **closed solution** because its objective function is a convex quadratic, which is **equivalent to MLE under the assumption of Gaussian noise**. Since deep learning learns up to the representation ($h_k$), it leaves this world of closed solutions and enters the world of non-convex iterative optimization.
+3. Logistic regression is a discriminant model that **classifies by regression of probabilities**. The objective function of MCLE is concave, and it reaches a global optimality through gradient ascent. The gradient has a neat form as the sum of (error × input).
+4. SVM is a linear classifier with a built-in generalization principle called **margin maximization**, and was the standard in the pre-deep learning era.
 
 ---
 
-## 부록: Python 구현 {#sec-appendix}
+## Appendix: Python Implementation {#sec-appendix}
 
-OLS 닫힌 해와 로지스틱 회귀 gradient ascent를 NumPy로 검증한다.
+Validate OLS closed solution and logistic regression gradient ascent in NumPy.
 
 ```{python}
 #| label: ols-closed-form
@@ -499,9 +499,9 @@ print("MLE (Gaussian noise) == OLS  ✓")
 
 ---
 
-## 참고문헌 {#sec-references}
+## References {#sec-references}
 
 - Goodfellow, Bengio, Courville, *Deep Learning* — §5.1.4 (Linear Regression), §5.5 (Maximum Likelihood Estimation), §5.7.1 (Probabilistic Supervised Learning: logistic regression)
-- *Dive into Deep Learning* (d2l.ai) — §3.1 (Linear Regression), §3.4 (Linear Regression Implementation), §4.1 (Softmax Regression: 로지스틱 회귀의 다중 클래스 일반화)
-- Garrett Thomas, *Mathematics for Machine Learning* — Quadratic forms & PSD matrices, Convexity, Matrix calculus (OLS 닫힌 해 유도에 필요한 도구 전부)
+- *Dive into Deep Learning* (d2l.ai) — §3.1 (Linear Regression), §3.4 (Linear Regression Implementation), §4.1 (Softmax Regression: Multi-class Generalization of Logistic Regression)
+- Garrett Thomas, *Mathematics for Machine Learning* — Quadratic forms & PSD matrices, Convexity, Matrix calculus (All tools necessary for deriving closed OLS solutions)
 - Bishop, *Pattern Recognition and Machine Learning* — §3.1 (Linear Basis Function Models), §4.3 (Probabilistic Discriminative Models)

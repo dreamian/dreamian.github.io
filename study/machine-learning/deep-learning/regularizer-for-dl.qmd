@@ -3,7 +3,7 @@ title: "Regularization for Deep Learning"
 number: 11
 aliases:
   - "/study/deep-learning/regularizer-for-dl.html"
-subtitle: "딥러닝의 9가지 정규화 기법 — 수학적 유도와 직관"
+subtitle: "9 Regularization Techniques in Deep Learning — Mathematical Derivation and Intuition"
 date: 2026-04-12
 format:
   html:
@@ -14,22 +14,22 @@ format:
     highlight-style: github
     df-print: paged
 crossref:
-  eq-prefix: 식
+  eq-prefix: Food
 execute:
   echo: true
   warning: false
 jupyter: python3
 ---
 
-# 정규화의 큰 그림 {#sec-overview}
+# The Big Picture of Normalization {#sec-overview}
 
-## 한 줄 요약
+## One-line summary
 
-> **정규화(Regularization)란 "훈련 오차를 늘리더라도 일반화 오차(generalization error)를 줄이려는 모든 수정"을 말한다.** 본질적으로는 모델에 **귀납적 편향(inductive bias)**, 즉 "데이터만으로는 결정할 수 없는 부분에 대한 우리의 사전 믿음"을 주입하는 행위다.
+> **Regularization refers to "any modification aimed at reducing generalization error even if it increases training error."** Essentially, it is the act of injecting **inductive bias** into the model—that is, "our prior beliefs about aspects that cannot be determined by the data alone."
 
-## 왜 필요한가: 편향-분산 분해
+## Why it is necessary: Bias-Variance Decomposition
 
-유한한 데이터 $\mathcal{D}=\{(\bm{x}_i,y_i)\}_{i=1}^N$ 로 학습한 추정량 $\hat{f}_\mathcal{D}$ 의 기대 제곱 오차는 다음처럼 분해된다.
+The expected squared error of the estimator $\hat{f}_\mathcal{D}$ trained on finite data $\mathcal{D}=\{(\bm{x}_i,y_i)\}_{i=1}^N$ is decomposed as follows.
 
 $$
 \underbrace{\mathbb{E}_{\mathcal{D}}\!\left[(\hat{f}_\mathcal{D}(\bm{x}) - f^*(\bm{x}))^2\right]}_{\text{기대 오차}}
@@ -37,54 +37,54 @@ $$
 + \underbrace{\mathbb{E}_\mathcal{D}\!\left[(\hat{f}_\mathcal{D}(\bm{x}) - \mathbb{E}_\mathcal{D}[\hat{f}_\mathcal{D}(\bm{x})])^2\right]}_{\text{Variance}}
 $$ {#eq-bias-var}
 
-심층 신경망은 표현력(capacity)이 커서 **분산이 지배적인 영역**에서 동작하기 쉽다. 정규화는 약간의 편향을 받아들이는 대신 분산을 크게 깎아 @eq-bias-var 의 총합을 낮춘다.
+Deep neural networks have high capacity, making them prone to operating in **variance-dominant regions**. Regularization lowers the total sum of @eq-bias-var by significantly reducing variance in exchange for accepting a small amount of bias.
 
 ::: {.callout-note}
-## 통계적 추론 관점
-정규화는 ill-posed 역문제(inverse problem)를 well-posed로 바꾸는 작업과 동형이다. 무선통신에서 안테나 수보다 추정해야 할 경로(path)가 많을 때(under-determined), 채널이 **희소(sparse)**하다는 사전지식을 $\ell_1$ 페널티로 넣어 해를 유일하게 만드는 것 — 이것이 바로 compressed sensing이며, 정규화의 전형적 사례다.
+## Statistical Inference Perspective
+Normalization is isomorphic to the process of transforming an ill-posed inverse problem into a well-posed one. In wireless communication, when the number of paths to be estimated exceeds the number of antennas (under-determined), applying the prior knowledge that the channels are **sparse** as a $\ell_1$ penalty to uniquely find the solution—this is compressed sensing, a classic example of normalization.
 :::
 
-## 정규화의 세 가지 형식
+## Three forms of normalization
 
-학습 목적함수는 보편적으로 다음 형태를 갖는다.
+The learning objective function generally takes the following form.
 
 $$
 \min_{\bm{\theta}} \; \underbrace{L(\bm{\theta};\mathcal{D})}_{\text{Loss: 최적화 대상}} + \underbrace{\Omega(\bm{\theta})}_{\text{Regularizer: 귀납적 편향}}
 $$ {#eq-objective}
 
-손쉽게 만든(hand-crafted) 정규화는 세 가지 관점으로 통일된다.
+Hand-crafted normalization is unified into three perspectives.
 
-| 형식 | 정의 | 대표 예 |
+| Format | Definition | Representative Example |
 |---|---|---|
-| **Hard constraint** | $\min_{\bm{\theta}} L(\bm{\theta})$ s.t. $R(\bm{\theta}) \le c$ | 가중치 노름 상한 제약 |
+| **Hard constraint** | $\min_{\bm{\theta}} L(\bm{\theta})$ st $R(\bm{\theta}) \le c$ | Weighted norm upper constraint |
 | **Soft constraint** | $\min_{\bm{\theta}} L(\bm{\theta}) + \lambda R(\bm{\theta})$ | $\ell_2$ weight decay, $\ell_1$ |
-| **Bayesian prior** | 사후확률 최대화(MAP) | prior $p(\bm{\theta})$ 도입 |
+| **Bayesian prior** | Posterior Probability Maximization (MAP) | Introduction of prior $p(\bm{\theta})$ |
 
-### Hard constraint와 Soft constraint의 등가성
+### Equivalence of Hard Constraints and Soft Constraints
 
-하드 제약 문제
+Hard constraint problem
 
 $$
 \bm{\theta}^* = \arg\min_{\bm{\theta}} L(\bm{\theta}) \quad \text{s.t.}\quad R(\bm{\theta}) \le c
 $$
 
-의 KKT 조건을 쓰면, 어떤 $\lambda^* > 0$ 에 대해
+If we apply the KKT condition for , for some $\lambda^* > 0$
 
 $$
 \bm{\theta}^* = \arg\min_{\bm{\theta}} \; L(\bm{\theta}) + \lambda^*\big(R(\bm{\theta}) - c\big)
 $$
 
-가 성립한다. 상수 $-\lambda^* c$ 는 $\bm{\theta}$ 에 무관하므로 제거되고, 결국 **하드 제약 = 소프트 제약**이 된다. $c$ 가 작을수록(강한 제약) 대응하는 $\lambda^*$ 는 커진다.
+holds. The constant $-\lambda^* c$ is independent of $\bm{\theta}$ and is therefore removed, so ultimately **hard constraint = soft constraint**. As $c$ becomes smaller (stronger constraint), the corresponding $\lambda^*$ becomes larger.
 
-### Bayesian prior로서의 정규화: MAP = MLE + log prior
+### Normalization as a Bayesian prior: MAP = MLE + log prior
 
-베이즈 정리
+Bayes' Theorem
 
 $$
 p(\bm{\theta}\mid\mathcal{D}) = \frac{p(\bm{\theta})\,p(\mathcal{D}\mid\bm{\theta})}{p(\mathcal{D})}
 $$
 
-에서 사후확률을 최대화(MAP)하면, $p(\mathcal{D})$ 는 $\bm{\theta}$ 와 무관하므로
+If we maximize the posterior probability (MAP) for , $p(\mathcal{D})$ is independent of $\bm{\theta}$, so
 
 $$
 \bm{\theta}_{\text{MAP}}
@@ -92,83 +92,83 @@ $$
 $$ {#eq-map}
 
 ::: {.callout-important}
-## 정확한 진술 (자주 틀리는 부분)
-- **MAP = MLE + log-prior 정규화항.** MLE는 prior를 "무시"하는 것이 아니라 **균일 사전분포(uniform prior)를 가정**한 MAP의 특수경우다.
-- $\ell_2$ 정규화 $\Leftrightarrow$ 가우시안 prior $p(\bm{\theta})=\mathcal{N}(\bm{0},\sigma^2 I)$ 의 MAP.
-- $\ell_1$ 정규화 $\Leftrightarrow$ 라플라스(Laplace) prior의 MAP $\to$ 희소성(sparsity) 유도.
-- $\ell_0$ 페널티는 비영(non-zero) 원소 개수를 직접 세므로 희소성을 **강제**하지만 비볼록·NP-hard.
+## Accurate Statement (Frequently Mistaken)
+- **MAP = MLE + log-prior normalization term.** MLE is a special case of MAP that assumes a **uniform prior** rather than "ignoring" the prior.
+- $\ell_2$ Normalized $\Leftrightarrow$ Gaussian prior $p(\bm{\theta})=\mathcal{N}(\bm{0},\sigma^2 I)$ of MAP.
+- $\ell_1$ Normalization $\Leftrightarrow$ Derivation of MAP of Laplace prior $\to$ sparsity.
+- $\ell_0$ The penalty directly counts the number of non-zero elements, so it **forces** scarcity, but it is non-convex · NP-hard.
 :::
 
-이제 이 틀 위에서, 심층학습에서 실제로 널리 쓰이는 **9가지 정규화 기법**을 하나씩 본다. 각 기법이 @eq-objective 의 어느 항을 어떻게 건드리는지에 주목하라.
+Now, building upon this framework, we will examine the **9 regularization techniques** widely used in deep learning one by one. Note which term of @eq-objective each technique modifies and how.
 
 ---
 
 # Dataset Augmentation {#sec-augment}
 
-## 핵심
+## Core
 
-> **레이블을 보존하는 변환(label-preserving transformation)으로 훈련 데이터를 인위적으로 늘려, 모델이 그 변환에 대해 불변(invariant)하도록 만든다.** "더 많은 진짜 데이터를 못 구한다면, 가짜를 합성하라."
+> **Artificially increase the training data using a label-preserving transformation to make the model invariant to that transformation.** "If you cannot obtain more real data, synthesize fake data."
 
-## 형식화
+## Formatting
 
-변환 분포 $T(\cdot\mid\bm{x})$ (예: 회전, 이동, 색 변형)에 대해 손실을 변환된 입력의 기댓값으로 바꾼다.
+For the transformation distribution $T(\cdot\mid\bm{x})$ (e.g., rotation, translation, chromatic transformation), replace the loss with the expectation of the transformed input.
 
 $$
 \tilde{L}(\bm{\theta}) = \mathbb{E}_{(\bm{x},y)\sim\mathcal{D}}\;\mathbb{E}_{\tilde{\bm{x}}\sim T(\cdot\mid\bm{x})}\big[\ell\big(f_{\bm{\theta}}(\tilde{\bm{x}}),\,y\big)\big]
 $$ {#eq-aug}
 
-이는 데이터 분포를 변환 궤도(orbit)를 따라 "퍼뜨려" 결정 경계를 매끄럽게 만드는 효과를 준다.
+This has the effect of smoothing decision boundaries by "spreading" the data distribution along the transformation orbit.
 
 ::: {.callout-tip}
-## 노이즈 주입 = $\ell_2$ 정규화 (소량 가우시안의 경우)
-입력에 작은 가우시안 노이즈 $\tilde{\bm{x}}=\bm{x}+\bm{\epsilon},\ \bm{\epsilon}\sim\mathcal{N}(\bm{0},\sigma^2 I)$ 를 더하고 회귀 손실을 2차 테일러 전개하면, 그 기댓값은 대략
+## Noise injection = $\ell_2$ Normalization (for small Gaussians)
+If we add small Gaussian noise $\tilde{\bm{x}}=\bm{x}+\bm{\epsilon},\ \bm{\epsilon}\sim\mathcal{N}(\bm{0},\sigma^2 I)$ to the input and perform a second-order Taylor expansion of the regression loss, the expected value is approximately
 
 $$
 \mathbb{E}_{\bm{\epsilon}}[\ell] \approx \ell(\bm{x}) + \tfrac{\sigma^2}{2}\,\mathbb{E}\big[\|\nabla_{\bm{x}} f(\bm{x})\|^2\big]
 $$
 
-가 되어, **자코비안 노름에 대한 페널티**(함수의 평탄성 유도)로 작동한다. 즉 데이터 증강은 암묵적 정규화항을 추가하는 것과 같다.
+, which acts as a **penalty for the Jacobian norm** (inducing flatness of the function). In other words, data augmentation is equivalent to adding an implicit normalization term.
 :::
 
-## 직관과 주의점
+## Intuition and Caution
 
-- 변환은 반드시 **레이블 불변**이어야 한다. 손글씨 '6'을 180° 회전하면 '9'가 되므로 회전 증강은 위험하다.
-- 도메인 지식이 곧 좋은 증강을 결정한다 — 이것이 증강을 "수작업 귀납 편향"이라 부르는 이유다.
+- The transformation must be **label invariant**. Rotation augmentation is dangerous because rotating the handwritten '6' by 180° results in '9'.
+- Domain knowledge determines good augmentation — this is why augmentation is called "manual inductive bias."
 
 ::: {.callout-note}
-## 무선통신 비유
-이퀄라이저/수신기를 **여러 채널 실현(channel realization)에 대해 훈련**하는 것과 동일하다. 페이딩 채널을 Monte-Carlo로 샘플링해 다양한 $\bm{h}$ 하에서 학습시키면, 수신기가 특정 채널에 과적합하지 않고 채널 분포 전체에 강인해진다. 식 @eq-aug 의 $T$ 가 곧 채널 분포 $p(\bm{h})$ 다.
+## Wireless communication analogy
+This is equivalent to **training the equalizer/receiver on multiple channel realizations**. By sampling the fading channel using Monte-Carlo and training under various $\bm{h}$ conditions, the receiver becomes robust to the entire channel distribution without overfitting to a specific channel. $T$ in Equation @eq-aug is the channel distribution $p(\bm{h})$.
 :::
 
 ---
 
 # Adversarial Examples {#sec-adv}
 
-## 핵심
+## Core
 
-> **사람 눈엔 거의 동일하지만 모델을 속이는 미세 섭동(adversarial perturbation)을 일부러 만들어 함께 학습시킨다.** 주목적은 보안(robustness)이지만, **결정 경계를 입력 변화에 둔감하게** 만들어 일반화에도 도움을 준다.
+> **We intentionally create and train with adversarial perturbations that are almost identical to the human eye but trick the model.** The primary purpose is robustness, but it also helps with generalization by making **decision boundaries insensitive to changes in input**.
 
-## 적대적 예제 생성: FGSM
+## Adversarial example generation: FGSM
 
-손실 $J(\bm{\theta},\bm{x},y)$ 를 입력에 대해 1차 선형화하면, $\ell_\infty$ 제약 하에서 손실을 가장 키우는 섭동은 그래디언트의 부호다 (Fast Gradient Sign Method).
+If the loss $J(\bm{\theta},\bm{x},y)$ is linearized first-order with respect to the input, the perturbation that maximizes the loss under the $\ell_\infty$ constraint is the sign of the gradient (Fast Gradient Sign Method).
 
 $$
 \bm{x}_{\text{adv}} = \bm{x} + \epsilon \cdot \mathrm{sign}\big(\nabla_{\bm{x}} J(\bm{\theta},\bm{x},y)\big)
 $$ {#eq-fgsm}
 
-고차원에서는 아주 작은 $\epsilon$ 의 섭동도 수많은 차원에 걸쳐 누적되어 출력을 크게 흔든다(선형성 가설). 판다 이미지에 사람 눈에 보이지 않는 섭동을 더해 긴팔원숭이로 99% 확신을 갖고 오분류하게 만드는 고전적 사례가 이를 잘 보여준다.
+In high dimensions, even very small $\epsilon$ perturbations accumulate across numerous dimensions and significantly shake the output (linearity hypothesis). A classic example illustrating this is when invisible perturbations are added to a panda image, causing it to be misclassified as a gibbon with 99% certainty.
 
-## 두 가지 학습 전략
+## Two learning strategies
 
-1. **입력에 섭동 주입 (Adversarial training):** @eq-fgsm 의 $\bm{x}_{\text{adv}}$ 를 훈련셋에 추가. minimax 형태로 쓰면
+1. **Injecting perturbation into input (Adversarial training):** Add $\bm{x}_{\text{adv}}$ from @eq-fgsm to the training set. If written in minimax form
 
    $$
    \min_{\bm{\theta}}\ \mathbb{E}_{(\bm{x},y)}\Big[\max_{\|\bm{\delta}\|\le\epsilon} J(\bm{\theta},\bm{x}+\bm{\delta},y)\Big]
    $$
 
-   — **최악의 경우(worst-case)에 대한 강건 최적화**다.
+— **Robust optimization for the worst-case**.
 
-2. **출력 타깃에 노이즈 주입 (Label smoothing):** 원-핫 타깃을 부드럽게 만든다. 클래스 수 $k$, 작은 $\epsilon$ 에 대해
+2. **Injecting noise into output target (Label smoothing):** Smooths the one-hot target. For class count $k$, small $\epsilon$
 
    $$
    y_c^{\text{smooth}} =
@@ -178,54 +178,54 @@ $$ {#eq-fgsm}
    \end{cases}
    $$ {#eq-labelsmooth}
 
-   소프트맥스가 무한대 로짓으로 폭주하는 것을 막고(과신 방지), 확신이 큰 예측에서의 그래디언트 소실을 완화한다.
+Prevents softmax from running into infinite logits (prevents overconfidence) and mitigates gradient vanishing in high-confidence predictions.
 
 ::: {.callout-note}
-## 무선통신 비유
-minimax 적대적 학습은 **재밍(jamming)/최악 간섭에 강인한 수신기 설계**와 정확히 같은 구조다. 송신기-재머의 게임에서, 재머가 신호공간 내 최악 방향으로 전력을 쏟을 때도 성능을 보장하도록 설계하는 robust beamforming이 @eq-fgsm 의 내부 max에 대응한다.
+## Wireless communication analogy
+minimax adversarial learning is exactly the same structure as **a receiver design robust against jamming/worst-case interference**. In the transmitter-jammer game, robust beamforming designed to guarantee performance even when the jammer pours power in the worst direction in the signal space corresponds to the internal max of @eq-fgsm.
 :::
 
 ---
 
 # Semi-Supervised Learning {#sec-semi}
 
-## 핵심
+## Core
 
-> **레이블된 데이터(소량)와 레이블 없는 데이터(대량)를 결합한다.** 레이블 없는 데이터의 **분포 $p(\bm{x})$ 자체가 정규화 정보**가 되어, 결정 경계를 데이터가 조밀한 영역이 아닌 **저밀도 영역(low-density region)에 놓이도록** 유도한다.
+> **Combines labeled data (small amount) and unlabeled data (large amount).** The **distribution $p(\bm{x})$** of the unlabeled data itself becomes normalization information, inducing the decision boundary to be placed in a **low-density region** rather than a dense region.
 
-## 형식화
+## Formatting
 
-목적함수는 지도 항과 비지도(정규화) 항의 결합이다.
+The objective function is a combination of supervised terms and unsupervised (normalized) terms.
 
 $$
 L = \underbrace{\sum_{(\bm{x}_i,y_i)\in\mathcal{D}_L}\ell(f(\bm{x}_i),y_i)}_{\text{레이블 정보}}
 + \lambda\underbrace{\sum_{\bm{x}_j\in\mathcal{D}_U}\mathcal{R}(f,\bm{x}_j)}_{\text{분포 정보}}
 $$
 
-비지도 항 $\mathcal{R}$ 의 대표적 선택:
+Representative selection of non-guided item $\mathcal{R}$:
 
-- **일관성 정규화(consistency):** $\mathcal{R}=\|f(\bm{x})-f(\tilde{\bm{x}})\|^2$, 즉 $\bm{x}$ 와 그 증강 $\tilde{\bm{x}}$ 의 예측이 같아야 함 (cluster assumption).
-- **엔트로피 최소화:** $\mathcal{R}=H(f(\bm{x}))$, 예측이 한 클래스로 확신을 갖도록 — 경계를 저밀도 영역으로 밀어냄.
+- **Consistency Normalization (consistency):** $\mathcal{R}=\|f(\bm{x})-f(\tilde{\bm{x}})\|^2$, i.e., $\bm{x}$, and its augmentation $\tilde{\bm{x}}$ must have the same prediction (cluster assumption).
+- **Entropy Minimization:** $\mathcal{R}=H(f(\bm{x}))$, to ensure the prediction is confident in one class — push the boundary into a low-density region.
 
-## 두 가지 시나리오
+## Two scenarios
 
-- 레이블·비레이블 데이터가 **같은 표현 도메인**일 때: 표준 준지도.
-- **다른 표현 도메인**일 때: 공유 표현(shared representation)을 학습하는 전이/자기지도 방식과 맞닿는다.
+- When labeled and unlabeled data are in the **same representation domain**: standard semi-map.
+- **When it is a different representation domain**: It aligns with transfer/self-supervised methods that learn shared representations.
 
 ::: {.callout-note}
-## 무선통신 비유
-**반-블라인드(semi-blind) 채널 추정**과 동형이다. 소수의 파일럿 심볼(=레이블)로 채널을 대략 잡고, 다수의 데이터 심볼의 통계(수신신호 분포, 정상성·유한 알파벳 같은 구조 = 비레이블 분포정보)를 활용해 추정 분산을 줄인다.
+## Wireless communication analogy
+It is isomorphic to **semi-blind channel estimation**. It roughly defines the channel using a small number of pilot symbols (=labels) and reduces the estimation variance by utilizing the statistics of a large number of data symbols (received signal distribution, stationarity, structures such as finite alphabets = non-label distribution information).
 :::
 
 ---
 
 # Multi-task Learning (MTL) {#sec-mtl}
 
-## 핵심
+## Core
 
-> **여러 과제를 하나의 모델로 동시에 학습**하되, 하위 표현 $\bm{h}^{\text{shared}}$ 를 공유한다. 각 과제가 서로에게 **데이터 의존적 prior**로 작용하여, 공유 표현이 어느 한 과제에 과적합되지 못하게 막는다.
+> **Train multiple tasks simultaneously with a single model**, but share the sub-representation $\bm{h}^{\text{shared}}$. Each task acts as a **data-dependent prior** to the others, preventing the shared representation from overfitting to any single task.
 
-## 구조
+## structure
 
 ```{mermaid}
 flowchart BT
@@ -237,29 +237,29 @@ flowchart BT
     h2 --> y2["y(2)"]
 ```
 
-목적함수는 과제별 손실의 가중합이다.
+The objective function is the weighted sum of the losses per task.
 
 $$
 L_{\text{MTL}}(\bm{\theta}_{\text{shared}}, \{\bm{\theta}_t\})
 = \sum_{t=1}^{T} \alpha_t\, L_t\big(\bm{\theta}_{\text{shared}}, \bm{\theta}_t;\ \mathcal{D}_t\big)
 $$
 
-## 왜 정규화인가
+## Why Normalization?
 
-공유 파라미터 $\bm{\theta}_{\text{shared}}$ 는 **모든 과제의 그래디언트를 동시에 만족**해야 하므로, 탐색 가능한 가설공간이 크게 좁아진다. 이는 @eq-objective 에서 명시적 $\Omega$ 없이도 **표현에 부과되는 암묵적 제약**으로 작동한다. 과제들이 공통 잠재 인자(generative factor)를 공유한다는 가정이 성립할수록 효과가 크다.
+Since the shared parameter $\bm{\theta}_{\text{shared}}$ must **simultaneously satisfy the gradients of all tasks**, the explorable hypothesis space is significantly narrowed. This acts as an **implicit constraint imposed on the expression** in @eq-objective even without an explicit $\Omega$. The effect is greater the more the assumption that tasks share a common generative factor holds true.
 
 ::: {.callout-note}
-## 무선통신 비유
-**결합 추정(joint estimation)** — 채널 추정, 주파수 옵셋 보상, 잡음전력 추정을 하나의 수신기가 공통 통계량(공유 표현)을 토대로 동시에 수행하면, 각 추정이 서로를 정규화하여 전체 추정 분산이 줄어든다.
+## Wireless communication analogy
+**Joint Estimation** — When a single receiver performs channel estimation, frequency offset compensation, and noise power estimation simultaneously based on a common statistic (shared representation), each estimation normalizes the other, thereby reducing the total estimation variance.
 :::
 
 ---
 
 # Early Stopping {#sec-early}
 
-## 핵심
+## Core
 
-> **검증 오차(validation error)가 더 이상 줄지 않는 시점에서 훈련을 멈춘다.** 가장 흔하고 효율적이며 거의 공짜인 정규화. 훈련을 길게 할수록 모델은 훈련셋에 과적합되므로, 일반화가 최적인 순간을 "유효 표현력(effective capacity)"을 제어하는 **하이퍼파라미터**로 삼는 것이다.
+> **Stop training when the validation error no longer decreases.** The most common, efficient, and almost free regularization. Since the longer training is done, the more the model overfits to the training set, the moment when generalization is optimal is used as a **hyperparameter** to control the "effective capacity".
 
 ```{mermaid}
 flowchart LR
@@ -268,74 +268,74 @@ flowchart LR
     C --> D["train↓ val↑<br/>(과적합 시작)"]
 ```
 
-## 깊은 통찰: Early Stopping ≈ $\ell_2$ 정규화
+## Deep Insight: Early Stopping ≈ $\ell_2$ Normalization
 
-이차 근사된 손실 $L(\bm{\theta})\approx L(\bm{\theta}^*) + \tfrac12(\bm{\theta}-\bm{\theta}^*)^\top H (\bm{\theta}-\bm{\theta}^*)$ 위에서 학습률 $\epsilon$ 의 경사하강을 $\tau$ 스텝 돌리면, $H=Q\Lambda Q^\top$ 고유분해 기준으로 각 성분이 다음처럼 수축한다.
+When gradient descent with a learning rate $\epsilon$ is $\tau$ step over the second-order approximated loss $L(\bm{\theta})\approx L(\bm{\theta}^*) + \tfrac12(\bm{\theta}-\bm{\theta}^*)^\top H (\bm{\theta}-\bm{\theta}^*)$, each component shrinks as follows based on $H=Q\Lambda Q^\top$ eigendecomposition.
 
 $$
 \theta^{(\tau)}_i = \big(1-(1-\epsilon\lambda_i)^{\tau}\big)\,\theta^*_i
 $$
 
-이를 $\ell_2$ 정규화의 해 $\theta^{\ell_2}_i = \frac{\lambda_i}{\lambda_i+\alpha}\theta^*_i$ 와 비교하면, 작은 $\epsilon\lambda_i$ 근사에서
+Comparing this to the $\ell_2$ normalized solution $\theta^{\ell_2}_i = \frac{\lambda_i}{\lambda_i+\alpha}\theta^*_i$, in the small $\epsilon\lambda_i$ approx.
 
 $$
 \boxed{\;\alpha \approx \frac{1}{\tau\epsilon}\;}
 $$ {#eq-early-l2}
 
-즉 **스텝 수 $\tau$ 가 적을수록(=일찍 멈출수록) $\ell_2$ 정규화 강도 $\alpha$ 가 커진다.** Early stopping은 곡률이 큰 방향(큰 $\lambda_i$)을 먼저 학습하고 곡률이 작은 방향은 미처 학습하지 못한 채 멈추는데, 이것이 weight decay가 작은 고유값 방향을 억누르는 것과 정확히 같은 효과다.
+In other words, **the fewer the step count $\tau$ (=the earlier it stops), the greater the $\ell_2$ regularization strength $\alpha$**. Early stopping learns the direction of large curvature (large $\lambda_i$) first and stops before the direction of small curvature is fully learned; this has exactly the same effect as weight decay suppressing the direction of small eigenvalues.
 
 ::: {.callout-tip}
-## 실용적 장점
-@eq-early-l2 의 $\alpha$ 를 직접 탐색하려면 여러 번 재학습해야 하지만, early stopping은 **한 번의 학습으로 검증곡선을 따라가며** 최적 정규화 강도를 자동 선택한다. 그래서 사실상 공짜다.
+## Practical advantages
+If you were to manually explore $\alpha$ of @eq-early-l2, you would have to retrain multiple times, but early stopping automatically selects the optimal regularization strength by **following the validation curve** in a single training iteration. So it is practically free.
 :::
 
 ::: {.callout-note}
-## 무선통신 비유
-**반복 복호(iterative decoding, LDPC/Turbo)의 반복 횟수 제한**과 닮았다. 반복을 무한정 돌리면 특정 노이즈 실현에 과도하게 맞춰져 오히려 불안정해질 수 있어, 검증 BER이 최저인 반복 횟수에서 멈추는 것이 최적이다.
+## Wireless communication analogy
+It is similar to the iteration limit of iterative decoding (LDPC/Turbo). If it is run indefinitely, it can become unstable by being overly tailored to the realization of specific noise, so it is optimal to stop at the number of iterations where the verification BER is lowest.
 :::
 
 ---
 
 # Parameter Sharing / Tying {#sec-tying}
 
-## 핵심
+## Core
 
-> **여러 파라미터가 서로 같거나 가깝도록 강제**하여 자유도를 줄인다. 두 유사 과제 A, B에 대해, 이미 학습된 $\bm{w}^{(A)}$ 에 $\bm{w}^{(B)}$ 가 가까워지도록 페널티를 준다.
+> Reduces degrees of freedom by **forcing multiple parameters to be equal to or close to each other**. For two similar tasks A and B, a penalty is applied to make $\bm{w}^{(B)}$ closer to the already learned $\bm{w}^{(A)}$.
 
-## 두 변종
+## Two variants
 
-**Soft tying (parameter tying):** 거리 페널티를 손실에 더한다.
+**Soft tying (parameter tying):** Adds a distance penalty to the loss.
 
 $$
 \Omega(\bm{w}^{(A)},\bm{w}^{(B)}) = \big\|\bm{w}^{(A)} - \bm{w}^{(B)}\big\|_2^2
 $$ {#eq-tying}
 
-이는 "$\bm{w}^{(B)}$ 의 prior 평균이 $\bm{w}^{(A)}$ 인 가우시안"의 MAP과 같다(@eq-map 참조).
+This is equivalent to the MAP of "$\bm{w}^{(B)}$, where the prior mean is $\bm{w}^{(A)}$" (@see eq-map).
 
-**Hard sharing (parameter sharing):** 아예 동일한 파라미터를 강제로 공유한다. **CNN의 합성곱 커널**이 대표적 — 같은 필터를 이미지 모든 위치에 적용함으로써 "통계가 위치에 불변(translation invariance)"이라는 강력한 사전지식을 주입하고, 파라미터 수와 메모리를 극적으로 줄인다.
+**Hard sharing (parameter sharing):** It forcibly shares identical parameters. **CNN convolutional kernels** are a prime example — by applying the same filter to every location in the image, it injects powerful prior knowledge of "translation invariance" and dramatically reduces the number of parameters and memory.
 
 | | Soft tying | Hard sharing |
 |---|---|---|
-| 형식 | $+\lambda\|\bm{w}^A-\bm{w}^B\|^2$ | $\bm{w}^A \equiv \bm{w}^B$ |
-| 자유도 | 부분적으로 감소 | 완전히 결합 |
-| 대표 사례 | 전이학습 fine-tuning | CNN 커널, RNN 시점 공유 |
+| Format | $+\lambda\|\bm{w}^A-\bm{w}^B\|^2$ | $\bm{w}^A \equiv \bm{w}^B$ |
+| Degrees of freedom | Partially reduced | Fully coupled |
+| Representative Case | Transfer Learning Fine-tuning | CNN Kernel, RNN Time-shifting Sharing |
 
 ::: {.callout-note}
-## 무선통신 비유
-**시불변(time-invariant) 또는 정상성(stationarity) 가정**과 같다. 채널이 한 블록 내에서 일정하다고 보고 모든 심볼에 같은 채널 계수를 적용하는 것은, CNN이 같은 커널을 모든 위치에 공유하는 hard sharing과 동일한 종류의 통계적 가정이다.
+## Wireless communication analogy
+This is equivalent to the **time-invariant or stationarity assumption**. Assuming that the channel is constant within a block and applying the same channel coefficient to all symbols is the same kind of statistical assumption as hard sharing, where CNNs share the same kernel at all locations.
 :::
 
 ---
 
 # Bagging (Bootstrap Aggregating) {#sec-bagging}
 
-## 핵심
+## Core
 
-> **서로 다른 데이터 부분집합으로 여러 모델을 독립적으로 학습한 뒤, 예측을 평균(투표)한다.** Bootstrap으로 만든 데이터셋의 다양성이 모델 간 오차를 비상관화하여 **분산을 직접 줄인다.** 앙상블(ensemble)·모델 평균(model averaging)의 한 형태.
+> **Multiple models are trained independently on different data subsets, and then the predictions are averaged (voted).** The diversity of the dataset created by Bootstrap decorrelates errors between models, thereby **directly reducing variance.** A form of ensemble and model averaging.
 
-## 분산 감소의 정량적 증명
+## Quantitative proof of variance reduction
 
-$k$ 개 모델의 예측 오차를 $\epsilon_i$ 라 하고, 각 오차의 분산이 $v=\mathbb{E}[\epsilon_i^2]$, 모델 간 공분산이 $c=\mathbb{E}[\epsilon_i\epsilon_j]\,(i\ne j)$ 라 하자. 평균 예측의 오차 $\bar\epsilon=\tfrac1k\sum_i\epsilon_i$ 의 분산은
+Let $k$ be the prediction error of the models, $\epsilon_i$, let $v=\mathbb{E}[\epsilon_i^2]$ be the variance of each error, and let $c=\mathbb{E}[\epsilon_i\epsilon_j]\,(i\ne j)$ be the covariance between models. The variance of the mean prediction error $\bar\epsilon=\tfrac1k\sum_i\epsilon_i$ is
 
 $$
 \mathbb{E}\!\left[\bar\epsilon^{\,2}\right]
@@ -343,127 +343,127 @@ $$
 = \frac{1}{k}v + \frac{k-1}{k}c
 $$ {#eq-bagging}
 
-두 극단을 보면:
+When looking at the two extremes:
 
-- **완전 상관($c=v$):** $\mathbb{E}[\bar\epsilon^2]=v$ — 평균해도 전혀 줄지 않음.
-- **완전 무상관($c=0$):** $\mathbb{E}[\bar\epsilon^2]=\dfrac{v}{k}$ — **모델 수에 반비례**해 분산이 줄어듦!
+- **Perfectly Correlated($c=v$):** $\mathbb{E}[\bar\epsilon^2]=v$ — Averaging does not decrease at all.
+- **Completely uncorrelated ($c=0$):** $\mathbb{E}[\bar\epsilon^2]=\dfrac{v}{k}$ — **Variance decreases inversely proportional to the number of models**!
 
-따라서 bagging의 효과는 "각 모델을 충분히 강하게 만들면서도 서로 다르게(비상관) 만드는 것"에 달려 있다.
+Therefore, the effectiveness of bagging depends on "making each model sufficiently strong while making them different (uncorrelated) from one another."
 
 ::: {.callout-important}
-## Bagging이 편향에 미치는 영향
-@eq-bagging 은 분산만 다룬다. 평균을 취해도 각 모델이 공유하는 편향은 그대로 남으므로, bagging은 **저편향·고분산 모델(예: 깊은 결정트리, 큰 신경망)**에 가장 효과적이다.
+## The effect of Bagging on bias
+@eq-bagging only deals with variance. Since the bias shared by each model remains even after averaging, bagging is most effective for **low-bias, high-variance models (e.g., deep decision trees, large neural networks)**.
 :::
 
 ::: {.callout-note}
-## 무선통신 비유 — 가장 정확한 대응
-@eq-bagging 은 **다이버시티 결합(diversity combining, 예: MRC)**의 이득 공식과 동일하다. 독립 페이딩을 겪는 $k$ 개의 수신 브랜치를 결합하면, 브랜치들의 잡음이 비상관($c=0$)일 때 유효 잡음 분산이 $1/k$ 로 줄어들어 다이버시티 차수 $k$ 를 얻는다. "독립 브랜치가 많을수록 좋다"는 통신의 직관이 곧 "비상관 모델이 많을수록 좋다"는 앙상블의 직관이다.
+## Wireless Communication Analogy — The Most Accurate Correspondence
+@eq-bagging is identical to the gain formula for **diversity combining (e.g., MRC)**. When combining $k$ receiving branches undergoing independent fading, the effective noise variance is reduced to $1/k$ when the noise of the branches is uncorrelated ($c=0$), yielding a diversity order $k$. The communication intuition that "the more independent branches, the better" is the ensemble intuition that "the more uncorrelated models, the better."
 :::
 
 ---
 
 # Dropout: Another Type of Ensemble {#sec-dropout}
 
-## 핵심
+## Core
 
-> **매 미니배치마다 각 유닛을 확률 $p$ 로 무작위 제거**하여 학습한다. 한 번의 학습으로 $2^n$ 개의 부분 신경망(sub-network)을 **가중치를 공유하며 동시에 훈련**하는, 지수적으로 효율적인 bagging이다.
+> **In every mini-batch, each unit is randomly removed with probability $p$** for training. This is exponentially efficient bagging that trains $2^n$ sub-networks simultaneously with shared weights in a single training session.
 
-## 학습: Bernoulli 마스크
+## Training: Bernoulli mask
 
-은닉 유닛 $\bm{h}$ 에 대해 마스크 $\bm{m}\sim\text{Bernoulli}(1-p)$ (원소별 독립)를 곱한다.
+Multiply the mask ZZZPH0011658ZZZ  for the hidden unit $\bm{h}$ by $\bm{m}\sim\text{Bernoulli}(1-p)$ (elementally independent).
 
 $$
 \tilde{\bm{h}} = \bm{m}\odot\bm{h}, \qquad m_j\in\{0,1\}
 $$
 
-서로 다른 마스크는 서로 다른 부분망을 정의하며, 모든 부분망이 가중치를 공유한다. 이것이 bagging과의 결정적 차이다 — bagging은 모델들이 **독립**이지만, dropout은 **파라미터를 공유**한다.
+Different masks define different subnetworks, and all subnetworks share weights. This is the decisive difference from bagging — in bagging, models are **independent**, whereas in dropout, they **share parameters**.
 
-## 추론: Weight Scaling Inference Rule
+## Inference: Weight Scaling Inference Rule
 
-추론 시 모든 부분망의 예측을 평균(앙상블)해야 하지만 $2^n$ 개를 다 돌릴 수는 없다. 대신 **가중치 스케일링 규칙**으로 근사한다. 훈련 시 유닛이 확률 $1-p$ 로 켜졌으므로, 추론 시 가중치(또는 활성)에 $(1-p)$ 를 곱해 기대 입력을 맞춘다.
+During inference, the predictions of all subnetworks must be averaged (ensemble), but it is not possible to run all $2^n$ units. Instead, it is approximated by the **weight scaling rule**. Since the unit was turned on with probability $1-p$ during training, the weight (or activation) is multiplied by $(1-p)$ during inference to fit the expected input.
 
 $$
 \mathbb{E}_{\bm{m}}[\tilde{\bm{h}}] = (1-p)\,\bm{h}
 $$
 
-이 한 번의 순전파가 지수개 부분망의 **기하평균 앙상블**을 잘 근사한다(소프트맥스 출력의 경우 정확).
+This single forward propagation approximates the **geometric mean ensemble** of exponential subnetworks well (accurate for softmax output).
 
 ::: {.callout-tip}
-## Inverted Dropout (실무 표준)
-추론을 건드리지 않으려고, 보통 **훈련 시**에 살아남은 활성을 $1/(1-p)$ 로 미리 나눠 키운다. 그러면 추론은 스케일링 없이 그대로 쓰면 된다.
+## Inverted Dropout (Practical Standard)
+To avoid touching the inference, the surviving activations are usually pre-scaled by dividing them into $1/(1-p)$ during **training**. Then, the inference can be used as is without scaling.
 
 $$
 \tilde{\bm{h}}_{\text{train}} = \frac{\bm{m}\odot\bm{h}}{1-p}
 $$
 :::
 
-## 왜 일반화가 좋아지는가
+## Why Generalization Improves
 
-각 유닛이 특정 동료 유닛의 존재에 의존(co-adaptation)할 수 없게 되어, 유닛마다 **그 자체로 유용한 강건한 특징**을 학습한다. 이는 입력에 곱셈적 잡음을 주입하는 정규화로도 해석된다.
+Each unit becomes unable to rely on the presence of specific peer units (co-adaptation), allowing each unit to learn **robust features that are useful in themselves**. This can also be interpreted as normalization that injects multiplicative noise into the input.
 
 ::: {.callout-note}
-## 무선통신 비유
-**무작위 안테나/부반송파 선택(random antenna selection)** 또는 노드 고장에 강인한 분산 시스템과 같다. 임의의 안테나 부분집합만으로도 동작하도록 훈련하면, 특정 안테나에 과의존하지 않는 강건한 결합 전략을 학습하게 된다.
+## Wireless communication analogy
+It is similar to **random antenna selection** or a distributed system robust to node failure. If trained to operate with only a random subset of antennas, it learns a robust coupling strategy that does not over-depend on a specific antenna.
 :::
 
 ---
 
 # Tangent Propagation {#sec-tangent}
 
-## 핵심
+## Core
 
-> **출력 $f(\bm{x})$ 가 "알려진 변형 방향"에 대해 국소적으로 불변(locally invariant)**이 되도록, 그 방향으로의 방향도함수를 직접 0에 가깝게 만드는 명시적 정규화다. 예: 같은 클래스 예제들이 이루는 매니폴드(manifold)를 따라 움직여도 출력이 바뀌지 않아야 한다.
+> is an explicit normalization that directly brings the directional derivative in a direction close to zero so that the output $f(\bm{x})$ becomes locally invariant with respect to a "known variation direction". Example: The output should not change when moving along a manifold formed by the same class examples.
 
-## 형식화
+## Formatting
 
-데이터 $\bm{x}$ 에서 클래스 불변 변형의 접선 벡터(tangent vector)를 $\bm{v}^{(i)}$ 라 하자. 출력의 그래디언트가 이 접선과 **직교(orthogonal)**하면 그 방향 변화에 둔감해진다. 정규화항은 접선 방향 방향도함수의 제곱합이다.
+Let $\bm{v}^{(i)}$ be the tangent vector of the class-invariant transformation in data $\bm{x}$. If the gradient of the output is **orthogonal** to this tangent, it becomes insensitive to changes in direction. The normalization term is the sum of squares of the directional derivatives in the tangent direction.
 
 $$
 \Omega(f) = \sum_{i}\Big(\big(\nabla_{\bm{x}} f(\bm{x})\big)^\top \bm{v}^{(i)}\Big)^2
 $$ {#eq-tangent}
 
-@eq-tangent 을 최소화하면 $\nabla_{\bm{x}} f \perp \bm{v}^{(i)}$, 즉 접선 방향으로의 출력 변화율이 사라진다.
+Minimizing @eq-tangent $\nabla_{\bm{x}} f \perp \bm{v}^{(i)}$, that is, the rate of change of output in the tangential direction disappears.
 
-## 데이터 증강과의 관계
+## Relationship with data augmentation
 
 | | Dataset Augmentation | Tangent Propagation |
 |---|---|---|
-| 방식 | 변형된 입력을 **명시적으로** 생성·학습 | 변형 효과를 **암묵적으로** 페널티화 |
-| 변형 크기 | 큰 섭동도 가능 | **아주 작은(국소적) 섭동만** |
-| 비용 | 데이터 증가 | 자코비안 계산 |
+| Method | **Explicitly** generate and learn modified inputs | **Implicitly** penalize modification effects |
+| Variation Size | Large perturbations possible | **Very small (local) perturbations only** |
+| Cost | Data growth | Jacobian calculation |
 
-본질적으로 둘은 같은 목표(변형 불변성)를 추구하지만, TP는 1차 미분 정보로 무한소 변형을 직접 규제한다.
+Essentially, both pursue the same goal (deformation invariance), but TP directly regulates infinitesimal deformations with first-order derivative information.
 
 ::: {.callout-warning}
-## TP의 두 가지 약점
-1. **국소 변형만 모델링** — @eq-tangent 은 1차 근사라 큰 변형은 못 다룬다(이 점은 dataset augmentation이 우월).
-2. **ReLU와 궁합이 나쁨** — 그래디언트를 작게 만들어야 할 때 ReLU는 아예 0으로 죽여버린다. TP는 "줄어든(shrunk)" 그래디언트를 전제하므로, 0으로 끊기는 ReLU보다 매끄러운 활성과 잘 맞는다.
+## TP's Two Weaknesses
+1. **Modeling only local deformation** — @eq-tangent is a first-order approximation, so it cannot handle large deformations (dataset augmentation is superior in this respect).
+2. **Poor compatibility with ReLU** — When you need to make the gradient small, ReLU kills it to zero. Since TP assumes "shrunken" gradients, it works better with smooth activation than ReLU, which cuts off to zero.
 :::
 
 ::: {.callout-note}
-## 무선통신 비유
-**알려진 손상(impairment)에 대한 불변성 설계**와 같다. 수신기가 작은 반송파 위상 회전이나 미세 Doppler 편이 같은 "알려진 변형 방향"에 둔감하도록 만드는 것은, @eq-tangent 처럼 그 변형 방향으로의 출력 민감도를 0으로 규제하는 것과 동형이다.
+## Wireless communication analogy
+This is equivalent to **invariance design to known impairment**. Making the receiver insensitive to "known deformation directions," such as small carrier phase rotation or fine Doppler shift, is isomorphic to regulating the output sensitivity to that deformation direction to zero, as in @eq-tangent.
 :::
 
 ---
 
-# 종합 비교 및 정리 {#sec-summary}
+# Comprehensive Comparison and Summary {#sec-summary}
 
-## 9가지 기법 한눈에 보기
+## 9 Techniques at a Glance
 
-| # | 기법 | 건드리는 곳 | 한 줄 메커니즘 | 형식 분류 |
+| # | Technique | Target | One-line mechanism | Format classification |
 |---|---|---|---|---|
-| 1 | Dataset Augmentation | 데이터 | 레이블 보존 변형으로 불변성 주입 | (암묵)Soft |
-| 2 | Adversarial Examples | 데이터/타깃 | 최악 섭동에 강건화, label smoothing | Soft / minimax |
-| 3 | Semi-Supervised | 데이터 | $p(\bm{x})$ 로 경계를 저밀도 영역에 | Soft |
-| 4 | Multi-task Learning | 표현 | 과제 간 표현 공유 = 상호 prior | (암묵)제약 |
-| 5 | Early Stopping | 최적화 | 검증 최저점에서 정지 $\approx \ell_2$ | 동적 |
-| 6 | Parameter Tying | 파라미터 | $\|\bm{w}^A-\bm{w}^B\|^2$ 또는 공유 | Soft / Hard |
-| 7 | Bagging | 모델 | 비상관 모델 평균 → 분산 $\downarrow$ | 앙상블 |
-| 8 | Dropout | 표현 | 가중치 공유 지수 앙상블 | 앙상블 |
-| 9 | Tangent Propagation | 출력 | 접선 방향 도함수 $\to 0$ | 명시 Soft |
+| 1 | Dataset Augmentation | Data | Injecting Invariants with Label-Preserving Variants | (Implicit)Soft |
+| 2 | Adversarial Examples | Data/Target | Robustness to worst-case perturbations, label smoothing | Soft / minimax |
+| 3 | Semi-Supervised | Data | $p(\bm{x})$ with boundaries in low-density regions | Soft |
+| 4 | Multi-task Learning | Representation | Sharing representations across tasks = Mutual prior | (Implicit) constraint |
+| 5 | Early Stopping | Optimization | Stop at validation low point $\approx \ell_2$ | Dynamic |
+| 6 | Parameter Tying | Parameter | $\|\bm{w}^A-\bm{w}^B\|^2$ or Share | Soft / Hard |
+| 7 | Bagging | Model | Uncorrelated Model Mean → Variance $\downarrow$ | Ensemble |
+| 8 | Dropout | Representation | Shared Weights Exponential Ensemble | Ensemble |
+| 9 | Tangent Propagation | Output | Tangent Derivative $\to 0$ | Explicit Soft |
 
-## 두 축으로 보는 분류
+## Classification based on two axes
 
 ```{mermaid}
 flowchart TD
@@ -478,18 +478,18 @@ flowchart TD
     F --> F3["Bayesian prior = MAP"]
 ```
 
-## 핵심 메시지
+## Key Message
 
-1. 모든 정규화는 @eq-objective 의 큰 틀 — **Loss + 귀납적 편향** — 안에서 이해할 수 있다.
-2. Hard / Soft / Bayesian-prior 세 형식은 KKT와 MAP을 통해 **서로 등가**다(@eq-map).
-3. 겉보기에 다른 기법들이 동일한 효과로 수렴한다: 입력 노이즈·early stopping·tangent prop은 모두 어떤 의미에서 **함수의 평탄성(자코비안 억제)**을 유도하고, bagging·dropout은 **분산 감소 앙상블**로 묶인다.
-4. 무선통신의 직관 — 다이버시티 결합(=bagging), 강건 빔포밍(=adversarial), 반-블라인드 추정(=semi-supervised), 정상성 가정(=parameter sharing) — 이 정규화 전반을 관통한다.
+1. All normalization can be understood within the big picture of @eq-objective — **Loss + Inductive Bias** —.
+2. The three forms, Hard, Soft, and Bayesian-prior, are **equivalent** to each other through KKT and MAP (@eq-map).
+3. Seemingly different techniques converge to the same effect: input noise, early stopping, and tangent prop all induce **function flatness (Jacobian suppression)** in some sense, and bagging and dropout are grouped into **variance reduction ensemble**.
+4. Wireless communication intuition — diversity coupling (=bagging), robust beamforming (=adversarial), semi-blind estimation (=semi-supervised), and stationarity assumption (=parameter sharing) — runs throughout this normalization.
 
 ---
 
-# 부록: 실행 가능한 코드 {#sec-appendix}
+# Appendix: Executable Code {#sec-appendix}
 
-## A. Bagging 분산 감소 (@eq-bagging 수치 검증)
+## A. Bagging Variance Reduction (@eq-bagging numerical validation)
 
 ```{python}
 import numpy as np
@@ -511,9 +511,9 @@ for k in [1, 2, 4, 8, 16]:
     print(f"k={k:2d} | empirical={emp:.4f} | theory(v/k)={theory:.4f}")
 ```
 
-비상관($\rho=0$)일 때 평균 오차 분산이 $1/k$ 로 줄어드는 것을 확인할 수 있다. $\rho$ 를 키우면 @eq-bagging 의 $\frac1k v+\frac{k-1}{k}c$ 로 수렴한다.
+It can be observed that the mean error variance decreases to $1/k$ when is uncorrelated ($\rho=0$). Increasing $\rho$ converges to $\frac1k v+\frac{k-1}{k}c$ of @eq-bagging.
 
-## B. Dropout 순전파와 가중치 스케일링
+## B. Dropout Forward Propagation and Weight Scaling
 
 ```{python}
 import numpy as np
@@ -536,9 +536,9 @@ print(f"훈련 시 평균 활성(inverted) ≈ {train_out.mean():.3f}  (목표 1
 print(f"실제 drop된 비율 ≈ {(train_out==0).mean():.3f}  (목표 {p})")
 ```
 
-inverted dropout은 훈련 시 기대 활성을 보존하므로 추론을 손대지 않아도 된다.
+Inverted dropout preserves expected activity during training, so it does not require manipulation of inference.
 
-## C. Early Stopping ↔ $\ell_2$ 등가성 (@eq-early-l2)
+## C. Early Stopping ↔ $\ell_2$ Equivalence (@eq-early-l2)
 
 ```{python}
 import numpy as np
@@ -564,9 +564,9 @@ for i, (a, b) in enumerate(zip(gd_solution(tau), l2_solution(alpha_equiv))):
     print(f"  {i}  |    {a:.4f}     |     {b:.4f}")
 ```
 
-곡률이 큰 방향은 빠르게 $\theta^*$ 로 수렴(둘 다 1에 가까움)하고, 곡률이 작은 방향은 억제되어 작은 값에 머문다 — early stopping과 $\ell_2$ 정규화가 같은 수축을 만든다.
+The direction of high curvature converges quickly to $\theta^*$ (both close to 1), while the direction of low curvature is suppressed and stays at small values — early stopping and $\ell_2$ normalization produce the same contraction.
 
-## D. FGSM 적대적 섭동 (@eq-fgsm)
+## D. FGSM Hostile Perturbation (@eq-fgsm)
 
 ```{python}
 import numpy as np
@@ -583,4 +583,4 @@ print("적대적 x_adv:", np.round(x_adv, 3))
 print("섭동 노름(∞):", np.abs(x_adv - x).max(), "= eps")
 ```
 
-$\ell_\infty$ 제약 하에서 손실을 가장 키우는 섭동은 그래디언트의 부호 방향이며, 그 크기는 정확히 $\epsilon$ 으로 균일하다.
+$\ell_\infty$ under constraint, the perturbation that increases the loss the most is in the sign direction of the gradient, and its magnitude is exactly uniform $\epsilon$.

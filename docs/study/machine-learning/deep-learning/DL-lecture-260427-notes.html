@@ -1,13 +1,14 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" lang="ko" xml:lang="ko"><head>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
 <meta name="generator" content="quarto-1.10.19">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="dcterms.date" content="2026-04-27">
 
-<title>Transformer: 토큰, 어텐션, 위치 인코딩 – Rokei Notes</title>
+<title>Transformer: Token, Attention, Position Encoding – Rokei Notes</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -95,17 +96,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   ],
   "show-item-context": false,
   "language": {
-    "search-no-results-text": "일치 없음",
-    "search-matching-documents-text": "일치된 문서",
-    "search-copy-link-title": "검색 링크 복사",
-    "search-hide-matches-text": "추가 검색 결과 숨기기",
-    "search-more-match-text": "추가 검색결과",
-    "search-more-matches-text": "추가 검색결과",
-    "search-clear-button-title": "제거",
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
     "search-text-placeholder": "",
-    "search-detached-cancel-button-title": "취소",
-    "search-submit-button-title": "검색",
-    "search-label": "검색"
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
   }
 }</script>
 <script src="../../../site_libs/quarto-diagram/mermaid.min.js"></script>
@@ -155,8 +156,8 @@ window.Quarto = {
     <span class="navbar-title">Rokei Notes</span>
     </a>
   </div>
-            <div id="quarto-search" class="" title="검색"></div>
-          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="탐색 전환" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
   <span class="navbar-toggler-icon"></span>
 </button>
           <div class="collapse navbar-collapse" id="navbarCollapse">
@@ -254,67 +255,67 @@ window.Quarto = {
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
         <nav id="TOC" role="doc-toc" class="toc-active">
-    <h2 id="toc-title">목차</h2>
+    <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#sec-overview" id="toc-sec-overview" class="nav-link active" data-scroll-target="#sec-overview"><span class="header-section-number">1</span> 한눈에 보기</a></li>
-  <li><a href="#sec-motivation" id="toc-sec-motivation" class="nav-link" data-scroll-target="#sec-motivation"><span class="header-section-number">2</span> 배경: 왜 CNN/RNN으로는 부족한가</a>
+  <li><a href="#sec-overview" id="toc-sec-overview" class="nav-link active" data-scroll-target="#sec-overview"><span class="header-section-number">1</span> View at a glance</a></li>
+  <li><a href="#sec-motivation" id="toc-sec-motivation" class="nav-link" data-scroll-target="#sec-motivation"><span class="header-section-number">2</span> Background: Why CNN/RNN Is Insufficient</a>
   <ul class="collapse">
-  <li><a href="#시퀀스-모델링의-두-가지-난제" id="toc-시퀀스-모델링의-두-가지-난제" class="nav-link" data-scroll-target="#시퀀스-모델링의-두-가지-난제"><span class="header-section-number">2.1</span> 시퀀스 모델링의 두 가지 난제</a></li>
-  <li><a href="#cnn의-한계-vqa로-보는-실패-사례" id="toc-cnn의-한계-vqa로-보는-실패-사례" class="nav-link" data-scroll-target="#cnn의-한계-vqa로-보는-실패-사례"><span class="header-section-number">2.2</span> CNN의 한계: VQA로 보는 실패 사례</a></li>
+  <li><a href="#two-challenges-in-sequence-modeling" id="toc-two-challenges-in-sequence-modeling" class="nav-link" data-scroll-target="#two-challenges-in-sequence-modeling"><span class="header-section-number">2.1</span> Two challenges in sequence modeling</a></li>
+  <li><a href="#cnn-limitations-failure-cases-seen-through-vqa" id="toc-cnn-limitations-failure-cases-seen-through-vqa" class="nav-link" data-scroll-target="#cnn-limitations-failure-cases-seen-through-vqa"><span class="header-section-number">2.2</span> CNN Limitations: Failure Cases Seen Through VQA</a></li>
   </ul></li>
-  <li><a href="#sec-token" id="toc-sec-token" class="nav-link" data-scroll-target="#sec-token"><span class="header-section-number">3</span> 토큰 (Token)</a>
+  <li><a href="#sec-token" id="toc-sec-token" class="nav-link" data-scroll-target="#sec-token"><span class="header-section-number">3</span> Token</a>
   <ul class="collapse">
-  <li><a href="#새로운-데이터-구조" id="toc-새로운-데이터-구조" class="nav-link" data-scroll-target="#새로운-데이터-구조"><span class="header-section-number">3.1</span> 새로운 데이터 구조</a></li>
-  <li><a href="#한-번-토큰화하면-모든-모달리티가-같은-아키텍처로" id="toc-한-번-토큰화하면-모든-모달리티가-같은-아키텍처로" class="nav-link" data-scroll-target="#한-번-토큰화하면-모든-모달리티가-같은-아키텍처로"><span class="header-section-number">3.2</span> 한 번 토큰화하면 모든 모달리티가 같은 아키텍처로</a></li>
+  <li><a href="#new-data-structure" id="toc-new-data-structure" class="nav-link" data-scroll-target="#new-data-structure"><span class="header-section-number">3.1</span> New data structure</a></li>
+  <li><a href="#once-tokenized-all-modalities-are-in-the-same-architecture" id="toc-once-tokenized-all-modalities-are-in-the-same-architecture" class="nav-link" data-scroll-target="#once-tokenized-all-modalities-are-in-the-same-architecture"><span class="header-section-number">3.2</span> Once tokenized, all modalities are in the same architecture</a></li>
   </ul></li>
-  <li><a href="#sec-attention" id="toc-sec-attention" class="nav-link" data-scroll-target="#sec-attention"><span class="header-section-number">4</span> 어텐션 (Attention)</a>
+  <li><a href="#sec-attention" id="toc-sec-attention" class="nav-link" data-scroll-target="#sec-attention"><span class="header-section-number">4</span> Attention</a>
   <ul class="collapse">
-  <li><a href="#고정-가중치-vs-어텐션" id="toc-고정-가중치-vs-어텐션" class="nav-link" data-scroll-target="#고정-가중치-vs-어텐션"><span class="header-section-number">4.1</span> 고정 가중치 vs 어텐션</a></li>
-  <li><a href="#동적-풀링dynamic-pooling으로서의-어텐션" id="toc-동적-풀링dynamic-pooling으로서의-어텐션" class="nav-link" data-scroll-target="#동적-풀링dynamic-pooling으로서의-어텐션"><span class="header-section-number">4.2</span> 동적 풀링(dynamic pooling)으로서의 어텐션</a></li>
-  <li><a href="#쿼리키값-query-key-value" id="toc-쿼리키값-query-key-value" class="nav-link" data-scroll-target="#쿼리키값-query-key-value"><span class="header-section-number">4.3</span> 쿼리·키·값 (Query, Key, Value)</a></li>
-  <li><a href="#sec-cosine" id="toc-sec-cosine" class="nav-link" data-scroll-target="#sec-cosine"><span class="header-section-number">4.4</span> 유사도는 왜 코사인 유사도인가</a></li>
-  <li><a href="#소프트맥스-차이를-증폭하기" id="toc-소프트맥스-차이를-증폭하기" class="nav-link" data-scroll-target="#소프트맥스-차이를-증폭하기"><span class="header-section-number">4.5</span> 소프트맥스: 차이를 증폭하기</a></li>
-  <li><a href="#값-변환-행렬-w_v-와-학습-대상" id="toc-값-변환-행렬-w_v-와-학습-대상" class="nav-link" data-scroll-target="#값-변환-행렬-w_v-와-학습-대상"><span class="header-section-number">4.6</span> 값 변환 행렬 <span class="math inline">\(W_v\)</span> 와 학습 대상</a></li>
-  <li><a href="#sec-scaled" id="toc-sec-scaled" class="nav-link" data-scroll-target="#sec-scaled"><span class="header-section-number">4.7</span> 스케일드 닷-프로덕트 어텐션 (보충)</a></li>
+  <li><a href="#fixed-weights-vs.-attention" id="toc-fixed-weights-vs.-attention" class="nav-link" data-scroll-target="#fixed-weights-vs.-attention"><span class="header-section-number">4.1</span> Fixed Weights vs.&nbsp;Attention</a></li>
+  <li><a href="#attention-as-dynamic-pooling" id="toc-attention-as-dynamic-pooling" class="nav-link" data-scroll-target="#attention-as-dynamic-pooling"><span class="header-section-number">4.2</span> Attention as dynamic pooling</a></li>
+  <li><a href="#querykeyvalue-query-key-value" id="toc-querykeyvalue-query-key-value" class="nav-link" data-scroll-target="#querykeyvalue-query-key-value"><span class="header-section-number">4.3</span> Query·Key·Value (Query, Key, Value)</a></li>
+  <li><a href="#sec-cosine" id="toc-sec-cosine" class="nav-link" data-scroll-target="#sec-cosine"><span class="header-section-number">4.4</span> Why is similarity cosine similarity?</a></li>
+  <li><a href="#softmax-amplifying-the-difference" id="toc-softmax-amplifying-the-difference" class="nav-link" data-scroll-target="#softmax-amplifying-the-difference"><span class="header-section-number">4.5</span> Softmax: Amplifying the Difference</a></li>
+  <li><a href="#value-transformation-matrix-w_v-and-training-target" id="toc-value-transformation-matrix-w_v-and-training-target" class="nav-link" data-scroll-target="#value-transformation-matrix-w_v-and-training-target"><span class="header-section-number">4.6</span> Value transformation matrix <span class="math inline">\(W_v\)</span> and training target</a></li>
+  <li><a href="#sec-scaled" id="toc-sec-scaled" class="nav-link" data-scroll-target="#sec-scaled"><span class="header-section-number">4.7</span> Scaled Dot-Product Attention (Supplement)</a></li>
   </ul></li>
-  <li><a href="#sec-self" id="toc-sec-self" class="nav-link" data-scroll-target="#sec-self"><span class="header-section-number">5</span> 셀프 어텐션 (Self-Attention)</a>
+  <li><a href="#sec-self" id="toc-sec-self" class="nav-link" data-scroll-target="#sec-self"><span class="header-section-number">5</span> Self-Attention</a>
   <ul class="collapse">
-  <li><a href="#행렬-연산" id="toc-행렬-연산" class="nav-link" data-scroll-target="#행렬-연산"><span class="header-section-number">5.1</span> 행렬 연산</a></li>
-  <li><a href="#dino-패치-값-정련의-시각화" id="toc-dino-패치-값-정련의-시각화" class="nav-link" data-scroll-target="#dino-패치-값-정련의-시각화"><span class="header-section-number">5.2</span> DINO: 패치 값 정련의 시각화</a></li>
+  <li><a href="#matrix-operations" id="toc-matrix-operations" class="nav-link" data-scroll-target="#matrix-operations"><span class="header-section-number">5.1</span> Matrix Operations</a></li>
+  <li><a href="#dino-visualization-of-patch-value-refining" id="toc-dino-visualization-of-patch-value-refining" class="nav-link" data-scroll-target="#dino-visualization-of-patch-value-refining"><span class="header-section-number">5.2</span> DINO: Visualization of Patch Value Refining</a></li>
   </ul></li>
-  <li><a href="#sec-mask" id="toc-sec-mask" class="nav-link" data-scroll-target="#sec-mask"><span class="header-section-number">6</span> 마스크드 어텐션 (Masked / Causal Attention)</a>
+  <li><a href="#sec-mask" id="toc-sec-mask" class="nav-link" data-scroll-target="#sec-mask"><span class="header-section-number">6</span> Masked Attention (Masked / Causal Attention)</a>
   <ul class="collapse">
-  <li><a href="#왜-미래를-막는가" id="toc-왜-미래를-막는가" class="nav-link" data-scroll-target="#왜-미래를-막는가"><span class="header-section-number">6.1</span> 왜 미래를 막는가</a></li>
-  <li><a href="#다른-용도-선택적-멀티모달-인코딩" id="toc-다른-용도-선택적-멀티모달-인코딩" class="nav-link" data-scroll-target="#다른-용도-선택적-멀티모달-인코딩"><span class="header-section-number">6.2</span> 다른 용도: 선택적 멀티모달 인코딩</a></li>
+  <li><a href="#why-block-the-future" id="toc-why-block-the-future" class="nav-link" data-scroll-target="#why-block-the-future"><span class="header-section-number">6.1</span> Why Block the Future</a></li>
+  <li><a href="#other-uses-optional-multimodal-encoding" id="toc-other-uses-optional-multimodal-encoding" class="nav-link" data-scroll-target="#other-uses-optional-multimodal-encoding"><span class="header-section-number">6.2</span> Other uses: Optional multimodal encoding</a></li>
   </ul></li>
-  <li><a href="#sec-mha" id="toc-sec-mha" class="nav-link" data-scroll-target="#sec-mha"><span class="header-section-number">7</span> 멀티헤드 셀프 어텐션 (Multi-Head Self-Attention)</a></li>
-  <li><a href="#sec-equivariance" id="toc-sec-equivariance" class="nav-link" data-scroll-target="#sec-equivariance"><span class="header-section-number">8</span> MLP vs Transformer, 그리고 순열 등변성</a>
+  <li><a href="#sec-mha" id="toc-sec-mha" class="nav-link" data-scroll-target="#sec-mha"><span class="header-section-number">7</span> Multi-Head Self-Attention</a></li>
+  <li><a href="#sec-equivariance" id="toc-sec-equivariance" class="nav-link" data-scroll-target="#sec-equivariance"><span class="header-section-number">8</span> MLP vs Transformer, and Permutation Iomovariance</a>
   <ul class="collapse">
-  <li><a href="#등변성equivariance과-불변성invariance" id="toc-등변성equivariance과-불변성invariance" class="nav-link" data-scroll-target="#등변성equivariance과-불변성invariance"><span class="header-section-number">8.1</span> 등변성(equivariance)과 불변성(invariance)</a></li>
-  <li><a href="#순열-등변성과-위치-인코딩의-필요성" id="toc-순열-등변성과-위치-인코딩의-필요성" class="nav-link" data-scroll-target="#순열-등변성과-위치-인코딩의-필요성"><span class="header-section-number">8.2</span> 순열 등변성과 위치 인코딩의 필요성</a></li>
+  <li><a href="#equivariance-and-invariance" id="toc-equivariance-and-invariance" class="nav-link" data-scroll-target="#equivariance-and-invariance"><span class="header-section-number">8.1</span> Equivariance and Invariance</a></li>
+  <li><a href="#the-necessity-of-permutation-equivariance-and-positional-encoding" id="toc-the-necessity-of-permutation-equivariance-and-positional-encoding" class="nav-link" data-scroll-target="#the-necessity-of-permutation-equivariance-and-positional-encoding"><span class="header-section-number">8.2</span> The necessity of permutation equivariance and positional encoding</a></li>
   </ul></li>
-  <li><a href="#sec-pe" id="toc-sec-pe" class="nav-link" data-scroll-target="#sec-pe"><span class="header-section-number">9</span> 위치 인코딩 (Positional Encoding)</a>
+  <li><a href="#sec-pe" id="toc-sec-pe" class="nav-link" data-scroll-target="#sec-pe"><span class="header-section-number">9</span> Positional Encoding</a>
   <ul class="collapse">
-  <li><a href="#왜-단순-정수-번호는-안-되는가" id="toc-왜-단순-정수-번호는-안-되는가" class="nav-link" data-scroll-target="#왜-단순-정수-번호는-안-되는가"><span class="header-section-number">9.1</span> 왜 단순 정수 번호는 안 되는가</a></li>
-  <li><a href="#사인파-위치-인코딩-보충" id="toc-사인파-위치-인코딩-보충" class="nav-link" data-scroll-target="#사인파-위치-인코딩-보충"><span class="header-section-number">9.2</span> 사인파 위치 인코딩 (보충)</a></li>
+  <li><a href="#why-arent-simple-integer-numbers-allowed" id="toc-why-arent-simple-integer-numbers-allowed" class="nav-link" data-scroll-target="#why-arent-simple-integer-numbers-allowed"><span class="header-section-number">9.1</span> Why aren’t simple integer numbers allowed?</a></li>
+  <li><a href="#sine-wave-position-encoding-supplement" id="toc-sine-wave-position-encoding-supplement" class="nav-link" data-scroll-target="#sine-wave-position-encoding-supplement"><span class="header-section-number">9.2</span> Sine wave position encoding (supplement)</a></li>
   </ul></li>
-  <li><a href="#sec-arch" id="toc-sec-arch" class="nav-link" data-scroll-target="#sec-arch"><span class="header-section-number">10</span> 전체 아키텍처 정리</a></li>
-  <li><a href="#sec-application" id="toc-sec-application" class="nav-link" data-scroll-target="#sec-application"><span class="header-section-number">11</span> 응용 (Application)</a>
+  <li><a href="#sec-arch" id="toc-sec-arch" class="nav-link" data-scroll-target="#sec-arch"><span class="header-section-number">10</span> Overall Architecture Summary</a></li>
+  <li><a href="#sec-application" id="toc-sec-application" class="nav-link" data-scroll-target="#sec-application"><span class="header-section-number">11</span> Application</a>
   <ul class="collapse">
-  <li><a href="#언어-모델-language-model" id="toc-언어-모델-language-model" class="nav-link" data-scroll-target="#언어-모델-language-model"><span class="header-section-number">11.1</span> 언어 모델 (Language Model)</a></li>
-  <li><a href="#자기회귀-모델과-gpt" id="toc-자기회귀-모델과-gpt" class="nav-link" data-scroll-target="#자기회귀-모델과-gpt"><span class="header-section-number">11.2</span> 자기회귀 모델과 GPT</a></li>
+  <li><a href="#language-model" id="toc-language-model" class="nav-link" data-scroll-target="#language-model"><span class="header-section-number">11.1</span> Language Model</a></li>
+  <li><a href="#autoregressive-models-and-gpt" id="toc-autoregressive-models-and-gpt" class="nav-link" data-scroll-target="#autoregressive-models-and-gpt"><span class="header-section-number">11.2</span> Autoregressive Models and GPT</a></li>
   </ul></li>
-  <li><a href="#sec-limitation" id="toc-sec-limitation" class="nav-link" data-scroll-target="#sec-limitation"><span class="header-section-number">12</span> 한계와 효율화 (Limitations)</a>
+  <li><a href="#sec-limitation" id="toc-sec-limitation" class="nav-link" data-scroll-target="#sec-limitation"><span class="header-section-number">12</span> Limitations and Efficiency (Limitations)</a>
   <ul class="collapse">
-  <li><a href="#문맥-윈도-밖은-못-본다" id="toc-문맥-윈도-밖은-못-본다" class="nav-link" data-scroll-target="#문맥-윈도-밖은-못-본다"><span class="header-section-number">12.1</span> 1) 문맥 윈도 밖은 못 본다</a></li>
-  <li><a href="#계산-복잡도-on2" id="toc-계산-복잡도-on2" class="nav-link" data-scroll-target="#계산-복잡도-on2"><span class="header-section-number">12.2</span> 2) 계산 복잡도 <span class="math inline">\(O(n^2)\)</span></a></li>
-  <li><a href="#효율적-대안" id="toc-효율적-대안" class="nav-link" data-scroll-target="#효율적-대안"><span class="header-section-number">12.3</span> 효율적 대안</a></li>
+  <li><a href="#cannot-see-outside-the-context-window" id="toc-cannot-see-outside-the-context-window" class="nav-link" data-scroll-target="#cannot-see-outside-the-context-window"><span class="header-section-number">12.1</span> 1) Cannot see outside the context window</a></li>
+  <li><a href="#computational-complexity-on2" id="toc-computational-complexity-on2" class="nav-link" data-scroll-target="#computational-complexity-on2"><span class="header-section-number">12.2</span> 2) Computational complexity <span class="math inline">\(O(n^2)\)</span></a></li>
+  <li><a href="#efficient-alternative" id="toc-efficient-alternative" class="nav-link" data-scroll-target="#efficient-alternative"><span class="header-section-number">12.3</span> Efficient Alternative</a></li>
   </ul></li>
-  <li><a href="#sec-wireless" id="toc-sec-wireless" class="nav-link" data-scroll-target="#sec-wireless"><span class="header-section-number">13</span> 무선통신 관점 비유</a></li>
-  <li><a href="#sec-summary" id="toc-sec-summary" class="nav-link" data-scroll-target="#sec-summary"><span class="header-section-number">14</span> 핵심 요약</a></li>
-  <li><a href="#sec-appendix" id="toc-sec-appendix" class="nav-link" data-scroll-target="#sec-appendix"><span class="header-section-number">15</span> 부록: NumPy 구현</a></li>
-  <li><a href="#sec-reading" id="toc-sec-reading" class="nav-link" data-scroll-target="#sec-reading"><span class="header-section-number">16</span> 더 읽을거리</a></li>
+  <li><a href="#sec-wireless" id="toc-sec-wireless" class="nav-link" data-scroll-target="#sec-wireless"><span class="header-section-number">13</span> Wireless communication perspective analogy</a></li>
+  <li><a href="#sec-summary" id="toc-sec-summary" class="nav-link" data-scroll-target="#sec-summary"><span class="header-section-number">14</span> Key Summary</a></li>
+  <li><a href="#sec-appendix" id="toc-sec-appendix" class="nav-link" data-scroll-target="#sec-appendix"><span class="header-section-number">15</span> Appendix: NumPy Implementation</a></li>
+  <li><a href="#sec-reading" id="toc-sec-reading" class="nav-link" data-scroll-target="#sec-reading"><span class="header-section-number">16</span> More to read</a></li>
   </ul>
 </nav>
     </div>
@@ -323,8 +324,8 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Transformer: 토큰, 어텐션, 위치 인코딩</h1>
-<p class="subtitle lead">Attention as Dynamic Pooling — 고정 가중치를 넘어 입력에 적응하는 가중치로</p>
+<h1 class="title">Transformer: Token, Attention, Position Encoding</h1>
+<p class="subtitle lead">Attention as Dynamic Pooling — Weights that adapt to input beyond fixed weights</p>
 </div>
 
 
@@ -333,9 +334,9 @@ window.Quarto = {
 
     
     <div>
-    <div class="quarto-title-meta-heading">공개</div>
+    <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">2026년 4월 27일</p>
+      <p class="date">April 27, 2026</p>
     </div>
   </div>
   
@@ -348,21 +349,21 @@ window.Quarto = {
 
 
 <section id="sec-overview" class="level1" data-number="1">
-<h1 data-number="1"><span class="header-section-number">1</span> 한눈에 보기</h1>
-<div class="callout callout-style-default callout-tip callout-titled" title="핵심 한 줄">
+<h1 data-number="1"><span class="header-section-number">1</span> View at a glance</h1>
+<div class="callout callout-style-default callout-tip callout-titled" title="Key line">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">힌트</span>핵심 한 줄
+<span class="screen-reader-only">Tip</span>Key line
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>Transformer는 “고정 가중치(fixed weight)” 대신 “입력에 따라 동적으로 바뀌는 가중치(input-dependent weight)”를 쓰는 시퀀스-투-시퀀스(seq-to-seq) 모델이다.</strong> 그 가중치는 데이터를 직접 가중하지 않고, <strong>데이터끼리의 유사도(similarity)에 부여</strong>된다.</p>
+<p><strong>A Transformer is a sequence-to-seq model that uses “input-dependent weights” instead of “fixed weights.”</strong> These weights do not directly weight the data, but are <strong>assigned to the similarity between data points.</strong></p>
 </div>
 </div>
-<p>Transformer를 떠받치는 세 가지 기둥은 다음과 같다.</p>
+<p>The three pillars supporting the Transformer are as follows.</p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 33%">
@@ -371,335 +372,335 @@ window.Quarto = {
 </colgroup>
 <thead>
 <tr class="header">
-<th>구성요소</th>
-<th>한 줄 정의</th>
-<th>직관</th>
+<th>Component</th>
+<th>One-line definition</th>
+<th>Intuition</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><strong>토큰 (Token)</strong></td>
-<td>정보를 캡슐화한 벡터(뉴런 묶음)</td>
-<td>처리의 최소 단위를 “뉴런”에서 “벡터 묶음”으로 격상</td>
+<td><strong>Token</strong></td>
+<td>A vector (bundle of neurons) encapsulating information</td>
+<td>Elevating the minimum unit of processing from “neuron” to “bundle of vectors”</td>
 </tr>
 <tr class="even">
-<td><strong>어텐션 (Attention)</strong></td>
-<td>유사도에 학습된 가중치를 부여하는 동적 풀링</td>
-<td>입력을 보고 가중치를 바꿔서 다시 입력에 적용</td>
+<td><strong>Attention</strong></td>
+<td>Dynamic pooling that assigns learned weights to similarity</td>
+<td>Observes the input, changes the weights, and applies them back to the input</td>
 </tr>
 <tr class="odd">
-<td><strong>위치 인코딩 (Positional Encoding)</strong></td>
-<td>토큰에 위치 주소를 더하는 코드</td>
-<td>순서를 모르는 모델에게 “몇 번째 토큰인지”를 알려줌</td>
+<td><strong>Positional Encoding</strong></td>
+<td>Code that adds a positional address to a token</td>
+<td>Tells a model that does not know the order “which token it is”</td>
 </tr>
 </tbody>
 </table>
-<p>이 셋 중 <strong>어텐션이 가장 중요</strong>하다. 나머지 둘은 어텐션을 실제 데이터에 적용 가능하게 만드는 보조 장치에 가깝다.</p>
+<p>Of these three, <strong>attention is the most important</strong>. The other two are more like auxiliary devices that make attention applicable to actual data.</p>
 <hr>
 </section>
 <section id="sec-motivation" class="level1" data-number="2">
-<h1 data-number="2"><span class="header-section-number">2</span> 배경: 왜 CNN/RNN으로는 부족한가</h1>
-<section id="시퀀스-모델링의-두-가지-난제" class="level2" data-number="2.1">
-<h2 data-number="2.1" class="anchored" data-anchor-id="시퀀스-모델링의-두-가지-난제"><span class="header-section-number">2.1</span> 시퀀스 모델링의 두 가지 난제</h2>
-<p>지금까지 다룬 데이터는 길이가 고정된 “스냅샷”(이미지, 그래프)이었다. 그러나 언어, 시계열(주가), 비디오, 오디오는 길이가 가변적인 <strong>시퀀스(sequence)</strong> 다. 시퀀스 인코딩에는 두 가지 핵심 난제가 있다.</p>
+<h1 data-number="2"><span class="header-section-number">2</span> Background: Why CNN/RNN Is Insufficient</h1>
+<section id="two-challenges-in-sequence-modeling" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="two-challenges-in-sequence-modeling"><span class="header-section-number">2.1</span> Two challenges in sequence modeling</h2>
+<p>The data discussed so far has been “snapshots” (images, graphs) with fixed length. However, language, time series (stock prices), video, and audio are <strong>sequences</strong> with variable length. There are two key challenges in sequence encoding.</p>
 <ol type="1">
-<li><strong>장기 의존성 (long-term dependency)</strong>: 멀리 떨어진 정보를 오래 기억하기 어렵다.</li>
-<li><strong>문맥 (context)</strong>: 같은 토큰이라도 주변 문맥에 따라 의미가 달라진다. (예: “Buffalo buffalo Buffalo buffalo …” 문장처럼 동일 단어가 문맥상 명사/동사/지명으로 갈린다.)</li>
+<li><strong>Long-term dependency</strong>: It is difficult to remember information from a long time ago.</li>
+<li><strong>Context</strong>: Even the same token can have different meanings depending on the surrounding context. (e.g., as in the sentence “Buffalo buffalo Buffalo buffalo …”, the same word can be interpreted as a noun, verb, or place name depending on the context.)</li>
 </ol>
-<p>RNN은 은닉 상태(hidden state)를 시작부터 끝까지 전파하여 이 두 난제를 다룬다. Transformer는 이에 대한 <strong>대안</strong>이며, 현재는 사실상 표준이 되었다.</p>
+<p>RNNs address these two difficult problems by propagating the hidden state from start to finish. The Transformer is an <strong>alternative</strong> to this and has now become the de facto standard.</p>
 </section>
-<section id="cnn의-한계-vqa로-보는-실패-사례" class="level2" data-number="2.2">
-<h2 data-number="2.2" class="anchored" data-anchor-id="cnn의-한계-vqa로-보는-실패-사례"><span class="header-section-number">2.2</span> CNN의 한계: VQA로 보는 실패 사례</h2>
-<div class="callout callout-style-default callout-note callout-titled" title="VQA(Visual Question Answering) 예시">
+<section id="cnn-limitations-failure-cases-seen-through-vqa" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="cnn-limitations-failure-cases-seen-through-vqa"><span class="header-section-number">2.2</span> CNN Limitations: Failure Cases Seen Through VQA</h2>
+<div class="callout callout-style-default callout-note callout-titled" title="VQA(Visual Question Answering) Example">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">노트</span>VQA(Visual Question Answering) 예시
+<span class="screen-reader-only">Note</span>VQA(Visual Question Answering) Example
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>“이 이미지에 새가 몇 마리 있는가?”, “오른쪽 위 새와 왼쪽 아래 새가 같은 종인가?”, “하늘 색은 무엇인가?” 같은 질문을 생각하자.</p>
+<p>Let’s think about questions like “How many birds are in this image?”, “Are the bird in the top right and the bird in the bottom left the same species?”, and “What is the color of the sky?”</p>
 </div>
 </div>
-<p>CNN은 두 가지 설계 가정 위에 서 있다.</p>
+<p>CNN stands on two design assumptions.</p>
 <ul>
-<li><strong>국소성 (locality)</strong>: 필터는 인접 영역만 본다.</li>
-<li><strong>공간 정상성 (spatial stationarity)</strong>: 같은 필터를 이미지 전역에 동일하게 적용한다(파라미터 공유).</li>
+<li><strong>Locality</strong>: The filter only considers adjacent areas.</li>
+<li><strong>Spatial stationarity</strong>: Applies the same filter equally across the entire image (parameter sharing).</li>
 </ul>
-<p>이 가정 때문에 CNN은 다음을 잘 못한다.</p>
+<p>Because of this assumption, CNN does not do the following well.</p>
 <ul>
-<li><strong>개수 세기</strong>: max-pooling은 가장 강하게 반응한 위치만 다음 층으로 넘긴다. 위치마다 다른 “새”를 세는 작업과 상충한다.</li>
-<li><strong>장거리 관계 비교</strong>: 멀리 떨어진 두 객체(“오른쪽 위 vs 왼쪽 아래”)의 관계 판단은 국소 필터로는 어렵다.</li>
-<li><strong>문맥에 따른 선택적 주목</strong>: CNN은 모든 공간 위치를 동등하게 훑지만, 질문에 따라 “특정 영역만” 주목해야 할 때가 있다.</li>
+<li><strong>Counting</strong>: max-pooling passes only the position with the strongest reaction to the next layer. This conflicts with the task of counting different “birds” at each position.</li>
+<li><strong>Long-distance relationship comparison</strong>: Determining the relationship between two distant objects (“Top right vs.&nbsp;Bottom left”) is difficult with local filters.</li>
+<li><strong>Selective attention based on context</strong>: CNNs scan all spatial locations equally, but there are times when they need to pay attention to “only specific regions” depending on the question.</li>
 </ul>
-<p>locally-connected network(가중치 공유를 없앤 CNN)는 개수 세기에는 유리하나, 파라미터가 폭증하고 CNN의 이점을 거의 다 잃는다. 그래서 <strong>다른 종류의 인코딩 방식</strong>이 필요하다 — 그것이 어텐션이다.</p>
+<p>Locally-connected networks (CNNs that eliminate weight sharing) are advantageous for counting, but the number of parameters explodes, and they lose almost all the advantages of CNNs. Therefore, a <strong>different type of encoding method</strong> is needed — that is attention.</p>
 <hr>
 </section>
 </section>
 <section id="sec-token" class="level1" data-number="3">
-<h1 data-number="3"><span class="header-section-number">3</span> 토큰 (Token)</h1>
-<section id="새로운-데이터-구조" class="level2" data-number="3.1">
-<h2 data-number="3.1" class="anchored" data-anchor-id="새로운-데이터-구조"><span class="header-section-number">3.1</span> 새로운 데이터 구조</h2>
-<div class="callout callout-style-default callout-tip callout-titled" title="핵심 한 줄">
+<h1 data-number="3"><span class="header-section-number">3</span> Token</h1>
+<section id="new-data-structure" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="new-data-structure"><span class="header-section-number">3.1</span> New data structure</h2>
+<div class="callout callout-style-default callout-tip callout-titled" title="Key point">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">힌트</span>핵심 한 줄
+<span class="screen-reader-only">Tip</span>Key point
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>토큰은 “뉴런 하나”가 아니라 “정보를 캡슐화한 벡터”다.</strong> Transformer는 뉴런이 아니라 토큰 단위로 연산한다.</p>
+<p><strong>A token is not a “single neuron” but a “vector encapsulating information.”</strong> Transformers perform operations at the token level, not the neuron level.</p>
 </div>
 </div>
 <ul>
-<li>GNN의 “노드 속성(node attribute)”과 본질적으로 같은 발상이다 — 정보 단위가 벡터다.</li>
-<li>입력을 <strong>잘게 쪼개고(chop)</strong>, 각 조각을 벡터로 <strong>사영(project)</strong> 하면 토큰이 된다.</li>
+<li>It is essentially the same concept as the “node attribute” of GNN — the unit of information is a vector.</li>
+<li>If you <strong>chop</strong> the input and <strong>project</strong> each piece onto a vector, it becomes a token.</li>
 </ul>
 <table class="caption-top table">
 <thead>
 <tr class="header">
-<th>입력 유형</th>
-<th>토큰화 방법</th>
+<th>Input Type</th>
+<th>Tokenization Method</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>이미지</td>
-<td>패치(patch)로 분할 후 각 패치를 벡터로 사영 (ViT)</td>
+<td>Image</td>
+<td>Split into patches and project each patch as a vector (ViT)</td>
 </tr>
 <tr class="even">
-<td>텍스트</td>
-<td>단어/서브워드를 임베딩 벡터로 변환</td>
+<td>Text</td>
+<td>Convert word/subword to embedding vector</td>
 </tr>
 <tr class="odd">
-<td>오디오</td>
-<td>시간 구간(프레임)을 벡터로 변환</td>
+<td>Audio</td>
+<td>Convert time interval (frame) to vector</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="한-번-토큰화하면-모든-모달리티가-같은-아키텍처로" class="level2" data-number="3.2">
-<h2 data-number="3.2" class="anchored" data-anchor-id="한-번-토큰화하면-모든-모달리티가-같은-아키텍처로"><span class="header-section-number">3.2</span> 한 번 토큰화하면 모든 모달리티가 같은 아키텍처로</h2>
-<p>이것이 Transformer의 큰 실용적 이점이다. <strong>모달리티에 상관없이 일단 토큰화하면 동일한 아키텍처를 그대로 쓸 수 있다.</strong></p>
+<section id="once-tokenized-all-modalities-are-in-the-same-architecture" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="once-tokenized-all-modalities-are-in-the-same-architecture"><span class="header-section-number">3.2</span> Once tokenized, all modalities are in the same architecture</h2>
+<p>This is a major practical advantage of Transformer. <strong>Regardless of modality, once tokenized, the same architecture can be used as is.</strong></p>
 <blockquote class="blockquote">
-<p>CNN은 정보를 “인코딩하는 한 가지 방식”, MLP는 정보를 “혼합하는 한 가지 방식”에 가깝다. Transformer는 입력을 토큰 공간(token space)으로 밀어 넣음으로써, 모달리티 통합의 부담을 “토큰화” 단계로 옮긴다.</p>
+<p>CNNs are closer to “one way of encoding” information, while MLPs are closer to “one way of mixing” information. Transformers shift the burden of modality integration to the “tokenization” stage by pushing inputs into a token space.</p>
 </blockquote>
-<p>토큰 간 선형 결합(linear combination)과 토큰 단위 비선형성(token-wise nonlinearity, 즉 위치별 MLP)을 거치면서 토큰은 갱신된다.</p>
+<p>Tokens are updated through linear combinations between tokens and token-wise nonlinearity (i.e., position-wise MLP).</p>
 <hr>
 </section>
 </section>
 <section id="sec-attention" class="level1" data-number="4">
-<h1 data-number="4"><span class="header-section-number">4</span> 어텐션 (Attention)</h1>
-<p>여기가 이 글의 심장이다.</p>
-<section id="고정-가중치-vs-어텐션" class="level2" data-number="4.1">
-<h2 data-number="4.1" class="anchored" data-anchor-id="고정-가중치-vs-어텐션"><span class="header-section-number">4.1</span> 고정 가중치 vs 어텐션</h2>
-<div class="callout callout-style-default callout-important callout-titled" title="가장 중요한 구분">
+<h1 data-number="4"><span class="header-section-number">4</span> Attention</h1>
+<p>This is the heart of this text.</p>
+<section id="fixed-weights-vs.-attention" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="fixed-weights-vs.-attention"><span class="header-section-number">4.1</span> Fixed Weights vs.&nbsp;Attention</h2>
+<div class="callout callout-style-default callout-important callout-titled" title="The most important distinction">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">중요</span>가장 중요한 구분
+<span class="screen-reader-only">Important</span>The most important distinction
 </div>
 </div>
 <div class="callout-body-container callout-body">
 <ul>
-<li><strong>보통의 가중치(ordinary weight)</strong>: 입력이 무엇이든 <strong>고정된 값</strong>. 데이터로 학습되지만, 추론 시에는 입력과 무관하게 동일.</li>
-<li><strong>어텐션(attention)</strong>: 가중치가 <strong>입력의 함수</strong>. 입력을 받아 가중치 값을 바꾸고, 그 바뀐 가중치를 다시 입력에 적용.</li>
+<li><strong>Ordinary weight</strong>: A <strong>fixed value</strong> regardless of the input. It is learned from the data, but remains the same regardless of the input during inference.</li>
+<li><strong>Attention</strong>: Weights are a <strong>function of the input</strong>. It receives input, changes the weight values, and applies the changed weights back to the input.</li>
 </ul>
 </div>
 </div>
-<p>수식으로 보면, 보통의 층은 출력이 <span class="math inline">\(y = Wx\)</span> 로 <span class="math inline">\(W\)</span>가 상수다. 어텐션은 <span class="math inline">\(y = A(x)\,x\)</span> 처럼 <strong>가중치 자체가 <span class="math inline">\(x\)</span>의 함수</strong> <span class="math inline">\(A(x)\)</span> 다. “입력을 입력으로 받아 가중치를 만들고, 그 가중치를 입력에 다시 적용한다”는 한 단계가 추가될 뿐이다.</p>
+<p>Looking at the formula, the output of a normal layer is ZZZPH0008507ZZZ , where <span class="math inline">\(y = Wx\)</span> and Z<span class="math inline">\(W\)</span> is a constant. For attention, like <span class="math inline">\(y = A(x)\,x\)</span>, the <strong>weights themselves are a function of <span class="math inline">\(x\)</span></strong> <span class="math inline">\(A(x)\)</span>. Only one step is added: “take the input as input, create weights, and apply those weights back to the input.”</p>
 </section>
-<section id="동적-풀링dynamic-pooling으로서의-어텐션" class="level2" data-number="4.2">
-<h2 data-number="4.2" class="anchored" data-anchor-id="동적-풀링dynamic-pooling으로서의-어텐션"><span class="header-section-number">4.2</span> 동적 풀링(dynamic pooling)으로서의 어텐션</h2>
-<p>어텐션은 <strong>쿼리(query)를 기준으로 한 동적/적응적 풀링</strong>으로 이해할 수 있다.</p>
+<section id="attention-as-dynamic-pooling" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="attention-as-dynamic-pooling"><span class="header-section-number">4.2</span> Attention as dynamic pooling</h2>
+<p>Attention can be understood as <strong>dynamic/adaptive pooling based on queries</strong>.</p>
 <ul>
-<li>max/average pooling은 위치 간 <strong>관계를 고려하지 않고</strong> 고정된 연산(최대/평균)을 한다.</li>
-<li>어텐션은 <strong>쿼리와 키 사이의 관계(유사도)에 따라</strong> 풀링 가중치를 동적으로 정한다.</li>
+<li>Max/average pooling performs fixed operations (max/average) without considering the <strong>relationships</strong> between positions.</li>
+<li>Attention dynamically determines pooling weights based on the <strong>relationship (similarity) between the query and the key</strong>.</li>
 </ul>
-<p>즉 “max도 min도 average도 아닌, 관계 기반 풀링”이다.</p>
+<p>In other words, it is “relationship-based pooling that is neither max, min, nor average”.</p>
 </section>
-<section id="쿼리키값-query-key-value" class="level2" data-number="4.3">
-<h2 data-number="4.3" class="anchored" data-anchor-id="쿼리키값-query-key-value"><span class="header-section-number">4.3</span> 쿼리·키·값 (Query, Key, Value)</h2>
-<p>세 가지 역할을 정의한다.</p>
+<section id="querykeyvalue-query-key-value" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="querykeyvalue-query-key-value"><span class="header-section-number">4.3</span> Query·Key·Value (Query, Key, Value)</h2>
+<p>Defines three roles.</p>
 <ul>
-<li><strong>Query (<span class="math inline">\(q\)</span>)</strong>: 인코딩(임베딩)을 얻고자 하는 대상. 내가 “물어보는” 것.</li>
-<li><strong>Key (<span class="math inline">\(k\)</span>)</strong>: 문맥을 이루는 다른 정보들. 쿼리와의 유사도를 잴 상대.</li>
-<li><strong>Value (<span class="math inline">\(v\)</span>)</strong>: 실제로 가져와서 합칠 정보. 연산의 결과로 출력에 반영됨.</li>
+<li><strong>Query (<span class="math inline">\(q\)</span>)</strong>: The target from which to obtain encoding (embedding). What I am “asking”.</li>
+<li><strong>Key (<span class="math inline">\(k\)</span>)</strong>: Other contextual information. The relative to measure similarity with the query.</li>
+<li><strong>Value (<span class="math inline">\(v\)</span>)</strong>: Information to actually retrieve and combine. Reflected in the output as a result of the operation.</li>
 </ul>
-<div class="callout callout-style-default callout-note callout-titled" title="언어 예시: &quot;I like ice cream&quot;">
+<div class="callout callout-style-default callout-note callout-titled" title="Language example: &quot;I like ice cream&quot;">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">노트</span>언어 예시: “I like ice cream”
+<span class="screen-reader-only">Note</span>Language example: “I like ice cream”
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>“like”의 임베딩을 얻고 싶다면, <strong>“like”가 쿼리</strong>, 문장의 모든 단어(“I”, “like”, “ice”, “cream”)가 <strong>키</strong>가 된다. 쿼리와 각 키의 유사도를 재고, 그 유사도로 값들을 가중합한다.</p>
+<p>If you want to obtain the embedding of “like”, <strong>“like” is the query</strong>, and all words in the sentence (“I”, “like”, “ice”, “cream”) are the <strong>keys</strong>. Measure the similarity between the query and each key, and then perform a weighted sum of the values based on that similarity.</p>
 </div>
 </div>
-<div class="callout callout-style-default callout-note callout-titled" title="VQA 예시 (cross-attention)">
+<div class="callout callout-style-default callout-note callout-titled" title="VQA Example (cross-attention)">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">노트</span>VQA 예시 (cross-attention)
+<span class="screen-reader-only">Note</span>VQA Example (cross-attention)
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>“이 임팔라의 색은?”이라는 <strong>질문 문장이 쿼리</strong>, <strong>이미지 패치들이 키/값</strong>이 된다. 쿼리와 비슷한 패치(임팔라 영역)에 큰 가중치가 실리고, 그 영역의 값으로부터 답의 단서를 얻는다. 쿼리와 키가 서로 다른 출처일 때 이를 <strong>cross-attention</strong>이라 한다.</p>
+<p>The <strong>question sentence “What color is this impala?”</strong> serves as the <strong>query</strong>, and <strong>image patches</strong> serve as the <strong>key/value</strong>. Large weights are assigned to patches (impala regions) similar to the query, and clues to the answer are obtained from the values of those regions. When the query and the key originate from different sources, this is called <strong>cross-attention</strong>.</p>
 </div>
 </div>
-<p>문제 설정(번역, VQA, 비디오 생성 등)에 따라 “무엇을 쿼리/키/값으로 둘지”만 정의하면, 다양한 문제를 하나의 형식으로 환원할 수 있다.</p>
+<p>By simply defining “what to use as queries/keys/values” based on the problem settings (translation, VQA, video generation, etc.), various problems can be reduced to a single format.</p>
 </section>
 <section id="sec-cosine" class="level2" data-number="4.4">
-<h2 data-number="4.4" class="anchored" data-anchor-id="sec-cosine"><span class="header-section-number">4.4</span> 유사도는 왜 코사인 유사도인가</h2>
-<p>쿼리 <span class="math inline">\(q\)</span>와 키 <span class="math inline">\(k\)</span>의 유사도를 <strong>내적(dot product)</strong> 으로 잰다. 그 의미를 고등학교 벡터로 풀어보자.</p>
+<h2 data-number="4.4" class="anchored" data-anchor-id="sec-cosine"><span class="header-section-number">4.4</span> Why is similarity cosine similarity?</h2>
+<p>Measure the similarity between query <span class="math inline">\(q\)</span> and key <span class="math inline">\(k\)</span> using the <strong>dot product</strong>. Let’s explain this using high school vectors.</p>
 <p><span class="math display">\[
 q \cdot k = \|q\|\,\|k\|\cos\theta
 \]</span></p>
 <ul>
-<li><span class="math inline">\(\|q\|,\|k\|\)</span> 는 크기(magnitude), <span class="math inline">\(\theta\)</span> 는 두 벡터 사이의 각.</li>
-<li>두 벡터를 단위 벡터로 정규화하면(또는 크기를 무시하면) 내적은 <span class="math inline">\(\cos\theta\)</span> 그 자체다.</li>
+<li><span class="math inline">\(\|q\|,\|k\|\)</span> is the magnitude, <span class="math inline">\(\theta\)</span> is the angle between the two vectors.</li>
+<li>If the two vectors are normalized to unit vectors (or if magnitude is ignored), the dot product is <span class="math inline">\(\cos\theta\)</span> itself.</li>
 </ul>
 <p><span class="math display">\[
 \text{cosine similarity} = \frac{q\cdot k}{\|q\|\,\|k\|} = \cos\theta
 \]</span></p>
-<p>기하학적으로 <span class="math inline">\(\cos\theta\)</span> 는 한 벡터를 다른 벡터 방향으로 <strong>사영(projection)</strong> 한 길이다. 즉:</p>
+<p>Geometrically, <span class="math inline">\(\cos\theta\)</span> is the length of the <strong>projection</strong> of one vector in the direction of another vector. That is:</p>
 <ul>
-<li><span class="math inline">\(\theta = 90°\)</span> (직교) → <span class="math inline">\(\cos\theta = 0\)</span>: 무관.</li>
-<li><span class="math inline">\(\theta = 0°\)</span> (같은 방향) → <span class="math inline">\(\cos\theta = 1\)</span>: 최대 유사.</li>
+<li><span class="math inline">\(\theta = 90°\)</span> (Orthogonal) → <span class="math inline">\(\cos\theta = 0\)</span>: Irrelevant.</li>
+<li><span class="math inline">\(\theta = 0°\)</span> (same direction) → <span class="math inline">\(\cos\theta = 1\)</span>: maximum similarity.</li>
 </ul>
-<div class="callout callout-style-default callout-tip callout-titled" title="직관">
+<div class="callout callout-style-default callout-tip callout-titled" title="Intuition">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">힌트</span>직관
+<span class="screen-reader-only">Tip</span>Intuition
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>코사인 유사도는 <strong>크기를 무시하고 “방향이 얼마나 같은 쪽을 향하는가”</strong> 만 본다. 이를 <strong>각거리(angular distance)</strong> 라고도 부른다. 어텐션이 묻는 것은 “쿼리와 키가 같은 방향을 향하느냐”이다.</p>
+<p>Cosine similarity ignores <strong>magnitude and only looks at “how much the direction points in the same direction.” This is also called </strong>angular distance**. What attention asks is “whether the query and the key point in the same direction.”</p>
 </div>
 </div>
 </section>
-<section id="소프트맥스-차이를-증폭하기" class="level2" data-number="4.5">
-<h2 data-number="4.5" class="anchored" data-anchor-id="소프트맥스-차이를-증폭하기"><span class="header-section-number">4.5</span> 소프트맥스: 차이를 증폭하기</h2>
-<p>유사도 점수 벡터 <span class="math inline">\(s = [s_1, \dots, s_n]\)</span> 에 <strong>소프트맥스(softmax)</strong> 를 적용한다.</p>
+<section id="softmax-amplifying-the-difference" class="level2" data-number="4.5">
+<h2 data-number="4.5" class="anchored" data-anchor-id="softmax-amplifying-the-difference"><span class="header-section-number">4.5</span> Softmax: Amplifying the Difference</h2>
+<p>Apply <strong>softmax</strong> to the similarity score vector <span class="math inline">\(s = [s_1, \dots, s_n]\)</span>.</p>
 <p><span class="math display">\[
 a_j = \frac{\exp(s_j)}{\sum_{l} \exp(s_l)}
 \]</span></p>
-<p>소프트맥스의 역할은 <strong>최댓값과 나머지의 차이를 증폭</strong>하여, 합이 1인 가중치 분포로 만드는 것이다(부드러운 argmax). 이렇게 얻은 <span class="math inline">\(a\)</span> 가 바로 <strong>어텐션 가중치</strong>다.</p>
+<p>The role of the softmax is to <strong>amplify the difference between the maximum value and the remainder</strong> to create a weight distribution where the sum is 1 (smooth argmax). The <span class="math inline">\(a\)</span> obtained in this way is the <strong>attention weight</strong>.</p>
 </section>
-<section id="값-변환-행렬-w_v-와-학습-대상" class="level2" data-number="4.6">
-<h2 data-number="4.6" class="anchored" data-anchor-id="값-변환-행렬-w_v-와-학습-대상"><span class="header-section-number">4.6</span> 값 변환 행렬 <span class="math inline">\(W_v\)</span> 와 학습 대상</h2>
-<p>지금까지 <span class="math inline">\(q, k\)</span> 는 유사도(=어텐션 강도)를 정하는 데 쓰였다. 그렇다면 실제로 합쳐질 <strong>값(value)</strong> 은? 입력 토큰 <span class="math inline">\(x\)</span> 를 그대로 쓰지 않고, 학습 가능한 행렬 <span class="math inline">\(W_v\)</span> 로 한 번 더 변환한다. 이는 주어진 과제에 맞게 값 공간을 회전/스케일할 자유도를 준다.</p>
-<p>정리하면, 어텐션이 학습하는 것은 <strong>세 개의 사영 행렬</strong> <span class="math inline">\(W_q, W_k, W_v\)</span> 다.</p>
+<section id="value-transformation-matrix-w_v-and-training-target" class="level2" data-number="4.6">
+<h2 data-number="4.6" class="anchored" data-anchor-id="value-transformation-matrix-w_v-and-training-target"><span class="header-section-number">4.6</span> Value transformation matrix <span class="math inline">\(W_v\)</span> and training target</h2>
+<p>Up until now, <span class="math inline">\(q, k\)</span> has been used to determine similarity (=attention strength). Then, what is the <strong>value</strong> that will actually be combined? Instead of using the input token <span class="math inline">\(x\)</span> as is, it is transformed once more into a trainable matrix <span class="math inline">\(W_v\)</span>. This grants degrees of freedom to rotate/scale the value space to suit the given task.</p>
+<p>To summarize, what attention learns are <strong>three projection matrices</strong> <span class="math inline">\(W_q, W_k, W_v\)</span>.</p>
 <p><span class="math display">\[
 Q = X W_q,\quad K = X W_k,\quad V = X W_v
 \]</span></p>
-<div class="callout callout-style-default callout-important callout-titled" title="어텐션의 본질">
+<div class="callout callout-style-default callout-important callout-titled" title="The Essence of Attention">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">중요</span>어텐션의 본질
+<span class="screen-reader-only">Important</span>The Essence of Attention
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>어텐션은 “<strong>정보 자체에 고정 가중치를 거는 것</strong>”이 아니라, “<strong>정보들 사이의 유사도에 학습된 가중치를 거는 것</strong>”이다. 어떤 유사도가 중요한지는 데이터와 과제에 따라 달라지며, 그 판단을 <span class="math inline">\(W_q, W_k, W_v\)</span> 가 학습한다.</p>
+<p>Attention is not “<strong>applying fixed weights to the information itself</strong>”, but “<strong>applying learned weights to the similarity between pieces of information</strong>”. Which similarity is important varies depending on the data and the task, and <span class="math inline">\(W_q, W_k, W_v\)</span> learns this judgment.</p>
 </div>
 </div>
 </section>
 <section id="sec-scaled" class="level2" data-number="4.7">
-<h2 data-number="4.7" class="anchored" data-anchor-id="sec-scaled"><span class="header-section-number">4.7</span> 스케일드 닷-프로덕트 어텐션 (보충)</h2>
-<p>전체 연산을 행렬로 한 번에 쓰면 다음과 같다. (이 정규화 계수 <span class="math inline">\(\sqrt{d_k}\)</span> 는 위 직관 설명에서는 생략되지만, 실제 구현에서 반드시 등장하므로 보충한다 — d2l.ai의 <em>Attention Scoring Functions</em> 절 참고.)</p>
+<h2 data-number="4.7" class="anchored" data-anchor-id="sec-scaled"><span class="header-section-number">4.7</span> Scaled Dot-Product Attention (Supplement)</h2>
+<p>The entire operation can be written as a single matrix as follows. (This normalization coefficient <span class="math inline">\(\sqrt{d_k}\)</span> is omitted in the intuitive explanation above, but is included here as it invariably appears in actual implementations — refer to the <em>Attention Scoring Functions</em> section of d2l.ai.)</p>
 <p><span class="math display">\[
 \boxed{\ \text{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right) V\ }
 \]</span></p>
-<div class="callout callout-style-default callout-note callout-titled" title="왜 $\sqrt{d_k}$ 로 나누는가">
+<div class="callout callout-style-default callout-note callout-titled" title="Why divide into $\sqrt{d_k}$">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">노트</span>왜 <span class="math inline">\(\sqrt{d_k}\)</span> 로 나누는가
+<span class="screen-reader-only">Note</span>Why divide into <span class="math inline">\(\sqrt{d_k}\)</span>
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><span class="math inline">\(q, k\)</span> 의 각 성분이 평균 0, 분산 1로 독립이라면, 내적 <span class="math inline">\(q\cdot k = \sum_{i=1}^{d_k} q_i k_i\)</span> 의 분산은 <span class="math inline">\(d_k\)</span> 가 된다. <span class="math inline">\(d_k\)</span> 가 크면 점수의 크기가 커져 소프트맥스가 한쪽으로 과포화(saturation)되고, 그 영역에서 기울기가 거의 0이 된다. 표준편차 <span class="math inline">\(\sqrt{d_k}\)</span> 로 나누면 점수 분산을 1 수준으로 되돌려 학습을 안정화한다.</p>
+<p>If each component of <span class="math inline">\(q, k\)</span> is independent with a mean of 0 and a variance of 1, the variance of the inner product <span class="math inline">\(q\cdot k = \sum_{i=1}^{d_k} q_i k_i\)</span> becomes <span class="math inline">\(d_k\)</span>. If <span class="math inline">\(d_k\)</span> is large, the magnitude of the scores increases, causing the softmax to become oversaturated on one side, and the gradient becomes nearly 0 in that region. Dividing by the standard deviation <span class="math inline">\(\sqrt{d_k}\)</span> returns the score variance to a level of 1, stabilizing the learning.</p>
 </div>
 </div>
 <hr>
 </section>
 </section>
 <section id="sec-self" class="level1" data-number="5">
-<h1 data-number="5"><span class="header-section-number">5</span> 셀프 어텐션 (Self-Attention)</h1>
-<div class="callout callout-style-default callout-tip callout-titled" title="핵심 한 줄">
+<h1 data-number="5"><span class="header-section-number">5</span> Self-Attention</h1>
+<div class="callout callout-style-default callout-tip callout-titled" title="Key line">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">힌트</span>핵심 한 줄
+<span class="screen-reader-only">Tip</span>Key line
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>쿼리·키·값이 모두 같은 출처에서 나오면 셀프 어텐션</strong>이다. 각 토큰이 “자기 자신을 쿼리로, 주변 모두(자신 포함)를 키/값으로” 삼아, 문맥을 반영한 표현으로 자신을 정련(refine)한다.</p>
+<p><strong>It is self-attention if the query, key, and value all originate from the same source.</strong> Each token refines itself into a context-reflecting expression by using “itself as the query and everything around it (including itself) as the key/value.”</p>
 </div>
 </div>
 <ul>
-<li>예: 한 이미지 패치의 임베딩을 얻을 때, <strong>그 패치를 쿼리</strong>, <strong>같은 이미지의 모든 패치를 키/값</strong>으로 둔다.</li>
-<li>결과: 각 토큰은 이웃 토큰 정보를 반영한, <strong>의미적으로 더 풍부한(semantic)</strong> 임베딩을 갖게 된다.</li>
+<li>Example: When obtaining the embedding of an image patch, <strong>query that patch</strong>, and <strong>set all patches of the same image as key/value pairs</strong>.</li>
+<li>Result: Each token has a <strong>semantic</strong> embedding that reflects neighbor token information.</li>
 </ul>
-<section id="행렬-연산" class="level2" data-number="5.1">
-<h2 data-number="5.1" class="anchored" data-anchor-id="행렬-연산"><span class="header-section-number">5.1</span> 행렬 연산</h2>
-<p><span class="math inline">\(X \in \mathbb{R}^{n\times d}\)</span> ( <span class="math inline">\(n\)</span> 토큰, 차원 <span class="math inline">\(d\)</span> )에 대해:</p>
+<section id="matrix-operations" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="matrix-operations"><span class="header-section-number">5.1</span> Matrix Operations</h2>
+<p>For <span class="math inline">\(X \in \mathbb{R}^{n\times d}\)</span> ( <span class="math inline">\(n\)</span> token, dimension <span class="math inline">\(d\)</span> ):</p>
 <p><span class="math display">\[
 Q=XW_q,\ K=XW_k,\ V=XW_v;\qquad
 \text{Out} = \mathrm{softmax}\!\left(\tfrac{QK^\top}{\sqrt{d_k}}\right)V
 \]</span></p>
-<p>연산 순서는 cross-attention과 동일하며, <span class="math inline">\(Q,K,V\)</span> 가 같은 <span class="math inline">\(X\)</span> 에서 나온다는 점만 다르다.</p>
+<p>The order of operations for is the same as cross-attention, differing only in that <span class="math inline">\(Q,K,V\)</span> comes from the same <span class="math inline">\(X\)</span>.</p>
 </section>
-<section id="dino-패치-값-정련의-시각화" class="level2" data-number="5.2">
-<h2 data-number="5.2" class="anchored" data-anchor-id="dino-패치-값-정련의-시각화"><span class="header-section-number">5.2</span> DINO: 패치 값 정련의 시각화</h2>
-<p>자기지도학습(self-supervised learning) 모델 <strong>DINO</strong>(Caron et al., ICCV 2021)에서, 한 작은 패치를 쿼리로 두고 어텐션 점수를 시각화하면 <strong>의미적으로 같은 객체(개) 영역이 밝게</strong>, 무관한 배경은 어둡게 나타난다. 셀프 어텐션이 의미 단위로 패치를 묶고 있음을 보여준다.</p>
+<section id="dino-visualization-of-patch-value-refining" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="dino-visualization-of-patch-value-refining"><span class="header-section-number">5.2</span> DINO: Visualization of Patch Value Refining</h2>
+<p>In the self-supervised learning model <strong>DINO</strong> (Caron et al., ICCV 2021), when attention scores are visualized with a small patch as a query, <strong>regions of semantically identical objects (numbers) appear bright</strong>, while irrelevant backgrounds appear dark. This demonstrates that self-attention groups patches by semantic unit.</p>
 <hr>
 </section>
 </section>
 <section id="sec-mask" class="level1" data-number="6">
-<h1 data-number="6"><span class="header-section-number">6</span> 마스크드 어텐션 (Masked / Causal Attention)</h1>
-<div class="callout callout-style-default callout-tip callout-titled" title="핵심 한 줄">
+<h1 data-number="6"><span class="header-section-number">6</span> Masked Attention (Masked / Causal Attention)</h1>
+<div class="callout callout-style-default callout-tip callout-titled" title="Key point line">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">힌트</span>핵심 한 줄
+<span class="screen-reader-only">Tip</span>Key point line
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>어텐션 행렬의 일부를 0으로 막아, 특정 토큰이 특정 토큰에 주목하지 못하게 한다.</strong> 디코더에서는 “미래 토큰”을 막는 데 쓴다(causal attention).</p>
+<p><strong>Blocking parts of the attention matrix with zeros prevents a specific token from paying attention to another specific token.</strong> In decoders, this is used to block “future tokens” (causal attention).</p>
 </div>
 </div>
-<section id="왜-미래를-막는가" class="level2" data-number="6.1">
-<h2 data-number="6.1" class="anchored" data-anchor-id="왜-미래를-막는가"><span class="header-section-number">6.1</span> 왜 미래를 막는가</h2>
-<p>기계 번역(seq-to-seq)을 생각하자. 인코더는 입력 문장 전체를 보지만, <strong>디코더는 단어를 하나씩 생성</strong>한다. <span class="math inline">\(t\)</span> 시점에서 <span class="math inline">\(t+1\)</span> 이후의 단어는 <strong>아직 생성되지 않았다.</strong></p>
+<section id="why-block-the-future" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="why-block-the-future"><span class="header-section-number">6.1</span> Why Block the Future</h2>
+<p>Let’s consider machine translation (seq-to-seq). The encoder looks at the entire input sentence, but the <strong>decoder generates words one by one</strong>. At the point <span class="math inline">\(t\)</span>, the words after <span class="math inline">\(t+1\)</span> have <strong>not yet been generated.</strong></p>
 <ul>
-<li>만약 미래 토큰에 어텐션을 허용하면, 학습 시 디코더가 정답(미래 단어)을 “엿보게” 되고, 추론 시에는 존재하지 않는 토큰을 참조하게 된다.</li>
-<li>그 결과 미래 위치의 어텐션 점수는 무의미한 값이 되고, 역전파 시 <strong>쓸모없는(garbage) 기울기</strong>가 <span class="math inline">\(W_q, W_k\)</span> 까지 전파되어 학습을 망친다.</li>
+<li>If attention is allowed on future tokens, the decoder will “peek” at the correct answer (future word) during training and refer to a non-existent token during inference.</li>
+<li>As a result, the attention score of the future position becomes a meaningless value, and during backpropagation, the <strong>garbage gradient</strong> propagates up to <span class="math inline">\(W_q, W_k\)</span>, ruining the learning.</li>
 </ul>
-<p>해결책: 미래 위치의 점수를 <span class="math inline">\(-\infty\)</span> (실제로는 매우 큰 음수)로 만들어 소프트맥스 후 가중치가 0이 되게 한다.</p>
+<p>Solution: Make the score of the future position <span class="math inline">\(-\infty\)</span> (actually a very large negative number) so that the weight becomes 0 after softmax.</p>
 <p><span class="math display">\[
 s_{ij} \leftarrow
 \begin{cases}
@@ -708,58 +709,58 @@ s_{ij} &amp; j \le i \quad(\text{과거·현재})\\[4pt]
 \end{cases}
 \]</span></p>
 </section>
-<section id="다른-용도-선택적-멀티모달-인코딩" class="level2" data-number="6.2">
-<h2 data-number="6.2" class="anchored" data-anchor-id="다른-용도-선택적-멀티모달-인코딩"><span class="header-section-number">6.2</span> 다른 용도: 선택적 멀티모달 인코딩</h2>
-<p>마스킹은 인과성 외에도, <strong>어떤 토큰을 문맥에서 배제할지 선택</strong>하는 일반적 장치로 쓸 수 있다. 예컨대 텍스트 스토리에 부합하는 일관된 이미지 시퀀스를 생성할 때, 어텐션 마스크를 설계해 관련 토큰만 선택적으로 인코딩할 수 있다(Ahn et al., <em>Story visualization by online text augmentation with context memory</em>, ICCV 2023).</p>
+<section id="other-uses-optional-multimodal-encoding" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="other-uses-optional-multimodal-encoding"><span class="header-section-number">6.2</span> Other uses: Optional multimodal encoding</h2>
+<p>In addition to causality, masking can be used as a general mechanism to <strong>select which tokens to exclude from the context</strong>. For example, when generating a consistent sequence of images that corresponds to a text story, an attention mask can be designed to selectively encode only relevant tokens (Ahn et al., <em>Story visualization by online text augmentation with context memory</em>, ICCV 2023).</p>
 <hr>
 </section>
 </section>
 <section id="sec-mha" class="level1" data-number="7">
-<h1 data-number="7"><span class="header-section-number">7</span> 멀티헤드 셀프 어텐션 (Multi-Head Self-Attention)</h1>
-<div class="callout callout-style-default callout-tip callout-titled" title="핵심 한 줄">
+<h1 data-number="7"><span class="header-section-number">7</span> Multi-Head Self-Attention</h1>
+<div class="callout callout-style-default callout-tip callout-titled" title="Key point">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">힌트</span>핵심 한 줄
+<span class="screen-reader-only">Tip</span>Key point
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>하나의 <span class="math inline">\((W_q, W_k, W_v)\)</span> 쌍은 관계의 한 측면(aspect)만 포착한다. 여러 측면을 보려면 여러 쌍을 병렬로 둔다.</strong> 이것이 CNN에서 여러 필터를 학습하는 것과 같은 동기다.</p>
+<p><strong>A single <span class="math inline">\((W_q, W_k, W_v)\)</span> pair captures only one aspect of the relationship. To see multiple aspects, place multiple pairs in parallel.</strong> This is the same motivation as training multiple filters in CNNs.</p>
 </div>
 </div>
 <ul>
-<li>CNN: 한 이미지에 대해 여러 필터를 학습 → 각기 다른 공간 패턴 포착.</li>
-<li>Transformer: 여러 헤드 <span class="math inline">\(\{(W_q^{(h)}, W_k^{(h)}, W_v^{(h)})\}_{h=1}^{H}\)</span> 를 병렬로 → 각기 다른 관계 측면 포착.</li>
+<li>CNN: Learn multiple filters on a single image → Capture different spatial patterns.</li>
+<li>Transformer: Multiple heads <span class="math inline">\(\{(W_q^{(h)}, W_k^{(h)}, W_v^{(h)})\}_{h=1}^{H}\)</span> in parallel → Capture different relationship aspects.</li>
 </ul>
-<p>각 헤드의 출력을 이어 붙인(concatenate) 뒤 출력 사영 <span class="math inline">\(W_o\)</span> 로 섞는다.</p>
+<p>Concatenate the outputs of each head and mix them into output projection <span class="math inline">\(W_o\)</span>.</p>
 <p><span class="math display">\[
 \text{head}_h = \text{Attention}(XW_q^{(h)}, XW_k^{(h)}, XW_v^{(h)})
 \]</span> <span class="math display">\[
 \text{MHA}(X) = \big[\text{head}_1; \dots; \text{head}_H\big]\,W_o
 \]</span></p>
-<div class="callout callout-style-default callout-warning callout-titled" title="솔직한 한계">
+<div class="callout callout-style-default callout-warning callout-titled" title="Honest Limits">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">경고</span>솔직한 한계
+<span class="screen-reader-only">Warning</span>Honest Limits
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>서로 다른 헤드 사이에 “지식 중복 방지”나 “정보 소멸 방지”를 위한 <strong>명시적 메커니즘은 없다.</strong> 헤드들이 알아서 다른 측면을 학습하리라 <strong>암묵적으로 가정</strong>할 뿐이다. 헤드 간 상호작용은 다음 층의 혼합 단계에서 암묵적으로만 일어난다. 어텐션을 빼면 성능이 의미 있게(그러나 치명적이지는 않게) 떨어진다 — 우리는 많은 추측(conjecture)은 갖고 있으나 정확한 이유는 모른다.</p>
+<p>There is no <strong>explicit mechanism</strong> to prevent “knowledge duplication” or “information loss” between different heads. We merely <strong>implicitly</strong> assume** that the heads will learn different aspects on their own. Interaction between heads occurs only implicitly during the blending stage of the next layer. Removing attention causes a significant (but not fatal) drop in performance — we have many conjectures, but we do not know the exact reason.</p>
 </div>
 </div>
-<p>여러 헤드(헤드 내 병렬)에 더해, 블록을 <strong>여러 층으로 쌓는다(cascade)</strong>. CNN에서 합성곱 층을 쌓는 것과 같다.</p>
+<p>In addition to multiple heads (parallel within heads), blocks are <strong>cascade</strong>. This is equivalent to stacking convolutional layers in a CNN.</p>
 <hr>
 </section>
 <section id="sec-equivariance" class="level1" data-number="8">
-<h1 data-number="8"><span class="header-section-number">8</span> MLP vs Transformer, 그리고 순열 등변성</h1>
-<p>MLP와 Transformer의 결정적 차이: <strong>Transformer의 어텐션은 입력의 함수</strong>라는 점이다(<span class="math inline">\(A(x)\)</span>). MLP의 가중치는 입력과 무관하게 고정이다.</p>
-<section id="등변성equivariance과-불변성invariance" class="level2" data-number="8.1">
-<h2 data-number="8.1" class="anchored" data-anchor-id="등변성equivariance과-불변성invariance"><span class="header-section-number">8.1</span> 등변성(equivariance)과 불변성(invariance)</h2>
+<h1 data-number="8"><span class="header-section-number">8</span> MLP vs Transformer, and Permutation Iomovariance</h1>
+<p>The decisive difference between MLP and Transformer: <strong>Transformer’s attention is a function of the input</strong> (<span class="math inline">\(A(x)\)</span>). The weights of an MLP are fixed regardless of the input.</p>
+<section id="equivariance-and-invariance" class="level2" data-number="8.1">
+<h2 data-number="8.1" class="anchored" data-anchor-id="equivariance-and-invariance"><span class="header-section-number">8.1</span> Equivariance and Invariance</h2>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 33%">
@@ -768,96 +769,96 @@ s_{ij} &amp; j \le i \quad(\text{과거·현재})\\[4pt]
 </colgroup>
 <thead>
 <tr class="header">
-<th>개념</th>
-<th>정의</th>
-<th>한 줄 직관</th>
+<th>Concept</th>
+<th>Definition</th>
+<th>One-line Intuition</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><strong>불변성 (invariance)</strong></td>
-<td>입력이 바뀌어도 출력이 그대로</td>
-<td>변화에 <strong>둔감</strong></td>
+<td><strong>Invariance</strong></td>
+<td>Output remains the same even if input changes</td>
+<td><strong>Insensitive</strong> to change</td>
 </tr>
 <tr class="even">
-<td><strong>등변성 (equivariance)</strong></td>
-<td>입력이 바뀐 만큼 출력도 같이 바뀜</td>
-<td>변화를 <strong>반영</strong></td>
+<td><strong>Equivariance</strong></td>
+<td>Output changes as much as the input changes</td>
+<td><strong>Reflects</strong> change</td>
 </tr>
 </tbody>
 </table>
-<p>예: 입력을 회전시켰을 때 출력도 같이 회전하면 회전 등변, 출력이 그대로면 회전 불변.</p>
+<p>Example: If the output rotates along with the input when rotated, it is rotationally equal; if the output remains unchanged, it is rotationally invariant.</p>
 </section>
-<section id="순열-등변성과-위치-인코딩의-필요성" class="level2" data-number="8.2">
-<h2 data-number="8.2" class="anchored" data-anchor-id="순열-등변성과-위치-인코딩의-필요성"><span class="header-section-number">8.2</span> 순열 등변성과 위치 인코딩의 필요성</h2>
-<div class="callout callout-style-default callout-important callout-titled" title="문제">
+<section id="the-necessity-of-permutation-equivariance-and-positional-encoding" class="level2" data-number="8.2">
+<h2 data-number="8.2" class="anchored" data-anchor-id="the-necessity-of-permutation-equivariance-and-positional-encoding"><span class="header-section-number">8.2</span> The necessity of permutation equivariance and positional encoding</h2>
+<div class="callout callout-style-default callout-important callout-titled" title="problem">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">중요</span>문제
+<span class="screen-reader-only">Important</span>problem
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>어텐션(과 MLP)은 <strong>순열 등변(permutation equivariant)</strong> 이다. 입력 토큰의 순서를 섞으면 출력도 똑같이 섞일 뿐, <strong>모델은 토큰의 원래 위치를 모른다.</strong></p>
+<p>Attention (and MLPs) are <strong>permutation equivariant</strong>. If the order of input tokens is shuffled, the output is shuffled in the same way, but the <strong>model does not know the original positions of the tokens.</strong></p>
 </div>
 </div>
-<p>언어와 이미지에서 위치/순서는 의미를 좌우한다(“개가 사람을 물다” ≠ “사람이 개를 물다”). 따라서 토큰에 <strong>위치 정보를 명시적으로 주입</strong>해야 한다. 그것이 다음 절의 위치 인코딩이다.</p>
+<p>In language and images, position/order determines meaning (“dog bites person” ≠ “person bites dog”). Therefore, <strong>position information must be explicitly injected</strong> into tokens. That is the position encoding in the following section.</p>
 <hr>
 </section>
 </section>
 <section id="sec-pe" class="level1" data-number="9">
-<h1 data-number="9"><span class="header-section-number">9</span> 위치 인코딩 (Positional Encoding)</h1>
-<div class="callout callout-style-default callout-tip callout-titled" title="핵심 한 줄">
+<h1 data-number="9"><span class="header-section-number">9</span> Positional Encoding</h1>
+<div class="callout callout-style-default callout-tip callout-titled" title="Key point">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">힌트</span>핵심 한 줄
+<span class="screen-reader-only">Tip</span>Key point
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>각 위치마다 다른 “주소 벡터”를 입력 토큰에 더한다.</strong> 단, 이 주소는 학습이 잘 되도록 <strong>조밀(dense)하고 비슷한 크기</strong>여야 한다.</p>
+<p><strong>Add a different “address vector” to the input token for each location.</strong> However, these addresses must be <strong>dense and of similar size</strong> to facilitate learning.</p>
 </div>
 </div>
-<section id="왜-단순-정수-번호는-안-되는가" class="level2" data-number="9.1">
-<h2 data-number="9.1" class="anchored" data-anchor-id="왜-단순-정수-번호는-안-되는가"><span class="header-section-number">9.1</span> 왜 단순 정수 번호는 안 되는가</h2>
-<p>가장 단순한 발상은 위치를 정수 <span class="math inline">\(0,1,2,\dots\)</span> 로 매기는 것이다. 그러나 이진 표현처럼 0이 많은 <strong>희소(sparse)</strong> 코드는 그 위에 가중치를 학습하기 어렵다(0에 곱해지는 가중치는 사실상 학습되지 않음). 우리는 <strong>모든 차원이 의미 있는 값을 갖는 조밀한 표현</strong>, 그리고 위치마다 다르되 <strong>크기가 서로 비슷한</strong> 벡터가 필요하다.</p>
+<section id="why-arent-simple-integer-numbers-allowed" class="level2" data-number="9.1">
+<h2 data-number="9.1" class="anchored" data-anchor-id="why-arent-simple-integer-numbers-allowed"><span class="header-section-number">9.1</span> Why aren’t simple integer numbers allowed?</h2>
+<p>The simplest idea is to assign positions as integers <span class="math inline">\(0,1,2,\dots\)</span>. However, <strong>sparse</strong> codes with many zeros, like binary representations, are difficult to learn weights on (weights multiplied by zeros are effectively not learned). We need <strong>dense representations where every dimension has a meaningful value</strong>, and vectors that differ by position but are <strong>similar in size</strong>.</p>
 </section>
-<section id="사인파-위치-인코딩-보충" class="level2" data-number="9.2">
-<h2 data-number="9.2" class="anchored" data-anchor-id="사인파-위치-인코딩-보충"><span class="header-section-number">9.2</span> 사인파 위치 인코딩 (보충)</h2>
-<p>가장 널리 쓰이는 구현은 서로 다른 주파수의 사인/코사인을 쓰는 것이다(Vaswani et al., 2017; d2l.ai <em>Self-Attention and Positional Encoding</em> 절).</p>
+<section id="sine-wave-position-encoding-supplement" class="level2" data-number="9.2">
+<h2 data-number="9.2" class="anchored" data-anchor-id="sine-wave-position-encoding-supplement"><span class="header-section-number">9.2</span> Sine wave position encoding (supplement)</h2>
+<p>The most widely used implementation is to use sine/cosine of different frequencies (Vaswani et al., 2017; d2l.ai <em>Self-Attention and Positional Encoding</em> section).</p>
 <p><span class="math display">\[
 PE_{(pos,\,2i)} = \sin\!\left(\frac{pos}{10000^{\,2i/d}}\right),\qquad
 PE_{(pos,\,2i+1)} = \cos\!\left(\frac{pos}{10000^{\,2i/d}}\right)
 \]</span></p>
 <ul>
-<li>모든 성분의 크기가 <span class="math inline">\([-1, 1]\)</span> 로 균일 → 가중치 학습에 유리.</li>
-<li>위치마다 고유한 패턴(주소) → 위치 구분 가능.</li>
-<li>서로 다른 주파수의 중첩이라 상대 위치 정보도 선형 변환으로 표현 가능.</li>
+<li>All component sizes are uniform as <span class="math inline">\([-1, 1]\)</span> → Advantageous for weight learning.</li>
+<li>Unique pattern (address) for each location → Location distinguishable.</li>
+<li>Since it is a superposition of different frequencies, relative position information can also be expressed by a linear transformation.</li>
 </ul>
-<div class="callout callout-style-default callout-note callout-titled" title="비유: 군부대 번호 매기기">
+<div class="callout callout-style-default callout-note callout-titled" title="Analogy: Military unit numbering">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">노트</span>비유: 군부대 번호 매기기
+<span class="screen-reader-only">Note</span>Analogy: Military unit numbering
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>값 자체는 “비상식적”으로 보여도(예: 6575번 부대) 학습 가중치 입장에서는 좋은 성질을 갖도록 설계된 코드다. 사인파 PE는 “인간 눈엔 무의미해 보이지만 기계 학습엔 유용한” 위치 주소다.</p>
+<p>Even though the value itself may appear “unconventional” (e.g., Unit 6575), it is a code designed to have good properties from the perspective of learning weights. A sine wave PE is a location address that “appears meaningless to the human eye but is useful for machine learning.”</p>
 </div>
 </div>
-<p>위치 인코딩까지 더하면, 멀티헤드 (마스크드) 셀프 어텐션 + 피드포워드가 문맥을 잘 포착하여 적절한 출력 확률을 만든다.</p>
+<p>When position encoding is added, multi-head (masked) self-attention + feedforward effectively captures the context to generate appropriate output probabilities.</p>
 <hr>
 </section>
 </section>
 <section id="sec-arch" class="level1" data-number="10">
-<h1 data-number="10"><span class="header-section-number">10</span> 전체 아키텍처 정리</h1>
-<p>이제 블록을 조립하자. 인코더-디코더 구조는 다음과 같다.</p>
+<h1 data-number="10"><span class="header-section-number">10</span> Overall Architecture Summary</h1>
+<p>Now let’s assemble the blocks. The encoder-decoder structure is as follows.</p>
 <div class="cell" data-layout-align="default">
 <div class="cell-output-display">
 <div>
@@ -886,112 +887,112 @@ PE_{(pos,\,2i+1)} = \cos\!\left(\frac{pos}{10000^{\,2i/d}}\right)
 </div>
 </div>
 </div>
-<p>핵심 흐름:</p>
+<p>Core Flow:</p>
 <ol type="1">
-<li><strong>인코더</strong>: (마스크 없는) 셀프 어텐션으로 입력 전체의 문맥을 인코딩.</li>
-<li><strong>디코더</strong>: 먼저 <strong>마스크드</strong> 셀프 어텐션으로 지금까지 생성된 토큰만 보고, 이어서 <strong>크로스 어텐션</strong>으로 인코더의 문맥(Key/Value)과 섞는다.</li>
-<li>잔차 연결(Add)과 정규화(Norm), 위치별 피드포워드가 각 단계를 안정화·변환.</li>
-<li>최종 출력은 다음 토큰의 <strong>확률 분포</strong>로, 이 확률이 다음에 어떤 토큰을 생성할지의 단서가 된다.</li>
+<li><strong>Encoder</strong>: Encodes the context of the entire input with (unmasked) self-attention.</li>
+<li><strong>Decoder</strong>: First, look only at the tokens generated so far using <strong>masked</strong> self-attention, then mix with the encoder’s context (Key/Value) using <strong>cross-attention</strong>.</li>
+<li>Residual linking (Add), normalization (Norm), and positional feedforward stabilize and transform each step.</li>
+<li>The final output is the <strong>probability distribution</strong> of the next token, and this probability serves as a clue as to which token will be generated next.</li>
 </ol>
-<div class="callout callout-style-default callout-note callout-titled" title="Add &amp; Norm — 왜 잔차 연결인가">
+<div class="callout callout-style-default callout-note callout-titled" title="Add &amp; Norm — Why Residual Linking?">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">노트</span>Add &amp; Norm — 왜 잔차 연결인가
+<span class="screen-reader-only">Note</span>Add &amp; Norm — Why Residual Linking?
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><span class="math inline">\(\text{LayerNorm}(x + \text{Sublayer}(x))\)</span> 형태의 잔차 연결은 ResNet과 같은 이유로 쓰인다. 항등 경로(+I) 덕분에 기울기가 깊은 층까지 보존되어 학습 가능성이 유지된다.</p>
+<p>Residual connections of the form <span class="math inline">\(\text{LayerNorm}(x + \text{Sublayer}(x))\)</span> are used for the same reason as in ResNet. Thanks to the identity path (+I), gradients are preserved even in deep layers, maintaining learnability.</p>
 </div>
 </div>
 <hr>
 </section>
 <section id="sec-application" class="level1" data-number="11">
-<h1 data-number="11"><span class="header-section-number">11</span> 응용 (Application)</h1>
-<section id="언어-모델-language-model" class="level2" data-number="11.1">
-<h2 data-number="11.1" class="anchored" data-anchor-id="언어-모델-language-model"><span class="header-section-number">11.1</span> 언어 모델 (Language Model)</h2>
-<p>언어 모델은 <strong>이전 단어들이 주어졌을 때 다음 단어의 확률</strong>을 예측하는 NLP 과제다. 흔한 가정은 “다음 단어 확률이 고정 크기 윈도(window) 내 이전 단어들에만 의존한다”는 것이다. 규모가 매우 크면 <strong>대규모 언어 모델(LLM)</strong> 이라 부른다(GPT, Claude, HyperClova X 등).</p>
-<p>언어 모델링은 사실상 NLP의 <strong>메타 과제</strong>다. 좋은 언어 모델을 학습하면 감성 분석, 개체명 인식(NER), 공참조 해소, 질의응답 등 수많은 다운스트림 과제를 끌어낼 수 있다. 그래서 사람들은 모델을 점점 키웠다.</p>
+<h1 data-number="11"><span class="header-section-number">11</span> Application</h1>
+<section id="language-model" class="level2" data-number="11.1">
+<h2 data-number="11.1" class="anchored" data-anchor-id="language-model"><span class="header-section-number">11.1</span> Language Model</h2>
+<p>A language model is an NLP task that predicts the <strong>probability of the next word given previous words</strong>. A common assumption is that “the probability of the next word depends only on previous words within a fixed-size window.” When the scale is very large, it is called a <strong>Large-scale Language Model (LLM)</strong> (GPT, Claude, HyperClova X, etc.).</p>
+<p>Language modeling is, in fact, the <strong>meta-task</strong> of NLP. Training a good language model can yield numerous downstream tasks, such as sentiment analysis, Named Entity Recognition (NER), coreference resolution, and question answering. Therefore, people have continuously expanded their models.</p>
 </section>
-<section id="자기회귀-모델과-gpt" class="level2" data-number="11.2">
-<h2 data-number="11.2" class="anchored" data-anchor-id="자기회귀-모델과-gpt"><span class="header-section-number">11.2</span> 자기회귀 모델과 GPT</h2>
-<p><strong>GPT = Generative Pretrained Transformer.</strong> 이름에 “Transformer”가 들어 있다(GPT가 General Purpose Text가 아니다).</p>
+<section id="autoregressive-models-and-gpt" class="level2" data-number="11.2">
+<h2 data-number="11.2" class="anchored" data-anchor-id="autoregressive-models-and-gpt"><span class="header-section-number">11.2</span> Autoregressive Models and GPT</h2>
+<p><strong>GPT = Generative Pretrained Transformer.</strong> The name contains “Transformer” (GPT is not General Purpose Text).</p>
 <ul>
-<li><strong>자기회귀(autoregressive)</strong>: 이전까지 생성된 토큰을 입력으로 다음 토큰을 생성, 이를 반복.</li>
-<li><strong>학습</strong>: 인코더-디코더(또는 디코더-온리) 모델을 통째로, 한 단어씩 뱉도록 학습. <strong>샘플링(추론)</strong> 도 한 토큰씩 생성.</li>
-<li><strong>인과 어텐션(causal attention)</strong>: 미래 토큰을 보지 않으므로, 자기회귀 생성과 정확히 맞물린다.</li>
+<li><strong>Autoregressive</strong>: Generate the next token using the previously generated token as input, and repeat this process.</li>
+<li><strong>Training</strong>: Train the entire encoder-decoder (or decoder-only) model to output one word at a time. <strong>Sampling (Inference)</strong> also generates one token at a time.</li>
+<li><strong>Causal attention</strong>: Since it does not look at future tokens, it aligns exactly with autoregressive generation.</li>
 </ul>
-<div class="callout callout-style-default callout-warning callout-titled" title="자기회귀의 약점">
+<div class="callout callout-style-default callout-warning callout-titled" title="Weakness of Autoregression">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">경고</span>자기회귀의 약점
+<span class="screen-reader-only">Warning</span>Weakness of Autoregression
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>오류 전파(error propagation)</strong>: 초반에 한 번 틀리면 그 오류가 이후 전체 시퀀스로 번진다. 대안으로 단어 덩어리(chunk)를 한꺼번에 생성하는 방식(예: 일부 모델은 CNN/Diffusion으로 청크 생성)도 연구된다. 다만 초기 LLM(GPT-2/3 등)은 Transformer를 그대로 자기회귀로 썼다.</p>
+<p><strong>Error Propagation</strong>: If an error is made once at the beginning, that error spreads to the entire sequence thereafter. As an alternative, methods to generate word chunks all at once (e.g., some models generate chunks using CNN/Diffusion) are also being studied. However, early LLMs (such as GPT-2/3) used the Transformer directly for autoregression.</p>
 </div>
 </div>
-<div class="callout callout-style-default callout-note callout-titled" title="직접 만져보기: minGPT">
+<div class="callout callout-style-default callout-note callout-titled" title="Touch it yourself: minGPT">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">노트</span>직접 만져보기: minGPT
+<span class="screen-reader-only">Note</span>Touch it yourself: minGPT
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>A. Karpathy의 <strong>minGPT</strong>(<a href="https://github.com/karpathy/minGPT" class="uri">https://github.com/karpathy/minGPT</a>)는 마스크드(causal) 어텐션이 모두 구현된 최소 GPT다. 소스가 매우 단순해 학습용으로 좋다.</p>
+<p>A. Karpathy’s <a href="https://github.com/karpathy/minGPT">minGPT</a> is a minimal GPT with causal attention fully implemented. Its source is very simple, which makes it suitable for training.</p>
 </div>
 </div>
 <hr>
 </section>
 </section>
 <section id="sec-limitation" class="level1" data-number="12">
-<h1 data-number="12"><span class="header-section-number">12</span> 한계와 효율화 (Limitations)</h1>
-<p>Transformer는 거의 10년 동안(2017년 제안 이후) 표준이었지만 한계가 있다.</p>
-<section id="문맥-윈도-밖은-못-본다" class="level2" data-number="12.1">
-<h2 data-number="12.1" class="anchored" data-anchor-id="문맥-윈도-밖은-못-본다"><span class="header-section-number">12.1</span> 1) 문맥 윈도 밖은 못 본다</h2>
-<p>키 윈도(예: 12.8만 토큰) 안에서만 <span class="math inline">\(W_q, W_k, W_v\)</span> 를 계산한다. 윈도 밖 정보는 RNN처럼 전파되지 않으므로 잃어버린다 → 멀리 있는 정보를 물으면 <strong>환각(hallucination)</strong> 이 늘 수 있다.</p>
+<h1 data-number="12"><span class="header-section-number">12</span> Limitations and Efficiency (Limitations)</h1>
+<p>Transformer has been the standard for almost 10 years (since its proposal in 2017), but it has limitations.</p>
+<section id="cannot-see-outside-the-context-window" class="level2" data-number="12.1">
+<h2 data-number="12.1" class="anchored" data-anchor-id="cannot-see-outside-the-context-window"><span class="header-section-number">12.1</span> 1) Cannot see outside the context window</h2>
+<p>Calculates <span class="math inline">\(W_q, W_k, W_v\)</span> only within the key window (e.g., 128,000 tokens). Information outside the window is not propagated like an RNN and is therefore lost → Asking for information from a distance can increase <strong>hallucination</strong>.</p>
 <ul>
-<li><strong>부분적 완화: KV 캐시(KV cache)</strong>. 중요한 토큰의 Key/Value를 저장해 두고 재사용하여, 긴 문맥을 사실상 유지한다. 다만 이는 <strong>임시 해법</strong>이며 근본 해결은 아니다.</li>
-<li>KV 캐시를 들고 있어야 하므로 <strong>메모리 수요가 크다</strong>(GPU 메모리/대역폭 병목의 한 원인).</li>
+<li><strong>Partial Mitigation: KV Cache</strong>. It stores and reuses the Key/Value pairs of important tokens to effectively maintain long contexts. However, this is a <strong>temporary solution</strong> and not a fundamental solution.</li>
+<li>Since it must hold the KV cache, <strong>memory demand is high</strong> (one cause of GPU memory/bandwidth bottlenecks).</li>
 </ul>
 </section>
-<section id="계산-복잡도-on2" class="level2" data-number="12.2">
-<h2 data-number="12.2" class="anchored" data-anchor-id="계산-복잡도-on2"><span class="header-section-number">12.2</span> 2) 계산 복잡도 <span class="math inline">\(O(n^2)\)</span></h2>
-<p>윈도 크기 <span class="math inline">\(n\)</span> 에 대해 어텐션은 <span class="math inline">\(O(n^2)\)</span> 다. <span class="math inline">\(QK^\top\)</span> 에서 모든 쿼리-키 쌍의 내적을 한 번, 어텐션 가중치를 <span class="math inline">\(V\)</span> 에 적용할 때 다시 한 번 — 윈도 크기에 제곱으로 비례하는 연산이 두 번 들어간다. 윈도가 커질수록 비용이 급증한다.</p>
+<section id="computational-complexity-on2" class="level2" data-number="12.2">
+<h2 data-number="12.2" class="anchored" data-anchor-id="computational-complexity-on2"><span class="header-section-number">12.2</span> 2) Computational complexity <span class="math inline">\(O(n^2)\)</span></h2>
+<p>For window size <span class="math inline">\(n\)</span>, the attention is <span class="math inline">\(O(n^2)\)</span>. Two operations proportional to the square of the window size are performed: once for the inner product of all query-key pairs in <span class="math inline">\(QK^\top\)</span>, and again when applying the attention weights to <span class="math inline">\(V\)</span>. As the window increases, the cost skyrockets.</p>
 </section>
-<section id="효율적-대안" class="level2" data-number="12.3">
-<h2 data-number="12.3" class="anchored" data-anchor-id="효율적-대안"><span class="header-section-number">12.3</span> 효율적 대안</h2>
+<section id="efficient-alternative" class="level2" data-number="12.3">
+<h2 data-number="12.3" class="anchored" data-anchor-id="efficient-alternative"><span class="header-section-number">12.3</span> Efficient Alternative</h2>
 <ul>
-<li><strong>효율적 Transformer 계열</strong>(Tay et al., <em>Efficient Transformers: A Survey</em>, 2022): 희소/저랭크 근사 등으로 <span class="math inline">\(O(n^2)\)</span> 완화.</li>
-<li><strong>Mamba</strong> 등 상태공간모델(SSM) 계열: 긴 문맥을 더 낮은 복잡도로 인코딩하려는 시도.</li>
+<li><strong>Efficient Transformer family</strong>(Tay et al., <em>Efficient Transformers: A Survey</em>, 2022): <span class="math inline">\(O(n^2)\)</span> relaxation through sparse/low-rank approximation, etc.</li>
+<li><strong>Mamba</strong> and other State Space Model (SSM) families: Attempts to encode long contexts with lower complexity.</li>
 </ul>
-<div class="callout callout-style-default callout-tip callout-titled" title="열린 문제">
+<div class="callout callout-style-default callout-tip callout-titled" title="Open problem">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">힌트</span>열린 문제
+<span class="screen-reader-only">Tip</span>Open problem
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>현재의 Transformer 아키텍처가 인간이 상상할 수 있는 <strong>최적 구조는 아니다.</strong> 긴 문맥을 더 효율적으로 인코딩하는 결정론적 함수(아키텍처)를 찾는 일은 여전히 열려 있는 큰 연구 주제다.</p>
+<p>The current Transformer architecture is not the <strong>optimal structure</strong> that humans can imagine. Finding a deterministic function (architecture) that encodes long contexts more efficiently remains a major research topic that is still open.</p>
 </div>
 </div>
 <hr>
 </section>
 </section>
 <section id="sec-wireless" class="level1" data-number="13">
-<h1 data-number="13"><span class="header-section-number">13</span> 무선통신 관점 비유</h1>
-<p>신호처리·무선통신 배경에서 어텐션은 익숙한 개념의 재조합으로 읽힌다.</p>
+<h1 data-number="13"><span class="header-section-number">13</span> Wireless communication perspective analogy</h1>
+<p>In the background of signal processing and wireless communication, attention is interpreted as a recombination of familiar concepts.</p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 33%">
@@ -1000,71 +1001,71 @@ PE_{(pos,\,2i+1)} = \cos\!\left(\frac{pos}{10000^{\,2i/d}}\right)
 </colgroup>
 <thead>
 <tr class="header">
-<th>Transformer 개념</th>
-<th>무선통신/신호처리 대응</th>
-<th>설명</th>
+<th>Transformer Concept</th>
+<th>Wireless Communication/Signal Processing Correspondence</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>쿼리·키 내적 <span class="math inline">\(q\cdot k\)</span></td>
-<td><strong>정합 필터(matched filter)/상관기</strong></td>
-<td>수신 신호와 템플릿의 상관값. 어텐션 점수는 곧 상관값이다.</td>
+<td>Query/Key Inner Product <span class="math inline">\(q\cdot k\)</span></td>
+<td><strong>Matched Filter/Correlator</strong></td>
+<td>The correlation between the received signal and the template. The attention score is the correlation value.</td>
 </tr>
 <tr class="even">
-<td>코사인 유사도</td>
-<td><strong>정규화 상관계수</strong></td>
-<td>크기를 제거하고 방향(파형 모양)만 비교 — 신호 검출의 정규화 상관과 동일.</td>
+<td>Cosine Similarity</td>
+<td><strong>Normalized Correlation Coefficient</strong></td>
+<td>Compares only direction (waveform shape) after removing magnitude — Equivalent to normalized correlation in signal detection.</td>
 </tr>
 <tr class="odd">
-<td>소프트맥스 가중합</td>
-<td><strong>최대비결합(MRC)류 소프트 결합</strong></td>
-<td>SNR/유사도가 높은 경로에 큰 가중치를 주는 가중 결합.</td>
+<td>Softmax Weighted Sum</td>
+<td><strong>Maximum Non-Coupling (MRC) type soft coupling</strong></td>
+<td>Weighted coupling that gives greater weight to paths with high SNR/similarity.</td>
 </tr>
 <tr class="even">
-<td>고정 가중치 vs 어텐션</td>
-<td><strong>고정 빔포밍 vs 적응 빔포밍(MVDR/LCMV)</strong></td>
-<td>고정 빔포머는 입력과 무관한 고정 가중치, 적응 빔포머는 <strong>수신 데이터에 맞춰 가중치를 갱신</strong> — 어텐션이 정확히 후자다.</td>
+<td>Fixed Weights vs.&nbsp;Attention</td>
+<td><strong>Fixed Beamforming vs.&nbsp;Adaptive Beamforming (MVDR/LCMV)</strong></td>
+<td>Fixed beamformers use fixed weights independent of the input, while adaptive beamformers <strong>update weights based on received data</strong> — Attention is exactly the latter.</td>
 </tr>
 <tr class="odd">
-<td>멀티헤드</td>
-<td><strong>MIMO 공간 다중화/다중 빔</strong></td>
-<td>서로 다른 헤드 = 서로 다른 공간 채널/빔을 동시에 형성.</td>
+<td>Multihead</td>
+<td><strong>MIMO Spatial Multiplexing/Multibeam</strong></td>
+<td>Different heads = Simultaneously form different spatial channels/beams.</td>
 </tr>
 <tr class="even">
-<td>위치 인코딩(사인파)</td>
-<td><strong>OFDM 부반송파/파일럿 인덱싱</strong></td>
-<td>서로 다른 주파수의 사인파로 “위치”를 직교적으로 부호화 — OFDM이 부반송파 주파수로 자원을 인덱싱하는 것과 형식이 같다.</td>
+<td>Position Encoding (Sine Wave)</td>
+<td><strong>OFDM Subcarrier/Pilot Indexing</strong></td>
+<td>Orthogonally encodes “positions” using sine waves of different frequencies — the same format as OFDM indexing resources using subcarrier frequencies.</td>
 </tr>
 <tr class="odd">
-<td>KV 캐시</td>
-<td><strong>채널 상태/지연 프로파일 메모리</strong></td>
-<td>과거 상태를 저장해 긴 시간축 의존성을 유지.</td>
+<td>KV Cache</td>
+<td><strong>Channel State/Latency Profile Memory</strong></td>
+<td>Stores past states to maintain long time-axis dependencies.</td>
 </tr>
 <tr class="even">
-<td><span class="math inline">\(O(n^2)\)</span> 복잡도</td>
-<td><strong>전 쌍 상관행렬 계산 비용</strong></td>
-<td>모든 쿼리-키 쌍의 상관 = 공분산 행렬 규모의 연산.</td>
+<td><span class="math inline">\(O(n^2)\)</span> Complexity</td>
+<td><strong>Cost of computing the entire pairwise correlation matrix</strong></td>
+<td>An operation on the scale of the correlation of all query-key pairs = covariance matrix.</td>
 </tr>
 </tbody>
 </table>
-<div class="callout callout-style-default callout-tip callout-titled" title="한 줄 요약 비유">
+<div class="callout callout-style-default callout-tip callout-titled" title="One-line summary metaphor">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">힌트</span>한 줄 요약 비유
+<span class="screen-reader-only">Tip</span>One-line summary metaphor
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>어텐션 ≈ 데이터에 적응하는 빔포밍.</strong> 고정 빔포머(보통의 가중치)는 어디서 신호가 오든 같은 가중치를 쓰지만, 적응 빔포머(어텐션)는 수신 데이터(쿼리·키)를 보고 가중치를 재설계해 원하는 방향(유사한 토큰)으로 빔을 형성한다.</p>
+<p><strong>Attention ≈ Beamforming that adapts to data.</strong> A fixed beamformer (normal weights) uses the same weights regardless of where the signal comes from, but an adaptive beamformer (attention) looks at the received data (query/key) and redesigns the weights to form a beam in the desired direction (similar tokens).</p>
 </div>
 </div>
 <hr>
 </section>
 <section id="sec-summary" class="level1" data-number="14">
-<h1 data-number="14"><span class="header-section-number">14</span> 핵심 요약</h1>
+<h1 data-number="14"><span class="header-section-number">14</span> Key Summary</h1>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 50%">
@@ -1072,62 +1073,62 @@ PE_{(pos,\,2i+1)} = \cos\!\left(\frac{pos}{10000^{\,2i/d}}\right)
 </colgroup>
 <thead>
 <tr class="header">
-<th>주제</th>
-<th>반드시 기억할 것</th>
+<th>Topic</th>
+<th>Things to Remember</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>세 기둥</td>
-<td>토큰 · 어텐션 · 위치 인코딩 (어텐션이 가장 중요)</td>
+<td>Three pillars</td>
+<td>Token · Attention · Position encoding (Attention is most important)</td>
 </tr>
 <tr class="even">
-<td>어텐션의 본질</td>
-<td>정보가 아니라 <strong>유사도에 학습된 가중치</strong>를 건다; 가중치가 <strong>입력의 함수</strong></td>
+<td>The Essence of Attention</td>
+<td>Applying <strong>weights learned on similarity</strong> rather than information; weights are <strong>functions of input</strong></td>
 </tr>
 <tr class="odd">
 <td>Q/K/V</td>
-<td>쿼리=물어보는 것, 키=비교 상대, 값=가져올 정보; 학습 대상은 <span class="math inline">\(W_q,W_k,W_v\)</span></td>
+<td>Query=what is being asked, Key=comparison target, Value=information to retrieve; the training target is <span class="math inline">\(W_q,W_k,W_v\)</span></td>
 </tr>
 <tr class="even">
-<td>유사도</td>
-<td>내적 = 코사인 유사도(방향 비교) → 소프트맥스로 차이 증폭</td>
+<td>Similarity</td>
+<td>Inner Product = Cosine Similarity (Directional Comparison) → Amplify Difference with Softmax</td>
 </tr>
 <tr class="odd">
-<td>스케일링</td>
-<td><span class="math inline">\(\sqrt{d_k}\)</span> 로 나눠 소프트맥스 과포화/기울기 소실 방지</td>
+<td>Scaling</td>
+<td>Divide by <span class="math inline">\(\sqrt{d_k}\)</span> to prevent Softmax oversaturation/vanishing</td>
 </tr>
 <tr class="even">
-<td>셀프 어텐션</td>
-<td>Q,K,V 동일 출처; 문맥 반영해 표현 정련</td>
+<td>Self-Attention</td>
+<td>Q, K, V Same Source; Expression Refined Reflecting Context</td>
 </tr>
 <tr class="odd">
-<td>마스크드 어텐션</td>
-<td>디코더에서 미래 토큰 차단(인과성); 잘못된 기울기 전파 방지</td>
+<td>Masked Attention</td>
+<td>Block future tokens in decoder (causality); prevent false gradient propagation</td>
 </tr>
 <tr class="even">
-<td>멀티헤드</td>
-<td>관계의 여러 측면; CNN의 다중 필터와 같은 동기</td>
+<td>Multihead</td>
+<td>Various aspects of the relationship; Synchronous like multiple filters in a CNN</td>
 </tr>
 <tr class="odd">
-<td>순열 등변성</td>
-<td>어텐션은 순서를 모른다 → 위치 인코딩 필요</td>
+<td>Permutation Equivariance</td>
+<td>Attention does not know the order → Position encoding is needed</td>
 </tr>
 <tr class="even">
-<td>응용</td>
+<td>Applications</td>
 <td>GPT(=Generative Pretrained Transformer), ViT</td>
 </tr>
 <tr class="odd">
-<td>한계</td>
-<td>윈도 밖 문맥 손실, <span class="math inline">\(O(n^2)\)</span>; 완화책 KV 캐시, 대안 Mamba</td>
+<td>Limit</td>
+<td>Out-of-window context loss, <span class="math inline">\(O(n^2)\)</span>; Mitigation KV Cache, Alternative Mamba</td>
 </tr>
 </tbody>
 </table>
 <hr>
 </section>
 <section id="sec-appendix" class="level1" data-number="15">
-<h1 data-number="15"><span class="header-section-number">15</span> 부록: NumPy 구현</h1>
-<p>아래 코드는 어텐션, 인과 마스크, 멀티헤드, 사인파 위치 인코딩의 동작을 최소 구현으로 확인한다.</p>
+<h1 data-number="15"><span class="header-section-number">15</span> Appendix: NumPy Implementation</h1>
+<p>The code below verifies the operation of attention, causal mask, multihead, and sine wave position encoding with a minimal implementation.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> softmax(x, axis<span class="op">=-</span><span class="dv">1</span>):</span>
@@ -1142,7 +1143,7 @@ PE_{(pos,\,2i+1)} = \cos\!\left(\frac{pos}{10000^{\,2i/d}}\right)
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> mask <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        scores <span class="op">=</span> np.where(mask, scores, <span class="op">-</span><span class="fl">1e9</span>)            <span class="co"># 마스킹 위치는 -inf</span></span>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    A <span class="op">=</span> softmax(scores, axis<span class="op">=-</span><span class="dv">1</span>)                         <span class="co"># 어텐션 가중치 (합=1)</span></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> A <span class="op">@</span> V, A</span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> A <span class="op">@</span> V, A</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1) 셀프 어텐션</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">0</span>)</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>n, d <span class="op">=</span> <span class="dv">4</span>, <span class="dv">8</span></span>
@@ -1155,7 +1156,7 @@ PE_{(pos,\,2i+1)} = \cos\!\left(\frac{pos}{10000^{\,2i/d}}\right)
 <span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co"># 2) 인과(causal) 마스크: 하삼각만 허용 → 미래 차단</span></span>
 <span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>causal <span class="op">=</span> np.tril(np.ones((n, n), dtype<span class="op">=</span><span class="bu">bool</span>))</span>
 <span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>out_c, A_c <span class="op">=</span> scaled_dot_product_attention(Q, K, V, mask<span class="op">=</span>causal)</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> np.allclose(A_c[np.triu_indices(n, <span class="dv">1</span>)], <span class="dv">0</span>, atol<span class="op">=</span><span class="fl">1e-6</span>)  <span class="co"># 미래 가중치 ~ 0</span></span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> np.allclose(A_c[np.triu_indices(n, <span class="dv">1</span>)], <span class="dv">0</span>, atol<span class="op">=</span><span class="fl">1e-6</span>)  <span class="co"># 미래 가중치 ~ 0</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 3) 멀티헤드 어텐션</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> MultiHeadAttention:</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, d_model, h, seed<span class="op">=</span><span class="dv">0</span>):</span>
@@ -1173,7 +1174,7 @@ PE_{(pos,\,2i+1)} = \cos\!\left(\frac{pos}{10000^{\,2i/d}}\right)
 <span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> out <span class="op">@</span> <span class="va">self</span>.Wo</span>
 <span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>y <span class="op">=</span> MultiHeadAttention(d_model<span class="op">=</span><span class="dv">16</span>, h<span class="op">=</span><span class="dv">4</span>)(rng.standard_normal((<span class="dv">5</span>, <span class="dv">16</span>)))</span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> y.shape <span class="op">==</span> (<span class="dv">5</span>, <span class="dv">16</span>)</span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> y.shape <span class="op">==</span> (<span class="dv">5</span>, <span class="dv">16</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 4) 사인파 위치 인코딩</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> positional_encoding(seq_len, d_model):</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    pos <span class="op">=</span> np.arange(seq_len)[:, <span class="va">None</span>]</span>
@@ -1183,14 +1184,14 @@ PE_{(pos,\,2i+1)} = \cos\!\left(\frac{pos}{10000^{\,2i/d}}\right)
 <span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>PE <span class="op">=</span> positional_encoding(seq_len<span class="op">=</span><span class="dv">10</span>, d_model<span class="op">=</span><span class="dv">16</span>)</span>
 <span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> PE.shape <span class="op">==</span> (<span class="dv">10</span>, <span class="dv">16</span>) <span class="kw">and</span> PE.<span class="bu">min</span>() <span class="op">&gt;=</span> <span class="op">-</span><span class="dv">1</span> <span class="kw">and</span> PE.<span class="bu">max</span>() <span class="op">&lt;=</span> <span class="dv">1</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"모든 검증 통과"</span>)</span></code></pre></div><button title="클립보드 복사" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"모든 검증 통과"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 <section id="sec-reading" class="level1" data-number="16">
-<h1 data-number="16"><span class="header-section-number">16</span> 더 읽을거리</h1>
+<h1 data-number="16"><span class="header-section-number">16</span> More to read</h1>
 <ul>
-<li>d2l.ai — <em>Attention Mechanisms and Transformers</em> 장: 어텐션 풀링, 스코어 함수(<span class="math inline">\(\sqrt{d_k}\)</span> 스케일링), 멀티헤드, 셀프 어텐션과 위치 인코딩, Transformer 아키텍처를 코드와 함께 다룬다. <a href="https://d2l.ai/" class="uri">https://d2l.ai/</a></li>
-<li><em>Mathematics for Machine Learning</em> (G. Thomas) — 내적·사영·각거리(코사인 유사도)의 기초가 되는 선형대수, 그리고 소프트맥스/확률의 통계적 배경. <a href="https://gwthomas.github.io/docs/math4ml.pdf" class="uri">https://gwthomas.github.io/docs/math4ml.pdf</a></li>
+<li>d2l.ai — <em>Attention Mechanisms and Transformers</em>: covers attention pooling; score functions and <span class="math inline">\(\sqrt{d_k}\)</span> scaling; multihead attention; self-attention and positional encoding; and the Transformer architecture with code. <a href="https://d2l.ai/">d2l.ai</a></li>
+<li><em>Mathematics for Machine Learning</em> (G. Thomas) covers the linear algebra behind inner products, projections, and angular distance (cosine similarity), as well as the statistical background of softmax and probability. <a href="https://gwthomas.github.io/docs/math4ml.pdf">PDF</a>.</li>
 </ul>
 
 
@@ -1222,12 +1223,12 @@ PE_{(pos,\,2i+1)} = \cos\!\left(\frac{pos}{10000^{\,2i/d}}\right)
       // flash "checked"
       button.classList.add('code-copy-button-checked');
       var currentTitle = button.getAttribute("title");
-      button.setAttribute("title", "복사완료!");
+      button.setAttribute("title", "Copied!");
       let tooltip;
       if (window.bootstrap) {
         button.setAttribute("data-bs-toggle", "tooltip");
         button.setAttribute("data-bs-placement", "left");
-        button.setAttribute("data-bs-title", "복사완료!");
+        button.setAttribute("data-bs-title", "Copied!");
         tooltip = new bootstrap.Tooltip(button, 
           { trigger: "manual", 
             customClass: "code-copy-button-tooltip",

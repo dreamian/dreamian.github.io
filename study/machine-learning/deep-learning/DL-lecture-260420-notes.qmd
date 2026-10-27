@@ -1,9 +1,9 @@
 ---
-title: "CNN의 진화에서 시퀀스 모델링까지: 역사·아키텍처·RNN"
+title: "From the Evolution of CNNs to Sequence Modeling: History, Architecture, and RNN"
 number: 14
 aliases:
   - "/study/deep-learning/DL-lecture-260420-notes.html"
-subtitle: "ImageNet 시대의 CNN, ViT/gMLP, 그리고 동역학계로서의 RNN"
+subtitle: "CNNs, ViT/gMLP, and RNNs as Dynamical Systems in the ImageNet Era"
 date: 2026-04-20
 format:
   html:
@@ -20,33 +20,33 @@ execute:
   warning: false
 ---
 
-# 개요 {#sec-overview}
+# Overview {#sec-overview}
 
-이 노트는 두 개의 큰 흐름을 다룬다. 첫째는 **CNN의 후반부**로, 합성곱 연산의 확장(dilated/transposed convolution, separable/group convolution)과 ImageNet 시대를 연 아키텍처 계보(LeNet → AlexNet → GoogLeNet → ResNet), 그리고 CNN 이후의 패러다임인 Vision Transformer(ViT)와 gMLP를 정리한다. 둘째는 **시퀀스 모델링**으로, 가변 길이 데이터를 다루기 위한 동역학계(dynamical system) 관점에서 RNN을 유도하고, 장기 의존성 학습이 왜 어려운지를 고유값 분해로 설명한 뒤 게이팅(LSTM/GRU)·양방향·Seq2Seq로 확장한다.
+This note covers two major currents. The first is the **later part of CNN**, summarizing the extensions of convolutional operations (dilated/transposed convolution, separable/group convolution), the lineage of architectures that ushered in the ImageNet era (LeNet → AlexNet → GoogLeNet → ResNet), and the post-CNN paradigms: Vision Transformer (ViT) and gMLP. The second is **sequence modeling**, deriving RNNs from the perspective of dynamical systems for handling variable-length data, explaining why long-term dependency learning is difficult using eigenvalue decomposition, and extending to gating (LSTM/GRU), bidirectional, and Seq2Seq.
 
-두 주제를 관통하는 핵심 메시지는 다음 한 줄로 요약된다.
+The core message running through the two topics is summarized in the following single line.
 
-> **"데이터의 구조적 불변성(invariance)을 모델의 가중치 공유(weight sharing)로 인코딩하면, 적은 파라미터로 효율적인 표현 학습이 가능하다."**
+> **"By encoding the structural invariance of the data into the model's weight sharing, efficient representation learning is possible with fewer parameters."**
 
-CNN은 *공간 정상성(spatial stationarity)* 을, RNN은 *시간 정상성(temporal stationarity)* 을 가정한다. 둘 다 "같은 함수를 위치/시간에 걸쳐 반복 적용"한다는 점에서 본질적으로 같은 아이디어다.
+CNNs assume *spatial stationarity*, while RNNs assume *temporal stationarity*. Both are essentially the same idea in that they "repeatedly apply the same function over time/location."
 
-::: {.callout-tip title="무선통신 관점에서의 큰 그림"}
-- **CNN의 가중치 공유** = 공간 이동 불변(shift-invariant) 필터.
-- **RNN** = 외부 입력으로 구동되는 **상태공간 모델(state-space model)**. 한 스텝 순환 연산은 사실상 **IIR 필터(피드백 있는 무한 임펄스 응답)** 이고, 슬라이딩 윈도(이동 평균)는 **FIR 필터**다.
-- 뒤에서 보겠지만 RNN의 그래디언트 소실/폭발은 **이산시간 LTI 시스템의 안정성(극점의 단위원 내부/외부)** 과 정확히 같은 수학이다.
+::: {.callout-tip title="The Big Picture from a Wireless Communication Perspective"}
+- **CNN weight sharing** = shift-invariant filter.
+- **RNN** = **state-space model** driven by external input. A one-step recursive operation is effectively an **IIR filter (infinite impulse response with feedback)**, and a sliding window (moving average) is an **FIR filter**.
+- As we will see later, the vanishing/explosion of gradients in RNNs is exactly the same mathematics as the **stability of discrete-time LTI systems (inside/outside the unit circle of poles)**.
 :::
 
 ---
 
-# CNN 후반부: 합성곱의 확장과 변형 {#sec-cnn-extensions}
+# CNN Latter Half: Expansion and Transformation of Convolution {#sec-cnn-extensions}
 
 ## Dilated(atrous) convolution {#sec-dilated}
 
-**한 줄 요약:** 커널 원소 사이를 일정 간격으로 "건너뛰며" 적용해, 파라미터 수를 늘리지 않고 **수용 영역(receptive field)** 을 키운다.
+**One-line summary:** Applies by "skipping" kernel elements at regular intervals to increase the **receptive field** without increasing the number of parameters.
 
-- stride와 비슷하지만 다르다. stride는 *출력*을 띄엄띄엄 만들고, dilation은 *커널 내부*를 띄엄띄엄 배치한다.
-- 건너뛰는 점의 개수를 **dilation rate** $d$ 라 한다. $d=2$ 면 커널 원소 사이에 한 칸씩 빈 공간을 둔다.
-- 유효 커널 크기: $k_{\text{eff}} = k + (k-1)(d-1)$. 즉 $3\times3$ 커널을 $d=2$ 로 쓰면 유효 크기는 $5\times5$ 이지만 학습 파라미터는 여전히 9개다.
+- It is similar to stride but different. Stride creates *output* spaced out, while dilation spaced out *inside the kernel*.
+- The number of skipped points is called the **dilation rate** $d$. If $d=2$, a single empty space is placed between kernel elements.
+- Effective kernel size: $k_{\text{eff}} = k + (k-1)(d-1)$. That is, if the $3\times3$ kernel is written as $d=2$, the effective size is $5\times5$, but the training parameters are still 9.
 
 $$
 y[i] = \sum_{m} x[i + d\cdot m]\, w[m]
@@ -54,10 +54,10 @@ $$
 
 ## Transposed convolution (a.k.a. deconvolution) {#sec-transposed}
 
-**한 줄 요약:** "deconvolution"이라는 이름은 오해의 소지가 있다. 역연산이 아니라 **전치 합성곱(transposed convolution)** 이며, 해상도를 **키우는(upsampling)** 데 쓴다.
+**One-line summary:** The name "deconvolution" is misleading. It is not an inverse operation but a **transposed convolution**, and it is used to **upsample** the resolution.
 
-- 연산 자체는 합성곱과 동일하다(곱하고 더하기). 다만 입력-출력의 공간 크기 관계가 반대다.
-- 신호및시스템(430.306)에서 다루는 deconvolution(역합성곱)과는 의미가 다르다. 여기서는 합성곱 행렬 $C$ 의 **전치 $C^\top$** 를 적용한다고 이해하면 정확하다.
+- The  operation itself is identical to convolution (multiplication and addition). However, the spatial relationship between the input and output is reversed.
+- This has a different meaning from the deconvolution discussed in Signals and Systems (430.306). Here, it is accurate to understand that the **transpose $C^\top$** of the convolution matrix $C$ is applied.
 
 $$
 \underbrace{\mathbf{y} = C\,\mathbf{x}}_{\text{conv (downsample)}}
@@ -65,69 +65,69 @@ $$
 \underbrace{\mathbf{z} = C^{\top}\mathbf{u}}_{\text{transposed conv (upsample)}}
 $$
 
-**어디에 쓰는가?** 픽셀 단위 예측이 필요한 과제. 대표적으로 **FCN(Fully Convolutional Network)** 의 의미론적 분할(semantic segmentation)에서 다운샘플링된 특징맵을 원본 해상도로 복원할 때 사용한다.
+**Where is it used?** Tasks requiring pixel-level prediction. Typically, it is used to restore downsampled feature maps to their original resolution during semantic segmentation in **FCN (Fully Convolutional Network)**.
 
-::: {.callout-note title="무선통신 analogy — 전치 합성곱 = 보간(interpolation) 필터"}
-전치 합성곱은 다운샘플링된 신호에 0을 끼워 넣고(zero-insertion / upsampling) 필터를 통과시키는 **보간 필터뱅크**와 구조가 동일하다. 합성곱이 데시메이션(decimation)이라면, 전치 합성곱은 인터폴레이션(interpolation)이다.
+::: {.callout-note title="Wireless communication analogy — Transformed convolution = Interpolation filter"}
+The preconvolution has the same structure as an **interpolation filter bank** that inserts zeros (zero-insertion / upsampling) into a downsampled signal and passes it through a filter. If convolution is decimation, then preconvolution is interpolation.
 :::
 
-## 효율적 합성곱: separable / group convolution {#sec-efficient-conv}
+## Efficient Convolution: Separable / Group Convolution {#sec-efficient-conv}
 
-**한 줄 요약:** 표준 합성곱을 더 작은 연산들의 곱으로 분해해 곱셈 횟수와 파라미터를 줄인다.
+**One-line summary:** Reduces the number of multiplications and parameters by breaking down standard convolution into the product of smaller operations.
 
-- **Separable convolution:** $k\times k$ 2D 커널을 $k\times1$ 과 $1\times k$ 의 연속 적용으로 분해(랭크-1 가정). 연산량이 $O(k^2)$ 에서 $O(2k)$ 로 감소.
-  - depthwise-separable은 한 발 더 나아가 (채널별 공간 합성곱) + (1×1 점별 합성곱)으로 분해한다(MobileNet 계열의 핵심).
-- **Group convolution:** 입력 채널을 $g$ 개 그룹으로 나누어 각 그룹 안에서만 합성곱. **병렬화에 유리**하고 파라미터를 $1/g$ 로 줄인다(AlexNet의 2-GPU 분할이 원조).
+- **Separable convolution:** $k\times k$ Decomposes a 2D kernel into successive applications of $k\times1$ and $1\times k$ (assuming rank-1). The computational load is reduced from $O(k^2)$ to $O(2k)$.
+  - depthwise-separable goes a step further and decomposes into (channel-wise spatial convolution) + (1×1 point-wise convolution) (the core of the MobileNet family).
+- **Group convolution:** Divides input channels into $g$ groups and performs convolution only within each group. **Advantageous for parallelization** and reduces parameters to $1/g$ (AlexNet's 2-GPU split is the origin).
 
-::: {.callout-note title="무선통신 analogy — separable filter = 분리가능 커널"}
-2D 영상 처리의 분리가능 필터(예: 가우시안 블러를 행 필터·열 필터로 분해)와 정확히 같은 아이디어다. 랭크-1 근사가 성립하면 외적(outer product) 한 쌍으로 2D 필터를 표현할 수 있어 곱셈 비용이 급감한다.
+::: {.callout-note title="Wireless communication analogy — separable filter = separable kernel"}
+It is exactly the same idea as separable filters in 2D image processing (e.g., decomposing Gaussian blur into row and column filters). If rank-1 approximation holds, 2D filters can be represented by a pair of outer products, which drastically reduces multiplication costs.
 :::
 
-## 구조적 출력과 입력 데이터 타입 {#sec-structured-io}
+## Structured Output and Input Data Types {#sec-structured-io}
 
-CNN의 출력은 과제에 따라 다양한 형태를 가진다.
+The output of a CNN takes various forms depending on the task.
 
-| 출력 형태 | 과제 | 예시 |
+| Output Format | Assignment | Example |
 |---|---|---|
-| 단일 레이블 | 이미지 분류 | ImageNet 분류 |
-| 픽셀별 레이블 | 의미론적 분할 | FCN |
-| 그래프(2D 행렬) | 관계/구조 예측 | 인접 행렬 표현 |
+| Single Label | Image Classification | ImageNet Classification |
+| Labels by pixel | Semantic segmentation | FCN |
+| Graph (2D Matrix) | Relationship/Structure Prediction | Adjacency Matrix Representation |
 
-**입력 데이터 타입**도 영상에 국한되지 않는다.
+**Input data types** are also not limited to images.
 
-- **스펙트로그램:** 오디오 파형을 시간-주파수 평면으로 변환하면 사실상 "이미지"가 되어 CNN으로 처리 가능.
-- **AlphaGo 입력:** 바둑판을 $19\times19$ 격자에 여러 특징 평면 $[X_t, Y_t, X_{t-1}, Y_{t-1}, \dots, C]$ 으로 쌓아 CNN에 투입.
+- **Spectrogram:** Converting an audio waveform into a time-frequency plane effectively creates an "image" that can be processed by CNNs.
+- **AlphaGo Input:** Stack a Go board $19\times19$ grid with multiple feature planes $[X_t, Y_t, X_{t-1}, Y_{t-1}, \dots, C]$ and feed it into a CNN.
 
-::: {.callout-tip title="무선통신 analogy — 파형을 이미지로"}
-파형 $\to$ 스펙트로그램(STFT) $\to$ CNN 입력의 흐름은, 시간 영역 신호를 시간-주파수 표현으로 옮겨 2D 패턴 인식 문제로 바꾸는 것이다. 변조 분류(modulation classification)에서 I/Q 샘플을 스펙트로그램으로 변환해 CNN에 넣는 접근과 동일하다.
+::: {.callout-tip title="Wireless communication analogy — waveform as an image"}
+Waveform $\to$ Spectrogram (STFT) $\to$ The flow of CNN input is to transform the time-domain signal into a time-frequency representation, turning it into a 2D pattern recognition problem. This is the same approach as converting I/Q samples into spectrograms and feeding them into a CNN in modulation classification.
 :::
 
-## 임의/비지도 필터, 그리고 생물학적 근거 {#sec-bio}
+## Random/Unsupervised Filters, and Biological Evidence {#sec-bio}
 
-- CNN 필터는 보통 지도 신호로 학습하지만, **무작위 필터**도 의외로 꽤 잘 작동한다(Jarrett 2009; Saxe 2011 등). 이는 합성곱 구조 자체가 좋은 귀납 편향(inductive bias)임을 시사한다.
-- 비지도 방식으로 필터를 학습하는 대표 예가 **대조 학습(contrastive learning)**: 같은 이미지의 패치는 양성쌍, 다른 이미지의 패치는 음성쌍으로 둔다.
-- **신경과학적 근거:** CNN 연산은 1차 시각피질(V1)의 처리와 닮았다. V1의 단순세포(simple cell)는 CNN의 선형 필터에, 복잡세포(complex cell)는 풀링 유닛에 대응한다. 학습된 CNN 필터가 V1의 **Gabor 필터**와 유사하게 나타난다는 점도 흥미롭다.
+- CNN filters are usually trained on supervised signals, but **random filters** also work surprisingly well (Jarrett 2009; Saxe 2011 et al.). This suggests that the convolutional structure itself is a good inductive bias.
+- A representative example of learning filters in an unsupervised manner is **contrastive learning**: patches from the same image are designated as positive pairs, and patches from different images are designated as negative pairs.
+- **Neuroscientific Basis:** CNN computation resembles processing in the primary visual cortex (V1). The simple cells of V1 correspond to the linear filters of the CNN, and the complex cells correspond to the pooling units. It is also interesting that the learned CNN filters appear similar to the **Gabor filters** of V1.
 
-| | 인간 시각계 | CNN |
+| | Human Visual System | CNN |
 |---|---|---|
-| 해상도 | 중심와 외엔 저해상도 | 상대적 고해상도 |
-| 감각 통합 | 다중 감각 통합 | 순수 시각만 |
-| 차원 | 풍부한 3D 정보 | 2D 정보만 |
-| 연산 | 메커니즘 미상 | 곱셈·덧셈 |
+| Resolution | Low resolution except for the fovea | Relatively high resolution |
+| Sensory Integration | Multisensory Integration | Purely Visual |
+| Dimensions | Rich 3D information | 2D information only |
+| Operation | Mechanism unknown | Multiplication·Addition |
 
 ---
 
-# ImageNet 시대와 아키텍처 계보 {#sec-history}
+# ImageNet Era and Architecture Genealogy {#sec-history}
 
-## ImageNet: 르네상스의 방아쇠 {#sec-imagenet}
+## ImageNet: Renaissance Trigger {#sec-imagenet}
 
-**한 줄 요약:** 대규모 라벨 데이터셋의 등장이 CNN 부흥의 결정적 계기였다.
+**One-line summary:** The emergence of large-scale labeled datasets was the decisive catalyst for the resurgence of CNNs.
 
-- 2009년 Fei-Fei Li가 Princeton에서 구축(WordNet에서 영감). 전체 **1,400만 장 / 2.4만 카테고리**.
-- 실제로 널리 쓰이는 챌린지 부분집합은 **ImageNet-1K**: **120만 장 / 1,000 카테고리**. 대규모 이미지 분류의 표준 벤치마크.
-- 성능 추이: 2009년경 오류율 약 35%(정확도 ~64%)에서 2011년 약 27~28%까지 점진 개선. 여전히 큰 간극이 남아 있었다.
+- Built by Fei-Fei Li at Princeton in 2009 (inspired by WordNet). Total **14 million images / 24,000 categories**.
+- A widely used challenge subset in practice is **ImageNet-1K**: **1.2 million images / 1,000 categories**. The standard benchmark for large-scale image classification.
+- Performance trend: Gradual improvement from an error rate of about 35% (accuracy ~64%) around 2009 to about 27–28% in 2011. A large gap still remained.
 
-## 핵심 아키텍처 계보 {#sec-genealogy}
+## Core Architecture Lineage {#sec-genealogy}
 
 ```{mermaid}
 timeline
@@ -138,176 +138,176 @@ timeline
     2015 : ResNet (152~1001 layers, 인간 성능 돌파)
 ```
 
-**LeNet (1998).** Yann LeCun이 손글씨 숫자 인식을 위해 제안한 최초의 실용적 CNN.
+**LeNet (1998).** The first practical CNN proposed by Yann LeCun for handwritten digit recognition.
 
 **AlexNet (2012).** Krizhevsky et al., *"ImageNet Classification with Deep Convolutional Neural Networks"*, NIPS 2012.
 
-- 구조: **7층(합성곱 5 + 완전연결 2)**, LeNet과 유사하나 GPU로 1,000 카테고리를 학습.
-- 성능: **오류율 16%** — 직전 해 대비 약 10%p 감소. 이 도약이 딥러닝 르네상스의 "암묵적 출발점"이 되었다.
+- Structure: **7 layers (5 convolutional + 2 fully connected)**, similar to LeNet but trained on GPU with 1,000 categories.
+- Performance: **Error rate 16%** — A decrease of about 10 percentage points compared to the previous year. This leap became the "implicit starting point" of the deep learning renaissance.
 
-**GoogLeNet (2014).** Google. 100층 이상, 고성능 GPU로 1주일 이상 학습. 이름의 중간 대문자 **L**은 LeNet에 대한 오마주다.
+**GoogLeNet (2014).** Google. Over 100 layers, trained for over a week on a high-performance GPU. The middle capital **L** of the name is an homage to LeNet.
 
 **ResNet (2015).** Microsoft Research Asia, Kaiming He et al., CVPR 2016.
 
-- **잔차 연결(residual / highway connection)** 으로 152층~1,001층까지 쌓음. Yann LeCun이 "ultra deep"이라 평.
-- 핵심: 마지막 층에서 계산된 그래디언트가 중간층의 간섭 없이 앞쪽으로 **그대로 전파**되는 통로를 만들어 **그래디언트 소실**을 완화. (뒤의 @sec-vanish 와 직접 연결되는 아이디어다.)
-- 결과: ImageNet-1K에서 **인간 성능(오류율 약 5%)을 처음으로 돌파**.
+- Stacked from floor 152 to 1,001 using **residual / highway connection**. Yann LeCun described it as "ultra deep".
+- Key Point: Creates a path for the gradient calculated in the final layer to **propagate forward as is** without interference from intermediate layers, thereby mitigating **gradient vanishing**. (This idea is directly connected to the following @sec-vanish.)
+- Result: **Breaks human performance (error rate about 5%) on ImageNet-1K for the first time**.
 
-::: {.callout-warning title="'인간 초월'이라는 표현의 함정"}
-ResNet이 ImageNet-1K에서 인간을 넘어선 이유 중 하나는, 이 데이터셋에 **미세 분류(fine-grained) 견종 클래스**가 많기 때문이다. 인간은 골든리트리버와 비슷한 다른 견종을 구분하기 어렵지만, 모델은 텍스처·얼굴·형태의 미세 차이에 집중할 수 있다.
+::: {.callout-warning title="The Trap of the Expression 'Transcending Humanity'"}
+One of the reasons ResNet outperformed humans on ImageNet-1K is that this dataset contains many **fine-grained dog breed classes**. While humans find it difficult to distinguish between Golden Retrievers and other similar breeds, the model can focus on minute differences in texture, face, and shape.
 
-따라서 "딥러닝이 객체 인식에서 인간을 넘어섰다"는 일반화는 **오해의 소지가 있다.** 각 벤치마크는 고유의 편향과 선호를 가진다. "특정 벤치마크에서, 특정 다른 알고리즘 대비" 우수하다는 좁은 진술로 받아들여야 한다.
+Therefore, the generalization that "deep learning has surpassed humans in object recognition" is **misleading.** Each benchmark has its own inherent biases and preferences. It should be taken as a narrow statement indicating superiority "compared to other specific algorithms on a specific benchmark."
 :::
 
-## 소프트웨어 생태계 {#sec-software}
+## Software Ecosystem {#sec-software}
 
-| 라이브러리 | 출처 | 메모 |
+| Library | Source | Memo |
 |---|---|---|
-| DeCaf → Caffe | Yangqing Jia (UC Berkeley, 개인/취미 프로젝트) | 쉽고 가벼움, ~2015까지 인기 |
-| TensorFlow | Google (2015 오픈소스) | 효율은 우수, 사용성은 상대적으로 까다로움 |
-| Torch | Yann LeCun 그룹 (Lua) → FAIR | 게임 스크립트 언어 Lua 기반에서 출발 |
-| PyTorch | FAIR → PyTorch Foundation | 디버깅·사용성 우수, 연구계 표준 |
+| DeCaf → Caffe | Yangqing Jia (UC Berkeley, Personal/Hobby Project) | Easy and lightweight, Popular until ~2015 |
+| TensorFlow | Google (2015 Open Source) | Excellent efficiency, relatively difficult to use |
+| Torch | Yann LeCun Group (Lua) → FAIR | Started based on the game scripting language Lua |
+| PyTorch | FAIR → PyTorch Foundation | Excellent debugging and usability, research standard |
 
-## "신봉자들"과 수상 {#sec-godfathers}
+## "Believers" and the Award {#sec-godfathers}
 
-- **Yann LeCun, Geoffrey Hinton, Yoshua Bengio** — 딥러닝이 외면받던 시기에도 신경망의 힘을 확신. **2018 ACM 튜링상**(2019 수여).
-- **Geoffrey Hinton** — **2024 노벨 물리학상** 수상.
-- **Andrew Ng** — 초기 선구자 중 하나, 이후 교육 플랫폼(Coursera) 설립, Stanford 교수.
-- **Jensen Huang / NVIDIA** — GPU 수요 폭증의 최대 수혜자.
+- **Yann LeCun, Geoffrey Hinton, Yoshua Bengio** — Convinced of the power of neural networks even when deep learning was shunned. **2018 ACM Turing Prize** (Awarded in 2019).
+- **Geoffrey Hinton** — **2024 Nobel Prize in Physics** Winner.
+- **Andrew Ng** — One of the early pioneers, later founded the educational platform (Coursera), Stanford professor.
+- **Jensen Huang / NVIDIA** — The biggest beneficiary of the surge in GPU demand.
 
-::: {.callout-tip title="연구자에게 주는 교훈"}
-지금은 외면받는 주제가 10~20년 뒤 주류가 될 수 있다. **강화학습(RL)** 은 25년 이상 비주류였다가 현재는 LLM·로보틱스·비전 전반에서 핵심이 되었다. "어두운 영역"에서 확신을 가지고 오래 버티면 결국 인정받을 수 있다(물론 운도 필요하다).
+::: {.callout-tip title="Lessons for Researchers"}
+Topics currently overlooked can become mainstream 10 to 20 years from now. **Reinforcement Learning (RL)** was a fringe field for over 25 years but has now become a core element across LLM, robotics, and vision. If you persevere with conviction in the "dark territory" for a long time, you will eventually be recognized (of course, luck is also needed).
 :::
 
 ---
 
-# CNN 다음: Transformer, ViT, gMLP {#sec-after-cnn}
+# Next CNN: Transformer, ViT, gMLP {#sec-after-cnn}
 
-## Transformer와 Vision Transformer {#sec-vit}
+## Transformer and Vision Transformer {#sec-vit}
 
-**한 줄 요약:** NLP에서 출발한 Transformer(Vaswani et al., *"Attention Is All You Need"*, 2017)를 영상에 적용한 것이 **ViT**(Dosovitskiy et al., *"An Image is Worth 16×16 Words"*, ICLR 2021)다.
+**One-line summary:** **ViT** (Dosovitskiy et al., *"An Image is Worth 16×16 Words"*, ICLR 2021) is the application of the Transformer (Vaswani et al., *"Attention Is All You Need"*, 2017), which originated in NLP, to images.
 
-- 핵심 발상: **이미지를 패치(patch)의 시퀀스로 본다.** 각 패치를 "단어"처럼 토큰화하고, 토큰 간 문맥 정보를 어텐션으로 인코딩한다.
-- ViT는 CNN을 "이기기 위한" 것이 아니라 **다른 종류의 연산으로 같은 정보를 인코딩**하는 접근이다.
+- Core Concept: **View the image as a sequence of patches.** Tokenize each patch like a "word" and encode contextual information between tokens as attention.
+- ViT is not an approach intended to "beat" CNNs, but rather one that **encodes the same information using a different type of operation**.
 
-## ViT vs CNN: 층수와 병렬성의 trade-off {#sec-vit-vs-cnn}
+## ViT vs CNN: The trade-off between layers and parallelism {#sec-vit-vs-cnn}
 
-**한 줄 요약:** ViT는 층수가 훨씬 적지만(예: ~32층) 한 층의 연산이 더 복잡하다. 적은 층수는 **병렬화·에너지 효율**에서 이점이 된다.
+**One-line summary:** ViT has a much smaller number of layers (e.g., ~32 layers), but the computation of each layer is more complex. The smaller number of layers is an advantage in **parallelization and energy efficiency**.
 
-핵심 논리는 다음과 같다.
+The core logic is as follows.
 
-1. ResNet은 152층까지 쌓는 반면, ViT-L은 약 32층으로 **유사한 성능**을 낸다.
-2. 한 층 안에 어텐션을 포함한 복잡한 연산(여러 CNN층에 상당)이 들어 있어 "공짜 점심"은 없다 — **층당 계산 비용은 크다.**
-3. 그러나 **층은 순차적(cascade)** 이다. 다음 층 연산은 이전 층이 끝나야 시작된다. 따라서 **층수가 적을수록 깊이 방향 직렬 의존이 줄어** 병렬화에 유리하다.
-4. 결과적으로 GPU가 많을수록 ViT는 **시간 효율**이 좋고, 층수 감소로 전체 **에너지 소비**도 줄어드는 경향.
+1. ResNet stacks up to 152 layers, whereas ViT-L achieves **similar performance** with about 32 layers.
+2. Since complex operations including attention (equivalent to multiple CNN layers) are packed into a single layer, there is no "free lunch" — **the computational cost per layer is high.**
+3. However, **layers are cascade**. The operation of the next layer does not begin until the previous layer is finished. Therefore, **the fewer the number of layers, the less serial dependency there is in the depth direction**, which is advantageous for parallelization.
+4. As a result, the more GPUs there are, the better the **time efficiency** of ViT, and the overall **energy consumption** tends to decrease due to the reduction in the number of layers.
 
 $$
 \text{총 지연} \;\approx\; \underbrace{L}_{\text{직렬(층수)}}\times \underbrace{(\text{층당 계산}/P)}_{\text{병렬화 가능}},\qquad P=\text{병렬 자원}
 $$
 
-층당 계산은 $P$ 로 나눠 줄일 수 있지만, 층수 $L$ 은 직렬이라 나눌 수 없다. 그래서 **$L$ 을 줄이는 것**이 지연 단축의 핵심이다.
+Calculation per floor can be reduced by dividing by $P$, but the number of floors $L$ cannot be divided because it is serial. Therefore, reducing **$L$** is the key to reducing latency.
 
-::: {.callout-note title="무선통신 analogy — 직렬 vs 병렬 처리"}
-다단(multi-stage) 수신기에서 각 단을 더 무겁게 만들되 단 수를 줄이는 것과 같다. 단 수(직렬 깊이)는 파이프라인 지연을 결정하고, 단 내부 연산은 다수의 처리 코어로 병렬화 가능하다. 처리량(throughput) 대비 지연(latency) 최적화의 전형적 trade-off다.
+::: {.callout-note title="Wireless communication analogy — Serial vs Parallel processing"}
+This is equivalent to making each stage heavier in a multi-stage receiver while reducing the number of stages. The number of stages (serial depth) determines pipeline latency, and internal stage operations can be parallelized across multiple processing cores. This is a typical trade-off for latency optimization relative to throughput.
 :::
 
-## gMLP와 멀티모달리티 {#sec-gmlp}
+## gMLP and Multimodality {#sec-gmlp}
 
-- **gMLP** (Liu et al., *"Pay Attention to MLPs"*, NeurIPS 2021): ViT의 이점이 어텐션 자체가 아니라 **채널별 투영 + 공간 게이팅(spatial gating) + 정규화·활성** 구조에서 온다고 주장. 더 단순한 구조로 비슷한 성능을 보였으나, 아직 어텐션만큼 널리 쓰이지는 않는다.
-- **멀티모달리티:** 입력을 토큰으로 바꾸기만 하면 텍스트·영상·오디오(스펙트로그램)에 **동일한 Transformer 구조**를 쓸 수 있다. 이 균질성(homogeneity) 덕분에 NVIDIA는 Transformer 연산을 하드웨어(Transformer Engine)로 구현해 시간·에너지 효율을 끌어올렸다.
+- **gMLP** (Liu et al., *"Pay Attention to MLPs"*, NeurIPS 2021): It is argued that the advantage of ViT comes not from attention itself, but from the **channel-wise projection + spatial gating + normalization and activation** structure. Although it showed similar performance with a simpler structure, it is not yet as widely used as attention.
+- **Multimodality:** By simply converting inputs into tokens, the **same Transformer structure** can be used for text, video, and audio (spectrograms). Thanks to this homogeneity, NVIDIA has implemented Transformer operations in hardware (Transformer Engine), thereby increasing time and energy efficiency.
 
-## CNN 요약 {#sec-cnn-summary}
+## CNN Summary {#sec-cnn-summary}
 
-::: {.callout-important title="CNN 핵심 정리"}
-- CNN은 2D 정보를 **효율적으로 인코딩**한다. MLP가 모든 위치를 독립적으로 학습하는 것과 달리, CNN은 **공간 정상성**을 이용해 가중치를 공유한다 → 적은 파라미터, 적은 학습 샘플로 학습 가능.
-- 구성요소: **합성곱층**(정상성 가정) + **풀링층**(국소적 노이즈/잉여 정보 폐기) + **MLP**(최종 의미 추출/분류).
-- 합성곱층이 입력을 컴팩트한 표현으로 압축하면, 그 위의 MLP가 회귀/분류를 담당한다.
-- 현재 많은 2D 인코딩 과제에서 **ViT가 CNN을 대체**하고 있다(계산 효율·병렬성·멀티모달리티 때문). 다만 일부 응용에서는 CNN형 구조가 여전히 우위를 가진다.
+::: {.callout-important title="CNN Key Summary"}
+- CNNs **efficiently encode** 2D information. Unlike MLPs that learn every location independently, CNNs share weights using **spatial stationarity** → enabling training with fewer parameters and fewer training samples.
+- Components: **Convolutional Layer** (Stationality Assumption) + **Pooling Layer** (Discarding Local Noise/Redundant Information) + **MLP** (Final Semantic Extraction/Classification).
+- When the convolutional layer compresses the input into a compact representation, the MLP above it handles regression/classification.
+- Currently, in many 2D encoding tasks, **Vit is replacing CNN** (due to computational efficiency, parallelism, and multimodality). However, in some applications, CNN-type architecture still holds an advantage.
 :::
 
 ---
 
-# 시퀀스 모델링: 동기와 도전 {#sec-seq-intro}
+# Sequence Modeling: Motivation and Challenge {#sec-seq-intro}
 
-## 세 가지 대표 응용 {#sec-three-apps}
+## Three representative applications {#sec-three-apps}
 
-| 분야 | 과제 | 대표 예 |
+| Field | Project | Representative Example |
 |---|---|---|
-| 컴퓨터 비전 | 이미지/비디오 분석 | YOLO(객체 탐지) |
-| 자연어 처리 | 텍스트 분석 | GPT |
-| 음성 인식 | 사람 음성 인식 | Amazon Echo |
+| Computer Vision | Image/Video Analysis | YOLO (Object Detection) |
+| Natural Language Processing | Text Analysis | GPT |
+| Speech Recognition | Human Speech Recognition | Amazon Echo |
 
-세 분야 모두 결국 **시퀀스 모델링**을 필요로 한다. 텍스트는 단어의 나열, 음성은 파형의 나열, 비디오는 프레임의 나열이다.
+All three fields ultimately require **sequence modeling**. Text is a sequence of words, speech is a sequence of waveforms, and video is a sequence of frames.
 
-## 스냅샷 데이터 vs 시퀀스 데이터 {#sec-snapshot-vs-seq}
+## Snapshot data vs Sequence data {#sec-snapshot-vs-seq}
 
-지금까지 다룬 것은 **길이가 정해진 "스냅샷" 데이터**(이미지, 그래프, 객체)였다. 이제 다룰 것은 **가변 길이**를 갖는 데이터다.
+What we have covered so far is **fixed-length "snapshot" data** (images, graphs, objects). What we will now deal with is **variable-length** data.
 
-- 언어(텍스트), 주가(시간), 비디오, 오디오
-- 핵심 차이: 입력 길이를 미리 알 수 없다 → 가변 길이를 다룰 인코딩이 필요.
+- Language (Text), Stock Price (Time), Video, Audio
+- Key difference: Input length cannot be known in advance → An encoding capable of handling variable lengths is required.
 
-## 핵심 도전: 장기 의존성 {#sec-longterm}
+## Key Challenge: Long-term Dependence {#sec-longterm}
 
-시퀀스 모델링의 두 가지 근본 난제:
+Two fundamental challenges in sequence modeling:
 
-1. **가변 길이 처리.** 길이가 매번 달라지므로 같은 모델로 다양한 길이를 받아야 한다.
-2. **시간에 걸친 기억(장기 의존성).** 더 큰 난제다. 결론에 도달할 때까지 과거 문맥을 유지해야 하는데, 신경망은 시계열 기억에 약하다.
+1. **Variable Length Handling.** Since the length changes every time, the same model must be used to receive various lengths.
+2. **Memory over time (long-term dependency).** This is a bigger challenge. Past context must be maintained until a conclusion is reached, but neural networks are weak at time-series memory.
 
-**왜 어려운가?** 여러 단계를 거쳐 전파되는 그래디언트가 **대부분 소실(vanish)** 되거나 **드물게 폭발(explode)** 하기 때문이다(폭발은 드물지만 최적화에 큰 손상을 준다).
+**Why is it difficult?** This is because gradients propagating through multiple steps are **mostly vanished** or **rarely explode** (explosions are rare but cause significant damage to optimization).
 
-::: {.callout-note title="비디오 이해의 한계 — 구체적 예"}
-5분짜리 비디오에서 소년이 공을 차는 장면이 5초 정도 등장한다고 하자. "이 소년은 무엇을 하고 있나?"라고 물으면 모델은 "공을 들고 있다"거나 "드리블한다"는 식의 부정확한 답을 내기 쉽다. 5분 × 30 fps = 약 9,000 프레임을 **시간적으로 통합**해 핵심 순간을 기억해야 하는데, 현재 모델은 이런 **시간적 통합**을 잘 전파하지 못한다. 비디오 이해는 여전히 열린 연구 주제다.
+::: {.callout-note title="Limitations of Video Understanding — Specific Examples"}
+Let's assume that in a 5-minute video, a scene of a boy kicking a ball appears for about 5 seconds. If asked, "What is this boy doing?", the model is prone to giving inaccurate answers such as "he is holding the ball" or "he is dribbling." It needs to **temporally integrate** 5 minutes × 30 fps = approximately 9,000 frames to remember key moments, but current models do not propagate this **temporal integration** well. Video comprehension remains an open research topic.
 :::
 
-::: {.callout-tip title="현대적 우회 — KV 캐시와 긴 문맥"}
-"시간에 걸쳐 기억"을 제대로 못 하니, 대신 **모든 과거 토큰을 입력으로 저장**해 버리는 우회책이 쓰인다.
+::: {.callout-tip title="Modern Bypass — KV Cache and Long Context"}
+Since "remembering over time" is not done properly, a workaround is used instead to **store all past tokens as input**.
 
-- LLM은 사용자 입력 외에 긴 **시스템 프롬프트**까지 함께 처리한다(예: "공격적 표현 금지" 등).
-- 과거 토큰을 **KV 캐시(key-value cache)** 로 저장해 재사용. 처리 가능한 문맥이 2만 토큰에서 12.8만 토큰 이상으로 확장되었다.
-- 이는 본질적으로 "시간 기억을 포기하고 입력으로 저장"하는 전략이다. 최근에는 이 토큰들을 **압축**하는 연구(예: Google의 Titans 계열)가 활발하다.
-- **진짜 좋은 시간 기억 아키텍처**를 만든다면 — 그것은 큰 미해결 문제다.
+- LLM handles long **system prompts** in addition to user input (e.g., "No aggressive expressions", etc.).
+- Past tokens are stored in the **key-value cache** for reuse. Processable contexts have been expanded from 20,000 tokens to over 128,000 tokens.
+- This is essentially a strategy of "abandoning temporal memory and storing it as input." Recently, research on **compressing** these tokens (e.g., Google's Titans series) has been active.
+- If you create a **really good time memory architecture** — that is a big unsolved problem.
 :::
 
 ---
 
-# 동역학계로서의 RNN {#sec-rnn}
+# RNN as a Dynamical System {#sec-rnn}
 
-## 고전적 동역학계 {#sec-dynamical}
+## Classical dynamical system {#sec-dynamical}
 
-**한 줄 요약:** RNN은 "상태가 시간에 따라 진화하는 시스템"을 신경망으로 구현한 것이다.
+**One-line summary:** An RNN is a neural network implementation of a "system whose state evolves over time."
 
-외부 입력 없는 가장 단순한 동역학계:
+The simplest dynamical system without external input:
 
 $$
 s^{(t)} = f\!\left(s^{(t-1)};\, \theta\right)
 $$
 
-- $s^{(t)}$: 시각 $t$ 에서의 시스템 **상태(state)**.
-- 초기 상태가 주어지면 시스템은 자기 자신을 입력으로 받아 상태를 갱신한다.
-- 시간으로 **펼치면(unfold)** $s^{(t)} = f(f(\cdots f(s^{(0)})\cdots))$ 의 함수 합성이 된다.
+- $s^{(t)}$: System **state** at time $t$.
+- Given an initial state, the system takes itself as input and updates the state.
+- When **unfolded** in time, it becomes the function composition of $s^{(t)} = f(f(\cdots f(s^{(0)})\cdots))$.
 
-## 외부 입력으로 구동되는 시스템 {#sec-external}
+## System driven by external input {#sec-external}
 
-외부 신호 $x^{(t)}$ 가 시스템을 구동하면:
+When external signal $x^{(t)}$ drives the system:
 
 $$
 s^{(t)} = f\!\left(s^{(t-1)},\, x^{(t)};\, \theta\right)
 $$
 
-이제 상태 $s^{(t)}$ 는 **과거 전체 시퀀스의 정보**를 담는다. 이 상태를 **은닉 상태(hidden state) $h^{(t)}$** 라 이름 붙여 구현한 것이 바로 RNN이다.
+Now, the state $s^{(t)}$ contains **information of the entire past sequence**. An RNN is implemented by naming this state the **hidden state $h^{(t)}$**.
 
 $$
 \boxed{\,h^{(t)} = f\!\left(h^{(t-1)},\, x^{(t)};\, \theta\right)\,}
 $$
 
-::: {.callout-note title="왜 '은닉(hidden)' 상태인가"}
-사용자는 입력 $x$ 를 주고 출력만 받는다. 상태 $h$ 는 시스템 내부에 있어 사용자에게 직접 보이지 않으므로 "은닉" 상태라 부른다. 표기도 상태(state)의 $s$ 가 아니라 hidden의 $h^{(t)}$ 를 쓴다.
+::: {.callout-note title="Why is it in a 'hidden' state?"}
+The user provides input $x$ and receives only the output. The state $h$ is located inside the system and is not directly visible to the user, so it is called the "hidden" state. The notation also uses $h^{(t)}$ for hidden, rather than $s$ for state.
 :::
 
-## RNN의 정의와 입출력 {#sec-rnn-def}
+## Definition of RNN and Input/Output {#sec-rnn-def}
 
-- **입력:** 현재 시각 데이터 $x^{(t)}$ 와 과거 은닉 상태 $h^{(t-1)}$.
-- **출력:** 현재 시각 모델 출력 $o^{(t)}$ 와 다음 시각으로 넘길 은닉 상태 $h^{(t)}$.
+- **Input:** Current time data $x^{(t)}$ and past hidden state $h^{(t-1)}$.
+- **Output:** Current time model output $o^{(t)}$ and hidden state to pass to next time $h^{(t)}$.
 
 ```{mermaid}
 flowchart LR
@@ -320,17 +320,17 @@ flowchart LR
     h3 --> o3["o⁽³⁾"]
 ```
 
-## One-step RNN: 필터 관점 {#sec-onestep}
+## One-step RNN: Filter perspective {#sec-onestep}
 
-세 가지 연산을 비교하면 RNN의 정체가 드러난다.
+Comparing the three operations reveals the true nature of the RNN.
 
-| 연산 | 식 | 성격 |
+| operation | expression | nature |
 |---|---|---|
-| 비순환(memoryless) | $f(x_t)=w x_t + b$ | 기억 없음 |
-| 슬라이딩 윈도(이동 평균) | $f(x_t,x_{t-1})=w_1 x_t + w_2 x_{t-1} + b$ | **FIR** (유한 기억) |
-| 한 스텝 순환 | $f(x_t,x_{t-1})=w_1 x_t + w_2\,f(x_{t-1},x_{t-2}) + b$ | **IIR** (피드백, 무한 기억) |
+| Memoryless | $f(x_t)=w x_t + b$ | No memory |
+| Sliding Window (Moving Average) | $f(x_t,x_{t-1})=w_1 x_t + w_2 x_{t-1} + b$ | **FIR** (Finite Memory) |
+| One step cycle | $f(x_t,x_{t-1})=w_1 x_t + w_2\,f(x_{t-1},x_{t-2}) + b$ | **IIR** (Feedback, Infinite Memory) |
 
-바닐라 RNN 셀은 보통 다음과 같이 쓴다(활성 함수는 $\tanh$).
+Vanilla RNN cells are usually written as follows (the activation function is $\tanh$).
 
 $$
 h^{(t)} = \tanh\!\left(W_{hh}\,h^{(t-1)} + W_{xh}\,x^{(t)} + b\right),
@@ -338,33 +338,33 @@ h^{(t)} = \tanh\!\left(W_{hh}\,h^{(t-1)} + W_{xh}\,x^{(t)} + b\right),
 o^{(t)} = W_{ho}\,h^{(t)} + c
 $$
 
-::: {.callout-tip title="무선통신 analogy — RNN = IIR 필터/상태공간 모델"}
-- **비순환** → 메모리리스(memoryless) 채널.
-- **이동 평균** → **FIR 필터**: 출력이 과거 유한 개 입력의 가중합. 항상 안정.
-- **한 스텝 순환** → **IIR 필터**: 출력에 자기 피드백이 있어 임펄스 응답이 무한히 이어진다. 이 피드백 때문에 **안정성(고유값/극점 위치)** 이 문제가 된다 — 이것이 바로 그래디언트 소실/폭발의 근원이다(@sec-vanish).
-- RNN의 은닉 상태 $h^{(t)}$ 는 칼만 필터의 **상태 추정치**, 혹은 채널의 누적 상태와 같은 역할을 한다.
+::: {.callout-tip title="Wireless communication analogy — RNN = IIR filter/state-space model"}
+- **Acyclic** → Memoryless channel.
+- **Moving Average** → **FIR Filter**: The output is a weighted sum of a finite number of past inputs. Always stable.
+- **One step cycle** → **IIR filter**: There is self-feedback at the output, so the impulse response continues indefinitely. Due to this feedback, **stability (eigenvalues/pole locations)** becomes an issue — this is the very source of gradient vanishing/explosion (@sec-vanish).
+- The hidden state of the RNN $h^{(t)}$ acts as the **state estimate** of the Kalman filter, or the accumulated state of the channel.
 :::
 
-## 순환 구조의 두 가지 이점과 그 가정 {#sec-benefits}
+## Two advantages of circular structures and their assumptions {#sec-benefits}
 
-1. **가변 길이 무관성:** 시퀀스 길이와 상관없이 학습된 모델의 입력 크기는 항상 같다($x^{(t)}$ 하나). $n-1$ 이든 $n+\delta$ 든 같은 RNN을 반복 적용.
-2. **파라미터 공유:** 매 시각 **같은 전이 함수 $f$ 와 같은 파라미터 $\theta$** 를 사용한다. 이는 CNN의 공간 정상성에 대응하는 **시간 정상성(temporal stationarity)** 가정이다.
+1. **Variable Length Independence:** Regardless of sequence length, the input size of the trained model is always the same ($x^{(t)}$). The same RNN is applied repeatedly whether it is $n-1$ or $n+\delta$.
+2. **Parameter sharing:** At every time, the same parameters $f$ and the same transition function $\theta$ are used. This is the **temporal stationarity** assumption corresponding to the spatial stationarity of CNNs.
 
-::: {.callout-warning title="시간 정상성은 강한 가정이다"}
-같은 함수를 모든 시각에 적용한다는 것은, 시퀀스가 시간적으로 정상(stationary)이라는 가정을 깐다. 그러나 한 문장이 말하는 바와 다음 문장이 말하는 바는 다를 수 있다 — 즉 **데이터 생성 분포가 시간에 따라 바뀐다(non-stationary).** 그런데도 같은 전이 함수를 쓰므로 **가정 위배**가 생긴다. 이것이 바닐라 RNN이 긴 시퀀스의 단어를 잘 인코딩하지 못하는 한 이유다.
+::: {.callout-warning title="Temporal stationarity is a strong assumption"}
+Applying the same function to every time step assumes that the sequence is temporally stationary. However, what one sentence says may differ from what the next sentence says—that is, the **data generation distribution changes over time (non-stationary).** Since the same transition function is used despite this, a **violation of assumption** occurs. This is one reason why vanilla RNNs cannot encode long sequences of words well.
 
-> 무선통신 관점: WSS(wide-sense stationary) 가정으로 LTI 필터를 설계했는데 실제 채널이 시변(time-varying)인 상황과 같다. 정상성이 깨지면 단일 시불변 필터로는 부족하다.
+> Wireless Communication Perspective: The LTI filter was designed under the assumption of WSS (wide-sense stationary), but this is equivalent to a situation where the actual channel is time-varying. If stationarity is broken, a single time-invariant filter is insufficient.
 :::
 
 ---
 
-# RNN의 세 가지 유형 {#sec-rnn-types}
+# Three types of RNNs {#sec-rnn-types}
 
-순환 구조로 다양한 RNN을 설계할 수 있다.
+Various RNNs can be designed using a recurrent structure.
 
-## Type 1: 은닉-은닉 순환 {#sec-type1}
+## Type 1: Hidden-hidden cycle {#sec-type1}
 
-매 시각 출력을 내고, **은닉 유닛 사이에 순환 연결**을 갖는다. 가장 표준적인 형태.
+Outputs at every time and has **circular connections between hidden units**. The most standard form.
 
 $$
 \begin{aligned}
@@ -373,16 +373,16 @@ o^{(t)} &= W_{ho}h^{(t)} + c
 \end{aligned}
 $$
 
-매 시각 출력과 은닉 상태를 모두 내보내며, 은닉 상태가 시간에 걸쳐 전파된다. 매 시각 결과가 필요하면 이 유형을 쓴다.
+Outputs both the output and the hidden state at each time step, and the hidden state propagates over time. Use this type if you need a result at each time step.
 
-## Type 2: 출력→은닉 순환 (Teacher forcing) {#sec-type2}
+## Type 2: Output→Hidden forcing (Teacher forcing) {#sec-type2}
 
-출력은 매 시각 내지만, 순환 연결이 **출력에서 다음 은닉 유닛으로만** 간다(은닉-은닉 직접 연결 없음).
+Output is generated at every time step, but circular connections go only from the output to the next hidden unit (no hidden-hidden direct connections).
 
-- **장점:** 학습 병렬화가 쉽다. 은닉 상태를 직렬로 기다릴 필요 없이, 각 시각의 출력에 대한 손실을 거의 즉시 계산할 수 있어 시각별 학습을 병렬화한 뒤 가중치를 집계할 수 있다.
-- **단점:** 은닉-은닉 직접 연결이 없어 **과거 정보를 더 많이 잊는다(less powerful).** 출력에서 추정한 은닉 상태는 부정확하므로 정확도가 Type 1보다 낮다. (계산상의 이득이 정확도 손실로 번역된다.)
+- **Advantages:** Training parallelization is easy. Without needing to wait for hidden states in series, the loss for the output at each time step can be calculated almost immediately, allowing for parallelization of time-by-time training and subsequent aggregation of weights.
+- **Disadvantage:** Due to the lack of direct hidden-hidden connections, it **forgets more past information (less powerful).** Since the hidden state estimated in the output is inaccurate, accuracy is lower than Type 1. (Computational gain translates into a loss of accuracy.)
 
-**훈련 vs 추론의 비대칭:**
+**Training vs. Inference Asymmetry:**
 
 $$
 \underbrace{\text{Training: } h^{(t)} \leftarrow y^{(t)}\ (\text{정답 라벨})}_{\text{병렬화 용이}}
@@ -390,54 +390,54 @@ $$
 \underbrace{\text{Inference: } h^{(t)} \leftarrow o^{(t)}\ (\text{모델 출력로 근사})}_{\text{정답 미지}}
 $$
 
-- **훈련 시:** 정답 출력 $y^{(t)}$ 를 다음 은닉 상태의 입력으로 먹인다(teacher forcing). 정답이 주어지므로 시각별로 분리해 병렬 학습 가능.
-- **추론 시:** 정답을 모르므로 모델 출력 $o^{(t)}$ 로 근사해 다시 모델에 먹인다.
+- **During training:** Feed the correct answer output $y^{(t)}$ as input to the next hidden state (teacher forcing). Since the correct answer is provided, parallel learning is possible by separating by time.
+- **During inference:** Since the correct answer is unknown, approximate it with the model output $o^{(t)}$ and feed it back into the model.
 
-::: {.callout-note title="무선통신 analogy — 판정 귀환 등화기(DFE)"}
-추론 시 자신의 출력을 되먹이는 구조는 **판정 귀환 등화기(Decision-Feedback Equalizer)** 와 닮았다. 훈련 시엔 정답(파일럿/훈련 시퀀스)을 되먹이지만, 운용 시엔 자신의 판정값을 되먹인다. 판정 오류가 누적·전파될 수 있다는 단점까지 동일하다.
+::: {.callout-note title="Radio communication analogy — Decision return equalizer (DFE)"}
+The structure of feeding back its own output during inference resembles the **Decision-Feedback Equalizer**. During training, it feeds back the correct answer (pilot/training sequence), but during operation, it feeds back its own judgment value. It even shares the same disadvantage that judgment errors can accumulate and propagate.
 :::
 
-## Type 3: 시퀀스 전체 → 단일 출력 {#sec-type3}
+## Type 3: Entire sequence → Single output {#sec-type3}
 
-은닉-은닉 순환 연결을 가지되, **전체 시퀀스를 다 읽고 마지막에 단일 출력**만 낸다. 나머지 구조는 Type 1과 유사.
+It has a hidden-hidden circular connection, but **reads the entire sequence and produces only a single output at the end**. The rest of the structure is similar to Type 1.
 
-- **시퀀스 모델링의 표준 선택.** 예: 질의응답(QA). "현재 미국 대통령은 누구인가?"라는 질문의 모든 단어를 인코딩하고, 중간 출력 없이 **문장 끝에서** 답을 낸다.
-- 마지막에 정답 라벨과 손실을 계산하고 시간 역전파(BPTT)로 학습.
-- 단, 은닉 상태 정보를 끝까지 전파해야 하므로 정보가 자주 손실된다 → **외부 메모리/게이팅**의 동기가 된다(@sec-gating).
+- **Standard choice for sequence modeling.** Example: Question Answer (QA). Encode all words of the question "Who is the current President of the United States?" and provide the answer **at the end of the sentence** without intermediate output.
+- Finally, calculate the correct label and loss and train using Time Backpropagation Toward (BPTT).
+- However, since hidden state information must be propagated to the end, information is frequently lost → This becomes a motivation for **external memory/gating** (@sec-gating).
 
-## 세 유형 비교 {#sec-type-compare}
+## Comparison of three types {#sec-type-compare}
 
 | | Type 1 | Type 2 (Teacher forcing) | Type 3 |
 |---|---|---|---|
-| 순환 연결 | 은닉↔은닉 | 출력→은닉 | 은닉↔은닉 |
-| 출력 시점 | 매 시각 | 매 시각 | 시퀀스 끝 |
-| 병렬화 | 어려움 | 쉬움 | 어려움 |
-| 기억력 | 강함 | 약함(망각) | 강함 |
-| 대표 용도 | 시각별 예측 | (학습 가속) | QA 등 시퀀스 분류 |
+| Circular connection | Hiding↔Hiding | Output→Hiding | Hiding↔Hiding |
+| Output time | Every hour | Every hour | End of sequence |
+| Parallelization | Difficult | Easy | Difficult |
+| Memory | Strength | Weakness (Forgetfulness) | Strength |
+| Main Uses | Time-based Prediction | (Learning Acceleration) | Sequence Classification such as QA |
 
 ---
 
-# 장기 의존성 학습은 왜 어려운가 {#sec-vanish}
+# Why Long-Term Dependency Learning Is Difficult {#sec-vanish}
 
-## 함수 합성과 비선형성의 증폭 {#sec-composition}
+## Function Composition and Amplification of Nonlinearity {#sec-composition}
 
-**한 줄 요약:** 단순한 비선형 함수라도 여러 번 합성하면 극도로 비선형이 된다.
+**One-line summary:** Even a simple non-linear function becomes extremely non-linear when composed multiple times.
 
-매우 단순한 비선형 함수 $f$ 를 한 번 적용하면 완만한 곡선이지만, 두 번·세 번·…·열 번 합성($f\circ f\circ\cdots\circ f$)할수록 중간에 굴곡(ridge)이 급격히 늘어난다. 10단어 문장이면 $f$ 를 10번, 300단어 문단이면 300번 합성한다. 그 결과 RNN이 인코딩하는 함수는 **엄청나게 복잡하고 비틀린(torsion)** 함수가 되어 최적화가 어렵다.
+When a very simple non-linear function $f$ is applied once, it forms a smooth curve, but as it is synthesized two, three, ..., ten times ($f\circ f\circ\cdots\circ f$), the ridges in the middle increase sharply. For a 10-word sentence, $f$ is synthesized 10 times, and for a 300-word paragraph, it is synthesized 300 times. As a result, the function encoded by the RNN becomes an **extremely complex and torsion-driven** function, making optimization difficult.
 
 $$
 h^{(t)} = \underbrace{f\circ f \circ \cdots \circ f}_{t\text{ 번}}\,(h^{(0)})
 $$
 
-## 고유값 분해와 단위원 {#sec-eigen}
+## Eigenvalue Decomposition and Unit Element {#sec-eigen}
 
-선형 근사(또는 활성 함수를 무시한 핵심부)에서 시각 $t-1$ 과 $t$ 사이의 전이를 $h^{(t)} \approx W\,h^{(t-1)}$ 로 보면,
+In the linear approximation (or the core part ignoring the activation function), if we view the transition between time $t-1$ and $t$ as $h^{(t)} \approx W\,h^{(t-1)}$,
 
 $$
 h^{(t)} = W^{t}\,h^{(0)}.
 $$
 
-$W$ 를 고유값 분해 $W = Q\,\Lambda\,Q^{-1}$ 하면,
+If we perform eigenvalue decomposition of $W$ $W = Q\,\Lambda\,Q^{-1}$,
 
 $$
 W^{t} = Q\,\Lambda^{t}\,Q^{-1},
@@ -445,7 +445,7 @@ W^{t} = Q\,\Lambda^{t}\,Q^{-1},
 \Lambda^{t} = \operatorname{diag}(\lambda_1^t, \dots, \lambda_n^t).
 $$
 
-따라서 고유값의 크기가 거동을 지배한다.
+Therefore, the magnitude of the eigenvalue dominates the behavior.
 
 $$
 \boxed{\;|\lambda_i| < 1 \;\Rightarrow\; \lambda_i^t \to 0\ (\text{소실})
@@ -453,51 +453,51 @@ $$
 |\lambda_i| > 1 \;\Rightarrow\; |\lambda_i^t| \to \infty\ (\text{폭발})\;}
 $$
 
-300번 합성하면, 1보다 살짝 작은 값은 0으로 급격히 수렴하고(그래디언트 소실), 1보다 살짝 큰 값은 폭주한다(그래디언트 폭발). 그래서 손실 표면(loss surface)이 절벽처럼 급강하/급상승해 최적화가 불안정해진다. 여기에 MLP를 층으로 더 쌓으면(deep RNN) 한 스텝에서 이미 소실된 그래디언트가 더욱 악화되어, 깊은 RNN은 사실상 쓸모없어진다.
+When synthesized 300 times, values slightly less than 1 rapidly converge to 0 (gradient vanishing), and values slightly greater than 1 run wild (gradient explosion). As a result, the loss surface drops/rises like a cliff, making optimization unstable. If MLPs are stacked further as layers (deep RNN), the gradients already vanished in a single step worsen, rendering the deep RNN virtually useless.
 
-::: {.callout-important title="무선통신 analogy — 이산시간 LTI 시스템의 안정성 (정확히 같은 수학)"}
-이것은 **이산시간 LTI 시스템의 BIBO 안정성** 과 글자 그대로 같은 결과다.
+::: {.callout-important title="Wireless communication analogy — Stability of discrete-time LTI systems (exactly the same mathematics)"}
+This is literally the same result as **BIBO stability of discrete-time LTI systems**.
 
-- 상태 전이 행렬 $W$ 의 고유값 = 시스템의 **극점(pole)**.
-- 모든 극점이 **단위원 내부**($|\lambda|<1$): 임펄스 응답이 지수적으로 **감쇠** → 안정, 그러나 먼 과거의 영향이 사라짐(= 그래디언트 소실).
-- 극점이 **단위원 밖**($|\lambda|>1$): 응답이 **발산** → 불안정(= 그래디언트 폭발).
-- 경계($|\lambda|=1$)에서만 장기 기억과 안정성이 양립하는데, 이 경계를 정확히 유지하기는 매우 어렵다.
+- Eigenvalues of the state transition matrix $W$ = **poles** of the system.
+- All poles are **inside the unit circle**($|\lambda|<1$): Impulse response **damps** exponentially → stabilizes, but the influence of the distant past disappears (= gradient vanishing).
+- Poles are **outside the unit circle**($|\lambda|>1$): Response **diverges** → instability (= gradient explosion).
+- Long-term memory and stability coexist only at the boundary ($|\lambda|=1$), but maintaining this boundary precisely is very difficult.
 
-즉 "장기 기억"을 원한다는 것은 시스템을 안정성의 칼날($|\lambda|\approx 1$) 위에 세우려는 것과 같다. 게이팅(@sec-gating)은 이 극점을 1 근처로 **데이터에 따라 적응적으로** 옮기는 메커니즘으로 이해할 수 있다.
+In other words, wanting "long-term memory" is like trying to place the system on the edge of stability ($|\lambda|\approx 1$). Gating (@sec-gating) can be understood as a mechanism that **adaptively** shifts this pole to near 1 depending on the data.
 :::
 
-또 다른 한계는 **메모리 용량**이다. 보통 하나 또는 소수의 셀/게이트만으로 과거 전체를 단일 벡터에 압축하려 하므로, 긴 시계열 정보를 모두 담기에 부족하다.
+Another limitation is **memory capacity**. Since the entire past is typically compressed into a single vector using only one or a few cells/gates, it is insufficient to hold all long time-series information.
 
 ---
 
-# 해결책들 {#sec-solutions}
+# Solutions {#sec-solutions}
 
-장기 의존성을 다루는 다섯 갈래의 아이디어.
+Five ideas for dealing with long-term dependency.
 
-1. **시간에 걸친 skip connection**
-2. **누설 유닛(leaky units)**
-3. **게이팅(LSTM, GRU)**
-4. **최적화 트릭**(그래디언트 클리핑 등)
-5. **명시적 메모리**
+1. **Time-spanning skip connection**
+2. **leaky units**
+3. **Gating(LSTM, GRU)**
+4. **Optimization Tricks**(Gradient Clipping, etc.)
+5. **Explicit Memory**
 
-## 게이팅: 핵심 아이디어 {#sec-gating}
+## Gating: Key Idea {#sec-gating}
 
-**한 줄 요약:** 과거에서 현재(혹은 미래)로 가는 "고속도로"를 만들고, 현재 입력과 과거 메모리를 **가중 혼합**한다.
+**One-line summary:** Create a "highway" from the past to the present (or future), and **weight blend** the current input and past memory.
 
 $$
 f(x) = a\cdot x \;\longrightarrow\; f(x) = a\cdot x + (1-a)\cdot m,
 \qquad a\in[0,1],\ m=\text{memory}
 $$
 
-$a$ 는 0~1 사이의 게이트 값이다. 현재 입력 $x$ 와 과거 메모리 $m$ 을 $a$ 의 비율로 섞는다. 이 단순한 혼합 한 줄이 게이팅의 정수다.
+$a$ is a gate value between 0 and 1. The current input $x$ and the past memory $m$ are mixed in a ratio of $a$. This single line of simple mixing is the gating integer.
 
-::: {.callout-tip title="무선통신 analogy — 망각 인자(forgetting factor)/1차 IIR 저역통과"}
-$m_t = a\,x_t + (1-a)\,m_{t-1}$ 은 **지수 이동 평균(EMA)** 이자 **1차 IIR 저역통과 필터**이며, RLS(재귀 최소제곱)의 **망각 인자(forgetting factor)** 와 같은 형태다. 극점이 $1-a$ 에 놓이므로 $a$ 를 작게 하면 극점이 1에 가까워져(긴 기억), 크게 하면 빠른 망각(짧은 기억)이 된다. 게이팅은 이 망각 인자를 **데이터·시각마다 적응적으로 학습**하는 것이다.
+::: {.callout-tip title="Wireless communication analogy — Forgetting factor/1st order IIR low-pass"}
+$m_t = a\,x_t + (1-a)\,m_{t-1}$ is the **Exponential Moving Average (EMA)** and **1st-order IIR low-pass filter**, and has the same form as the **forgetting factor** of RLS (Recursive Least Squares). Since the poles lie at $1-a$, making $a$ smaller causes the poles to approach 1 (long memory), while making it larger results in rapid forgetting (short memory). Gating is the **adaptive learning** of this forgetting factor for each data point and time.
 :::
 
 ## Gating 1: LSTM {#sec-lstm}
 
-Long Short-Term Memory (Hochreiter & Schmidhuber, 1997). 셀 상태 $c_t$ 라는 별도의 "고속도로"를 두고, 세 개의 게이트로 정보 흐름을 제어한다.
+Long Short-Term Memory (Hochreiter & Schmidhuber, 1997). There is a separate "highway" called cell state $c_t$, and the flow of information is controlled by three gates.
 
 $$
 \begin{aligned}
@@ -510,11 +510,11 @@ h_t &= o_t \odot \tanh(c_t) &&\text{(hidden output)}
 \end{aligned}
 $$
 
-핵심은 셀 상태 갱신 $c_t = f_t\odot c_{t-1} + i_t\odot\tilde c_t$ 다. forget gate $f_t\approx 1$ 이면 과거 셀 상태가 거의 그대로 전달되어 **그래디언트가 보존**된다(= 극점을 1 근처로 적응 배치). 이는 ResNet의 잔차 연결(@sec-genealogy)과 같은 정신이다.
+The key is the cell state update $c_t = f_t\odot c_{t-1} + i_t\odot\tilde c_t$. If it is the forget gate $f_t\approx 1$, the past cell state is passed almost exactly as is, so the **gradients are preserved** (= poles are adaptively placed near 1). This is the same spirit as ResNet's residual connection (@sec-genealogy).
 
 ## Gating 2: GRU {#sec-gru}
 
-Gated Recurrent Unit (Cho et al., 2014). LSTM과 거의 같은 아이디어를 더 단순하게 구현. 셀 상태와 은닉 상태를 합치고 게이트를 둘로 줄였다.
+Gated Recurrent Unit (Cho et al., 2014). A simpler implementation of almost the same idea as LSTM. The cell state and hidden state are combined and the gate is reduced to two.
 
 $$
 \begin{aligned}
@@ -525,43 +525,43 @@ h_t &= (1-z_t)\odot h_{t-1} + z_t\odot \tilde{h}_t &&\text{(혼합)}
 \end{aligned}
 $$
 
-마지막 줄이 바로 @sec-gating 의 혼합 공식 $a\cdot x + (1-a)\cdot m$ 의 벡터판이다.
+The last line is the vector version of @sec-gating's mixed formula $a\cdot x + (1-a)\cdot m$.
 
 ## LSTM vs GRU {#sec-lstm-gru}
 
 | | LSTM | GRU |
 |---|---|---|
-| 게이트 수 | 3 (forget/input/output) | 2 (update/reset) |
-| 상태 | 셀 상태 $c_t$ + 은닉 $h_t$ | 은닉 $h_t$ 만 |
-| 파라미터 | 많음 | 약 1/2 |
-| 성능 | 기준 | LSTM과 대등 |
-| 강점 | 표현력 | 과적합 위험 ↓(데이터 적을 때 유리) |
+| Number of Gates | 3 (forget/input/output) | 2 (update/reset) |
+| State | Cell State $c_t$ + Concealed $h_t$ | Concealed $h_t$ Only |
+| Parameters | Many | About 1/2 |
+| Performance | Standard | Equivalent to LSTM |
+| Strengths | Expressiveness | Risk of Overfitting ↓ (Advantageous when data is small) |
 
-GRU는 "LSTM이 과파라미터화되었다"는 관찰에서, 더 적은 파라미터로 비슷한 성능을 달성하려는 시도였고 성공했다.
+GRU was an attempt to achieve similar performance with fewer parameters based on the observation that "LSTM is overparameterized" and succeeded.
 
-## 그 외 해결책 {#sec-other-solutions}
+## Other solutions {#sec-other-solutions}
 
-- **Idea 1 — 시간 skip connection:** 비전의 DenseNet처럼 먼 시각으로 직접 연결을 추가.
-- **Idea 2 — 누설 유닛(leaky units):** $h_t = (1-\alpha)h_{t-1} + \alpha\,\sigma(W_{rec}h_{t-1} + W_{in}x_t)$. (leaky-ReLU와는 무관하다.) 위의 1차 IIR 적분기와 같은 형태.
-- **Idea 3 — 게이팅:** LSTM/GRU (위에서 다룸).
-- **Idea 4 — 최적화 트릭:** **그래디언트 클리핑**(폭발 대응) + **정보 흐름을 장려하는 정규화**(소실 대응).
-- **Idea 5 — 명시적 메모리:** Memory Networks(Weston et al., ICLR 2015) 등 외부 메모리 모듈.
+- **Idea 1 — Time skip connection:** Add a direct connection to a distant view like Vision's DenseNet.
+- **Idea 2 — Leaky units:** $h_t = (1-\alpha)h_{t-1} + \alpha\,\sigma(W_{rec}h_{t-1} + W_{in}x_t)$. (Independent of leaky-ReLU.) Same form as the first-order IIR integrator above.
+- **Idea 3 — Gating:** LSTM/GRU (discussed above).
+- **Idea 4 — Optimization Trick:** **Gradient Clipping** (Explosive Correspondence) + **Normalization Encouraging Information Flow** (Vanishing Correspondence).
+- **Idea 5 — Explicit Memory:** External memory modules such as Memory Networks (Weston et al., ICLR 2015).
 
 ---
 
-# 문맥(Context) 인코딩 {#sec-context}
+# Context encoding {#sec-context}
 
-장기 의존성과 더불어 시퀀스 인코딩의 또 다른 핵심 난제는 **문맥(context)** 이다.
+Along with long-term dependencies, another key challenge in sequence encoding is **context**.
 
-## Buffalo 예시 {#sec-buffalo}
+## Buffalo Example {#sec-buffalo}
 
-영어 문장 "Buffalo buffalo Buffalo buffalo buffalo buffalo Buffalo buffalo"는 모든 단어가 같은 철자지만(지명/동물/동사), 문맥에 따라 품사와 의미가 달라지는 문법적으로 올바른 문장이다. 같은 토큰이라도 **주변 문맥**이 의미를 결정한다는 점을 극명하게 보여준다.
+The English sentence "Buffalo buffalo Buffalo buffalo buffalo buffalo Buffalo buffalo" is a grammatically correct sentence in which all words have the same spelling (place name/animal/verb), but their part of speech and meaning change depending on the context. It clearly demonstrates that even with the same token, the **surrounding context** determines the meaning.
 
-## 문맥 조건부 RNN과 양방향 RNN {#sec-bidirectional}
+## Context-Conditional RNN and Bidirectional RNN {#sec-bidirectional}
 
-- **문맥 조건부 RNN (단일 입력):** 과거 출력을 보는 것이 미래 예측에 도움이 된다는 발상. 미래로부터의 역방향 연결을 둔다.
-- **문맥 조건부 RNN (시퀀스 입력):** 이전 시각의 은닉 상태 출력과 이전 시각의 출력을 **둘 다** 다음 은닉 상태의 입력으로 사용(teacher forcing과 달리 은닉 상태 연결을 유지).
-- **양방향 RNN(Bi-directional RNN):** "앞뒤로 읽으면 기억에 도움이 된다." 순방향 은닉 상태와 별도로 **역방향으로 진행하는 은닉 상태**를 도입해, 각 시각의 표현이 과거와 미래 문맥을 모두 본다.
+- **Context-Conditional RNN (Single Input):** The idea that looking at past outputs helps predict the future. It establishes a backward connection from the future.
+- **Context-Conditional RNN (Sequence Input):** Uses the hidden state output from the previous time step and the output from the previous time step **both** as inputs for the next hidden state (unlike teacher forcing, it maintains the hidden state connection).
+- **Bi-directional RNN:** "Reading back and forth helps with memory." By introducing a **backward hidden state** separate from the forward hidden state, the representation of each time step considers both past and future contexts.
 
 $$
 \overrightarrow{h}_t = f(\overrightarrow{h}_{t-1}, x_t),\qquad
@@ -569,15 +569,15 @@ $$
 y_t = g\!\left(\overrightarrow{h}_t, \overleftarrow{h}_t\right)
 $$
 
-::: {.callout-note title="무선통신 analogy — 필터링 vs 평활화(smoothing)"}
-단방향 RNN은 과거만 쓰는 **인과적(causal) 필터** = 칼만 **필터링**. 양방향 RNN은 미래 관측까지 쓰는 **비인과적 평활화** = 칼만 **스무딩(smoothing)**. 오프라인에서 전체 수열을 보고 추정하면(스무딩) 인과적 추정(필터링)보다 정확해지지만, 실시간 처리에는 쓸 수 없다. 양방향 RNN이 전체 시퀀스를 받아야만 동작하는 것과 정확히 같은 trade-off다.
+::: {.callout-note title="Wireless communication analogy — Filtering vs. Smoothing"}
+A unidirectional RNN is a **causal filter** that uses only the past = Kalman **filtering**. A bidirectional RNN is a **non-causal smoothing** that uses future observations as well = Kalman **smoothing**. Estimating by looking at the entire sequence offline (smoothing) becomes more accurate than causal estimation (filtering), but it cannot be used for real-time processing. This is exactly the same trade-off as the bidirectional RNN needing to receive the entire sequence to operate.
 :::
 
 ---
 
-# Seq2Seq 모델 {#sec-seq2seq}
+# Seq2Seq model {#sec-seq2seq}
 
-**한 줄 요약:** 두 개의 RNN(인코더+디코더)을 이어 붙인 **범용 시퀀스 변환** 구조.
+**One-line summary:** A **universal sequence transformation** structure created by concatenating two RNNs (encoder + decoder).
 
 ```{mermaid}
 flowchart LR
@@ -590,77 +590,77 @@ flowchart LR
     end
 ```
 
-- **인코더**가 입력 시퀀스를 읽어 **고정 크기 문맥 변수 $C$** 를 만든다. $C$ 는 입력의 **의미 요약(semantic summary)** 역할을 한다.
-- **디코더**가 $C$ 로부터 출력 시퀀스를 생성한다.
-- **훈련:** 디코더에 정답 출력을 먹여 학습(teacher forcing). **추론:** 디코더가 자기 출력을 다음 입력으로 되먹이며 한 토큰씩 생성.
+- The **encoder** reads the input sequence and creates a **fixed-size context variable $C$**. $C$ serves as the **semantic summary** of the input.
+- **Decoder** generates an output sequence from $C$.
+- **Training:** Feed the correct answer output to the decoder for training (teacher forcing). **Inference:** The decoder generates one token at a time by feeding its own output back as the next input.
 
-**응용:**
+**Application:**
 
-| 과제 | 입력 | 출력 |
+| Assignment | Input | Output |
 |---|---|---|
-| QA 시스템 | 질문 | 답 |
-| 대화 시스템(챗봇) | A의 발화 | B의 발화 |
-| 기계 번역 | 언어 A | 언어 B |
+| QA System | Question | Answer |
+| Conversational System (Chatbot) | A's Utterance | B's Utterance |
+| Machine Translation | Language A | Language B |
 
-::: {.callout-tip title="무선통신 analogy — 정보 병목과 충분통계량"}
-인코더가 가변 길이 입력을 고정 크기 $C$ 로 압축하는 것은, 원 신호를 **충분통계량(sufficient statistic)** 으로 요약하거나 **소스 부호화(source coding)** 로 압축하는 것과 같다. $C$ 의 차원이 작으면 정보 병목(information bottleneck)이 생겨 긴 입력에서 손실이 커진다 — 이 한계가 훗날 어텐션(전체 인코더 상태를 직접 참조)의 동기가 된다.
+::: {.callout-tip title="Wireless communication analogy — Information bottlenecks and sufficient statistics"}
+When an encoder compresses a variable-length input into a fixed size $C$, it is equivalent to summarizing the original signal into a **sufficient statistic** or compressing it into **source coding**. If the dimensionality of $C$ is small, an information bottleneck occurs, and the loss increases over long inputs — this limit later becomes the motivation for attention (directly referencing the entire encoder state).
 :::
 
 ---
 
-# 확장 구조: Deep RNN과 Recursive NN {#sec-extensions-rnn}
+# Extended Structures: Deep RNN and Recursive NN {#sec-extensions-rnn}
 
 ## Deep RNN {#sec-deep-rnn}
 
-은닉층을 여러 겹 쌓은 RNN. 표현력은 늘지만, @sec-vanish 에서 보았듯 한 스텝에서 이미 약해진 그래디언트가 깊이까지 더해져 학습이 더 어려워진다.
+RNN with multiple hidden layers. Expressiveness increases, but as seen in @sec-vanish, the gradient that is already weakened in one step is added to the depth, making training more difficult.
 
 ## Recursive Neural Networks {#sec-recursive}
 
-**한 줄 요약:** 사슬(chain)이 아니라 **트리(tree)** 구조의 계산 그래프를 쓰는 RNN의 일반화.
+**One-line summary:** A generalization of RNNs that uses a **tree** structured computational graph instead of a chain.
 
-- 시퀀스를 선형으로 처리하는 대신, 트리로 묶어 처리.
-- 길이 $\tau$ 에 대해 탐색/전파 깊이가 $\tau$ 에서 **$\log(\tau)$** 로 줄어든다 → 장기 의존성을 더 짧은 경로로 연결할 수 있어(원리상) 유리.
-- 응용: 장면 파싱(scene parsing) — 각 은닉 노드가 장면 속 객체에 대응(Socher et al., ICML 2011).
+- Process sequences as a tree instead of linearly.
+- For length $\tau$, the search/propagation depth is reduced from $\tau$ to **$\log(\tau)$** → This is advantageous (in principle) as it allows long-term dependencies to be connected via shorter paths.
+- Application: Scene parsing — Each hidden node corresponds to an object in the scene (Socher et al., ICML 2011).
 
-::: {.callout-note title="무선통신 analogy — 트리 구조의 깊이 단축"}
-순차 처리의 $O(\tau)$ 깊이를 트리로 $O(\log\tau)$ 로 줄이는 것은, 직렬 누산을 **트리형(binary-tree) 리덕션**으로 바꿔 임계 경로(critical path)를 단축하는 것과 같다. FFT가 $O(N^2)$ DFT를 $O(N\log N)$ 으로 줄이는 분할정복의 정신과 통한다.
+::: {.callout-note title="Wireless communication analogy — Reducing the depth of the tree structure"}
+Reducing the $O(\tau)$ depth of sequential processing to a $O(\log\tau)$ tree is equivalent to shortening the critical path by replacing serial accumulation with **binary-tree reduction**. This aligns with the spirit of divide and conquer, where FFT reduces the $O(N^2)$ DFT to $O(N\log N)$.
 :::
 
 ---
 
-# 핵심 요약 {#sec-summary}
+# Key Summary {#sec-summary}
 
-::: {.callout-important title="이 노트의 핵심"}
-**CNN 측**
+::: {.callout-important title="The core of this note"}
+**CNN**
 
-- ImageNet(2009)이 CNN 부흥의 방아쇠. AlexNet(2012)→GoogLeNet(2014)→ResNet(2015)으로 깊이가 폭증했고, ResNet의 잔차 연결이 그래디언트 소실을 완화하며 인간 성능을 돌파.
-- CNN 이후: ViT(이미지=패치 시퀀스), gMLP. ViT는 층수가 적어 병렬화·에너지에서 유리. 토큰화로 멀티모달리티 달성.
+- ImageNet (2009) was the trigger for the CNN revival. Depth exploded with AlexNet (2012) → GoogLeNet (2014) → ResNet (2015), and ResNet's residual connections mitigated vanishing gradients, breaking human performance.
+- Post-CNN: ViT (Image = Patch Sequence), gMLP. ViT is advantageous in parallelization and energy efficiency due to its small number of layers. Multimodality is achieved through tokenization.
 
-**시퀀스 모델 측**
+**Sequence Model Side**
 
-- RNN = 외부 입력으로 구동되는 **상태공간 모델**, $h^{(t)} = f(h^{(t-1)}, x^{(t)};\theta)$. 한 스텝 순환은 **IIR 필터**.
-- 두 이점: 가변 길이 무관성, 파라미터 공유(=시간 정상성, 단 강한 가정).
-- 세 유형: Type 1(은닉-은닉), Type 2(teacher forcing, 병렬↑/기억↓), Type 3(끝에서 단일 출력, 표준).
-- **장기 의존성이 어려운 이유 = 고유값 분해:** $|\lambda|<1$ 소실, $|\lambda|>1$ 폭발. **이산 LTI 안정성(극점의 단위원 위치)** 과 같은 수학.
-- 해결: 게이팅(LSTM/GRU = 적응적 망각 인자), skip connection, 누설 유닛, 그래디언트 클리핑, 명시적 메모리.
-- 문맥 인코딩: 양방향 RNN(=평활화), Seq2Seq(인코더 문맥 $C$ = 의미 요약/충분통계량).
+- RNN = **state-space model** driven by external input, $h^{(t)} = f(h^{(t-1)}, x^{(t)};\theta)$. One step cycle is **IIR filter**.
+- Two advantages: variable length independence, parameter sharing (=time stationarity, but strong assumption).
+- Three types: Type 1 (hidden-hidden), Type 2 (teacher forcing, parallel↑/memory↓), Type 3 (single output at the end, standard).
+- **Reason why long-term dependency is difficult = Eigenvalue decomposition:** $|\lambda|<1$ vanishing, $|\lambda|>1$ explosion. Mathematics such as **Discrete LTI stability (position of poles on the unit circle)**.
+- Solution: Gating (LSTM/GRU = Adaptive Forget Factor), skip connection, leak unit, gradient clipping, explicit memory.
+- Context encoding: Bidirectional RNN(=smoothing), Seq2Seq(encoder context $C$ = semantic summary/sufficient statistics).
 
-**관통하는 한 줄:** *시간에 걸친 기억은 아직 미해결 문제다.* 진짜 좋은 시간 기억 아키텍처를 만드는 것이 핵심 도전이며, Transformer가 그 대안으로 다음 주제다.
+**One-line summary:** *Time-based memory is still an unresolved problem.* Building a truly good time-based memory architecture is the core challenge, and the Transformer is the next topic as an alternative.
 :::
 
-## 더 읽을거리 {#sec-further}
+## More to read {#sec-further}
 
-- Goodfellow, Bengio, Courville, *Deep Learning* — Ch. 9(CNN, 특히 9.10 인간 시각계 비교), Ch. 10(Sequence Modeling: RNN, LSTM, GRU, BPTT, seq2seq).
-- *Dive into Deep Learning* (d2l.ai) — Ch. 9 RNN 기초(BPTT의 고유값 소실/폭발), Ch. 10 Modern RNN(LSTM/GRU/Deep/Bi-RNN/Seq2Seq/Encoder-Decoder).
-- 그래디언트 소실/폭발의 수학적 디테일은 d2l.ai의 BPTT 절이 $W_{hh}^\top$ 의 고유값 관점을 잘 설명한다. (선형대수 복습은 행렬 고유값 분해·스펙트럼 반경 부분.)
+- Goodfellow, Bengio, Courville, *Deep Learning* — Ch. 9(CNN, specifically 9.10 Comparison with the Human Visual System), Ch. 10(Sequence Modeling: RNN, LSTM, GRU, BPTT, seq2seq).
+- *Dive into Deep Learning* (d2l.ai) — Ch. 9 RNN Basics (BPTT's Vanishing/Explosion of Eigenvalues), Ch. 10 Modern RNN (LSTM/GRU/Deep/Bi-RNN/Seq2Seq/Encoder-Decoder).
+- The BPTT section of d2l.ai explains the mathematical details of gradient vanishing/explosion well from the eigenvalue perspective of $W_{hh}^\top$. (For a linear algebra review, refer to the matrix eigenvalue decomposition and spectral radius sections.)
 
 ---
 
-# 부록: Python/NumPy 실습 {#sec-appendix}
+# Appendix: Python/NumPy Practice {#sec-appendix}
 
-아래 코드는 본문의 핵심 주장을 수치로 재현한다. (`numpy`만 필요.)
+The code below numerically reproduces the core argument of the text. (Only `numpy` is needed.)
 
-## A. 고유값 크기와 소실/폭발 {#sec-app-eigen}
+## A. Eigenvalue Size and Disappearance/Explosion {#sec-app-eigen}
 
 ```{python}
 import numpy as np
@@ -681,9 +681,9 @@ for t in [1, 5, 20, 50]:
     print(f"{t:>4} | {nc:>12.3e} | {ne:>12.3e}")
 ```
 
-스펙트럼 반경이 1보다 작으면 $\|W^t\|$ 이 0으로, 크면 무한대로 간다 — 그래디언트 소실/폭발의 본질이다.
+If the spectral radius is less than 1, $\|W^t\|$ goes to 0, and if it is greater, it goes to infinity — this is the nature of gradient vanishing/explosion.
 
-## B. 바닐라 RNN 순전파 {#sec-app-rnn}
+## B. Vanilla RNN Forward Propagation {#sec-app-rnn}
 
 ```{python}
 import numpy as np
@@ -704,7 +704,7 @@ for t in range(T):
     print(f"t={t}  h = {np.round(h, 4)}")
 ```
 
-## C. 게이팅(망각 인자)으로서의 EMA {#sec-app-gating}
+## C. EMA as Gating (Forgetting Factor) {#sec-app-gating}
 
 ```{python}
 import numpy as np
@@ -722,9 +722,9 @@ print(traj)
 print("steady state ->", traj[-1], "(approaches 1)")
 ```
 
-작은 $a$ 는 극점을 1에 가깝게 두어 **긴 기억**을, 큰 $a$ 는 **빠른 망각**을 만든다. LSTM/GRU의 게이트는 이 $a$ 를 데이터·시각마다 학습한다.
+Small $a$ creates **long memory** by setting the poles close to 1, and large $a$ creates **fast forgetting**. The gates of the LSTM/GRU learn this $a$ for every data and time.
 
-## D. RNN 유형 비교(개념 스케치) {#sec-app-types}
+## D. RNN Type Comparison (Conceptual Sketch) {#sec-app-types}
 
 ```{python}
 #| eval: false

@@ -1,8 +1,8 @@
 ---
-title: "마르코프 결정 과정 (Markov Decision Process)"
+title: "Markov Decision Process"
 aliases:
   - "/study/reinforcement-learning/markov-decision-process.html"
-subtitle: "Stochastic Control & Reinforcement Learning — 순차적 의사결정, MDP 구성 요소, 결정 규칙과 정책 공간, 두 상태 MDP 예제, MDP 문제의 어려움, Monte Carlo 정책 평가, 가치 함수, 정책 평가 방정식과 Bellman 기대 연산자, 최적 가치 함수, Bellman 최적 방정식, 최적 정책과 확률적 최적 정책, TD 학습, 유도된 확률과정, 한 기간 MDP, 재정식화 기법, 모델 식별 가능성"
+subtitle: "Stochastic Control & Reinforcement Learning — Sequential Decision Making, MDP Components, Decision Rules and Policy Space, Two-State MDP Examples, Hardness of the MDP Problem, Monte Carlo Policy Evaluation, Value Function, Policy Evaluation Equation and Bellman Expectation Operator, Optimal Value Function, Bellman Optimal Equation, Optimal Policy and Stochastic Optimal Policy, TD Learning, Derived Stochastic Process, One-Term MDP, Reformulation Techniques, Model Identifiability"
 date: "2026-10-02"
 number: 1
 format:
@@ -16,71 +16,71 @@ execute:
   echo: false
 ---
 
-# 모델과 정책: 증명 전에 고정할 것
+# Model and Policy: Fix before proof
 
-## 공통 가정과 표기
+## Common Assumptions and Notation
 
-이 글의 정리는 **유한 상태 집합 $S$, 비어 있지 않은 유한 행동 집합 $A_s$**, 완전한 상태 관측, 기대 누적 보상 최대화를 전제로 한다. 모든 행동 합과 최댓값은 $a\in A_s$에 대해 취한다. 보상은 실수이며 유계다.
+The theorem in this article assumes a **finite set of states $S$, a non-empty finite set of actions $A_s$**, complete state observations, and expected cumulative reward maximization. All action sums and maximums are taken for $a\in A_s$. Rewards are real and bounded.
 
-| 기호 | 의미 |
+| Symbol | Meaning |
 |---|---|
-| $s_t,a_t$ | 시점 $t$의 상태와 선택한 행동 |
-| $p_t(s'\mid s,a)$ | 다음 상태의 분포; 비음수이고 $\sum_{s'}p_t(s'\mid s,a)=1$ |
-| $r_t(s,a)$ | 이번 기간의 보상 또는 그 조건부 평균 |
-| $h_t=(s_0,a_0,\ldots,s_t)$ | 현재까지의 히스토리 |
-| $\pi_t(a\mid h_t)$ | 일반 정책의 행동 선택 확률 |
-| $\mu_0$ | 초기 상태 분포 |
-| $\mathbb P^\pi,\mathbb E^\pi$ | 정책이 유도한 경로 분포와 그 기댓값 |
-| $P^\pi,R^\pi$ | 정상 Markov 정책으로 평균낸 전이 행렬과 보상 벡터 |
-| $\|v\|_\infty=\max_s|v(s)|$ | 최대 절댓값 노름; $v\le w$는 성분별 부등식 |
+| $s_t,a_t$ | State of time $t$ and selected action |
+| $p_t(s'\mid s,a)$ | Distribution of the next state; non-negative and $\sum_{s'}p_t(s'\mid s,a)=1$ |
+| $r_t(s,a)$ | Rewards for this period or their conditional average |
+| $h_t=(s_0,a_0,\ldots,s_t)$ | History to date |
+| $\pi_t(a\mid h_t)$ | Probability of action selection in general policy |
+| $\mu_0$ | Initial state distribution |
+| $\mathbb P^\pi,\mathbb E^\pi$ | Policy-induced path distribution and its expected value |
+| $P^\pi,R^\pi$ | Transition matrix and reward vector averaged by normal Markov policy |
+| $\|v\|_\infty=\max_s|v(s)|$ | Maximum absolute value norm; $v\le w$ is a component inequality |
 
-**모델의 Markov성**은 다음 조건이다.
+**The Markov nature of the model** is the following condition.
 
 $$
 \mathbb P^\pi(s_{t+1}=s'\mid h_t,a_t=a)
 =p_t(s'\mid s_t,a).
 $$
 
-즉 **현재 상태와 행동까지 알면** 다음 상태를 예측하는 데 더 오래된 기록이 필요 없다. 정책이 과거를 사용하는지는 별개의 문제다.
+In other words, if you know the current state and behavior, older records are not needed to predict the next state. Whether policies use the past is a separate issue.
 
-보상이 다음 상태에도 의존하는 $\rho_t(s,a,s')$라면, 기대 총보상 기준에서는
+If $\rho_t(s,a,s')$ the reward also depends on the next state, then based on the expected total reward
 
 $$
 r_t(s,a)=\sum_{s'}p_t(s'\mid s,a)\rho_t(s,a,s')
 $$
 
-로 평균내어 쓸 수 있다. $\rho_t(s,a,s')$는 이번 기간의 보상이고, 나중에 등장하는 $v_{t+1}(s')$는 **그 다음 시점부터의 총보상**이다.
+can be written by averaging it as |||. $\rho_t(s,a,s')$ is the reward for this period, and $v_{t+1}(s')$, which appears later, is the **total reward from the next point in time**.
 
-## 결정 규칙과 정책의 구분
+## Distinction between decision rules and policies
 
-결정 규칙은 한 시점에서 사용할 지침이고, 정책은 그 규칙들의 열이다. 결정론적 규칙은 행동 하나를, 확률적 규칙은 행동의 분포를 지정한다.
+Decision rules are guidelines to use at a given point in time, and a policy is a sequence of those rules. Deterministic rules specify a single action, while probabilistic rules specify the distribution of actions.
 
-| 클래스 | 입력 | 출력 |
+| Class | Input | Output |
 |---|---|---|
-| MD | 현재 상태 $s_t$ | $d_t(s_t)\in A_{s_t}$ |
-| MR | 현재 상태 $s_t$ | $\pi_t(\cdot\mid s_t)$ |
-| HD | 히스토리 $h_t$ | $d_t(h_t)\in A_{s_t}$ |
-| HR | 히스토리 $h_t$ | $\pi_t(\cdot\mid h_t)$ |
+| MD | Current Status $s_t$ | $d_t(s_t)\in A_{s_t}$ |
+| MR | Current Status $s_t$ | $\pi_t(\cdot\mid s_t)$ |
+| HD | History $h_t$ | $d_t(h_t)\in A_{s_t}$ |
+| HR | History $h_t$ | $\pi_t(\cdot\mid h_t)$ |
 
-결정론적 선택은 한 행동에 확률 1을 준 확률적 선택이다. 따라서 MD는 MR과 HD 각각에 포함되고, MR과 HD는 HR에 포함된다. **MR과 HD 사이에는 일반적인 포함관계가 없다.**
+Deterministic choice is a probabilistic choice in which an action is assigned a probability of 1. Therefore, MD is included in MR and HD respectively, and MR and HD are included in HR. **There is no general inclusion relationship between MR and HD.**
 
-정상(stationary) Markov 정책은 모든 시점에 같은 규칙 $\pi(a\mid s)$를 쓴다. 정상 결정론적 정책도 상태가 바뀌면 다른 행동을 선택할 수 있다.
+A stationary Markov policy uses the same rule $\pi(a\mid s)$ at every point in time. A stationary deterministic policy can also choose a different action if the state changes.
 
-::: {.callout-warning title="Markov 정책과 정상 정책은 다르다"}
-$\pi_t(a\mid s)$는 현재 상태만 사용하므로 Markov 정책이지만 시점에 따라 달라질 수 있다. 유한 지평에서는 같은 상태라도 남은 시간이 달라 최적 행동이 달라질 수 있다. 정상성이 자동으로 따라오지 않는다.
+::: {.callout-warning title="Markov policy and normal policy are different"}
+$\pi_t(a\mid s)$ uses only the current state, so it is a Markov policy, but it can vary depending on the time point. In a finite horizon, even for the same state, the optimal action can differ depending on the remaining time. Stationarity does not automatically follow.
 :::
 
-미리 고정한 행동열 $(a_0,a_1,\ldots)$은 관측 상태에 반응하지 않는 특수한 정책이다. 따라서 공통 행동 집합을 쓰는 설정에서는 정책 최적화의 값이 고정 행동열 최적화의 값보다 작지 않다. 현재의 높은 보상만 고르는 것도 일반적으로 최적이 아니다. 행동이 **다음 상태의 분포**를 바꾸기 때문이다.
+The pre-fixed sequence of actions $(a_0,a_1,\ldots)$ is a special policy that does not react to observed states. Therefore, in settings using a common set of actions, the value of policy optimization is not smaller than the value of fixed sequence of actions optimization. Choosing only the current highest reward is also generally not optimal, because actions change the **distribution of the next state**.
 
-**정책을 최적화하는 이유.** 보상은 현재 선택의 즉각적 이득이며, 최적 행동이라는 정답 레이블 자체가 아니다. 따라서 즉각 보상만 최대화하는 지도학습 문제로 바로 바꿀 수 없다. 정책을 구하면 예상과 다른 상태가 나와도 그 상태에서 취할 행동이 지정되어 있다.
+**The reason for optimizing the policy.** The reward is the immediate gain of the current choice, not the correct label itself, which is the optimal action. Therefore, it cannot be directly transformed into a supervised learning problem that maximizes only the immediate reward. Once a policy is derived, the action to be taken in a given state is specified, even if a state different from the expectation occurs.
 
-정책 최적화의 어려움은 상태마다 정한 행동들이 미래 전이를 통해 서로 영향을 준다는 데 있다. 공통 행동 집합이 있는 유한 모델에서도 정상 결정론적 정책만 $|A|^{|S|}$개다. 동적 계획법(DP)은 가치 함수를 이용해 이 문제를 푼다. “정책은 함수라서 어떤 경우에도 미분할 수 없다”는 뜻으로 일반화하지 않는다.
+The difficulty of policy optimization lies in the fact that the actions determined for each state influence each other through future transitions. Even in finite models with a common set of actions, there are $|A|^{|S|}$ policies that are not ZZZ deterministic. Dynamic programming (DP) solves this problem using value functions. It does not generalize to mean that “policies are functions and therefore cannot be differentiated under any circumstances.”
 
-# 정책이 만드는 확률과정
+# The stochastic process created by the policy
 
-## 경로 확률과 Markov성
+## Path probability and Markovity
 
-유한 경로 $(s_0,a_0,\ldots,a_{N-1},s_N)$의 확률은 연쇄 법칙으로
+The probability of the finite path $(s_0,a_0,\ldots,a_{N-1},s_N)$ is the chain rule
 
 $$
 \mathbb P^\pi(s_0,a_0,\ldots,s_N)
@@ -88,40 +88,40 @@ $$
 \pi_t(a_t\mid h_t)p_t(s_{t+1}\mid s_t,a_t).
 $$
 
-이 식은 **유한 경로의 확률**이다. 무한 지평에서도 각 유한 길이의 경로 사건에 이 식을 적용한다. 무한 곱을 개별 무한 경로의 확률과 무심코 동일시하지 않는다.
+This formula is the **probability of a finite path**. We apply this formula to each finite-length path event even over an infinite horizon. We do not inadvertently equate the infinite product with the probability of an individual infinite path.
 
-**명제.** Markov 정책을 쓰면 상태열은 Markov 과정이다.
+**Proposition.** If a Markov policy is used, the sequence of states is a Markov process.
 
-**증명.** 행동을 합산하면
+**Proof.** If you sum the actions
 
 $$
 \mathbb P^\pi(s_{t+1}=s'\mid h_t)
 =\sum_a\pi_t(a\mid s_t)p_t(s'\mid s_t,a).
 $$
 
-우변은 과거 전체가 아니라 $t,s_t$에만 의존한다. 상태의 과거만 조건으로 주어도 같은 식이므로 상태열은 Markov다. 모델과 정책이 모두 시불변이면 전이 행렬도 시점에 무관하다. $\square$
+The right-hand side depends only on $t,s_t$, not the entire past. Since the equation remains the same even if only the past of the state is given as a condition, the state column is Markov. If both the model and the policy are time-invariant, the transition matrix is also time-independent. $\square$
 
-**직관:** 환경이 현재 상태·행동만 보고 움직이고, 정책도 현재 상태만 보고 행동한다면 과거가 미래에 추가 정보를 주지 못한다.
+**Intuition:** If the environment moves based only on the current state and behavior, and policies also act based only on the current state, the past cannot provide additional information for the future.
 
-::: {.callout-warning title="조건부확률의 분모가 0일 때"}
-확률의 비율로 조건부확률을 계산할 때는 조건 사건의 확률이 양수여야 한다. 분모가 0이라고 조건부 분포 전체를 0으로 정하면 확률분포가 되지 않는다. 방문하지 않은 상태의 가치도 정의하려면 그 상태에서 **새로 시작하는 문제**로 정의한다. 원래 초기 분포에서 그 상태를 방문할 필요는 없다.
+::: {.callout-warning title="When the denominator of the conditional probability is 0"}
+When calculating conditional probability as a ratio of probabilities, the probability of the conditional event must be positive. If the entire conditional distribution is set to zero because the denominator is zero, it does not become a probability distribution. To define the value of an unvisited state, define it as a **new problem** starting from that state. It is not necessary to visit that state in the original initial distribution.
 :::
 
-히스토리 의존 정책은 과거에 따라 행동 분포를 바꿀 수 있으므로, 모델의 Markov성만으로 상태열의 Markov성을 결론내릴 수 없다. 그렇다고 모든 히스토리 정책이 반드시 비-Markov 상태열을 만드는 것도 아니다.
+Since history-dependent policies can alter the distribution of behavior based on the past, the Markovity of the state sequence cannot be concluded solely from the Markovity of the model. However, this does not mean that all history policies necessarily produce non-Markov state sequences.
 
-# 한 기간 MDP: 모든 증명의 출발점
+# One-period MDP: The starting point of all proofs
 
-시점 0에서 한 번 행동하고, 시점 1에 종단 보상 $g(s_1)$을 받는다. 정의하자.
+Perform one action at time 0 and receive a terminal reward $g(s_1)$ at time 1. Let's define.
 
 $$
 w(s,a)=r_0(s,a)+\sum_{s'}p_0(s'\mid s,a)g(s').
 $$
 
-## 정리: 결정론적 선택으로 충분하다
+## Summary: Deterministic choice is sufficient
 
-상태 $s$에서의 최적값은 $\max_aw(s,a)$이고, 그 최댓값을 주는 행동 하나를 고르면 최적이다.
+The optimal value in state $s$ is $\max_aw(s,a)$, and selecting the one action that gives the maximum value is optimal.
 
-**증명.** 임의의 행동 분포 $q$에 대해
+**Proof.** For a random action distribution $q$
 
 $$
 \sum_aq(a)w(s,a)
@@ -129,33 +129,33 @@ $$
 =\max_bw(s,b).
 $$
 
-유한하고 비어 있지 않은 $A_s$에서는 최댓값을 달성하는 행동이 존재한다. 그 행동에 확률 1을 주면 상한을 달성한다. $\square$
+In a finite and non-empty $A_s$, there exists an action that achieves a maximum value. If that action is given a probability of 1, the upper bound is achieved. $\square$
 
-**등호 조건:** $q(a)>0$인 모든 행동이 최댓값을 주어야 한다. 가장 좋은 행동들 사이의 랜덤화는 손해가 없지만, 더 좋은 값을 만들지도 못한다.
+**Equality condition:** All actions that are $q(a)>0$ must yield the maximum value. Randomizing among the best actions is harmless, but it does not produce a better value either.
 
-**증명 구조:** 임의의 정책에 대한 상한을 먼저 구하고, 그 상한을 달성하는 정책을 구성한다. 이후 유한·무한 지평 최적성 증명도 이 구조를 따른다.
+**Proof Structure:** First, find the upper bound for an arbitrary policy, and then construct a policy that achieves that upper bound. Subsequently, the proof of finite-infinite horizon optimality also follows this structure.
 
-종단 보상 전체에 상수 $c$를 더하면 모든 $w(s,a)$가 $c$만큼 증가한다. 전이 확률 합이 1이기 때문이다. 따라서 최적 행동은 바뀌지 않는다. 행동 비교에 중요한 것은 종단 상태 간의 **가치 차이**다.
+Adding the constant $c$ to the total terminal reward increases all $w(s,a)$ by $c$. This is because the sum of the transition probabilities is 1. Therefore, the optimal action does not change. What is important for comparing actions is the **difference in value** between terminal states.
 
-# 유한 지평 MDP: 역방향 귀납 {#sec-finite}
+# Finite Horizon MDP: Inverse Induction {#sec-finite}
 
-## 목적함수와 경계조건
+## Objective function and boundary conditions
 
-결정 시점은 $0,\ldots,N-1$이며, $N$에서는 행동하지 않고 종단 보상 $g(s_N)$만 받는다. 이 절에서는 할인 없는 유한 지평을 다룬다.
+The decision point is $0,\ldots,N-1$, and at $N$, no action is taken and only the terminal reward $g(s_N)$ is received. This section deals with finite horizons without discounting.
 
 $$
 J_s(\pi)=\mathbb E_s^\pi\left[
 \sum_{t=0}^{N-1}r_t(s_t,a_t)+g(s_N)\right].
 $$
 
-Markov 정책의 남은 가치는
+The remaining value of the Markov policy is
 
 $$
 v_t^\pi(s)=\mathbb E_{t,s}^\pi\left[
 \sum_{k=t}^{N-1}r_k(s_k,a_k)+g(s_N)\right].
 $$
 
-여기서 $\mathbb E_{t,s}^\pi$는 시점 $t$의 상태를 $s$로 정하고 그 이후 정책을 적용한다는 뜻이다. 정책 평가도 한 단계 분해로 계산한다.
+Here, $\mathbb E_{t,s}^\pi$ means that the state at time point $t$ is set to $s$, and the policy is applied thereafter. Policy evaluation is also calculated using a one-step decomposition.
 
 $$
 \begin{aligned}
@@ -165,9 +165,9 @@ v_t^\pi(s)&=\sum_a\pi_t(a\mid s)
 \end{aligned}
 $$
 
-## 정리: Bellman 재귀와 최적 정책
+## Summary: Bellman Recursion and Optimal Policy
 
-다음과 같이 **후보 값** $V_t$를 뒤에서부터 정의한다.
+Define the **candidate value** $V_t$ from the back as follows.
 
 $$
 \begin{aligned}
@@ -178,19 +178,19 @@ d_t^*(s)&\in\arg\max_a Q_t(s,a).
 \end{aligned}
 $$
 
-그러면 $\pi^*=(d_0^*,\ldots,d_{N-1}^*)$는 **모든 HR 정책과 비교해도 최적**이다. 각 $V_t(s)$는 그 시점과 상태에서 가능한 최적 남은 가치다.
+Then $\pi^*=(d_0^*,\ldots,d_{N-1}^*)$ is **optimal even when compared to all HR policies**. Each $V_t(s)$ is the optimal remaining value possible at that point in time and state.
 
-### 증명: 상한과 달성을 함께 귀납한다
+### Proof: Inductively derives the upper bound and attainment together
 
-**1. 기초 단계 $t=N$.** 더 이상 행동이 없으므로 어떤 정책이든 남은 보상은 $g(s_N)=V_N(s_N)$이다.
+**1. Basic Phase $t=N$.** Since there are no more actions, the remaining reward for any policy is $g(s_N)=V_N(s_N)$.
 
-**2. 상한에 대한 귀납.** 임의의 HR 정책을 고정하고, $U_t^\pi(h_t)$를 히스토리 $h_t$ 이후의 기대 남은 보상으로 쓰자. $t+1$에서
+**2. Induction to the Upper Bound.** Fix an arbitrary HR policy and use $U_t^\pi(h_t)$ as the expected remaining reward after history $h_t$. From $t+1$
 
 $$
 U_{t+1}^\pi(h_t,a,s')\le V_{t+1}(s')
 $$
 
-라고 가정한다. 반복 기댓값과 모델의 Markov성을 이용하면
+Let's assume . Using iterative expectation and the Markov nature of the model
 
 $$
 \begin{aligned}
@@ -203,9 +203,9 @@ U_{t+1}^\pi(h_t,a,s')\right]\\
 \end{aligned}
 $$
 
-첫 부등식은 귀납 가정과 확률의 비음수성, 둘째 부등식은 **평균 ≤ 최댓값**이다. 도달 확률이 0인 히스토리에서는 조건부확률의 비율 대신 지정된 후속 정책과 전이로 $U_t^\pi$를 정의하면 같은 재귀를 쓸 수 있다.
+The first inequality is the assumption of induction and non-negative probability, and the second inequality is **mean ≤ maximum**. In a history where the reach probability is 0, the same recursion can be used by defining $U_t^\pi$ with a specified follow-up policy and transition instead of the ratio of conditional probabilities.
 
-**3. 상한 달성에 대한 귀납.** 시점 $t+1$ 이후에 $d_{t+1}^*,\ldots,d_{N-1}^*$를 사용하면 $V_{t+1}$을 달성한다고 가정하자. 시점 $t$에 $d_t^*(s)$를 고르면
+**3. Induction on Achieving the Upper Limit.** Let us assume that if $d_{t+1}^*,\ldots,d_{N-1}^*$ is used after time $t+1$, $V_{t+1}$ is achieved. If $d_t^*(s)$ is chosen at time $t$,
 
 $$
 v_t^{\pi^*}(s)
@@ -214,25 +214,25 @@ v_t^{\pi^*}(s)
 =V_t(s).
 $$
 
-따라서 같은 정책 $\pi^*$가 모든 시점·상태의 상한을 달성한다. $\square$
+Therefore, the same policy $\pi^*$ achieves the upper bound for all points in time and states. $\square$
 
-::: {.callout-tip title="증명의 핵심"}
-“종단조건에서 출발하여, 임의의 히스토리 의존 정책의 남은 가치를 $V_t(s_t)$로 위에서 제한한다. 상태별 argmax 규칙은 귀납적으로 그 상한을 달성하므로 결정론적 Markov 정책으로 충분하다.”
+::: {.callout-tip title="The core of the proof"}
+“Starting from the terminal condition, we constrain the residual value of any history-dependent policy to $V_t(s_t)$ above. Since the state-specific argmax rule inductively achieves its upper bound, a deterministic Markov policy is sufficient.”
 :::
 
-**직관:** 마지막 한 번의 문제를 풀고, 그 답을 바로 전 시점의 종단 가치로 사용한다. 과거가 달라도 현재 상태와 남은 시간이 같으면 앞으로 사용할 최적 전략을 공유할 수 있다.
+**Intuition:** Solve the last problem and use the answer as the terminal value from the immediately previous time step. Even if the past is different, if the current state and remaining time are the same, the optimal strategy to be used going forward can be shared.
 
-## 두 상태 예제로 검산
+## Verification using two-state example
 
-다음 두 상태 모델에 유한 지평과 종단 보상 0을 적용해 보자.
+Let's apply finite horizon and end compensation 0 to the following two state models.
 
-| 상태 | 행동 | 보상 | 다음 상태 분포 |
+| State | Behavior | Reward | Next State Distribution |
 |---|---|---:|---|
-| $s_1$ | $a_{11}$ | $5$ | $s_1,s_2$에 각각 $1/2$ |
-| $s_1$ | $a_{12}$ | $10$ | 반드시 $s_2$ |
-| $s_2$ | $a_{21}$ | $-1$ | 반드시 $s_2$ |
+| $s_1$ | $a_{11}$ | $5$ | $s_1,s_2$ respectively $1/2$ |
+| $s_1$ | $a_{12}$ | $10$ | always $s_2$ |
+| $s_2$ | $a_{21}$ | $-1$ | always $s_2$ |
 
-종단 보상은 0이다. $W_k(s)$를 **$k$번의 결정이 남았을 때**의 최적값으로 쓰면 $W_0=0$이고 $W_k(s_2)=-k$다.
+The terminal reward is 0. If $W_k(s)$ is used as the optimal value when **$k$ decisions remain**, it is $W_0=0$ and $W_k(s_2)=-k$.
 
 $$
 W_k(s_1)=\max\left\{
@@ -240,19 +240,19 @@ W_k(s_1)=\max\left\{
 10+W_{k-1}(s_2)\right\}.
 $$
 
-| 남은 결정 수 $k$ | $a_{11}$의 가치 | $a_{12}$의 가치 | $W_k(s_1)$ | 최적 행동 |
+| Number of remaining decisions $k$ | Value of $a_{11}$ | Value of $a_{12}$ | $W_k(s_1)$ | Optimal action |
 |---|---:|---:|---:|---|
 | 1 | 5 | 10 | 10 | $a_{12}$ |
 | 2 | 9.5 | 9 | 9.5 | $a_{11}$ |
 | 3 | 8.75 | 8 | 8.75 | $a_{11}$ |
 
-같은 $s_1$에서도 남은 결정 수에 따라 최적 행동이 바뀐다. 다만 유한 지평 최적 정책이 **항상** 비정상이라는 뜻은 아니다. 정상 정책으로도 최적인 특수한 문제는 있다.
+Even within the same $s_1$, the optimal action changes depending on the number of remaining decisions. However, this does not mean that a finite horizon optimal policy is **always** abnormal. There are special problems where a normal policy is also optimal.
 
-# 할인 무한 지평: 정책 평가
+# Discount Infinite Horizons: Policy Evaluation
 
-이제부터 모델 $p,r$은 시불변이고 $0<\gamma<1$이다. 정책 평가식의 $\pi$는 **정상 Markov 정책**이다.
+From now on, the model $p,r$ is time-invariant and $0<\gamma<1$. The policy evaluation formula $\pi$ is a **normal Markov policy**.
 
-## 리턴과 가치의 정의
+## Definition of Return and Value
 
 $$
 G_t=\sum_{k=0}^{\infty}\gamma^k r(s_{t+k},a_{t+k}),
@@ -260,19 +260,19 @@ G_t=\sum_{k=0}^{\infty}\gamma^k r(s_{t+k},a_{t+k}),
 \qquad J(\pi)=\sum_s\mu_0(s)v^\pi(s).
 $$
 
-$|r(s,a)|\le R_{\max}$이므로
+$|r(s,a)|\le R_{\max}$ so
 
 $$
 |G_t|\le\frac{R_{\max}}{1-\gamma}.
 $$
 
-따라서 리턴은 절대수렴하고 적분 가능하다. 기댓값과 무한 합을 교환하는 것도 이 상한으로 정당화할 수 있다. 시불변 모델과 정상 정책에서는 같은 상태에서 보는 미래의 분포가 시작 시점에 무관하므로 $v^\pi$에 $t$ 첨자가 필요 없다.
+Therefore, the return converges absolutely and is integrable. The exchange of the expectation value and the infinite sum can also be justified by this upper bound. In the time-invariant model and stationary policy, since the future distribution observed from the same state is independent of the starting time, the $v^\pi$ $t$ subscript is not needed.
 
-## Monte Carlo 정책 평가
+## Monte Carlo Policy Evaluation
 
-정책을 고정하고 같은 시작 상태에서 여러 궤적을 만든 뒤, 각 누적 보상의 평균을 구한다.
+Fix the policy and create multiple trajectories from the same starting state, then calculate the average of each cumulative reward.
 
-같은 상태에서 시작한 독립적인 완전 리턴 $G^{(1)},\ldots,G^{(m)}$을 관측할 수 있다면
+If you can observe an independent full return $G^{(1)},\ldots,G^{(m)}$ starting from the same state
 
 $$
 \hat v_m=\frac1m\sum_{i=1}^mG^{(i)},\qquad
@@ -280,30 +280,30 @@ $$
 \operatorname{Var}(\hat v_m)=\frac{\operatorname{Var}(G)}m.
 $$
 
-불편성에는 기댓값의 선형성, 분산 식에는 표본의 독립성이 쓰인다. 무한 지평을 $T$단계에서 잘라 $G_T=\sum_{t=0}^{T-1}\gamma^tr_t$로 대체하면 표본평균은 $\mathbb E[G_T]$에는 불편하지만, 일반적으로 $v^\pi$에는 편향이 있다.
+Linearity of the expected value is used for unbiasedness, and sample independence is used for the variance formula. If the infinite horizon is cut at the $T$ step and replaced with $G_T=\sum_{t=0}^{T-1}\gamma^tr_t$, the sample mean is unbiased at $\mathbb E[G_T]$, but is generally biased at $v^\pi$.
 
 $$
 |\mathbb E[G_T]-v^\pi(s)|
 \le\frac{\gamma^T R_{\max}}{1-\gamma}.
 $$
 
-많은 궤적을 평균내는 것과 각 궤적을 길게 관측하는 것은 다른 오차를 줄인다. MC 분산이 항상 크다는 정리는 없다. 다만 긴 궤적의 무작위성 때문에 큰 분산이 생길 수 있다.
+Averaging many trajectories and observing each trajectory for a long time reduce other errors. There is no theorem that MC variance is always large. However, large variance can occur due to the randomness of long trajectories.
 
-## 정리: Bellman 정책 평가 방정식
+## Summary: Bellman Policy Evaluation Equation
 
 $$
 v^\pi(s)=\sum_a\pi(a\mid s)
 \left[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^\pi(s')\right].
 $$
 
-**증명 흐름.**
+**Proof Flow.**
 
-1. 리턴을 $G_t=r(s_t,a_t)+\gamma G_{t+1}$로 분해한다.
-2. $a_t,s_{t+1}$에 대해 반복 기댓값을 적용한다.
-3. Markov 모델과 Markov 정책으로 미래의 조건에서 이전 상태·행동을 제거한다.
-4. 모델과 정책의 시불변성으로 다음 시점의 남은 가치를 $v^\pi(s_{t+1})$로 쓴다.
+1. Decomposes the return into $G_t=r(s_t,a_t)+\gamma G_{t+1}$.
+2. Apply iterative expectation to $a_t,s_{t+1}$.
+3. Using a Markov model and Markov policy, remove previous states and actions from future conditions.
+4. Due to the time invariance of the model and policy, the remaining value at the next time step is written as $v^\pi(s_{t+1})$.
 
-이를 식으로 연결하면
+If you connect this as an expression
 
 $$
 \begin{aligned}
@@ -314,18 +314,18 @@ v^\pi(s)
 \end{aligned}
 $$
 
-보상 항에서 $\sum_{s'}p(s'\mid s,a)=1$을 쓰면 원하는 식이다. $\square$
+If you use $\sum_{s'}p(s'\mid s,a)=1$ in the compensation term, it is the desired expression. $\square$
 
-**주의:** 반복 기댓값만으로 과거를 지우는 것이 아니다. 과거를 제거하려면 모델과 정책의 Markov성이 필요하고, 시점 첨자를 지우려면 정상성도 필요하다.
+**Note:** The past is not erased solely by iteration expectation. To remove the past, Markovity of the model and policy is required, and to erase time indices, stationarity is also required.
 
-## 행렬 표현과 역행렬의 존재
+## Matrix Representation and the Existence of Inverse Matrices
 
 $$
 R^\pi(s)=\sum_a\pi(a\mid s)r(s,a),\qquad
 P^\pi(s,s')=\sum_a\pi(a\mid s)p(s'\mid s,a).
 $$
 
-그러면 $v^\pi=R^\pi+\gamma P^\pi v^\pi$이다. $P^\pi$는 각 행의 합이 1인 비음수 행렬이므로 $\|P^\pi u\|_\infty\le\|u\|_\infty$. 따라서 행렬 급수가 수렴하고
+Then it is $v^\pi=R^\pi+\gamma P^\pi v^\pi$. Since $P^\pi$ is a non-negative matrix where the sum of each row is 1, it is $\|P^\pi u\|_\infty\le\|u\|_\infty$. Therefore, the matrix series converges and
 
 $$
 (I-\gamma P^\pi)^{-1}=\sum_{k=0}^{\infty}\gamma^k(P^\pi)^k,
@@ -333,20 +333,20 @@ $$
 v^\pi=(I-\gamma P^\pi)^{-1}R^\pi.
 $$
 
-역행렬 식은 단순한 형식적 이항이 아니다. 급수의 부분합에 $I-\gamma P^\pi$를 곱하면 $I-\gamma^{m+1}(P^\pi)^{m+1}$이 되고, 마지막 항이 0으로 가므로 역행렬임을 확인한다.
+The inverse matrix expression is not a simple formal transposition. Multiplying the partial sum of the series by $I-\gamma P^\pi$ results in $I-\gamma^{m+1}(P^\pi)^{m+1}$, and since the last term goes to 0, it is confirmed to be the inverse matrix.
 
-**예제 검산:** 앞의 두 상태 모델에 $\gamma=0.9$를 적용하면 모든 정책에서 $v^\pi(s_2)=-10$이다. $s_1$에서 항상 $a_{11}$을 쓰면
+**Example Verification:** If $\gamma=0.9$ is applied to the previous two state models, it is $v^\pi(s_2)=-10$ in all policies. If $s_1$ is always used with $a_{11}$
 
 $$
 v^\pi(s_1)=5+0.9\left[\tfrac12v^\pi(s_1)-5\right]
 \quad\Longrightarrow\quad v^\pi(s_1)=\frac{10}{11}.
 $$
 
-항상 $a_{12}$를 쓰면 $v^\pi(s_1)=10+0.9(-10)=1$이다.
+If you always use $a_{12}$, it is $v^\pi(s_1)=10+0.9(-10)=1$.
 
-# Bellman 연산자와 증명 도구 {#sec-operators}
+# Bellman Operator and Proof Tool {#sec-operators}
 
-임의의 가치 후보 $v$에 대해
+For any value candidate $v$
 
 $$
 \begin{aligned}
@@ -356,22 +356,22 @@ q_v(s,a)&=r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v(s'),\\
 \end{aligned}
 $$
 
-$\mathcal T^\pi$는 정책으로 **평균**, $\mathcal T$는 행동 중 **최댓값**을 취한다. 전자는 일반적으로 affine 사상이며, 보상 항 때문에 선형 사상이라고 부르지는 않는다.
+$\mathcal T^\pi$ takes the **average** as the policy, and $\mathcal T$ takes the **maximum** among the actions. The former is generally an affine mapping, and is not called a linear mapping because of the reward term.
 
-## 단조성·상수 이동·탐욕 정책
+## Monotonicity · Constant Shift · Greed Policy
 
-| 성질 | 식 | 이유 |
+| Properties | Formula | Reason |
 |---|---|---|
-| 단조성 | $v\le w\Rightarrow\mathcal T v\le\mathcal T w$ | 확률의 비음수성; max는 순서 보존 |
-| 상수 이동 | $\mathcal T(v+c\mathbf1)=\mathcal T v+\gamma c\mathbf1$ | 전이 확률 합이 1 |
-| 평균의 상한 | $\mathcal T^\pi v\le\mathcal T v$ | 평균 ≤ 최댓값 |
-| 탐욕 정책 | $d_v(s)\in\arg\max_aq_v(s,a)\Rightarrow\mathcal T^{d_v}v=\mathcal T v$ | 최대 행동을 직접 선택 |
+| Monotonicity | $v\le w\Rightarrow\mathcal T v\le\mathcal T w$ | Non-negative probability; max preserves order |
+| Constant shift | $\mathcal T(v+c\mathbf1)=\mathcal T v+\gamma c\mathbf1$ | Sum of transition probabilities 1 |
+| Upper bound of mean | $\mathcal T^\pi v\le\mathcal T v$ | Mean ≤ Maximum |
+| Greedy Policy | $d_v(s)\in\arg\max_aq_v(s,a)\Rightarrow\mathcal T^{d_v}v=\mathcal T v$ | Directly select maximum action |
 
-단조성과 상수 이동은 $\mathcal T^\pi$에도 성립한다. 마지막 등식은 **정책을 뽑는 데 사용한 $v$에서** 성립하며, 임의의 다른 $w$에서까지 보장되는 것은 아니다.
+Monotonicity and constant shift hold for $\mathcal T^\pi$ as well. The last equation holds for **$v$ used to select the policy**, but is not guaranteed for any other $w$.
 
-## 정리: 두 연산자는 $\gamma$-수축이다
+## Summary: The two operators are $\gamma$-contraction
 
-**정책 평가 연산자.** 보상 항을 상쇄하고 확률의 가중평균을 제한하면
+**Policy evaluation operator.** If you cancel out the reward term and limit the weighted average of the probabilities
 
 $$
 \|\mathcal T^\pi v-\mathcal T^\pi w\|_\infty
@@ -379,13 +379,13 @@ $$
 \le\gamma\|v-w\|_\infty.
 $$
 
-**최적 연산자.** 먼저 유한한 두 수열에 대해
+**Optimal operator.** First, for two finite sequences
 
 $$
 |\max_ax_a-\max_ay_a|\le\max_a|x_a-y_a|
 $$
 
-임을 확인한다. $a_x\in\arg\max_ax_a$를 고르면 $\max x-\max y\le x_{a_x}-y_{a_x}\le\max|x-y|$이고, $x,y$를 바꿔 반대 방향도 얻는다. 따라서
+Verify that . If we select $a_x\in\arg\max_ax_a$, it becomes $\max x-\max y\le x_{a_x}-y_{a_x}\le\max|x-y|$, and by swapping $x,y$, we also obtain the opposite direction. Therefore
 
 $$
 \begin{aligned}
@@ -395,73 +395,73 @@ $$
 \end{aligned}
 $$
 
-상태에 대해 최댓값을 취하면 수축성이 나온다. $\square$
+Taking the maximum value for the state yields contractility. $\square$
 
-## Banach 고정점 정리: 필요한 부분과 증명
+## Banach Fixed Point Theorem: Necessary Parts and Proof
 
-완비 거리공간에서 $T$가 계수 $\gamma<1$인 수축이면 고정점이 유일하게 존재하고, $x_{k+1}=Tx_k$는 임의의 시작점에서 그 고정점으로 수렴한다.
+In a complete metric space, if $T$ is a contraction with coefficient $\gamma<1$, then a unique fixed point exists, and $x_{k+1}=Tx_k$ converges from any starting point to that fixed point.
 
-**존재:** $d(x_{k+1},x_k)\le\gamma^k d(x_1,x_0)$이므로 $m>n$일 때
+**Existence:** Since $d(x_{k+1},x_k)\le\gamma^k d(x_1,x_0)$, when $m>n$
 
 $$
 d(x_m,x_n)\le\sum_{k=n}^{m-1}\gamma^k d(x_1,x_0)
 \le\frac{\gamma^n}{1-\gamma}d(x_1,x_0)\longrightarrow0.
 $$
 
-완비성에 의해 $x_k\to x^*$이고, 수축사상의 연속성으로 $Tx^*=x^*$이다.
+It is $x_k\to x^*$ due to completeness, and $Tx^*=x^*$ due to the continuity of contraction events.
 
-**유일성:** 두 고정점 $x^*,y^*$가 있으면 $d(x^*,y^*)\le\gamma d(x^*,y^*)$이므로 둘은 같다.
+**Uniqueness:** If there are two fixed points $x^*,y^*$, then $d(x^*,y^*)\le\gamma d(x^*,y^*)$, so the two are equal.
 
-**오차:** 수축성을 반복하면 $d(x_k,x^*)\le\gamma^k d(x_0,x^*)$. $\square$
+**Error:** If contractility is repeated $d(x_k,x^*)\le\gamma^k d(x_0,x^*)$. $\square$
 
-여기서는 $(\mathbb R^{|S|},\|\cdot\|_\infty)$가 완비이므로 적용할 수 있다. 따라서 $\mathcal T^\pi$와 $\mathcal T$는 각각 유일한 고정점을 갖는다. 정책 평가식에 의해 전자의 고정점은 $v^\pi$이다. **후자의 고정점이 최적값이라는 사실은 아직 증명해야 한다.**
+Here, since $(\mathbb R^{|S|},\|\cdot\|_\infty)$ is complete, it can be applied. Therefore, $\mathcal T^\pi$ and $\mathcal T$ each have a unique fixed point. By the policy evaluation formula, the fixed point of the former is $v^\pi$. **The fact that the latter fixed point is the optimal value still needs to be proven.**
 
-# Bellman 최적성과 최적 정책 {#sec-optimal}
+# Bellman Optimality and Optimal Policy {#sec-optimal}
 
-**직관:** 최적 가치 $v^*(s)$는 현재 상태에서 낼 수 있는 최선의 성능이다. Bellman 식은 “지금 보상 + 다음 상태의 할인된 최적 가치”를 비교한다. 정책 전체에 대한 최적화가 현재 행동의 최대화로 나타나지만, 이 최대화를 **모든 상태에서** 해야 한다는 계산 부담은 남는다.
+**Intuition:** The optimal value $v^*(s)$ is the best performance achievable in the current state. The Bellman formula compares the “current reward + the discounted optimal value of the next state.” Optimization for the entire policy is represented by the maximization of the current action, but the computational burden of having to perform this maximization in **all states** remains.
 
-## 정리: 고정점이 곧 최적 가치다
+## Summary: The fixed point is the optimal value
 
-모든 HR 정책에 대해 시점 0의 상태 $s$에서 출발한 가치를 $v^\pi(s)$로 정의하고,
+For all HR policies, the value starting from the state at time point 0 $s$ is defined as $v^\pi(s)$, and
 
 $$
 v^*(s)=\sup_{\pi\in\Pi^{HR}}v^\pi(s)
 $$
 
-로 둔다. 그러면 $v^*$는 $\mathcal T$의 유일한 고정점이며, 하나의 결정론적 정상 Markov 정책이 모든 상태에서 이를 달성한다. 따라서 위 $\sup$은 $\max$로 쓸 수 있다.
+Let . Then $v^*$ is the only fixed point of $\mathcal T$, and a single deterministic steady-state Markov policy achieves this in all states. Therefore, the above $\sup$ can be written as $\max$.
 
-### 증명 1단계: 달성 가능한 후보 구성
+### Proof Step 1: Achievable Candidate Configurations
 
-수축성으로 얻은 고정점을 $\hat v$라 하자. 각 상태에서
+Let $\hat v$ be the fixed point obtained through contractility. In each state
 
 $$
 d^*(s)\in\arg\max_a q_{\hat v}(s,a)
 $$
 
-를 고르면 $\mathcal T^{d^*}\hat v=\mathcal T\hat v=\hat v$. 정책 평가 연산자의 고정점은 유일하므로
+If you select , it becomes $\mathcal T^{d^*}\hat v=\mathcal T\hat v=\hat v$. Since the fixed point of the policy evaluation operator is unique,
 
 $$
 \hat v=v^{d^*}.
 $$
 
-즉 후보는 실제 정책으로 달성 가능하다.
+In other words, the candidate can be achieved through actual policies.
 
-### 증명 2단계: 임의의 정책에 대한 상한
+### Proof Step 2: Upper bound for an arbitrary policy
 
-$\hat v=\mathcal T\hat v$이므로 모든 $(s,a)$에 대해
+Since $\hat v=\mathcal T\hat v$, for all $(s,a)$
 
 $$
 r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\hat v(s')\le\hat v(s).
 $$
 
-임의의 HR 정책으로 행동을 평균내고 반복 기댓값을 적용하면
+Averaging behaviors with an arbitrary HR policy and applying iterative expectations
 
 $$
 \mathbb E^\pi[r(s_t,a_t)+\gamma\hat v(s_{t+1})\mid h_t]
 \le\hat v(s_t).
 $$
 
-양변에 $\gamma^t$를 곱하고 기댓값을 취한 뒤 $t=0,\ldots,n-1$에 대해 더하면 중간 가치 항이 상쇄된다.
+Multiplying both sides by $\gamma^t$ and taking the expected value, then adding it for $t=0,\ldots,n-1$, the intermediate value terms are canceled out.
 
 $$
 \mathbb E_s^\pi\left[
@@ -469,44 +469,44 @@ $$
 \right]\le\hat v(s).
 $$
 
-유한 상태 공간에서 $\hat v$는 유계이므로 $|\gamma^n\mathbb E_s^\pi[\hat v(s_n)]|\le\gamma^n\|\hat v\|_\infty\to0$. 보상 급수도 유계 상한으로 극한을 통과시킬 수 있으므로 $v^\pi(s)\le\hat v(s)$이다.
+In finite state space, $\hat v$ is bounded, so $|\gamma^n\mathbb E_s^\pi[\hat v(s_n)]|\le\gamma^n\|\hat v\|_\infty\to0$. Since the complementary series can also pass the limit through the bounded supreme bound, it is $v^\pi(s)\le\hat v(s)$.
 
-### 증명 3단계: 결론
+### Proof Step 3: Conclusion
 
-모든 정책에 대해 $v^\pi\le\hat v$이고, $d^*$는 $\hat v$를 달성한다. 따라서 $v^*=\hat v=v^{d^*}$이고
+For all policies, it is $v^\pi\le\hat v$, and $d^*$ achieves $\hat v$. Therefore, it is $v^*=\hat v=v^{d^*}$ and
 
 $$
 v^*(s)=\max_a\left[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^*(s')\right].
 $$
 
-같은 $d^*$가 모든 상태에서 최적이다. $\square$
+The same $d^*$ is optimal in all states. $\square$
 
-::: {.callout-warning title="순환논증을 피하는 순서"}
-“최적값은 Bellman 고정점이다”를 증명하면서 이를 이미 정의인 것처럼 쓰지 않는다. **수축성으로 후보 존재 → 탐욕 정책이 후보 달성 → 모든 정책의 상한 → 후보가 최적값** 순서로 쓴다. 정상 정책끼리만 비교한 증명으로 HR 정책 전체에 대한 최적성을 결론내리지 않는다.
+::: {.callout-warning title="Order to avoid circular reasoning"}
+When proving that “the optimal value is a Bellman fixed point,” do not write it as if it were already a definition. Write it in the order of **existence of a candidate due to contractility → Greedy policy achieves the candidate → Upper bound of all policies → Candidate is the optimal value**. Do not conclude the optimality of all HR policies based on a proof that compares only normal policies.
 :::
 
-## 확률적 최적 정책의 정확한 조건
+## Exact conditions of stochastic optimal policy
 
-$q^*(s,a)=q_{v^*}(s,a)$, $A^*(s)=\arg\max_aq^*(s,a)$라 하자. **정상 Markov 정책 $\pi$가 모든 상태에서 최적일 필요충분조건**은
+Let $q^*(s,a)=q_{v^*}(s,a)$, $A^*(s)=\arg\max_aq^*(s,a)$. The **necessary and sufficient condition for the normal Markov policy $\pi$ to be optimal in all states** is
 
 $$
 \pi(a\mid s)>0\quad\Longrightarrow\quad a\in A^*(s).
 $$
 
-**충분성:** 최대 행동만 평균내므로 $\mathcal T^\pi v^*=v^*$. 고정점 유일성으로 $v^\pi=v^*$.
+**Sufficientity:** Since we average only the maximum actions $\mathcal T^\pi v^*=v^*$. Due to fixed-point uniqueness $v^\pi=v^*$.
 
-**필요성:** $v^\pi=v^*$이면 $\mathcal T^\pi v^*=v^*$이다. 따라서 각 상태에서
+**Necessity:** If $v^\pi=v^*$, then $\mathcal T^\pi v^*=v^*$. Therefore, in each state
 
 $$
 0=v^*(s)-\sum_a\pi(a\mid s)q^*(s,a)
 =\sum_a\pi(a\mid s)\big[v^*(s)-q^*(s,a)\big].
 $$
 
-모든 항이 비음수이므로 양의 확률을 준 행동의 차이는 0이어야 한다. $\square$
+Since all terms are non-negative, the difference between actions with positive probabilities must be 0. $\square$
 
-결정론적 정책도 확률적 정책 클래스에 포함된다. 동점이 없으면 **비퇴화 랜덤화**가 불가능한 것이지, 확률적 정책 클래스 안에 최적 정책이 없는 것이 아니다. 또한 위 조건은 모든 상태에서의 최적성에 대한 것이다. 특정 초기 분포의 $J(\pi)$만 최대화할 때는 도달하지 않는 상태의 선택까지 최적일 필요는 없다.
+Deterministic policies are also included in the probabilistic policy class. The absence of ties does not mean that there are no optimal policies within the probabilistic policy class, but rather that **non-degenerate randomization** is impossible. Furthermore, the above condition applies to optimality in all states. When maximizing only $J(\pi)$ of a specific initial distribution, the selection of unreached states does not need to be optimal.
 
-## 고정점 반복
+## Fixed point repetition
 
 $$
 v_{k+1}=\mathcal T v_k
@@ -514,49 +514,49 @@ v_{k+1}=\mathcal T v_k
 \|v_k-v^*\|_\infty\le\gamma^k\|v_0-v^*\|_\infty.
 $$
 
-즉 고정점 반복은 최적값으로 수렴한다. 정책 평가에서는 $\mathcal T$ 대신 $\mathcal T^\pi$를 반복한다.
+That is, the fixed-point iteration converges to the optimal value. In policy evaluation, $\mathcal T$ is iterated over instead of $\mathcal T^\pi$.
 
-# 자주 틀리는 가정
+# Commonly Mistaken Assumptions
 
-| 잘못 쓰기 쉬운 문장 | 정확한 표현 |
+| Sentences that are easy to misuse | Accurate expressions |
 |---|---|
-| MDP이므로 상태열도 항상 Markov다 | Markov 정책이면 보장된다. HR 정책에서는 깨질 수 있다. |
-| 유한 지평도 $v(s)$ 하나로 계산한다 | 일반적으로 남은 시간이 필요하므로 $v_t(s)$를 쓴다. |
-| 마지막 시점 $N$에도 행동한다 | 이 문서의 관례에서는 마지막 행동이 $N-1$, $v_N=g$다. |
-| 유한 지평에 수축성 증명이 필요하다 | 종단조건과 유한 번의 역방향 귀납으로 충분하다. |
-| 무한 지평이면 시간 첨자를 지울 수 있다 | 모델과 정책의 시불변성도 필요하다. |
-| $\gamma=1$에도 같은 고정점 증명이 된다 | 엄밀한 수축성이 사라져 이 증명을 적용할 수 없다. |
-| 거의 확실히 종료하면 기대 총보상도 항상 유한하다 | 종료 시간의 적분 가능성 등 별도 조건이 필요하다. |
-| argmax는 항상 존재한다 | 여기서는 행동 집합이 비어 있지 않고 유한해서 존재한다. |
-| 최적 고정점의 존재가 곧 최적성 증명이다 | 정책으로 달성하고 모든 비교 대상 정책의 상한임도 보여야 한다. |
-| 확률적 정책은 결정론적 정책보다 항상 나쁘다 | 최적 행동만 섞으면 같은 값이다. |
-| 모든 초기 분포에서 최적인 것과 한 $\mu_0$에서 최적인 것은 같다 | 특정 분포만 보면 방문하지 않는 상태의 차이를 놓칠 수 있다. |
-| 충분히 긴 잘린 MC는 정확히 불편하다 | 잘림 편향은 작아질 수 있지만 일반적으로 0은 아니다. |
+| Since it is an MDP, the state column is always Markov | It is guaranteed under a Markov policy. It can be broken under an HR policy.
+| Calculate as a single finite horizon $v(s)$ | Generally, since remaining time is needed, use $v_t(s)$. |
+| Acts even at the last point in time $N$ | By convention of this document, the last action is $N-1$, $v_N=g$. |
+| Proof of contractility on a finite horizon is required | A terminal condition and a finite number of backward inductions are sufficient. |
+| If it is an infinite horizon, time indices can be erased | Time invariance of models and policies is also necessary. |
+The same fixed point proof applies to | $\gamma=1$ | This proof cannot be applied because strict contractility has disappeared. |
+| If it terminates almost certainly, the expected total reward is always finite | Separate conditions such as the integrability of the termination time are required. |
+| argmax always exists | Here, it exists because the action set is not empty and is finite. |
+| The existence of an optimal fixed point is proof of optimality | It must be achieved by the policy and shown to be the upper bound of all comparison policies. |
+| Stochastic policies are always worse than deterministic policies | Mixing only optimal actions yields the same value. |
+| The optimal value across all initial distributions is the same as the optimal value in one $\mu_0$ | If you look only at a specific distribution, you might miss the difference in unvisited states.
+| A sufficiently long truncated MC is exactly uncomfortable | Truncation bias can be reduced but is generally not zero. |
 
-# 스스로 풀어볼 증명 문제
+# Proof problems to solve on your own
 
-아래 문제로 각 증명의 논리를 직접 확인해 보자. **가정 → 주장 → 사용 도구 → 상한 → 달성 또는 극한** 순서로 정리하면 도움이 된다. 힌트는 풀이를 시도한 뒤 펼쳐 볼 수 있다.
+Let's verify the logic of each proof directly through the problems below. It is helpful to organize the steps in the order of **Assumption → Claim → Tools Used → Upper Limit → Achievement or Limit**. Hints can be viewed after attempting the solution.
 
-## 문제 1. 한 기간 랜덤화와 등호 조건
+## Problem 1. One-period randomization and equality condition
 
-유한한 $A_s$에서 임의의 행동 분포의 기대값이 $\max_aw(s,a)$ 이하임을 증명하라. 등호의 필요충분조건과 행동 집합의 유한성을 쓴 위치도 설명하라.
+Prove that the expectation of any action distribution in the finite set $A_s$ is less than or equal to $\max_aw(s,a)$. Also explain the necessary and sufficient condition for equality and the location where the finiteness of the action set is written.
 
-::: {.callout-tip collapse="true" title="힌트"}
-$\sum_aq(a)[\max_bw(s,b)-w(s,a)]$를 보라. 각 항은 비음수다. 최댓값의 존재와, 그것에 확률 1을 주어 달성한다는 부분까지 써야 한다.
+::: {.callout-tip collapse="true" title="Hint"}
+Look at $\sum_aq(a)[\max_bw(s,b)-w(s,a)]$. Each term is non-negative. You must write up to the existence of the maximum value and the part that it is achieved by giving it a probability of 1.
 :::
 
 ::: {.callout-note collapse="true" title="SOLUTION"}
 
-상태 $s$를 고정하고 $M=\max_{a\in A_s}w(s,a)$라 하자. $A_s$가 비어 있지 않고 유한하므로 $M$과 이를 달성하는 행동이 존재한다. 임의의 확률분포 $q$에 대해
+Let $s$ be fixed and $M=\max_{a\in A_s}w(s,a)$. Since $A_s$ is not empty and is finite, $M$ and the action to achieve it exist. For any probability distribution $q$
 
 $$
 M-\sum_aq(a)w(s,a)
 =\sum_aq(a)[M-w(s,a)]\ge0.
 $$
 
-마지막 부등식은 $q(a)\ge0$과 $w(s,a)\le M$에서 나온다. 따라서 랜덤화한 기대값은 $M$을 넘지 못한다.
+The last inequality is derived from $q(a)\ge0$ and $w(s,a)\le M$. Therefore, the randomized expected value cannot exceed $M$.
 
-등호는 비음수인 각 항이 모두 0일 때, 그리고 그때만 성립한다. 즉
+The equality holds when and only when all non-negative terms are 0. That is
 
 $$
 q(a)>0\ \Longrightarrow\ w(s,a)=M
@@ -564,23 +564,23 @@ q(a)>0\ \Longrightarrow\ w(s,a)=M
 \operatorname{supp}q\subseteq\arg\max_aw(s,a).
 $$
 
-$a^*\in\arg\max_aw(s,a)$ 하나에 확률 1을 주면 기대값이 $M$이다. 따라서 결정론적 선택으로 최적값을 달성한다. **유한성은 최댓값과 argmax의 존재를 보장하는 데 쓰였다.** 평균이 상한을 넘지 못한다는 부등식 자체는 유한성보다 더 일반적인 상황에서도 성립하지만, 최적 행동의 존재는 별도로 확인해야 한다. $\square$
+If we assign a probability of 1 to each $a^*\in\arg\max_aw(s,a)$, the expected value is $M$. Therefore, the optimal value is achieved through deterministic choice. **Finiteness was used to guarantee the existence of the maximum value and argmax.** Although the inequality that the mean cannot exceed the upper bound holds even in situations more general than finiteness, the existence of the optimal action must be verified separately. $\square$
 
 :::
 
-## 문제 2. 유한 지평에서 HR 정책보다 좋은 MD 정책
+## Problem 2. MD policy is better than HR policy in a finite horizon
 
-$V_N=g$, $V_t(s)=\max_a[r_t(s,a)+\sum_{s'}p_t(s'\mid s,a)V_{t+1}(s')]$로 정의하자. 임의의 HR 정책에 대한 상한과 MD 정책의 상한 달성을 각각 역방향 귀납으로 증명하라.
+Let's define $V_N=g$, $V_t(s)=\max_a[r_t(s,a)+\sum_{s'}p_t(s'\mid s,a)V_{t+1}(s')]$. Prove the attainment of the upper bound for an arbitrary HR policy and the upper bound for an MD policy, respectively, by reverse induction.
 
-::: {.callout-tip collapse="true" title="힌트"}
-HR 정책의 남은 가치를 처음부터 $s_t$만의 함수로 놓으면 안 된다. $U_t^\pi(h_t)$로 시작해 귀납 가정으로 $V_{t+1}(s')$를 대입한다. 상한만 보이면 절반이고, 상태별 argmax 정책이 모든 시점에서 달성함도 필요하다.
+::: {.callout-tip collapse="true" title="Hint"}
+The remaining value of the HR policy should not be treated as a function of $s_t$ alone from the beginning. Start with $U_t^\pi(h_t)$ and substitute $V_{t+1}(s')$ using inductive assumptions. If only the upper bound is observed, it is half, and it is also necessary for the state-specific argmax policy to be achieved at all time points.
 :::
 
 ::: {.callout-note collapse="true" title="SOLUTION"}
 
-유한한 $S,A_s$, 유한한 보상과 종단 보상을 가정한다. 임의의 HR 정책 $\pi$에 대해, 히스토리 $h_t$ 이후의 기대 남은 보상을 $U_t^\pi(h_t)$라 쓰자. 확률 0인 히스토리에서는 조건부확률의 비율 대신 지정된 후속 정책과 전이로 이 값을 정의한다.
+Assume finite $S,A_s$, finite rewards, and terminal rewards. For any HR policy $\pi$, let $h_t$ be the expected remaining reward after history $U_t^\pi(h_t)$. For a history with a probability of 0, this value is defined by a specified subsequent policy and transition instead of the ratio of conditional probabilities.
 
-**1. 임의 정책의 상한.** 종단에서는 $U_N^\pi(h_N)=g(s_N)=V_N(s_N)$이다. 모든 후속 히스토리에 대해 $U_{t+1}^\pi(h_t,a,s')\le V_{t+1}(s')$라고 가정하면, 반복 기댓값과 모델의 Markov성으로
+**1. Upper bound of the random policy.** At the end, it is $U_N^\pi(h_N)=g(s_N)=V_N(s_N)$. Assuming it is $U_{t+1}^\pi(h_t,a,s')\le V_{t+1}(s')$ for all subsequent histories, with respect to iterational expectation and the Markov nature of the model
 
 $$
 \begin{aligned}
@@ -594,42 +594,42 @@ U_t^\pi(h_t)
 \end{aligned}
 $$
 
-첫 부등식은 귀납 가정, 둘째는 평균이 최댓값을 넘지 못한다는 사실이다. 역방향 귀납으로 모든 $t$에서 상한이 성립한다.
+The first inequality is the assumption of induction, and the second is the fact that the mean does not exceed the maximum value. By inverse induction, the upper bound holds for all $t$.
 
-**2. 상한을 달성하는 정책.** 각 $(t,s)$에서
+**2. Policy to achieve the upper limit.** In each $(t,s)$
 
 $$
 d_t^*(s)\in\arg\max_a\left[r_t(s,a)+\sum_{s'}p_t(s'\mid s,a)V_{t+1}(s')\right]
 $$
 
-를 고른다. 유한 행동 집합이므로 가능한 선택이다. $v_N^{\pi^*}=g=V_N$이고 $v_{t+1}^{\pi^*}=V_{t+1}$이면
+Choose . Since this is a finite set of actions, it is a possible choice. If $v_N^{\pi^*}=g=V_N$ and $v_{t+1}^{\pi^*}=V_{t+1}$
 
 $$
 v_t^{\pi^*}(s)=r_t(s,d_t^*(s))+
 \sum_{s'}p_t(s'\mid s,d_t^*(s))V_{t+1}(s')=V_t(s).
 $$
 
-따라서 하나의 MD 정책 $\pi^*=(d_0^*,\ldots,d_{N-1}^*)$가 모든 시점·상태에서 상한을 달성한다. 어떤 HR 정책도 이보다 좋은 값을 낼 수 없다. $\square$
+Therefore, a single MD policy ZZZPH0013593ZZZ  Therefore, a single MD policy $\pi^*=(d_0^*,\ldots,d_{N-1}^*)$ achieves the upper limit at all points in time and states. No HR policy can yield a better value than this. $\square$
 
 :::
 
-## 문제 3. 정상 정책이 충분하지 않을 수 있는 유한 지평
+## Problem 3. Finite horizon where normal policies may not be sufficient
 
-기본 두 상태 예제에서 결정이 두 번 남고 종단 보상이 0이라고 하자. 각 시점의 최적 행동을 구하고, 하나의 정상 결정론적 정책이 모든 시점·상태의 최적값을 동시에 달성할 수 있는지 설명하라.
+In the basic two-state example, assume that there are two decisions remaining and the terminal reward is 0. Find the optimal action at each time step and explain whether a single stationary deterministic policy can simultaneously achieve the optimal values at all time steps and states.
 
-::: {.callout-tip collapse="true" title="힌트"}
-마지막 $s_1$에서는 $a_{12}$가 유일하게 최적이고, 두 번 남은 $s_1$에서는 $a_{11}$이 유일하게 최적이다. 한 규칙으로 이 두 선택을 동시에 지정할 수 없다.
+::: {.callout-tip collapse="true" title="Hint"}
+For the last $s_1$, $a_{12}$ is the only optimal, and for the two remaining $s_1$, $a_{11}$ is the only optimal. These two choices cannot be specified simultaneously by a single rule.
 :::
 
 ::: {.callout-note collapse="true" title="SOLUTION"}
 
-시점을 $0,1$로 두고 $V_2=0$이라 하자. 시점 1에는 즉각 보상만 비교하므로
+Let's set the time point to $0,1$ and denote it as $V_2=0$. Since only immediate rewards are compared at time point 1
 
 $$
 V_1(s_1)=\max\{5,10\}=10,\qquad V_1(s_2)=-1.
 $$
 
-따라서 $d_1^*(s_1)=a_{12}$, $d_1^*(s_2)=a_{21}$이다. 시점 0의 $s_1$에서는
+Therefore, it is $d_1^*(s_1)=a_{12}$ and $d_1^*(s_2)=a_{21}$. At time point 0, $s_1$
 
 $$
 \begin{aligned}
@@ -638,74 +638,74 @@ Q_0(s_1,a_{12})&=10+(-1)=9.
 \end{aligned}
 $$
 
-따라서 $d_0^*(s_1)=a_{11}$, $V_0(s_1)=9.5$이다. $s_2$에서는 선택지가 하나이므로 $d_0^*(s_2)=a_{21}$, $V_0(s_2)=-2$이다.
+Therefore, it is $d_0^*(s_1)=a_{11}$ and $V_0(s_1)=9.5$. In $s_2$, since there is only one option, it is $d_0^*(s_2)=a_{21}$ and $V_0(s_2)=-2$.
 
-| 시점 | $s_1$의 최적 행동 | $s_2$의 최적 행동 |
+| Time point | Optimal action of $s_1$ | Optimal action of $s_2$ |
 |---|---|---|
-| 0: 두 번 남음 | $a_{11}$ | $a_{21}$ |
-| 1: 한 번 남음 | $a_{12}$ | $a_{21}$ |
+| 0: 2 remaining | $a_{11}$ | $a_{21}$ |
+| 1: One remaining | $a_{12}$ | $a_{21}$ |
 
-$s_1$의 두 최적 행동은 각각 유일하며 서로 다르다. 정상 결정론적 정책은 동일한 $s_1$에 동일한 행동을 지정해야 하므로 **모든 시점·상태의 최적값을 동시에 달성할 수 없다.** 마지막에는 큰 즉각 보상을 받고, 그 전에는 $s_1$에 머물 기회를 확보하는 것이 유리하다. $\square$
+The two optimal actions for $s_1$ are each unique and distinct. Since a normalized deterministic policy must assign the same action to the identical $s_1$, **it is impossible to achieve the optimal values for all time points and states simultaneously.** It is advantageous to receive a large immediate reward at the end, and before that, secure the opportunity to remain in $s_1$. $\square$
 
 :::
 
-## 문제 4. Bellman 정책 평가식
+## Problem 4. Bellman Policy Evaluation Formula
 
-리턴 정의에서 정상 Markov 정책의 Bellman 평가식을 유도하라. 반복 기댓값, Markov성, 정상성이 쓰인 부분을 따로 표시하라. $I-\gamma P^\pi$가 가역인 이유도 설명하라.
+Derive the Bellman evaluation formula for a stationary Markov policy from the return definition of . Indicate separately where iterative expectation, Markovity, and stationarity are used. Also, explain why $I-\gamma P^\pi$ is invertible.
 
-::: {.callout-tip collapse="true" title="힌트"}
-$G_t=r_t+\gamma G_{t+1}$에서 출발한다. 과거 제거와 시간 첨자 제거를 구분하라. 역행렬은 수렴하는 행렬 급수와 부분합의 곱으로 확인할 수 있다.
+::: {.callout-tip collapse="true" title="Hint"}
+Start from $G_t=r_t+\gamma G_{t+1}$. Distinguish between past elimination and time index elimination. The inverse matrix can be verified as the product of a convergent matrix series and partial sums.
 :::
 
 ::: {.callout-note collapse="true" title="SOLUTION"}
 
-시불변 모델, 정상 Markov 정책 $\pi$, $0<\gamma<1$, $|r|\le R_{\max}$을 가정한다. 리턴은 $R_{\max}/(1-\gamma)$로 절댓값이 제한되어 적분 가능하다.
+Assuming a time-invariant model and a steady-state Markov policy $\pi$, $0<\gamma<1$, $|r|\le R_{\max}$. The return is $R_{\max}/(1-\gamma)$, which is integrable with the absolute value restricted.
 
-**리턴 분해와 반복 기댓값:** $G_t=r(s_t,a_t)+\gamma G_{t+1}$이므로
+**Return Decomposition and Iteration Expected Value:** Since $G_t=r(s_t,a_t)+\gamma G_{t+1}$
 
 $$
 v^\pi(s)=\sum_a\pi(a\mid s)\sum_{s'}p(s'\mid s,a)
 \left[r(s,a)+\gamma\mathbb E^\pi[G_{t+1}\mid s_t=s,a_t=a,s_{t+1}=s']\right].
 $$
 
-**Markov성:** 모델과 정책이 모두 Markov이므로, $s_{t+1}$ 이후의 미래를 예측할 때 $s_t,a_t$는 필요 없다. **정상성:** 모델과 정책이 시불변이므로 시점 $t+1$의 상태 $s'$에서 본 기대 리턴은 같은 함수 $v^\pi(s')$다. 따라서
+**Markovity:** Since both the model and the policy are Markov, $s_t,a_t$ is not needed when predicting the future after $s_{t+1}$. **Stationality:** Since the model and the policy are time-invariant, the expected return viewed from the state $s'$ at time point $t+1$ is the same function $v^\pi(s')$. Therefore,
 
 $$
 v^\pi(s)=\sum_a\pi(a\mid s)\left[r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)v^\pi(s')\right].
 $$
 
-조건 사건의 확률이 0인 상태에서는 그 상태에서 새로 시작한 과정으로 위 식을 해석한다. 행렬 표기로는 $v^\pi=R^\pi+\gamma P^\pi v^\pi$이다.
+When the probability of the conditional event is 0, the above equation is interpreted as a new process starting from that state. In matrix notation, it is $v^\pi=R^\pi+\gamma P^\pi v^\pi$.
 
-**역행렬의 존재:** $P^\pi$는 행 확률행렬이므로 유도된 최대 노름에서 $\|(P^\pi)^k\|_\infty=1$. 이에 따라 $S_m=\sum_{k=0}^m\gamma^k(P^\pi)^k$는 어떤 행렬 $S$로 수렴한다. 양쪽에서 곱하면
+**Existence of Inverse:** Since $P^\pi$ is a row probability matrix, at the derived maximum norm, $\|(P^\pi)^k\|_\infty=1$. Accordingly, $S_m=\sum_{k=0}^m\gamma^k(P^\pi)^k$ converges to some matrix $S$. Multiplying from both sides
 
 $$
 (I-\gamma P^\pi)S_m=S_m(I-\gamma P^\pi)
 =I-\gamma^{m+1}(P^\pi)^{m+1}\longrightarrow I.
 $$
 
-따라서 $S=(I-\gamma P^\pi)^{-1}$이며 $v^\pi=(I-\gamma P^\pi)^{-1}R^\pi$. 단순히 이항만 한 것이 아니라 역행렬의 존재까지 확인한 것이다. $\square$
+Therefore, $S=(I-\gamma P^\pi)^{-1}$ and $v^\pi=(I-\gamma P^\pi)^{-1}R^\pi$. This confirms not only the transposition of the terms but also the existence of the inverse matrix. $\square$
 
 :::
 
-## 문제 5. 최적 연산자의 수축성과 고정점
+## Problem 5. Contractility of Optimal Operators and Fixed Points
 
-$|\max x-\max y|\le\max|x-y|$부터 증명한 뒤 $\mathcal T$의 수축성을 보여라. 적용 공간의 완비성을 적고, 고정점 유일성과 반복의 오차 경계를 증명하라.
+Prove starting from $|\max x-\max y|\le\max|x-y|$, then show the contractility of $\mathcal T$. Write down the completeness of the application space, and prove the fixed point uniqueness and the error boundary of the iteration.
 
-::: {.callout-tip collapse="true" title="힌트"}
-최댓값의 차이를 같은 행동에서 비교하되 양방향 부등식을 모두 얻는다. 고정점 두 개의 거리를 $D$라 두면 $D\le\gamma D$. 존재까지 요구하면 반복열의 Cauchy 성질과 완비성을 써야 한다.
+::: {.callout-tip collapse="true" title="Hint"}
+Compare the difference of maximum values in the same operation, but obtain both-way inequalities. Let $D$ be the distance between two fixed points, then $D\le\gamma D$. If existence is also required, the Cauchy property and completeness of iteration sequences must be used.
 :::
 
 ::: {.callout-note collapse="true" title="SOLUTION"}
 
-**1. max 부등식.** $a_x\in\arg\max_ax_a$를 고르면
+**1. max inequality.** If you choose $a_x\in\arg\max_ax_a$
 
 $$
 \max_ax_a-\max_ay_a\le x_{a_x}-y_{a_x}\le\max_a|x_a-y_a|.
 $$
 
-$x,y$를 바꿔 반대 방향도 얻으므로 $|\max x-\max y|\le\max|x-y|$이다.
+By changing $x,y$ to obtain the opposite direction, it is $|\max x-\max y|\le\max|x-y|$.
 
-**2. Bellman 연산자의 수축성.** 위 부등식과 전이 확률의 비음수성·합이 1이라는 사실로
+**2. Contractility of the Bellman Operator.** Due to the above inequality, the non-negative nature of transition probabilities, and the fact that the sum is 1
 
 $$
 \begin{aligned}
@@ -715,122 +715,122 @@ $$
 \end{aligned}
 $$
 
-상태별 최댓값을 취하면 $\|\mathcal T v-\mathcal T w\|_\infty\le\gamma\|v-w\|_\infty$이다. 적용 공간은 유한차원 노름 공간 $(\mathbb R^{|S|},\|\cdot\|_\infty)$이며 완비다.
+Taking the maximum value for each state gives $\|\mathcal T v-\mathcal T w\|_\infty\le\gamma\|v-w\|_\infty$. The application space is a finite-dimensional normed space $(\mathbb R^{|S|},\|\cdot\|_\infty)$ and is complete.
 
-**3. 고정점 존재.** $v_{k+1}=\mathcal T v_k$로 두면 $\|v_{k+1}-v_k\|_\infty\le\gamma^k\|v_1-v_0\|_\infty$. 따라서 $m>n$에 대해
+**3. Fixed point exists.** If we set it to $v_{k+1}=\mathcal T v_k$, then it becomes $\|v_{k+1}-v_k\|_\infty\le\gamma^k\|v_1-v_0\|_\infty$. Therefore, for $m>n$
 
 $$
 \|v_m-v_n\|_\infty\le\frac{\gamma^n}{1-\gamma}\|v_1-v_0\|_\infty\longrightarrow0.
 $$
 
-완비성으로 $v_k\to\hat v$이고, 수축사상의 연속성으로 $\mathcal T\hat v=\hat v$이다.
+It is $v_k\to\hat v$ with completeness, and $\mathcal T\hat v=\hat v$ with continuity of contraction events.
 
-**4. 유일성과 오차.** 다른 고정점 $w$가 있으면 $\|w-\hat v\|_\infty\le\gamma\|w-\hat v\|_\infty$. $\gamma<1$이므로 $w=\hat v$이다. 또한
+**4. Uniqueness and Error.** If there is another fixed point $w$, then $\|w-\hat v\|_\infty\le\gamma\|w-\hat v\|_\infty$. Since $\gamma<1$, it is $w=\hat v$. Also
 
 $$
 \|v_k-\hat v\|_\infty\le\gamma^k\|v_0-\hat v\|_\infty.
 $$
 
-여기까지는 고정점에 대한 결과다. 이 고정점이 최적값이라는 것은 다음 문제에서 정책과 비교하여 확인한다. $\square$
+Up to this point are the results for the fixed point. That this fixed point is the optimal value is verified by comparing it with the policy in the next problem. $\square$
 
 :::
 
-## 문제 6. 고정점에서 최적 정책까지
+## Problem 6. From Fixed Point to Optimal Policy
 
-$\hat v=\mathcal T\hat v$와 그 탐욕 정책 $d$가 주어졌다고 하자. $\hat v=v^d$를 보이고, 모든 HR 정책 $\pi$에 대해 $v^\pi\le\hat v$임을 증명하라.
+Let $\hat v=\mathcal T\hat v$ and its greed policy $d$ be given. Show $\hat v=v^d$ and prove that for all HR policies $\pi$, $v^\pi\le\hat v$ holds.
 
-::: {.callout-tip collapse="true" title="힌트"}
-첫 부분은 $\mathcal T^d\hat v=\hat v$와 정책 평가의 유일성이다. 둘째 부분은 한 단계 부등식을 합쳐 $\gamma^n\mathbb E[\hat v(s_n)]$만 남긴다. 이 항이 사라지는 이유를 명시하라. 정상 정책만 비교하고 끝내지 않는다.
+::: {.callout-tip collapse="true" title="Hint"}
+The first part is $\mathcal T^d\hat v=\hat v$ and the uniqueness of policy evaluation. The second part combines one-step inequalities to leave only $\gamma^n\mathbb E[\hat v(s_n)]$. Specify the reason why this term disappears. It does not stop at comparing only normal policies.
 :::
 
 ::: {.callout-note collapse="true" title="SOLUTION"}
 
-유한 상태·행동 집합, 유계 보상, 시불변 모델과 $0<\gamma<1$을 가정한다.
+Assumes a finite set of states and actions, bounded rewards, a time-invariant model, and $0<\gamma<1$.
 
-**1. 탐욕 정책의 달성.** $d$의 정의와 $\hat v=\mathcal T\hat v$로부터
+**1. Achievement of the Greed Policy.** Definition of $d$ and from $\hat v=\mathcal T\hat v$
 
 $$
 \mathcal T^d\hat v=\mathcal T\hat v=\hat v.
 $$
 
-$\mathcal T^d$의 고정점은 유일하며 $v^d$이므로 $\hat v=v^d$이다.
+The fixed point of $\mathcal T^d$ is unique, and since $v^d$, it is $\hat v=v^d$.
 
-**2. 임의 HR 정책에 대한 상한.** 고정점 식은 모든 $(s,a)$에서
+**2. Upper bound for arbitrary HR policy.** The fixed-point expression is at all $(s,a)$
 
 $$
 r(s,a)+\gamma\sum_{s'}p(s'\mid s,a)\hat v(s')\le\hat v(s)
 $$
 
-를 준다. 임의의 HR 정책 $\pi$로 행동을 평균내면
+Gives . Averaging behavior with an arbitrary HR policy $\pi$
 
 $$
 \mathbb E^\pi[r(s_t,a_t)+\gamma\hat v(s_{t+1})\mid h_t]\le\hat v(s_t).
 $$
 
-$s_0=s$에서 시작하여 $\gamma^t$를 곱하고 기댓값을 취한 뒤 $t=0,\ldots,n-1$에 대해 더한다. 가치 항이 망원합으로 상쇄되어
+Starting from $s_0=s$, multiply by $\gamma^t$, take the expected value, and then add for $t=0,\ldots,n-1$. The value terms are canceled out by the telescopic sum.
 
 $$
 \mathbb E_s^\pi\left[\sum_{t=0}^{n-1}\gamma^tr(s_t,a_t)\right]
 \le\hat v(s)-\gamma^n\mathbb E_s^\pi[\hat v(s_n)].
 $$
 
-유한 상태 공간에서 $\hat v$가 유계이므로 마지막 항의 절댓값은 $\gamma^n\|\hat v\|_\infty\to0$이다. 보상 부분합은 $R_{\max}/(1-\gamma)$로 지배되므로 극한을 기댓값 안으로 통과시킬 수 있다. 따라서 $v^\pi(s)\le\hat v(s)$이다.
+Since $\hat v$ is bounded in finite state space, the absolute value of the last term is $\gamma^n\|\hat v\|_\infty\to0$. Since the compensated partial sum is governed by $R_{\max}/(1-\gamma)$, the limit can pass into the expectation. Therefore, it is $v^\pi(s)\le\hat v(s)$.
 
-모든 HR 정책이 이 상한 이하이고 $d$가 상한을 달성하므로 $v^*=\hat v=v^d$이다. 이 논증은 $\pi$가 Markov이거나 정상일 것을 요구하지 않는다. $\square$
+Since all HR policies are below this upper limit and $d$ achieves the upper limit, it is $v^*=\hat v=v^d$. This argument does not require $\pi$ to be Markov or normal. $\square$
 
 :::
 
-## 문제 7. 확률적 최적 정책
+## Problem 7. Stochastic Optimum Policy
 
-정상 Markov 정책이 모든 상태에서 최적일 필요충분조건을 증명하라. 동점이 전혀 없을 때 이 조건은 무엇을 뜻하는가?
+Prove the necessary and sufficient condition for a normal Markov policy to be optimal in all states. What does this condition mean when there are no ties?
 
-::: {.callout-tip collapse="true" title="힌트"}
-충분성은 고정점 유일성, 필요성은 비음수인 최적성 차이의 가중합이다. 동점이 없으면 각 상태의 유일한 최적 행동에 확률 1을 주어야 한다.
+::: {.callout-tip collapse="true" title="Hint"}
+Sufficiency is fixed-point uniqueness, and necessity is the weighted sum of non-negative optimality differences. If there are no ties, a probability of 1 must be assigned to the unique optimal action of each state.
 :::
 
 ::: {.callout-note collapse="true" title="SOLUTION"}
 
-$A^*(s)=\arg\max_aq^*(s,a)$라 하자. 정상 Markov 정책 $\pi$가 모든 상태에서 최적일 필요충분조건은
+Let $A^*(s)=\arg\max_aq^*(s,a)$. The necessary and sufficient condition for a normal Markov policy $\pi$ to be optimal in all states is
 
 $$
 \operatorname{supp}\pi(\cdot\mid s)\subseteq A^*(s)\qquad\forall s
 $$
 
-이다.
+is.
 
-**충분성:** 조건이 성립하면 양의 확률을 준 모든 행동에서 $q^*(s,a)=v^*(s)$이므로
+**Sufficientity:** Since $q^*(s,a)=v^*(s)$ in all actions with positive probability when the condition is satisfied
 
 $$
 (\mathcal T^\pi v^*)(s)=\sum_a\pi(a\mid s)q^*(s,a)=v^*(s).
 $$
 
-고정점 유일성으로 $v^\pi=v^*$이다.
+It is $v^\pi=v^*$ due to fixed point uniqueness.
 
-**필요성:** $v^\pi=v^*$이면 정책 평가식으로 $\mathcal T^\pi v^*=v^*$이다. 따라서
+**Necessity:** If $v^\pi=v^*$, then the policy evaluation formula is $\mathcal T^\pi v^*=v^*$. Therefore
 
 $$
 0=\sum_a\pi(a\mid s)[v^*(s)-q^*(s,a)].
 $$
 
-대괄호 안은 모두 비음수다. 따라서 $\pi(a\mid s)>0$이면 $q^*(s,a)=v^*(s)$여야 한다. 이것이 원하는 조건이다.
+All numbers inside the square brackets are non-negative. Therefore, if $\pi(a\mid s)>0$, it must be $q^*(s,a)=v^*(s)$. This is the desired condition.
 
-동점이 없으면 각 $A^*(s)$가 한 원소만 가지므로 그 행동에 확률 1을 주어야 한다. 최적 정책은 결정론적이며, 동시에 확률적 정책 클래스의 원소이기도 하다. 동점이 있으면 최적 행동들 사이에서 자유롭게 섞을 수 있다. 이 조건은 특정 초기 분포에서만이 아니라 **모든 상태에서의 최적성**을 대상으로 한다. $\square$
+If there are no ties, each $A^*(s)$ has only one element, so that action must be assigned a probability of 1. The optimal policy is deterministic and simultaneously an element of the probabilistic policy class. If there are ties, the optimal actions can be freely mixed. This condition applies not only to a specific initial distribution but to **optimality in all states**. $\square$
 
 :::
 
-## 문제 8. 상수 이동과 유한 지평
+## Problem 8. Constant Movement and Finite Horizon
 
-유한 지평의 종단 보상을 $g+c$로 바꾸면 모든 $V_t$가 정확히 $c$만큼 증가하고 최적 행동 집합은 그대로임을 증명하라. 할인 무한 지평의 $\mathcal T(v+c\mathbf1)$ 식과 계수가 다른 이유를 설명하라.
+Prove that if the terminal reward of the finite horizon is replaced with $g+c$, all $V_t$ increase by exactly $c$ and the optimal action set remains unchanged. Explain why the equation and coefficients differ from those of the discounted infinite horizon $\mathcal T(v+c\mathbf1)$.
 
-::: {.callout-tip collapse="true" title="힌트"}
-종단에서 시작해 뒤로 귀납한다. 이 문서의 유한 지평은 할인하지 않는다. 무한 지평 연산자는 다음 시점 가치에 $\gamma$를 곱하므로 상수 이동도 $\gamma c$가 된다.
+::: {.callout-tip collapse="true" title="Hint"}
+Inductively starting from the terminal and going backward. The finite horizon of this document is not discounted. Since the infinite horizon operator multiplies the next time step value by $\gamma$, the constant movement also becomes $\gamma c$.
 :::
 
 ::: {.callout-note collapse="true" title="SOLUTION"}
 
-종단 보상을 $g+c$로 바꾼 값과 행동 가치를 각각 $\widetilde V_t$, $\widetilde Q_t$라 하자. 종단에서 $\widetilde V_N(s)=g(s)+c=V_N(s)+c$이다.
+Let $g+c$ be the value obtained by changing the terminal reward to $g+c$ and the action value be $\widetilde V_t$ and $\widetilde Q_t$, respectively. At the terminal, it is $\widetilde V_N(s)=g(s)+c=V_N(s)+c$.
 
-$\widetilde V_{t+1}=V_{t+1}+c$를 가정하면
+Assuming $\widetilde V_{t+1}=V_{t+1}+c$
 
 $$
 \begin{aligned}
@@ -840,16 +840,16 @@ $$
 \end{aligned}
 $$
 
-모든 행동에 같은 상수가 더해지므로
+Since the same constant is added to all actions
 
 $$
 \widetilde V_t(s)=V_t(s)+c,\qquad
 \arg\max_a\widetilde Q_t(s,a)=\arg\max_aQ_t(s,a).
 $$
 
-역방향 귀납으로 모든 $t$에서 성립한다. 종단 보상은 한 경로에서 한 번만 받으므로 $c$가 남은 기간 수만큼 누적되는 것은 아니다.
+holds for all $t$ via reverse induction. Since the terminal reward is received only once per path, $c$ does not accumulate over the remaining period.
 
-반면 할인 무한 지평의 한 단계 연산자는 다음 상태 가치에 $\gamma$를 곱하므로
+On the other hand, the one-step operator of the discount infinite horizon multiplies the next state value by $\gamma$, so
 
 $$
 \mathcal T(v+c\mathbf1)(s)
@@ -857,37 +857,37 @@ $$
 =\mathcal T v(s)+\gamma c.
 $$
 
-차이는 할인 유무와 비교하는 대상에 있다. 앞 식은 할인 없는 문제의 **종단 보상 변경**, 뒤 식은 한 단계 갱신에 넣는 **가치 후보의 상수 이동**이다. $\square$
+The difference lies in the presence or absence of discounting and the object being compared. The first expression is the **endpoint reward change** for the problem without discounting, while the second expression is the **shift of a constant of a value candidate** for a one-step update. $\square$
 
 :::
 
-## 문제 9. MC의 불편성과 잘림 오차
+## Problem 9. MC inconvenience and truncation error
 
-완전 리턴의 표본평균이 불편함을 증명하라. $|r_t|\le R_{\max}$에서 $T$단계 잘림 편향의 상한을 구하고, 표본 수만 늘리면 이 편향이 사라지는지 설명하라.
+Prove that the sample mean of a full return is biased. Calculate the upper bound of the truncation bias at steps $T$ from $|r_t|\le R_{\max}$, and explain whether this bias disappears if only the sample size is increased.
 
-::: {.callout-tip collapse="true" title="힌트"}
-불편성은 기댓값의 선형성이다. 잘림 오차는 남은 할인 급수 $\sum_{t=T}^\infty\gamma^tR_{\max}$로 제한한다. 고정된 $T$의 편향은 표본 수 증가만으로 사라지지 않는다. 완전 리턴과 잘린 리턴을 구분하라.
+::: {.callout-tip collapse="true" title="Hint"}
+Unbiasedness is the linearity of the expected value. The truncation error is limited by the remaining discount series $\sum_{t=T}^\infty\gamma^tR_{\max}$. The fixed $T$ bias does not disappear solely by increasing the sample size. Distinguish between full returns and truncation returns.
 :::
 
 ::: {.callout-note collapse="true" title="SOLUTION"}
 
-같은 시작 상태 $s$에서 얻은 완전 리턴 $G^{(i)}$가 모두 $\mathbb E[G^{(i)}]=v^\pi(s)$를 만족한다고 하자. 표본평균의 기대값은
+Let us assume that the complete returns ZZZPH0013664ZZZ and $G^{(i)}$ obtained from the same starting state $s$ all satisfy $\mathbb E[G^{(i)}]=v^\pi(s)$. The expected value of the sample mean is
 
 $$
 \mathbb E\left[\frac1m\sum_{i=1}^mG^{(i)}\right]
 =\frac1m\sum_{i=1}^m\mathbb E[G^{(i)}]=v^\pi(s).
 $$
 
-따라서 불편하다. 이 등식에는 독립성이 필요 없지만, 표본평균의 분산을 $\operatorname{Var}(G)/m$으로 쓰려면 독립·동일분포 등의 조건이 필요하다.
+Therefore, it is inconvenient. Independence is not required for this equation, but to write the variance of the sample mean as $\operatorname{Var}(G)/m$, conditions such as independence and identical distribution are required.
 
-$G_T=\sum_{t=0}^{T-1}\gamma^tr_t$로 잘랐을 때는
+When cut to $G_T=\sum_{t=0}^{T-1}\gamma^tr_t$
 
 $$
 |G-G_T|\le\sum_{t=T}^{\infty}\gamma^t|r_t|
 \le\frac{\gamma^TR_{\max}}{1-\gamma}.
 $$
 
-따라서 잘린 표본평균 $\hat v_{m,T}$에 대해
+Therefore, for the truncated sample mean $\hat v_{m,T}$
 
 $$
 \left|\mathbb E[\hat v_{m,T}]-v^\pi(s)\right|
@@ -895,33 +895,33 @@ $$
 \le\frac{\gamma^TR_{\max}}{1-\gamma}.
 $$
 
-이 편향의 식에는 $m$이 없다. 표본 수를 늘리면 표본평균의 무작위 오차는 줄일 수 있지만, 고정된 $T$에서의 잘림 편향은 일반적으로 남는다. 예를 들어 매 시점 보상이 1이면 잘림 편향은 정확히 $-\gamma^T/(1-\gamma)$이며 $m$과 무관하다. 잘림 편향의 상한을 줄이려면 $T$를 늘려야 한다. $\square$
+$m$ is not present in this bias equation. Increasing the sample size can reduce the random error of the sample mean, but the truncation bias at a fixed $T$ generally remains. For example, if the reward at each time step is 1, the truncation bias is exactly $-\gamma^T/(1-\gamma)$ and is independent of $m$. To reduce the upper bound of the truncation bias, $T$ must be increased. $\square$
 
 :::
 
-## 문제 10. 두 상태 예제로 평가와 최적성 구분하기
+## Problem 10. Distinguishing between Evaluation and Optimality with a Two-State Example
 
-앞의 두 상태 모델에서 $\gamma=0.9$라 하자. $s_1$에서 $a_{11}$을 확률 $q$, $a_{12}$를 확률 $1-q$로 고르는 정상 정책의 가치를 구하라. 그런 다음 후보 $v=(1,-10)$이 Bellman 최적 방정식을 만족함을 확인하고, $a_{12}$를 고르는 정책이 왜 **다른 모든 정책과 비교해서도** 최적인지 설명하라.
+Let $\gamma=0.9$ in the preceding two-state model. Find the value of the normal policy that selects $a_{11}$ with probability $q$ and $a_{12}$ with probability $1-q$ from $s_1$. Then, verify that the candidate $v=(1,-10)$ satisfies the Bellman optimality equation, and explain why the policy that selects $a_{12}$ is optimal even when compared to all other policies.
 
-::: {.callout-tip collapse="true" title="힌트"}
-$v^\pi(s_2)=-10$이고 $R^\pi(s_1)=10-5q$, $P^\pi(s_1,s_1)=q/2$이므로
+::: {.callout-tip collapse="true" title="Hint"}
+$v^\pi(s_2)=-10$ and $R^\pi(s_1)=10-5q$, $P^\pi(s_1,s_1)=q/2$ so
 
 $$
 v^\pi(s_1)=\frac{1-0.5q}{1-0.45q}.
 $$
 
-후보 $v=(1,-10)$에서 $s_1$의 행동 가치는 $a_{11}$이 $0.95$, $a_{12}$가 $1$이다. $s_2$의 갱신값은 $-10$이므로 후보는 고정점이다. Bellman 최적성 정리를 적용하면 $v=v^*$이며 argmax 정책이 최적이다. 정상 정책 두 개의 값을 비교한 것만으로 HR 정책 전체에 대한 최적성을 증명했다고 쓰지 않는다.
+In candidate $v=(1,-10)$, the action values for $s_1$ are $a_{11}$ for $0.95$ and $a_{12}$ for $1$. Since the update value for $s_2$ is $-10$, the candidate is a fixed point. Applying the Bellman Optimality Theorem, $v=v^*$, the argmax policy is optimal. We do not write that we have proven the optimality of the entire HR policy merely by comparing the values of two normal policies.
 :::
 
 ::: {.callout-note collapse="true" title="SOLUTION"}
 
-정책이 $s_1$에서 $a_{11}$을 고를 확률을 $q\in[0,1]$라 하자. $s_2$는 보상 $-1$을 계속 받으므로
+Let Let $a_{11}$ be the probability that the policy chooses $s_1$ from $q\in[0,1]$. Since $s_2$ continues to receive the reward $-1$,
 
 $$
 v^\pi(s_2)=-1+0.9v^\pi(s_2)\quad\Longrightarrow\quad v^\pi(s_2)=-10.
 $$
 
-$x=v^\pi(s_1)$로 두면 평균 보상은 $10-5q$, $s_1$으로 돌아올 확률은 $q/2$이므로
+If we set it to $x=v^\pi(s_1)$, the average reward is $10-5q$, and the probability of returning to $s_1$ is $q/2$, so
 
 $$
 \begin{aligned}
@@ -930,13 +930,13 @@ x&=10-5q+0.9\left[\frac q2x+\left(1-\frac q2\right)(-10)\right]\\
 \end{aligned}
 $$
 
-$1-0.45q\ge0.55>0$이므로
+$1-0.45q\ge0.55>0$ Therefore
 
 $$
 v^\pi(s_1)=\frac{1-0.5q}{1-0.45q},\qquad v^\pi(s_2)=-10.
 $$
 
-특히 $q=1$이면 $v^\pi(s_1)=10/11$, $q=0$이면 $1$이다. 이제 정상 정책 사이의 비교를 넘어 전체 최적성을 확인한다. 후보 $v=(1,-10)$에 대해
+In particular, if $q=1$, then $v^\pi(s_1)=10/11$, and if $q=0$, then $1$. Now, moving beyond comparisons between normal policies, we verify overall optimality. For candidate $v=(1,-10)$
 
 $$
 \begin{aligned}
@@ -946,16 +946,16 @@ q_v(s_2,a_{21})&=-1+0.9(-10)=-10.
 \end{aligned}
 $$
 
-따라서 $\mathcal T v=(1,-10)=v$. Bellman 연산자의 유일한 고정점은 모든 HR 정책에 대한 최적값이므로 $v=v^*$이다. $s_1$에서는 $a_{12}$가 유일한 최대 행동이고 $s_2$에서는 $a_{21}$만 가능하다. 이 탐욕 정책 $d$에 대해 $\mathcal T^dv=v$이므로 정책 평가의 유일성으로 $v^d=v=v^*$. 따라서 $d$는 히스토리 의존·비정상 정책과 비교해도 최적이다. $\square$
+Therefore, $\mathcal T v=(1,-10)=v$. Since the unique fixed point of the Bellman operator is the optimal value for all HR policies, it is $v=v^*$. For $s_1$, $a_{12}$ is the unique maximum action, and for $s_2$, only $a_{21}$ is possible. For this greedy policy $d$, it is $\mathcal T^dv=v$, so due to the uniqueness of policy evaluation, it is $v^d=v=v^*$. Therefore, $d$ is optimal even when compared to history-dependent and abnormal policies. $\square$
 
 :::
 
-# 세 증명 흐름 {.unnumbered}
+# Three proof flows {.unnumbered}
 
-| 목표 | 재현할 논리 |
+| Goal | Logic to reproduce |
 |---|---|
-| 유한 지평 최적성 | 종단조건 → HR 정책의 상한을 역방향 귀납 → argmax 정책의 달성 |
-| 정책 평가 | 리턴 분해 → 반복 기댓값 → Markov성·정상성 → 평가식 → 유일성 |
-| 할인 무한 지평 최적성 | 수축 고정점 후보 → 탐욕 정책의 달성 → 임의 정책의 상한 → 할인 꼬리 제거 |
+| Finite Horizon Optimality | Terminal Condition → Backward Induction of the Upper Bound of the HR Policy → Achievement of the Argmax Policy |
+| Policy Evaluation | Return Decomposition → Iterative Expectation → Markovity · Stationarity → Evaluation Formula → Uniqueness |
+| Discounted Infinite Horizon Optimum | Contraction Fixed Point Candidates → Achievement of Greedy Policy → Upper Bound of Random Policy → Discounted Tail Elimination |
 
-공식만 적기보다 **왜 그 식을 쓸 수 있는지**, **어떤 정책들과 비교했는지**, **상한을 실제로 달성했는지**를 확인하는 것이 증명의 핵심이다.
+The key to the proof is not just writing down the formula, but verifying **why the formula can be used**, **which policies it was compared with**, and **whether the upper limit was actually achieved**.

@@ -2,8 +2,8 @@
 title: "Temporal Difference Learning"
 aliases:
   - "/study/reinforcement-learning/temporal-difference-learning.html"
-subtitle: "고정점 문제 → Monte Carlo 평가 → TD(0) → multi-step Bellman → TD(λ) → bias–variance → 수렴"
-lang: ko
+subtitle: "Fixed point problem → Monte Carlo evaluation → TD(0) → multi-step Bellman → TD(λ) → bias–variance → convergence"
+lang: en
 date: "2026-10-16"
 number: 7
 format:
@@ -15,73 +15,73 @@ format:
     callout-appearance: default
 ---
 
-# 사용법 {#sec-howto}
+# Usage {#sec-howto}
 
-각 노드는 다음 순서로 되어 있다.
+Each node is in the following order.
 
-1. **질문**: 노드 제목.
-2. **먼저 떠올릴 질문**: 답을 보기 전에 스스로 답해 볼 물음.
-3. **답**: 한두 문장 또는 짧은 식.
-4. **근거 / 유도**: 접혀 있다. 먼저 스스로 써 본 뒤 펼친다.
-5. **의의**: 접혀 있다. 이 결과가 이후 단계에서 무엇을 가능하게 하는지.
-6. **↓ 내려가기 / ↑ 올라가기**: 하위·상위 노드.
+1. **Question**: Node title.
+2. **Question to Think of First**: A question to answer yourself before looking at the answer.
+3. **Answer**: One or two sentences or a short expression.
+4. **Basis / Derivation**: It is folded. Try writing on it yourself first, then unfold it.
+5. **Significance**: It is folded. What this result enables in the subsequent stages.
+6. **↓ Go Down / ↑ Go Up**: Child/Parent Node.
 
-✍ 표시가 있는 노드는 안내 질문을 먼저 두고, 풀이를 따로 접어 두었다.
+For nodes marked with ✍, the guidance question is placed first, and the solution is folded separately.
 
-이 주제의 중심 질문은 하나다. **TD(0)와 TD(λ)는 각각 어떤 고정점 방정식에 Robbins–Monro를 적용한 결과인가.** 알고리즘 자체는 아주 단순하다. 옛 추정치에 $1-\alpha$, Bellman 방정식 우변의 샘플 추정치에 $\alpha$의 가중치를 둔다. 이해의 무게는 그 우변을 어떻게 만들었는지(특히 multi-step 방정식의 유도)에 둔다. 수렴 정리는 **결과와 증명 아이디어** 수준으로만 다룬다.
+The central question of this topic is one: **To which fixed-point equations are TD(0) and TD(λ), respectively, the Robbins–Monroe algorithm applied?** The algorithm itself is very simple. It assigns weights $1-\alpha$ to the old estimate and $\alpha$ to the sample estimate on the right-hand side of the Bellman equation. The weight of understanding lies in how that right-hand side was constructed (particularly the derivation of the multi-step equation). The convergence theorem is addressed only at the level of **results and proof ideas**.
 
-공통 표기:
+Common notation:
 
-- $v^\pi$: 정책 $\pi$의 가치 함수. $v$: 학습 중인 추정치(lookup table).
-- 전이 데이터 $(s_t,a_t,r_t,s_{t+1})$, $a_t=\pi(s_t)$, $r_t=r(s_t,\pi(s_t))$.
+- $v^\pi$: Value function of policy $\pi$. $v$: Estimate being trained (lookup table).
+- Transition data $(s_t,a_t,r_t,s_{t+1})$, $a_t=\pi(s_t)$, $r_t=r(s_t,\pi(s_t))$.
 - $d_t:=r_t+\gamma v(s_{t+1})-v(s_t)$: temporal difference.
-- $\lambda\in[0,1]$: TD(λ)의 파라미터. 할인율 $\gamma\in(0,1)$와 다른 기호다.
-- $\alpha_t$: step size(learning rate). $\mathcal F_t$: 시점 $t$까지의 history.
-- 유도에서 쓰는 축약: $r_{t+k}:=r(s_{t+k},a_{t+k})$, $v_{t+k}:=v(s_{t+k})$.
-- 벡터 표기: $R^\pi(s):=r(s,\pi(s))$, $P^\pi(s,s'):=p(s'\mid s,\pi(s))$, $\mathbf 1$: 모든 원소가 1인 벡터.
+- $\lambda\in[0,1]$: Parameter of TD(λ). It is a different symbol from the discount rate $\gamma\in(0,1)$.
+- $\alpha_t$: step size(learning rate). $\mathcal F_t$: history up to time $t$.
+- Contractions used in derivation: $r_{t+k}:=r(s_{t+k},a_{t+k})$, $v_{t+k}:=v(s_{t+k})$.
+- Vector notation: $R^\pi(s):=r(s,\pi(s))$, $P^\pi(s,s'):=p(s'\mid s,\pi(s))$, $\mathbf 1$: Vector with all elements being 1.
 
-# 전체 트리 {#sec-tree}
+# Entire Tree {#sec-tree}
 
-- **0. 출발점**: 정책의 가치를 모델 없이, 온라인으로 구할 수 있는가 → [@sec-td0]
-- **I. Monte Carlo 정책 평가** → [@sec-td1]
-  - $c(s,m)$은 무엇인가: 기댓값이 아니라 샘플 → [@sec-td1a]
-  - ✍ 반복식 $v\leftarrow v+\alpha_m(c-v)$와 $\alpha_m=1/m$ → [@sec-td1b]
-  - 갱신 폭이 $1/m$로 줄어드는 것의 의미 → [@sec-td1c]
+- **0. Starting Point**: Can the value of a policy be obtained online without a model? → [@sec-td0]
+- **I. Monte Carlo Policy Evaluation** → [@sec-td1]
+  - What is $c(s,m)$: Sample, not expectation → [@sec-td1a]
+  - ✍ Iteration $v\leftarrow v+\alpha_m(c-v)$ and $\alpha_m=1/m$ → [@sec-td1b]
+  - Meaning of the update width decreasing to $1/m$ → [@sec-td1c]
 - **II. TD(0)**
-  - 동기: 전이 하나로 갱신할 수 있는가 → [@sec-td2]
-  - 정책 평가 방정식을 기댓값으로 쓰기 → [@sec-td3]
-    - ✍ 전이 확률은 어디로 갔나 → [@sec-td3a]
-    - 왜 다음 상태 가치의 기댓값인가 → [@sec-td3b]
-  - TD(0) 갱신식과 temporal difference → [@sec-td4]
-    - ✍ Stochastic approximation 틀에 맞추기 → [@sec-td4a]
-  - TD(0)의 성격 → [@sec-td5]
-- **III. Multi-step 일반화와 TD(λ)**
-  - $(\ell+1)$-step Bellman 방정식 → [@sec-td6]
-    - $\mathcal F_t$는 무엇인가 → [@sec-td6a]
-    - ✍ $(\ell+1)$-step 방정식은 왜 성립하는가 → [@sec-td6b]
-  - λ-가중평균: TD 오차의 합으로 → [@sec-td7]
-    - ✍ 유도를 한 줄씩 → [@sec-td7a]
-    - 합의 순서를 기계적으로 바꾸는 법 → [@sec-td7b]
-    - 이 식은 무엇을 말하는가 → [@sec-td7c]
-  - TD(λ) 알고리즘 → [@sec-td8]
-    - ✍ 두 극단: λ = 0과 λ = 1 → [@sec-td8a]
-    - TD(0)의 "0"은 무엇인가 → [@sec-td8b]
-- **IV. λ의 선택**
+  - Synchronization: Can it be updated with a single transition → [@sec-td2]
+  - Write the policy evaluation equation as the expected value → [@sec-td3]
+    - ✍ Where did the transition probability go → [@sec-td3a]
+    - Why is it the expected value of the next state value → [@sec-td3b]
+  - TD(0) update expression and temporal difference → [@sec-td4]
+    - ✍ Stochastic approximation → [@sec-td4a]
+  - TD(0)'s characteristics → [@sec-td5]
+- **III. Multi-step Generalization and TD(λ)**
+  - $(\ell+1)$-step Bellman equation → [@sec-td6]
+    - What is $\mathcal F_t$ → [@sec-td6a]
+    - ✍ $(\ell+1)$ Why does the -step equation hold → [@sec-td6b]
+  - λ-weighted average: sum of TD errors → [@sec-td7]
+    - ✍ Derivation one line at a time → [@sec-td7a]
+    - How to mechanically change the order of the consensus → [@sec-td7b]
+    - What does this expression mean → [@sec-td7c]
+  - TD(λ) algorithm → [@sec-td8]
+    - ✍ Two extremes: λ = 0 and λ = 1 → [@sec-td8a]
+    - What is the "0" of TD(0) → [@sec-td8b]
+- **IV. Selection of λ**
   - Bias–variance trade-off → [@sec-td9]
-    - ✍ 두 상태 예시 → [@sec-td9a]
-    - λ 스케줄링 → [@sec-td9b]
-- **V. 수렴**
-  - 수렴 정리 → [@sec-td10]
-    - ✍ 증명 아이디어: $H$의 축약과 잡음 조건 → [@sec-td10a]
-- **VI. 정리** → [@sec-td11]
+    - ✍ Two-state example → [@sec-td9a]
+    - λ scheduling → [@sec-td9b]
+- **V. Convergence**
+  - Convergence Theorem → [@sec-td10]
+    - ✍ Proof Idea: Contraction of $H$ and noise condition → [@sec-td10a]
+- **VI. Cleanup** → [@sec-td11]
 
-# 0. 출발점 {#sec-part0}
+# 0. Starting point {#sec-part0}
 
-## 정책의 가치를 모델 없이, 온라인으로 구할 수 있는가 {#sec-td0}
+## Can the value of a policy be obtained online without a model? {#sec-td0}
 
-**먼저 떠올릴 질문.** 정책 평가 방정식 $v=T^\pi v$를 반복으로 풀 때 전이 확률 $p$는 어디에 쓰이는가? 전이 샘플을 하나 받을 때마다 추정치를 고치려면, 방정식이 어떤 형태여야 하는가?
+**First question to consider.** Where are transition probabilities $v=T^\pi v$ used when iteratively solving the policy evaluation equation $p$? What form should the equation take to adjust the estimate every time a transition sample is received?
 
-**답.** 풀어야 할 대상은 두 가지 고정점 문제다.
+**Answer.** The problem to be solved is the two fixed-point problem.
 
 $$
 \begin{aligned}
@@ -92,785 +92,785 @@ $$
 \end{aligned}
 $$
 
-두 방정식의 뿌리는 같은 **가치 분해**다. 가치를 즉각 보상과, 다음 상태부터 정책을 따라 얻을 누적 보상으로 나눈다. $T^\pi$와 $T$가 축약이라는 사실로 VI·PI를 만들었지만, 연산자를 한 번 적용할 때마다 $p$가 필요했다.
+The root of the two equations is the same **value decomposition**. It divides value into immediate rewards and cumulative rewards obtained by following the policy from the next state. VI·PI was created based on the fact that $T^\pi$ and $T$ are abbreviations, but $p$ was required every time the operator was applied.
 
 $$
 \textbf{Key question: } \text{How can we solve fixed point problems in a model-free manner?}
 $$
 
-여기서는 정책 평가부터 다룬다. 방법을 두 기준으로 구분한다.
+Here, we begin by covering policy evaluation. We classify the methods based on two criteria.
 
-| 방법 | model-free ($p$를 쓰지 않음) | online (전이 하나마다 갱신) |
+| Method | model-free (does not use $p$) | online (updates for every transition) |
 |---|---|---|
-| VI·PI (정책 평가) | ✗ | — |
+| VI·PI (Policy Evaluation) | ✗ | — |
 | Monte Carlo | ✓ | ✗ |
 | TD(0) | ✓ | ✓ |
-| TD(λ), $0<\lambda$ | ✓ | 부분적 (궤적 일부가 필요) |
+| TD(λ), $0<\lambda$ | ✓ | Partial (part of the trajectory needed) |
 
-::: {.callout-tip collapse="true" title="의의"}
-TD 계열은 모두 "가치 분해를 기댓값 형태로 쓰고, 그 기댓값을 샘플로 바꾼다"는 같은 동작에서 나온다. 무엇을 샘플로 바꾸느냐(궤적 전체, 한 스텝, 여러 스텝의 가중평균)에 따라 MC, TD(0), TD(λ)가 갈린다. 최적성 방정식 쪽은 같은 동작을 $Q^*$에 적용해 Q-learning이 된다.
+::: {.callout-tip collapse="true" title="Significance"}
+All TD series originate from the same operation: "writing the value decomposition in the form of expectations and converting those expectations into samples." MC, TD(0), and TD(λ) differ depending on what is converted into samples (the entire trajectory, a single step, or a weighted average of multiple steps). For the optimality equation side, applying the same operation to $Q^*$ results in Q-learning.
 :::
 
-# I. Monte Carlo 정책 평가 {#sec-partI}
+# I. Monte Carlo Policy Evaluation {#sec-partI}
 
-## 가치의 정의를 그대로 근사하면 {#sec-td1}
+## If you approximate the definition of value exactly {#sec-td1}
 
-**먼저 떠올릴 질문.** $v^\pi(s)$는 "할인 누적 보상의 기댓값"이다. 기댓값을 모를 때 가장 먼저 떠오르는 근사는? 그 근사를 계산하려면 데이터가 언제까지 쌓여야 하는가?
+**First question to think of.** $v^\pi(s)$ is the "expected value of the accumulated discount reward." When the expected value is unknown, what is the first approximation that comes to mind? How much data must be accumulated to calculate that approximation?
 
-**답.** 충분히 큰 $T$를 잡아 $\gamma^T$를 무시할 수 있게 한다. 정책 $\pi$로 궤적 $\{s_t^{(m)}\}_{t=0}^T$을 $M$개 생성한다($m=1,\dots,M$). $x_0$에서 출발한 $m$번째 궤적의 누적 보상은
+**Answer.** Choose a sufficiently large $T$ so that $\gamma^T$ can be neglected. Generate $M$ trajectories $\{s_t^{(m)}\}_{t=0}^T$ under policy $\pi$. The cumulative reward for the $m$th trajectory starting from $x_0$ is
 
 $$
 c^\pi(x_0,m):=\sum_{t=0}^{T-1}\gamma^t\,r\big(s_t^{(m)},\pi(s_t^{(m)})\big)
 $$
 
-이고, 가치는 표본평균으로 근사한다.
+and the value is approximated by the sample mean.
 
 $$
 v^\pi(x_0)\approx\frac1M\sum_{m=1}^Mc^\pi(x_0,m).
 $$
 
-같은 값을 반복 알고리즘으로 계산할 수도 있다.
+The same value can also be calculated using an iterative algorithm.
 
-1. 정책 $\pi\in\Pi$와 초기 상태 $s\in S$를 고정한다.
-2. $v(s)\leftarrow0$으로 초기화한다.
-3. $m=1,\dots,M$에 대해 $v(s)\leftarrow v(s)+\alpha_m\big(c(s,m)-v(s)\big)$, $\alpha_m=\dfrac1m$.
+1. Fix policy $\pi\in\Pi$ and initial state $s\in S$.
+2. Initialize to $v(s)\leftarrow0$.
+3. $m=1,\dots,M$ for $v(s)\leftarrow v(s)+\alpha_m\big(c(s,m)-v(s)\big)$, $\alpha_m=\dfrac1m$.
 
-이 반복은 표본평균을 incremental하게 계산한 것일 뿐이고, 결과는 표본평균과 같다 → [@sec-td1b]
+This iteration is merely an incremental calculation of the sample mean, and the result is equal to the sample mean → [@sec-td1b]
 
 $$
 \textbf{Model-free, but not online.}
 $$
 
-$c(s,m)$을 계산하려면 궤적 하나를 끝까지($T$ 스텝) 얻어야 하기 때문이다. 반복처럼 보여도 갱신은 궤적 하나가 끝날 때마다 한 번뿐이다.
+This is because to calculate $c(s,m)$, one locus must be obtained to the end ($T$ steps). Although it looks like a repetition, the update is performed only once at the end of one locus.
 
-::: {.callout-tip collapse="true" title="의의"}
-MC는 $p$를 쓰지 않는다는 점에서 이미 model-free다. 남은 문제는 **온라인성**이다. 질문은 이렇게 바뀐다. 궤적 전체로만 얻을 수 있는 신호 $c(s,m)$ 자리에, 한 스텝 데이터만으로 만들 수 있는 신호를 넣을 수 있는가? 그 답이 TD(0)다 → [@sec-td4]
+::: {.callout-tip collapse="true" title="Significance"}
+MC is already model-free in that it does not use $p$. The remaining issue is **online capability**. The question reverts as follows: Can a signal that can be generated using only one step of data be inserted into the position of $c(s,m)$, a signal obtainable only from the entire trajectory? The answer is TD(0) → [@sec-td4]
 :::
 
-**↓ 내려가기**: [@sec-td1a] · [@sec-td1b] · [@sec-td1c]
-**↑ 올라가기**: [@sec-td0]
+**↓ Down**: [@sec-td1a] · [@sec-td1b] · [@sec-td1c] 
+**↑ Up**: [@sec-td0]
 
-### $c(s,m)$은 무엇인가: 기댓값이 아니라 샘플 {#sec-td1a}
+### What is $c(s,m)$: Sample, not expectation {#sec-td1a}
 
-**먼저 떠올릴 질문.** 같은 상태 $s$에서 두 번 시뮬레이션하면 $c(s,1)$과 $c(s,2)$는 같은가? 다르다면 그 차이는 어디서 오는가?
+**First question to consider.** If you simulate twice from the same state $s$, are $c(s,1)$ and $c(s,2)$ the same? If they are different, where does that difference come from?
 
-**답.** $c(s,m)$은 **실현값(숫자 하나)**이다. 출발 상태가 $s$일 때의 할인 누적 보상을 확률 변수로 쓰면
+**Answer.** $c(s,m)$ is the **realized value (a single digit)**. If we use the cumulative discount reward when the starting state is $s$ as the random variable,
 
 $$
 G(s):=\sum_{t=0}^{T-1}\gamma^t\,r\big(s_t,\pi(s_t)\big),\qquad s_0=s.
 $$
 
-$r$과 $\pi$가 결정적이므로, $G(s)$의 무작위성은 **전이 $s_{t+1}\sim p(\cdot\mid s_t,\pi(s_t))$ 하나에서만** 온다.
+Since $r$ and $\pi$ are deterministic, the randomness of $G(s)$ comes from **only one transition $s_{t+1}\sim p(\cdot\mid s_t,\pi(s_t))$**.
 
-| 대상 | 성격 | 의미 |
+| Subject | Nature | Meaning |
 |---|---|---|
-| $G(s)$ | 확률 변수 | 출발 상태 $s$에서 시뮬레이션하면 나올 누적 보상 |
-| $c(s,m)$ | 실현값 | $m$번째 시뮬레이션에서 실제로 나온 $G(s)$의 값 |
-| $v^\pi(s)\approx\mathbb{E}[G(s)]$ | 상수 | 추정 대상 |
+| $G(s)$ | Random variable | Cumulative reward resulting from simulation in starting state $s$ |
+| $c(s,m)$ | Realized Value | The actual value of $G(s)$ from the $m$th simulation |
+| $v^\pi(s)\approx\mathbb{E}[G(s)]$ | Constant | Estimation Target |
 
-궤적을 서로 독립으로 생성하면 $c(s,1),\dots,c(s,M)$은 $G(s)$의 i.i.d. 샘플이다. 그래서 대수의 법칙에 의해 표본평균이 $\mathbb{E}[G(s)]$로 간다.
+If we generate the locus independently, $c(s,1),\dots,c(s,M)$ is an iid sample of $G(s)$. Therefore, by the law of large numbers, the sample mean goes to $\mathbb{E}[G(s)]$.
 
-두 인덱스를 구분한다.
+Separates the two indices.
 
-| 인덱스 | 범위 | 의미 |
+| Index | Range | Meaning |
 |---|---|---|
-| $m$ | $1,\dots,M$ | 몇 번째 궤적인가 (궤적 사이의 축) |
-| $t$ | $0,\dots,T-1$ | 그 궤적 안의 몇 번째 스텝인가 (궤적 내부의 축) |
+| $m$ | $1,\dots,M$ | Which trajectory is it (axis between trajectories) |
+| $t$ | $0,\dots,T-1$ | which step is it within that trajectory (axis within the trajectory) |
 
-$c(s,m)$은 $t$ 방향으로 합한 값이므로 $t$가 사라지고 $m$만 남는다. $x_0$와 $s$는 같은 출발 상태를 가리킨다.
+Since $c(s,m)$ is the sum in the direction of $t$, $t$ disappears, leaving only $m$. $x_0$ and $s$ point to the same starting state.
 
-::: {.callout-note collapse="true" title="근거: ≈에 들어 있는 두 오차"}
-1. **유한 샘플 오차**: 표본평균의 표준편차는 $O(1/\sqrt M)$이다.
-2. **절단 오차**: $\mathbb{E}[G(s)]$는 정확히는 $T$-스텝 가치다. $|r|\le R_{\max}$이면
+::: {.callout-note collapse="true" title="Basis: Two errors contained in ≈"}
+1. **Finite sample error**: The standard deviation of the sample mean is $O(1/\sqrt M)$.
+2. **Truncation Error**: $\mathbb{E}[G(s)]$ is, to be precise, a $T$-step value. If it is $|r|\le R_{\max}$
 $$
 \big|v^\pi(s)-\mathbb{E}[G(s)]\big|=\Big|\mathbb{E}\Big[\sum_{t\ge T}\gamma^tr_t\Big]\Big|\le\frac{\gamma^TR_{\max}}{1-\gamma}.
 $$
-"$\gamma^T$가 무시할 만하도록 $T$를 크게 잡는다"는 이 항을 없애는 것이다.
+It is to eliminate this term: "'$\gamma^T$ is negligible so that $T$ is large'"
 :::
 
-**↑ 올라가기**: [@sec-td1]
+**↑ Go Up**: [@sec-td1]
 
-### ✍ 반복식 $v\leftarrow v+\alpha_m(c-v)$와 $\alpha_m=1/m$ {#sec-td1b}
+### ✍ Repetition $v\leftarrow v+\alpha_m(c-v)$ and $\alpha_m=1/m$ {#sec-td1b}
 
-$c_m:=c(s,m)$, $v_m$을 $m$번째 갱신 직후의 값이라 하자.
+Let $c_m:=c(s,m)$, $v_m$ be the value immediately after the $m$ update.
 
-안내 질문:
+Guide Question:
 
-1. $v_m:=\frac1m\sum_{k=1}^mc_k$를 $v_{m-1}$과 $c_m$으로 표현하라.
-2. 최종 평균은 $M$으로 나눈 값인데, 왜 $\alpha_m=1/M$이 아니라 $1/m$인가? $M=2$, $c_1=4$, $c_2=2$로 두 경우를 계산해 보라.
-3. 초기값 $v_0$은 결과에 영향을 주는가?
+1. Express $v_m:=\frac1m\sum_{k=1}^mc_k$ as $v_{m-1}$ and $c_m$.
+2. The final average is the value divided by $M$, but why is it $1/m$ instead of $\alpha_m=1/M$? Calculate the two cases for $M=2$, $c_1=4$, and $c_2=2$.
+3. Does the initial value $v_0$ affect the result?
 
-::: {.callout-note collapse="true" title="풀이"}
-**1.** 마지막 샘플을 분리하고 $\sum_{k<m}c_k=(m-1)v_{m-1}$을 쓴다.
+::: {.callout-note collapse="true" title="Solution"}
+**1.** Separate the last sample and write $\sum_{k<m}c_k=(m-1)v_{m-1}$.
 $$
 v_m=\frac{(m-1)v_{m-1}+c_m}{m}=\Big(1-\frac1m\Big)v_{m-1}+\frac1mc_m=v_{m-1}+\frac1m\big(c_m-v_{m-1}\big).
 $$
-$\alpha_m=1/m$으로 두면 갱신식과 같다.
+If set to $\alpha_m=1/m$, it is the same as the update formula.
 
-**2.** 목표는 $(4+2)/2=3$이다.
+**2.** The goal is $(4+2)/2=3$.
 
 - $\alpha_m=1/m$: $v_1=0+1\cdot(4-0)=4$, $v_2=4+\tfrac12(2-4)=3$. ✓
 - $\alpha\equiv1/M=1/2$: $v_1=0+\tfrac12(4-0)=2$, $v_2=2+\tfrac12(2-2)=2$. ✗
 
-갱신식은 괄호 안에서 $v$를 빼므로, 매 단계 $v$가 "지금까지 본 샘플의 평균"이어야 한다. $m$번째 시점에 본 샘플은 $m$개이므로 $m$으로 나눈다. 그 결과 $m=M$에서 자연스럽게 $M$으로 나눈 값이 된다. 상수 $1/M$을 쓰면
+Since the update expression subtracts $v$ inside the parentheses, $v$ must be the "average of the samples seen so far" at each step. At the $m$-th time, there are $m$ samples seen, so we divide by $m$. The result is naturally the value obtained by dividing $m=M$ by $M$. If we use the constant $1/M$,
 $$
 v_M=\Big(1-\tfrac1M\Big)^Mv_0+\sum_{k=1}^M\tfrac1M\Big(1-\tfrac1M\Big)^{M-k}c_k
 $$
-가 되어 초기값이 남고 최근 샘플에 가중치가 쏠린다.
+becomes the initial value and the weight is skewed toward the recent sample.
 
-"$M$으로 나눈다"는 직관이 맞는 식은 따로 있다. $v\leftarrow v+\frac1Mc_m$처럼 합을 누적하는 식이다. 이 경우 결과는 맞지만 중간값은 평균이 아니고, $M$을 미리 알아야 한다.
+There is a separate formula where the intuition of "dividing by $M$" is correct. It is a formula that accumulates the sum, like $v\leftarrow v+\frac1Mc_m$. In this case, the result is correct, but the median is not the average, and you must know $M$ beforehand.
 
-**3.** $\alpha_1=1$이므로 $v_1=c_1$이다. 첫 갱신에서 초기값이 지워진다. $v(s)\leftarrow0$은 편의상의 선택이다.
+**3.** Since $\alpha_1=1$, it is $v_1=c_1$. The initial value is cleared in the first update. $v(s)\leftarrow0$ is a choice for convenience.
 :::
 
-::: {.callout-tip collapse="true" title="의의"}
-둘째 형태 $v_m=(1-\alpha_m)v_{m-1}+\alpha_mc_m$은 stochastic approximation의 모양 그대로다. $H$가 상수 사상 $Hv\equiv v^\pi(s)$이고 관측 신호가 $c_m=v^\pi(s)+w_m$인 가장 단순한 경우다. MC 표본평균은 Robbins–Monro의 특수한 경우다. TD(0)는 같은 틀에서 신호 $c_m$을 한 스텝 신호로 바꾼 것이다 → [@sec-td4a]
+::: {.callout-tip collapse="true" title="Significance"}
+The second form, $v_m=(1-\alpha_m)v_{m-1}+\alpha_mc_m$, is the exact form of the stochastic approximation. $H$ is the simplest case where the constant mapping is $Hv\equiv v^\pi(s)$ and the observed signal is $c_m=v^\pi(s)+w_m$. The MC sample mean is a special case of Robbins–Monro. TD(0) is the signal $c_m$ transformed into a one-step signal within the same frame → [@sec-td4a]
 :::
 
-**↑ 올라가기**: [@sec-td1]
+**↑ Go Up**: [@sec-td1]
 
-### 갱신 폭이 $1/m$로 줄어드는 것의 의미 {#sec-td1c}
+### Meaning of the update width decreasing to $1/m$ {#sec-td1c}
 
-**먼저 떠올릴 질문.** 시행이 늘수록 한 번의 갱신이 작아진다. 이것은 결함인가, 의도인가?
+**First question to consider.** As the number of trials increases, a single update becomes smaller. Is this a defect or an intention?
 
-**답.** 의도다.
+**Answer.** It is the intention.
 
-- **새 샘플의 정당한 몫이 $1/m$이다.** 표본평균에서는 모든 샘플이 같은 가중치 $1/m$을 가져야 한다.
-- **추정치가 안정된다.** 샘플 분산이 $\sigma^2$이면 $\operatorname{Var}(v_m)=\sigma^2/m$이다.
-- **그래도 너무 빨리 줄지 않는다.** $\sum1/m=\infty$이므로 누적 이동량에 상한이 없어 초기 오차를 결국 지운다. $\sum1/m^2<\infty$이므로 잡음은 잦아든다. step size가 줄기는 해야 하지만 너무 빨리 줄면 안 된다는 SA 조건을 $1/m$이 정확히 지킨다.
+- **The fair quotient of the new sample is $1/m$.** In the sample mean, all samples must have the same weight $1/m$.
+- **The estimate stabilizes.** If the sample variance is $\sigma^2$, then it is $\operatorname{Var}(v_m)=\sigma^2/m$.
+- **However, it does not decrease too quickly.** Since $\sum1/m=\infty$, there is no upper limit on the cumulative movement, so the initial error is eventually eliminated. Since $\sum1/m^2<\infty$, the noise subsides. $1/m$ strictly adheres to the SA condition that the step size must decrease but must not decrease too quickly.
 
-::: {.callout-note collapse="true" title="근거: 더 빨리 줄이거나 줄이지 않으면"}
-- $\alpha_m=1/m^2$: $\sum1/m^2<\infty$이므로 총 이동 거리가 유계다. 초기값에서 먼 참값에 닿지 못할 수 있다.
-- $\alpha_m\equiv\alpha$: 지수 가중평균이 된다. $\sum\alpha^2=\infty$이므로 분산이 0으로 가지 않고 참값 근처에서 진동한다.
+::: {.callout-note collapse="true" title="Rationale: If you reduce it faster or don't reduce it"}
+- Since $\alpha_m=1/m^2$: $\sum1/m^2<\infty$, the total travel distance is bounded. It may not be possible to reach the true value far from the initial value.
+- $\alpha_m\equiv\alpha$: It becomes an exponentially weighted average. Since $\sum\alpha^2=\infty$, the variance does not go to 0 but oscillates near the true value.
 :::
 
-::: {.callout-tip collapse="true" title="의의"}
-목표가 고정되어 있으면 $1/m$이 최적이다. 목표가 움직이면 사정이 다르다. 정책이 바뀌거나, TD처럼 신호 $r_t+\gamma v(s_{t+1})$ 안에 학습 중인 $v$가 들어 있는 경우다. 이때 $1/m$은 오래된 샘플까지 똑같이 붙들어 너무 보수적이다. 실제 구현에서 상수 $\alpha$를 자주 쓰는 이유다. 수렴 조건을 포기하는 대신 추적 능력을 얻는다.
+::: {.callout-tip collapse="true" title="Significance"}
+If the target is fixed, $1/m$ is optimal. The situation is different if the target moves. This occurs when the policy changes or when the training $v$ is contained within the signal $r_t+\gamma v(s_{t+1})$Z, as in TD. In this case, $1/m$ is too conservative because it holds onto even the oldest samples. This is why the constant $\alpha$ is frequently used in actual implementations. It gains tracking capability in exchange for sacrificing the convergence condition.
 :::
 
-**↑ 올라가기**: [@sec-td1]
+**↑ Go Up**: [@sec-td1]
 
 # II. TD(0) {#sec-partII}
 
-## 동기: 전이 하나로 갱신할 수 있는가 {#sec-td2}
+## Synchronization: Can it be updated with a single transition? {#sec-td2}
 
-**먼저 떠올릴 질문.** 정책 $\pi$를 따라 움직이며 매 스텝 얻는 데이터는 무엇인가? 그것만으로 $v^\pi$의 고정점 방정식을 풀려면 무엇이 필요한가?
+**First question to consider.** What data is obtained at every step while moving along policy $\pi$? What is needed to solve the fixed-point equations of $v^\pi$ using only that data?
 
-**답.** 매 스텝 얻는 데이터의 단위는 **전이 데이터**다.
+**Answer.** The unit of data obtained at each step is **transition data**.
 
 $$
 \{(s_t,a_t,r_t,s_{t+1})\}\quad(\pi\text{ 하에서}).
 $$
 
-목표는 이 데이터를 받는 즉시 $v^\pi$의 추정치를 고치는 것, 즉 model-free이면서 online인 방법이다. 핵심 아이디어는 **stochastic approximation**이다. 고정점 문제 $Hx=x$에서 $Hx$를 정확히 계산할 수 없고 잡음 섞인 값 $Hx+w$만 얻을 때 쓰는 반복이다.
+The goal is to correct the estimate of $v^\pi$ as soon as this data is received—that is, a model-free and online method. The core idea is **stochastic approximation**. This is an iteration used when, in the fixed-point problem $Hx=x$, $Hx$ cannot be calculated accurately and only a noisy value $Hx+w$ is obtained.
 
 $$
 x_{k+1}(i)=(1-\alpha_k(i))\,x_k(i)+\alpha_k(i)\big[(Hx_k)(i)+w_k(i)\big].
 $$
 
-수렴 조건은 다음과 같다.
+The convergence condition is as follows.
 
 $$
 \sum_k\alpha_k(i)=+\infty,\quad\sum_k\alpha_k(i)^2<+\infty,\qquad
 \mathbb{E}[w_k(i)\mid\mathcal F_k]=0,\quad\mathbb{E}[w_k(i)^2\mid\mathcal F_k]\le C_0+C_1\|x_k\|^2.
 $$
 
-step size는 줄어야 하지만 너무 빨리 줄면 안 된다. 잡음은 조건부로 편향이 없어야 하고, $x_k$에 비해 지나치게 커지면 안 된다.
+The step size must decrease, but not too quickly. The noise must be conditionally unbiased and must not become excessively large compared to $x_k$.
 
-::: {.callout-tip collapse="true" title="의의"}
-SA를 쓰려면 정책 평가 방정식을 "기댓값 = 무엇" 꼴로 써야 한다. 그래야 기댓값 자리에 관측 하나를 넣었을 때 잡음이 조건부 평균 0이 된다 → [@sec-td3]
+::: {.callout-tip collapse="true" title="Significance"}
+To use SA, the policy evaluation equation must be written in the form "Expected value = something". This ensures that when a single observation is substituted into the expected value position, the noise becomes a conditional mean of 0. → [@sec-td3]
 :::
 
-**↑ 올라가기**: [@sec-td0]
+**↑ Go Up**: [@sec-td0]
 
-## 정책 평가 방정식을 기댓값으로 쓰기 {#sec-td3}
+## Write the policy evaluation equation as the expected value {#sec-td3}
 
-**먼저 떠올릴 질문.** $v^\pi(s_t)=\mathbb{E}[r(s_t,\pi(s_t))+\gamma v^\pi(s_{t+1})]$에서 기댓값은 무엇에 대한 것인가? 무엇에 조건을 걸어야 정확한가?
+**First question to consider.** In $v^\pi(s_t)=\mathbb{E}[r(s_t,\pi(s_t))+\gamma v^\pi(s_{t+1})]$, what is the expected value about? What conditions must be applied to ensure accuracy?
 
-**답.**
+**Answer.**
 
 $$
 v^\pi(s_t)=\mathbb{E}\big[r(s_t,\pi(s_t))+\gamma v^\pi(s_{t+1})\big].
 $$
 
-정확히 쓰면 시점 $t$까지의 history $\mathcal F_t$에 조건을 걸어야 한다. Markov 성질에 의해 이는 $s_t=s$에 조건을 거는 것과 같다.
+To be precise, the condition must be applied to the history $\mathcal F_t$ up to time point $t$. By Markov properties, this is equivalent to applying the condition to $s_t=s$.
 
 $$
 v^\pi(s)=\mathbb{E}\big[r(s,\pi(s))+\gamma v^\pi(s_{t+1})\,\big|\,s_t=s\big],\qquad s_{t+1}\sim p(\cdot\mid s,\pi(s)).
 $$
 
-기댓값은 **$s_{t+1}$에 대한 것**이다. 기댓값을 풀면 전이 확률이 붙고 다음 상태에 대해 합한 형태, 즉 $v=T^\pi v$가 된다.
+The expected value of is for **$s_{t+1}$**. When the expected value is expanded, it takes the form of the sum of the transition probabilities and the next state, i.e., $v=T^\pi v$.
 
-**↓ 내려가기**: [@sec-td3a] · [@sec-td3b]
-**↑ 올라가기**: [@sec-td0]
+**↓ Down**: [@sec-td3a] · [@sec-td3b] 
+**↑ Up**: [@sec-td0]
 
-### ✍ 전이 확률은 어디로 갔나 {#sec-td3a}
+### ✍ Where did the transition probability go? {#sec-td3a}
 
-안내 질문:
+Guide Question:
 
-1. 조건 $s_t=s$ 아래에서 무작위인 것은 무엇이고, 그 분포는?
-2. 기댓값을 항별로 풀어 $v=T^\pi v$와 같음을 보여라.
-3. 같은 식을 합 형태가 아니라 기댓값 형태로 쓰면 무엇이 달라지는가?
+1. Condition $s_t=s$ What is random under this condition, and what is its distribution?
+2. Expand the expected value of term by term and show that it is equal to $v=T^\pi v$.
+3. What changes if the same expression is written in the expected value form instead of the sum form?
 
-::: {.callout-note collapse="true" title="풀이"}
-**1.** $s_{t+1}$ 하나뿐이고, 분포는 $p(\cdot\mid s,\pi(s))$다.
+::: {.callout-note collapse="true" title="Solution"}
+**1.** $s_{t+1}$ There is only one, and the distribution is $p(\cdot\mid s,\pi(s))$.
 
-**2.** $r(s,\pi(s))$는 $s$가 주어지면 상수이므로 기댓값을 통과한다. 둘째 항은 이산 확률 변수 함수의 기댓값 정의에 따라
+**2.** $r(s,\pi(s))$ passes the expectation value because it is a constant given $s$. The second term, according to the definition of the expectation value of a discrete random variable function
 $$
 \mathbb{E}\big[v^\pi(s_{t+1})\mid s_t=s\big]=\sum_{s'}p(s'\mid s,\pi(s))\,v^\pi(s').
 $$
-합치면 $v^\pi(s)=r(s,\pi(s))+\gamma\sum_{s'}p(s'\mid s,\pi(s))v^\pi(s')$, 즉 $v=T^\pi v$다.
+Combined, it is $v^\pi(s)=r(s,\pi(s))+\gamma\sum_{s'}p(s'\mid s,\pi(s))v^\pi(s')$, which is $v=T^\pi v$.
 
-**3.** 합 형태 $\sum_{s'}p(\cdot)v(s')$는 계산하려면 $p$를 직접 알아야 한다. 기댓값 형태 $\mathbb{E}[v(s_{t+1})]$는 샘플 하나로 근사할 수 있다. 그리고 그 샘플 $s_{t+1}$은 **환경이 $p$에 따라 뽑아서** 준다.
+**3.** To calculate the sum form $\sum_{s'}p(\cdot)v(s')$, one must directly know $p$. The expectation form $\mathbb{E}[v(s_{t+1})]$ can be approximated by a single sample. And that sample $s_{t+1}$ is **given by the environment based on $p$**.
 :::
 
-::: {.callout-tip collapse="true" title="의의"}
-$p$는 여전히 쓰인다. 다만 우리가 계산하는 대신 환경이 샘플링으로 대신 처리한다. 이것이 model-free의 정확한 의미다.
+::: {.callout-tip collapse="true" title="Significance"}
+$p$ is still used. However, instead of us calculating it, the environment handles it through sampling. This is the precise meaning of model-free.
 :::
 
-**↑ 올라가기**: [@sec-td3]
+**↑ Go Up**: [@sec-td3]
 
-### 왜 다음 상태 가치의 기댓값인가 {#sec-td3b}
+### Why is it the expected value of the next state value? {#sec-td3b}
 
-**먼저 떠올릴 질문.** 좌변은 $v(s_t)$인데 우변 기댓값 안에는 왜 $v(s_{t+1})$이 있는가?
+**First question to consider.** The left side is $v(s_t)$, but why is $v(s_{t+1})$ inside the expected value of the right side?
 
-**답.** 두 항은 다른 시점의 가치다.
+**Answer.** The two terms are values at different points in time.
 
 $$
 \underbrace{v^\pi(s)}_{\text{지금 상태의 가치}}=r(s,\pi(s))+\gamma\,\mathbb{E}\big[\underbrace{v^\pi(s_{t+1})}_{\text{다음 상태의 가치}}\,\big|\,s_t=s\big].
 $$
 
-좌변은 $s_t=s$로 고정되어 무작위성이 없다. 우변에서는 다음에 어디로 갈지가 무작위이므로 도착한 곳의 가치도 확률 변수다. 그래서 평균을 낸다. "기댓값을 취하는 양"은 $v^\pi(s_{t+1})$이고, "무작위성의 출처"는 $s_{t+1}$의 분포다.
+The left side is fixed as $s_t=s$ and has no randomness. On the right side, since the next destination is random, the value of the destination is also a random variable. Therefore, we take the average. The "quantity taking the expected value" is $v^\pi(s_{t+1})$, and the "source of randomness" is the distribution of $s_{t+1}$.
 
-::: {.callout-note collapse="true" title="유도: 가치의 정의에서"}
+::: {.callout-note collapse="true" title="Derivation: From the definition of value"}
 $$
 v^\pi(s)=\mathbb{E}\Big[\sum_{k\ge0}\gamma^kr_{t+k}\,\Big|\,s_t=s\Big]
 =r(s,\pi(s))+\gamma\,\mathbb{E}\Big[\sum_{k\ge0}\gamma^kr_{t+1+k}\,\Big|\,s_t=s\Big].
 $$
-반복 기댓값 법칙으로 $s_{t+1}$에 먼저 조건을 건다. Markov 성질에 의해 $s_{t+1}$이 주어지면 그 이후는 $s_t$와 무관하다.
+We first apply the condition to $s_{t+1}$ using the iterative expectation rule. By Markov properties, if $s_{t+1}$ is given, then the subsequent $s_t$ is independent of $s_t$.
 $$
 \mathbb{E}\Big[\sum_k\gamma^kr_{t+1+k}\,\Big|\,s_t=s\Big]
 =\mathbb{E}\Big[\underbrace{\mathbb{E}\Big[\sum_k\gamma^kr_{t+1+k}\,\Big|\,s_{t+1}\Big]}_{=\,v^\pi(s_{t+1})}\,\Big|\,s_t=s\Big].
 $$
-미래 누적 보상의 꼬리를 "다음 상태에서 출발한 가치"로 다시 묶은 것이 가치 분해다.
+Value decomposition is re-tying the tail of future accumulated rewards into the "value starting from the next state."
 :::
 
-::: {.callout-tip collapse="true" title="의의"}
-$v^\pi$가 좌우변에 모두 등장하므로 이 식은 $v^\pi$에 대한 고정점 방정식이다. 같은 분해를 한 스텝이 아니라 $\ell+1$ 스텝 뒤에서 하면 multi-step 방정식이 된다 → [@sec-td6]
+::: {.callout-tip collapse="true" title="Significance"}
+Since $v^\pi$ appears on both sides, this equation is a fixed-point equation for $v^\pi$. If the same decomposition is performed not just one step but after $\ell+1$, it becomes a multi-step equation → [@sec-td6]
 :::
 
-**↑ 올라가기**: [@sec-td3]
+**↑ Go Up**: [@sec-td3]
 
-## TD(0) 갱신식과 temporal difference {#sec-td4}
+## TD(0) update expression and temporal difference {#sec-td4}
 
-**먼저 떠올릴 질문.** 기댓값 $\mathbb{E}[\,r_t+\gamma v^\pi(s_{t+1})\mid s_t\,]$를 샘플 하나로 바꾼다면, 매 스텝 관측하는 $(s_t,a_t,r_t,s_{t+1})$ 중 무엇을 넣으면 되는가?
+**First question to consider.** If the expected value $\mathbb{E}[\,r_t+\gamma v^\pi(s_{t+1})\mid s_t\,]$ is replaced with a single sample, which of the $(s_t,a_t,r_t,s_{t+1})$ observed at every step should be used?
 
-**답.** 관측한 $s_{t+1}$을 그대로 넣는다(**단일 샘플 근사**). Robbins–Monro를 적용하면
+**Answer.** Input the observed $s_{t+1}$ as is (**single-sample approximation**). Applying Robbins–Monro
 
 $$
 v(s_t)\leftarrow(1-\alpha_t)\,v(s_t)+\alpha_t\big(r_t+\gamma v(s_{t+1})\big).
 $$
 
-$\alpha_t$로 묶으면
+If you group it as $\alpha_t$
 
 $$
 v(s_t)\leftarrow v(s_t)+\alpha_t\big(\underbrace{r_t+\gamma v(s_{t+1})}_{\text{new estimate}}-\underbrace{v(s_t)}_{\text{old estimate}}\big).
 $$
 
-괄호 안은 학습 방향이다. 새 추정치에서 옛 추정치를 뺀 것이다. 시점 $t+1$의 정보로 만든 $v(s_t)$ 추정치와 시점 $t$에 갖고 있던 추정치의 **시간에 따른 차이**를 보정한다는 뜻에서 **temporal difference**라 부른다.
+The parentheses indicate the learning direction. It is the new estimate minus the old estimate. It is called the **temporal difference** to correct the **difference over time** between the estimate $v(s_t)$, created from the information at time point $t+1$, and the estimate held at time point $t$.
 
 $$
 d_t:=r_t+\gamma v(s_{t+1})-v(s_t).
 $$
 
-::: {.callout-important title="갱신의 전부"}
-옛 추정치에 $1-\alpha_t$, Bellman 방정식 우변의 단일 샘플 추정치에 $\alpha_t$의 가중치를 둔다.
+::: {.callout-important title="All updates"}
+Weights $1-\alpha_t$ to the old estimate and $\alpha_t$ to the single-sample estimate on the right-hand side of the Bellman equation.
 :::
 
-::: {.callout-note collapse="true" title="표기 주의"}
-기댓값 식의 $s_{t+1}$은 확률 변수이고, 갱신식의 $s_{t+1}$은 실제로 관측된 값이다. 같은 기호를 편의상 겹쳐 쓴 것이다. 또 갱신식의 $v$는 참값 $v^\pi$가 아니라 학습 중인 추정치다.
+::: {.callout-note collapse="true" title="Notation caution"}
+In the expectation equation, $s_{t+1}$ is a random variable, while $s_{t+1}$ in the update equation is the actually observed value. The same symbol is written overlaid for convenience. Also, $v$ in the update equation is not the true value $v^\pi$, but an estimate currently being trained.
 :::
 
-**↓ 내려가기**: [@sec-td4a]
-**↑ 올라가기**: [@sec-td0]
+**↓ Down**: [@sec-td4a] 
+**↑ Up**: [@sec-td0]
 
-### ✍ Stochastic approximation 틀에 맞추기 {#sec-td4a}
+### ✍ Stochastic approximation {#sec-td4a}
 
-안내 질문:
+Guide Question:
 
-1. 갱신식을 $v(s_t)\leftarrow(1-\alpha_t)v(s_t)+\alpha_t[(Hv)(s_t)+w_t]$ 꼴로 맞추려면 $H$와 $w_t$는 각각 무엇인가?
-2. $\mathbb{E}[w_t\mid\mathcal F_t]=0$을 보여라.
-3. MC의 신호 $c(s,m)$과 TD(0)의 신호 $r_t+\gamma v(s_{t+1})$을 비교하라. 각각 무엇의 추정치이고, 언제 편향이 없는가?
+1. To fit the update expression into the form $v(s_t)\leftarrow(1-\alpha_t)v(s_t)+\alpha_t[(Hv)(s_t)+w_t]$, what are $H$ and $w_t$, respectively?
+2. Show $\mathbb{E}[w_t\mid\mathcal F_t]=0$.
+3. Compare the signal of MC ZZZPH0015426ZZZ  MC $c(s,m)$ and the signal of TD(0) $r_t+\gamma v(s_{t+1})$. What is each an estimate of, and when is there no bias?
 
-::: {.callout-note collapse="true" title="풀이"}
+::: {.callout-note collapse="true" title="Solution"}
 **1.**
 $$
 H=T^\pi,\qquad
 w_t:=\gamma\Big(v(s_{t+1})-\sum_{s'}p(s'\mid s_t,\pi(s_t))\,v(s')\Big).
 $$
-그러면 $(T^\pi v)(s_t)+w_t=r_t+\gamma v(s_{t+1})$이다.
+Then it is $(T^\pi v)(s_t)+w_t=r_t+\gamma v(s_{t+1})$.
 
-**2.** $s_t$와 현재 추정치 $v$는 $\mathcal F_t$에 대해 알려져 있고, $s_{t+1}$은 $p(\cdot\mid s_t,\pi(s_t))$에서 나온다. 따라서 $\mathbb{E}[v(s_{t+1})\mid\mathcal F_t]=\sum_{s'}p(s'\mid s_t,\pi(s_t))v(s')$이고 $\mathbb{E}[w_t\mid\mathcal F_t]=0$이다.
+**2.** $s_t$ and the current estimate $v$ are known for $\mathcal F_t$, and $s_{t+1}$ comes from $p(\cdot\mid s_t,\pi(s_t))$. Therefore, it is $\mathbb{E}[v(s_{t+1})\mid\mathcal F_t]=\sum_{s'}p(s'\mid s_t,\pi(s_t))v(s')$ and $\mathbb{E}[w_t\mid\mathcal F_t]=0$.
 
 **3.**
 
-| 신호 | 무엇의 추정치 | 편향 |
+| signal | estimate of what | bias |
 |---|---|---|
-| $c(s,m)$ | $v^\pi(s)$ 자체 | 없음 (절단 무시). 궤적 전체가 필요 |
-| $r_t+\gamma v(s_{t+1})$ | $(T^\pi v)(s_t)$ | $T^\pi v$에 대해서는 없음. $v\ne v^\pi$이면 $v^\pi(s_t)$에 대해서는 편향 |
+| $c(s,m)$ | $v^\pi(s)$ Self | None (Truncation ignored). Entire trajectory required |
+| $r_t+\gamma v(s_{t+1})$ | $(T^\pi v)(s_t)$ | $T^\pi v$ none. If $v\ne v^\pi$, then bias for $v^\pi(s_t)$ |
 
-TD(0)의 신호는 현재 추정치 $v$에 기대어(bootstrapping) 만든 것이다. 그래서 $v^\pi$의 추정치로서는 편향이 있지만, 한 스텝 데이터로 충분하다.
+The signal of TD(0) is bootstrapped based on the current estimate $v$. Therefore, although the estimate $v^\pi$ is biased, it is sufficient as one step of data.
 :::
 
-::: {.callout-tip collapse="true" title="의의"}
-SA의 잡음 조건 "조건부 평균 0"은 $T^\pi v$에 대해 성립한다. 편향은 $v\ne v^\pi$에서 오는데, 이는 SA가 $T^\pi$의 고정점을 향해 반복하면서 줄여 가는 부분이다. 3번의 대비가 λ 선택의 bias–variance 이야기로 이어진다 → [@sec-td9]
+::: {.callout-tip collapse="true" title="Significance"}
+The noise condition "conditional mean 0" of SA holds for $T^\pi v$. The bias originates from $v\ne v^\pi$, which is the part where SA reduces iteratively toward the fixed point of $T^\pi$. The contrast in point 3 leads to the discussion of bias–variance in λ selection → [@sec-td9]
 :::
 
-**↑ 올라가기**: [@sec-td4]
+**↑ Go Up**: [@sec-td4]
 
-## TD(0)의 성격 {#sec-td5}
+## TD(0) characteristics {#sec-td5}
 
-**먼저 떠올릴 질문.** 한 번의 갱신에서 $v$의 원소 몇 개가 바뀌는가? 한 번 갱신하는 데 필요한 데이터는?
+**First question to consider.** How many elements of $v$ are changed in a single update? What is the amount of data required for a single update?
 
-**답.**
+**Answer.**
 
-- **완전히 incremental하다.** 방문한 상태 $s_t$에서만 갱신한다. 상태 $s_t=i$를 방문하면 그 시점에는 $v$의 $i$번째 원소만 바뀐다. 그래서 **lookup table 표현**이 필요하다.
-- **가장 가볍다(lightest).** 갱신 한 번에 $(s_t,a_t,s_{t+1},r_t)$ 하나만 쓴다.
-- **완전히 online이다.** 전이 샘플이 들어올 때마다 반복을 한 번 할 수 있다.
+- **It is completely incremental.** Updates are performed only on visited states $s_t$. When state $s_t=i$ is visited, at that point only the $i$-th element of $v$ changes. Therefore, a **lookup table representation** is required.
+- **lightest.** Uses only $(s_t,a_t,s_{t+1},r_t)$ per update.
+- **It is completely online.** It can repeat once whenever a transition sample comes in.
 
-대가도 있다. 한 시점에 한 원소만 바뀌므로 전체적으로 갱신이 천천히 퍼진다.
+There is also a cost. Since only one element changes at a time, the update spreads slowly throughout.
 
-::: {.callout-tip collapse="true" title="의의"}
-Q-learning도 똑같이 $(s_t,a_t)$ 한 칸만 갱신하는 tabular, fully online 방법이다. 상태(-행동) 공간이 커지면 이 방식이 감당할 수 없는 이유, 즉 함수 근사가 필요한 이유가 여기서 이미 보인다.
+::: {.callout-tip collapse="true" title="Significance"}
+Q-learning is also a tabular, fully online method that updates only one cell $(s_t,a_t)$ in the same way. The reason why this method cannot handle a large state (-behavior) space—that is, the reason why function approximation is necessary—is already visible here.
 :::
 
-**↑ 올라가기**: [@sec-td0]
+**↑ Go Up**: [@sec-td0]
 
-# III. Multi-step 일반화와 TD(λ) {#sec-partIII}
+# III. Multi-step Generalization and TD(λ) {#sec-partIII}
 
-## $(\ell+1)$-step Bellman 방정식 {#sec-td6}
+## $(\ell+1)$-step Bellman equation {#sec-td6}
 
-**먼저 떠올릴 질문.** 가치 분해를 "즉각 보상 + 다음 상태의 가치"가 아니라 더 뒤에서 자르면 어떤 식이 되는가?
+**First question to consider.** What happens if value decomposition is cut further back, rather than as "immediate reward + value of the next state"?
 
-**답.** 위첨자 $\pi$를 생략하고 쓰면, 각 $\ell\ge0$에 대해
+**Answer.** If we omit the superscript $\pi$, for each $\ell\ge0$
 
 $$
 v(s_t)=\mathbb{E}^\pi\Big[\sum_{k=0}^{\ell}\gamma^kr(s_{t+k},a_{t+k})+\gamma^{\ell+1}v(s_{t+\ell+1})\,\Big|\,\mathcal F_t\Big].
 $$
 
-가치를 두 부분으로 쪼개는 시점을 현재가 아니라 $\ell$스텝 뒤로 미룬 것이다. 시점 $t$부터 $t+\ell$까지의 보상은 실제 보상으로 쓰고, 그 뒤는 $t+\ell+1$의 가치로 대신한다. $\ell=0$이면 앞의 1-step 방정식이다.
+This shifts the point at which the value is split into two parts from the present to $\ell$ steps later. The reward from point $t$ to $t+\ell$ is used as the actual reward, and the subsequent period is replaced by the value of $t+\ell+1$. If it is $\ell=0$, it is the preceding 1-step equation.
 
-이 방정식들은 $\ell=0,1,2,\dots$ 모두에 대해 동시에 성립한다. $v^\pi$를 특징짓는 식이 무한히 많다는 뜻이다.
+These equations hold simultaneously for all $\ell=0,1,2,\dots$. This means that there are infinitely many equations characterizing $v^\pi$.
 
-**↓ 내려가기**: [@sec-td6a] · [@sec-td6b]
-**↑ 올라가기**: [@sec-td0]
+**↓ Down**: [@sec-td6a] · [@sec-td6b] 
+**↑ Up**: [@sec-td0]
 
-### $\mathcal F_t$는 무엇인가 {#sec-td6a}
+### What is $\mathcal F_t$ {#sec-td6a}
 
-**답.** 시점 $t$까지 관측된 정보 전체(history)다.
+**Answer.** It is the entire history of information observed up to time $t$.
 
 $$
 \mathcal F_t\ \leftrightarrow\ (s_0,a_0,r_0,\ s_1,a_1,r_1,\ \dots,\ s_t).
 $$
 
-"$\mid\mathcal F_t$"는 이 값들을 고정된 것으로 보고, 아직 일어나지 않은 미래만 무작위로 보고 평균 낸다는 뜻이다. 위 식에서 $s_t$와 $r(s_t,a_t)$는 고정되고, $s_{t+1},\dots,s_{t+\ell+1}$과 그에 따른 보상이 무작위다. 고정된 정책 아래 Markov 성질에 의해 $\mathbb{E}^\pi[\cdot\mid\mathcal F_t]=\mathbb{E}^\pi[\cdot\mid s_t]$이다.
+"$\mid\mathcal F_t$" means that these values are treated as fixed, and only futures that have not yet occurred are considered randomly and averaged. In the above equation, $s_t$ and $r(s_t,a_t)$ are fixed, while $s_{t+1},\dots,s_{t+\ell+1}$ and the corresponding reward are random. Under a fixed policy, due to the Markov property, it is $\mathbb{E}^\pi[\cdot\mid\mathcal F_t]=\mathbb{E}^\pi[\cdot\mid s_t]$.
 
-::: {.callout-note collapse="true" title="근거: 측도론적 의미"}
-$\mathcal F_t=\sigma(s_0,a_0,\dots,s_t)$, 즉 이 확률 변수들이 생성하는 σ-algebra다. 정보는 쌓이기만 하므로 $\mathcal F_0\subseteq\mathcal F_1\subseteq\cdots$이고, 이런 증가열을 filtration이라 한다.
+::: {.callout-note collapse="true" title="Basis: Measured meaning"}
+$\mathcal F_t=\sigma(s_0,a_0,\dots,s_t)$, that is, the σ-algebra generated by these random variables. Since information only accumulates, it is $\mathcal F_0\subseteq\mathcal F_1\subseteq\cdots$, and this increasing sequence is called filtration.
 :::
 
-::: {.callout-tip collapse="true" title="의의"}
-$s_t$만으로 충분한데 굳이 $\mathcal F_t$로 쓰는 이유는 SA의 잡음 조건과 표기를 맞추기 위해서다. 학습 중인 추정치 $v$는 과거 샘플 전체로 만들어졌으므로, 잡음의 조건부 평균·분산 조건은 history 전체에 대해 서술해야 한다 → [@sec-td10a]
+::: {.callout-tip collapse="true" title="Significance"}
+Although $s_t$ is sufficient, the reason for specifically using $\mathcal F_t$ is to match the noise conditions and notation of SA. Since the estimate being trained, $v$, is generated from the entire past sample, the conditional mean and variance conditions for noise must be described for the entire history → [@sec-td10a]
 :::
 
-**↑ 올라가기**: [@sec-td6]
+**↑ Go Up**: [@sec-td6]
 
-### ✍ $(\ell+1)$-step 방정식은 왜 성립하는가 {#sec-td6b}
+### Why do the ✍ $(\ell+1)$-step equations hold? {#sec-td6b}
 
-안내 질문:
+Guide Question:
 
-1. 1-step 방정식을 시점 $t+1$에서 쓰고, 시점 $t$의 1-step 방정식에 대입하라. 반복 기댓값 법칙은 어디에 쓰이는가?
-2. 귀납법으로 일반 $\ell$에 대해 보여라.
+1. Write the 1-step equation at time point $t+1$ and substitute it into the 1-step equation at time point $t$. Where is the iterative expectation rule applied?
+2. Show for the general $\ell$ by induction.
 
-::: {.callout-note collapse="true" title="풀이"}
-**1.** 시점 $t$와 $t+1$의 1-step 방정식은
+::: {.callout-note collapse="true" title="Solution"}
+**1.** The 1-step equations for time points $t$ and $t+1$ are
 $$
 v_t=\mathbb{E}^\pi[r_t+\gamma v_{t+1}\mid\mathcal F_t],\qquad
 v_{t+1}=\mathbb{E}^\pi[r_{t+1}+\gamma v_{t+2}\mid\mathcal F_{t+1}].
 $$
-둘째 식을 첫째에 대입하고, $\mathcal F_t\subseteq\mathcal F_{t+1}$이므로 $\mathbb{E}[\mathbb{E}[\cdot\mid\mathcal F_{t+1}]\mid\mathcal F_t]=\mathbb{E}[\cdot\mid\mathcal F_t]$를 쓰면
+Substitute the second expression into the first, and since $\mathcal F_t\subseteq\mathcal F_{t+1}$, if we use $\mathbb{E}[\mathbb{E}[\cdot\mid\mathcal F_{t+1}]\mid\mathcal F_t]=\mathbb{E}[\cdot\mid\mathcal F_t]$
 $$
 v_t=\mathbb{E}^\pi[r_t+\gamma r_{t+1}+\gamma^2v_{t+2}\mid\mathcal F_t].
 $$
 
-**2.** $\ell$에서 성립한다고 하자. 마지막 항 $v_{t+\ell+1}$에 시점 $t+\ell+1$의 1-step 방정식을 대입하고 같은 반복 기댓값 법칙을 쓰면 $\ell+1$에서의 식이 나온다.
+Let's assume that **2.** $\ell$ holds. Substituting the 1-step equation at time $t+\ell+1$ into the last term $v_{t+\ell+1}$ and applying the same iterative expectation rule yields the equation at $\ell+1$.
 :::
 
-**↑ 올라가기**: [@sec-td6]
+**↑ Go Up**: [@sec-td6]
 
-## λ-가중평균: TD 오차의 합으로 {#sec-td7}
+## λ-weighted average: as the sum of TD errors {#sec-td7}
 
-**먼저 떠올릴 질문.** 성립하는 방정식이 무한히 많다. 이것들을 하나의 방정식으로 합치려면, 합이 1인 가중치를 어떻게 고르면 계산이 깔끔해지는가?
+**First question to consider.** There are infinitely many valid equations. To combine them into a single equation, how should weights be selected such that their sum is 1 to ensure a clean calculation?
 
-**답.** 등비급수 성질을 쓴다. $\lambda<1$에 대해
+**Answer.** Use the properties of geometric series. For $\lambda<1$
 
 $$
 (1-\lambda)\sum_{\ell=m}^\infty\lambda^\ell=\lambda^m,\qquad\text{특히}\quad(1-\lambda)\sum_{\ell=0}^\infty\lambda^\ell=1.
 $$
 
-$(\ell+1)$-step 방정식에 가중치 $(1-\lambda)\lambda^\ell$을 주고 가중평균한다.
+Apply weights $(1-\lambda)\lambda^\ell$ to the $(\ell+1)$-step equation and perform a weighted average.
 
-| $\ell$ | 방정식 | 가중치 |
+| $\ell$ | Equation | Weight |
 |---|---|---|
 | 0 | $r_t+\gamma v_{t+1}$ | $1-\lambda$ |
 | 1 | $r_t+\gamma r_{t+1}+\gamma^2v_{t+2}$ | $(1-\lambda)\lambda$ |
 | 2 | 3-step | $(1-\lambda)\lambda^2$ |
 | ⋮ | ⋮ | ⋮ |
 
-정리하면 temporal difference의 할인합이 남는다.
+Summarizing leaves the discounted sum of temporal differences.
 
 $$
 \boxed{\,v(s_t)=\mathbb{E}^\pi\Big[\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k\,\Big|\,\mathcal F_t\Big]+v(s_t),\qquad d_k:=r(s_k,\pi(s_k))+\gamma v(s_{k+1})-v(s_k).\,}
 $$
 
-**↓ 내려가기**: [@sec-td7a] · [@sec-td7b] · [@sec-td7c]
-**↑ 올라가기**: [@sec-td0]
+**↓ Down**: [@sec-td7a] · [@sec-td7b] · [@sec-td7c] 
+**↑ Up**: [@sec-td0]
 
-### ✍ 유도를 한 줄씩 {#sec-td7a}
+### ✍ Derivation one line at a time {#sec-td7a}
 
-안내 질문:
+Guide Question:
 
-1. $v_t=(1-\lambda)\sum_\ell\lambda^\ell v_t$로 쓴 뒤, $\ell$번째 조각에 무엇을 대입하는가?
-2. 결과를 보상 부분 $A$와 가치 부분 $B$로 나눠라.
-3. $A$의 이중합 순서를 바꾸고 등비급수 성질을 써라.
-4. $B$를 두 합으로 나누고, 둘째 합의 인덱스를 한 칸 옮겨라. $v_t$는 왜 남는가?
-5. 합친 뒤 $\gamma^k$를 묶고 인덱스를 절대 시점으로 바꿔라.
+1. After writing as $v_t=(1-\lambda)\sum_\ell\lambda^\ell v_t$, what is substituted into the $\ell$-th piece?
+2. Divide the result into a reward part $A$ and a value part $B$.
+3. Change the order of the double sum of $A$ and write the properties of the geometric series.
+4. Divide $B$ into two sums, and shift the index of the second sum by one position. Why does $v_t$ remain?
+5. After combining , group $\gamma^k$ and change the index to absolute.
 
-::: {.callout-note collapse="true" title="풀이"}
-**1. 양변에 1을 곱한다.**
+::: {.callout-note collapse="true" title="Solution"}
+**1. Multiply both sides by 1.**
 $$
 v_t=(1-\lambda)\sum_{\ell=0}^\infty\lambda^\ell v_t.
 $$
-$v_t$를 무게 $(1-\lambda)\lambda^\ell$인 조각들로 나눈 것이다. $\ell$번째 조각에 $(\ell+1)$-step 방정식을 대입하고, 기댓값의 선형성으로 합을 안으로 넣는다.
+$v_t$ is divided into pieces of weight $(1-\lambda)\lambda^\ell$. Substitute the $(\ell+1)$-step equation into the $\ell$-th piece, and take the sum inside using the linearity of expectation.
 $$
 v_t=(1-\lambda)\,\mathbb{E}^\pi\Big[\sum_{\ell=0}^\infty\lambda^\ell\Big(\sum_{k=0}^\ell\gamma^kr_{t+k}+\gamma^{\ell+1}v_{t+\ell+1}\Big)\,\Big|\,\mathcal F_t\Big].
 $$
 
-**2. 두 덩어리로 나눈다.**
+**2. Divide into two chunks.**
 $$
 A:=(1-\lambda)\sum_{\ell=0}^\infty\lambda^\ell\sum_{k=0}^\ell\gamma^kr_{t+k},\qquad
 B:=\sum_{\ell=0}^\infty(\lambda^\ell-\lambda^{\ell+1})\gamma^{\ell+1}v_{t+\ell+1}.
 $$
-$B$는 $(1-\lambda)$를 안으로 분배만 한 것이다.
+$B$ is simply $(1-\lambda)$ distributed internally.
 
-**3. $A$: 합의 순서를 바꾼다.** 범위 $0\le k\le\ell<\infty$를 $k$ 먼저 읽으면 $k\ge0$, $\ell\ge k$다 → [@sec-td7b]
+**3. $A$: Changes the order of the sum.** If range $0\le k\le\ell<\infty$ is read $k$ first, then $k\ge0$, $\ell\ge k$ → [@sec-td7b]
 $$
 A=(1-\lambda)\sum_{k=0}^\infty\gamma^kr_{t+k}\sum_{\ell=k}^\infty\lambda^\ell=\sum_{k=0}^\infty\lambda^k\gamma^kr_{t+k}.
 $$
 
-**4. $B$: 두 합으로 나누고 인덱스를 옮긴다.**
+**4. $B$: Divide by the two sums and shift the index.**
 $$
 B=\underbrace{\sum_{\ell\ge0}\lambda^\ell\gamma^{\ell+1}v_{t+\ell+1}}_{B_1}-\underbrace{\sum_{\ell\ge0}\lambda^{\ell+1}\gamma^{\ell+1}v_{t+\ell+1}}_{B_2}.
 $$
-$B_1$은 $\ell$을 $k$로 이름만 바꾼다. $B_2$는 $j=\ell+1$로 두면 $j\ge1$이다. $j=0$ 항($v_t$)을 더하고 빼서 0부터 시작하게 맞춘다.
+$B_1$ is $\ell$, but $k$. If $B_2$ is set to $j=\ell+1$, it becomes $j\ge1$. Add and subtract the $j=0$ term ($v_t$) to make it start from 0.
 $$
 B_2=\sum_{k\ge0}\lambda^k\gamma^kv_{t+k}-v_t.
 $$
-따라서
+Therefore
 $$
 B=\sum_{k\ge0}\lambda^k\gamma^{k+1}v_{t+k+1}-\sum_{k\ge0}\lambda^k\gamma^kv_{t+k}+v_t.
 $$
-마지막 $v_t$는 $k=0$ 항 하나가 빠져 있어서 남은 것이다. $v_t$는 $\mathcal F_t$가 주어지면 고정되므로 기댓값 밖으로 나온다.
+The last $v_t$ is what remains because one term, $k=0$, is missing. $v_t$ is fixed when $\mathcal F_t$ is given, so it falls outside the expected value.
 
-**5. 합치고 묶는다.** 세 합이 같은 $\lambda^k$를 가지므로
+**5. Combine and group.** Since $\lambda^k$ has the same sum,
 $$
 v_t=\mathbb{E}^\pi\Big[\sum_{k=0}^\infty\lambda^k\big(\gamma^kr_{t+k}+\gamma^{k+1}v_{t+k+1}-\gamma^kv_{t+k}\big)\,\Big|\,\mathcal F_t\Big]+v_t.
 $$
-$\gamma^k$를 꺼내면 $\lambda^k\gamma^k(r_{t+k}+\gamma v_{t+k+1}-v_{t+k})=(\lambda\gamma)^kd_{t+k}$이다. 절대 시점 $j=t+k$로 바꾸면($k=0\leftrightarrow j=t$) 상자 안의 식이 된다.
+If you take out $\gamma^k$, it becomes $\lambda^k\gamma^k(r_{t+k}+\gamma v_{t+k+1}-v_{t+k})=(\lambda\gamma)^kd_{t+k}$. If you change it to the absolute point $j=t+k$ ($k=0\leftrightarrow j=t$), it becomes the expression inside the box.
 :::
 
-::: {.callout-note collapse="true" title="근거: 합의 교환이 정당한 이유"}
-보상이 유계이고 $\gamma<1$, $\lambda<1$이면 모든 급수가 절대수렴한다. Fubini–Tonelli 정리에 의해 무한합의 순서 교환과, 합과 기댓값의 교환이 정당하다.
+::: {.callout-note collapse="true" title="Basis: Reasons why the agreement exchange is justified"}
+If the reward is bounded and $\gamma<1$, $\lambda<1$, then all series converge absolutely. By the Fubini–Tonelli theorem, the order exchange of infinite sums and the exchange of sums and expectations are valid.
 :::
 
-**↑ 올라가기**: [@sec-td7]
+**↑ Go Up**: [@sec-td7]
 
-### 합의 순서를 기계적으로 바꾸는 법 {#sec-td7b}
+### How to mechanically change the order of the agreement {#sec-td7b}
 
-**먼저 떠올릴 질문.** 그림을 그리지 않고도 $\sum_{\ell=0}^\infty\sum_{k=0}^\ell$을 $\sum_k\sum_\ell$로 바꿀 수 있는가?
+**First question to think of.** Can you change $\sum_{\ell=0}^\infty\sum_{k=0}^\ell$ to $\sum_k\sum_\ell$ without drawing a picture?
 
-**답.** 범위를 **부등식 하나로 모은 뒤, 새 바깥 변수부터 다시 읽는다.**
+**Answer.** Combine the range into a single inequality, then read again starting from the new outer variable.**
 
-1. **범위를 모은다.** 바깥 범위와 안쪽 범위를 한데 쓴다: $0\le\ell<\infty$, $0\le k\le\ell$. 이제 이중합은 "이 부등식을 만족하는 모든 $(\ell,k)$에 대해 더한다"는 뜻일 뿐이다.
-2. **정리한다**: $0\le k\le\ell<\infty$.
-3. **새 바깥 변수의 범위**: 안쪽 변수 $\ell$을 지우고 남는 $k$의 범위. $0\le k<\infty$.
-4. **새 안쪽 변수의 범위**: $k$를 상수로 보고 $\ell$의 하한 중 최댓값부터 상한 중 최솟값까지. $\ell\ge k$, $\ell\ge0$, $\ell<\infty$이므로 $\ell=k,\dots,\infty$.
+1. **Combine the ranges.** Combine the outer and inner ranges: $0\le\ell<\infty$, $0\le k\le\ell$. Now, the double sum simply means "add for all $(\ell,k)$ that satisfy this inequality."
+2. **Organize**: $0\le k\le\ell<\infty$.
+3. **Scope of new outer variable**: The scope of $\ell$ remaining after clearing inner variable $k$. $0\le k<\infty$.
+4. **Range of new inner variable**: Treating $k$ as a constant, from the maximum of the lower bounds of $\ell$ to the minimum of the upper bounds. Since $\ell\ge k$, $\ell\ge0$, and $\ell<\infty$, $\ell=k,\dots,\infty$.
 
 $$
 \sum_{\ell=0}^\infty\sum_{k=0}^\ell f(\ell,k)=\sum_{k=0}^\infty\sum_{\ell=k}^\infty f(\ell,k).
 $$
 
-인덱스 이동도 같은 방식으로 기계적으로 한다. $j=\ell+1$이면 $\ell=j-1$을 옛 범위 $\ell\ge0$에 넣어 $j\ge1$을 얻고, 합 안의 $\ell$을 모두 $j-1$로 바꾼다.
+Index shifts are also performed mechanically in the same way. If it is $j=\ell+1$, $\ell=j-1$ is placed into the old range $\ell\ge0$ to obtain $j\ge1$, and all $\ell$ within the sum are changed to $j-1$.
 
-::: {.callout-note collapse="true" title="연습과 검산"}
-**연습.** $\sum_{i=1}^n\sum_{j=i}^nf(i,j)$의 범위는 $1\le i\le j\le n$이다. 바깥을 $j$로 하면 $1\le j\le n$, 안쪽은 $1\le i\le j$다. 따라서 $\sum_{j=1}^n\sum_{i=1}^jf(i,j)$.
+::: {.callout-note collapse="true" title="Practice and Verification"}
+**Practice.** The range of $\sum_{i=1}^n\sum_{j=i}^nf(i,j)$ is $1\le i\le j\le n$. If we set the outside to $j$, it is $1\le j\le n$, and the inside is $1\le i\le j$. Therefore, $\sum_{j=1}^n\sum_{i=1}^jf(i,j)$.
 
-**검산.** $\ell\le2$까지 잘라서 쌍을 나열해 비교한다.
+**Verification.** Cut up to $\ell\le2$, arrange the pairs, and compare.
 
-- 바꾸기 전: $(0,0),\ (1,0),(1,1),\ (2,0),(2,1),(2,2)$
-- 바꾼 뒤: $k=0$에서 $(0,0),(1,0),(2,0)$, $k=1$에서 $(1,1),(2,1)$, $k=2$에서 $(2,2)$
+- Before replacement: $(0,0),\ (1,0),(1,1),\ (2,0),(2,1),(2,2)$
+- After changing: $k=0$ to $(0,0),(1,0),(2,0)$, $k=1$ to $(1,1),(2,1)$, $k=2$ to $(2,2)$
 
-같은 여섯 쌍이면 맞다.
+If there are six identical pairs, it is correct.
 :::
 
-**↑ 올라가기**: [@sec-td7]
+**↑ Go Up**: [@sec-td7]
 
-### 이 식은 무엇을 말하는가 {#sec-td7c}
+### What does this expression mean? {#sec-td7c}
 
-**답.** 양변에 $v(s_t)$가 있으므로, 상자 안의 식은 다음과 같은 말이다.
+**Answer.** Since $v(s_t)$ is present on both sides, the expression inside the box is as follows.
 
 $$
 \mathbb{E}^\pi\Big[\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k\,\Big|\,\mathcal F_t\Big]=0.
 $$
 
-$v=v^\pi$이면 각 $d_k$의 조건부 평균이 이미 0이므로(1-step 방정식과 반복 기댓값 법칙) 자연스러운 결과다. 억지로 만든 형태이긴 하지만, 우변에 $v(s_t)$를 그대로 둔 형태 $v=(\text{기댓값})+v$가 SA의 $x=Hx$ 꼴에 정확히 맞는다. 그래서 multi-step Bellman 방정식도 고정점 문제가 된다.
+If $v=v^\pi$, this is a natural result because the conditional mean of each $d_k$ is already zero (due to the 1-step equation and the iterative expectation law). Although it is a contrived form, the form $v=(\text{기댓값})+v$, with $v(s_t)$ left on the right side, fits exactly the form $x=Hx$ of SA. Therefore, the multi-step Bellman equation also becomes a fixed-point problem.
 
-::: {.callout-tip collapse="true" title="의의"}
-이 고정점 문제의 기댓값 자리를 단일 궤적 샘플로 바꾸면 TD(λ)가 된다 → [@sec-td8]. 고정점 사상 $H$를 벡터로 쓰면 수렴 증명의 출발점이 된다 → [@sec-td10a]
+::: {.callout-tip collapse="true" title="Significance"}
+Replacing the expectation digit of this fixed-point problem with a single locus sample yields TD(λ) → [@sec-td8]. Writing the fixed-point mapping $H$ as a vector gives the starting point for the convergence proof → [@sec-td10a]
 :::
 
-**↑ 올라가기**: [@sec-td7]
+**↑ Go Up**: [@sec-td7]
 
-## TD(λ) 알고리즘 {#sec-td8}
+## TD(λ) algorithm {#sec-td8}
 
-**먼저 떠올릴 질문.** [@sec-td7]의 고정점 문제에 Robbins–Monro를 적용하면 갱신식은? 그 갱신을 하려면 언제까지의 데이터가 필요한가?
+**First question to think of.** If Robbins–Monroe is applied to [@sec-td7]'s fixed-point problem, what is the update formula? Up to how much data is needed to perform that update?
 
-**답.** 옛 추정치에 $1-\alpha_t$, 새 추정치의 단일 샘플 버전에 $\alpha_t$의 가중치를 둔다.
+**Answer.** Weight the old estimate $1-\alpha_t$ and the single-sample version of the new estimate $\alpha_t$.
 
 $$
 v(s_t)\leftarrow(1-\alpha_t)v(s_t)+\alpha_t\Big(\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k+v(s_t)\Big).
 $$
 
-$\alpha_t$로 묶으면 앞뒤의 $v(s_t)$가 지워진다.
+If you group it as $\alpha_t$, the $v(s_t)$ at the beginning and end will be erased.
 
 $$
 \boxed{\,v(s_t)\leftarrow v(s_t)+\alpha_t\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k\,}
 $$
 
-**TD(λ) 알고리즘**
+**TD(λ) Algorithm**
 
-1. 정책 $\pi\in\Pi$를 고정한다.
-2. $v\equiv0$으로 초기화한다.
-3. 전이 데이터 $\{(s_t,a_t,s_{t+1},r_t)\}$로 $v(s_t)\leftarrow v(s_t)+\alpha_t\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k$, 여기서 $d_k:=r_k+\gamma v(s_{k+1})-v(s_k)$.
+1. Fix policy $\pi\in\Pi$.
+2. Initialize to $v\equiv0$.
+3. transition data $\{(s_t,a_t,s_{t+1},r_t)\}$ to $v(s_t)\leftarrow v(s_t)+\alpha_t\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k$, where $d_k:=r_k+\gamma v(s_{k+1})-v(s_k)$.
 
-이것도 정책 평가 방법이고, 매 반복에 한 원소만 갱신한다. 갱신에 $k=t,t+1,\dots$의 $d_k$가 필요하므로, TD(0)가 아니면 **완전히 online은 아니다.** 궤적 데이터를 어느 정도 모은 뒤에 갱신할 수 있다.
+This is also a policy evaluation method, and only one element is updated in each iteration. Since $k=t,t+1,\dots$'s $d_k$ is required for the update, it is not **completely online** unless TD(0) is collected, so it can be updated after collecting some trajectory data.
 
-**↓ 내려가기**: [@sec-td8a] · [@sec-td8b]
-**↑ 올라가기**: [@sec-td0]
+**↓ Down**: [@sec-td8a] · [@sec-td8b] 
+**↑ Up**: [@sec-td0]
 
-### ✍ 두 극단: λ = 0과 λ = 1 {#sec-td8a}
+### ✍ Two extremes: λ = 0 and λ = 1 {#sec-td8a}
 
-안내 질문:
+Guide Question:
 
-1. $\lambda=0$일 때 계수 $(\lambda\gamma)^{k-t}$는 $k=t$와 $k>t$에서 각각 무엇인가? 어떤 관례가 필요한가?
-2. $\lambda=1$, $t=0$이면 $\sum_k\gamma^kd_k$는 무엇이 되는가? $\gamma^Kv(s_K)\to0$을 가정하라.
+1. When $\lambda=0$, what is the coefficient $(\lambda\gamma)^{k-t}$ for $k=t$ and $k>t$, respectively? What convention is required?
+2. If $\lambda=1$, $t=0$, then what is $\sum_k\gamma^kd_k$? Assume $\gamma^Kv(s_K)\to0$.
 
-::: {.callout-note collapse="true" title="풀이"}
-**1.** 관례 $0^0=1$을 쓰면 $k=t$에서 1, $k>t$에서 0이다. 합에서 $d_t$만 남는다.
+::: {.callout-note collapse="true" title="Solution"}
+**1.** If we use the convention $0^0=1$, $k=t$ is 1 and $k>t$ is 0. Only $d_t$ remains in the sum.
 $$
 v(s_t)\leftarrow v(s_t)+\alpha d_t=v(s_t)+\alpha\big[r_t+\gamma v(s_{t+1})-v(s_t)\big].
 $$
-TD(0)다.
+TD(0)
 
-**2.** 망원급수가 된다.
+**2.** It becomes a telephoto lens.
 $$
 \sum_{k=0}^\infty\gamma^kd_k=\sum_k\gamma^kr_k+\sum_k\big(\gamma^{k+1}v(s_{k+1})-\gamma^kv(s_k)\big)=\sum_k\gamma^kr_k-v(s_0).
 $$
-따라서 갱신은 $v(s_0)\leftarrow v(s_0)+\alpha\big(c-v(s_0)\big)$, $c=\sum_k\gamma^kr_k$이다. 이는 [@sec-td1]의 Monte Carlo 반복식과 같은 꼴이다. 중간 가치들은 모두 소거되고 실제 보상만 남는다.
+Therefore, the updates are $v(s_0)\leftarrow v(s_0)+\alpha\big(c-v(s_0)\big)$ and $c=\sum_k\gamma^kr_k$. This is the same form as the Monte Carlo iteration of [@sec-td1]. All intermediate values are eliminated, and only the actual reward remains.
 :::
 
-::: {.callout-tip collapse="true" title="의의"}
-TD(λ)는 TD(0)와 MC를 양 끝으로 하는 연속적인 족이다. λ는 현재 추정치에 얼마나 기댈지(bootstrapping)와 실제 보상을 얼마나 멀리까지 쓸지를 조절한다 → [@sec-td9]
+::: {.callout-tip collapse="true" title="Significance"}
+TD(λ) is a continuous family with TD(0) and MC as the endpoints. λ controls how much to bootstrap on the current estimate and how far to use the actual reward → [@sec-td9]
 :::
 
-**↑ 올라가기**: [@sec-td8]
+**↑ Go Up**: [@sec-td8]
 
-### TD(0)의 "0"은 무엇인가 {#sec-td8b}
+### What is the "0" of TD(0)? {#sec-td8b}
 
-**답.** TD(λ)의 파라미터 λ에 0을 넣은 경우라는 뜻이다. λ = 0이면 [@sec-td7]의 가중치가 모두 1-step 방정식($\ell=0$)에 몰린다.
+**Answer.** This means that 0 is entered for the parameter λ of TD(λ). If λ = 0, all weights of [@sec-td7] are concentrated in the 1-step equation ($\ell=0$).
 
-"0"은 내다보는 스텝 수가 아니다. TD(0)는 보상 하나를 관측하고 한 스텝 뒤 상태의 가치를 쓰는 **1-step** 방법이다. 스텝 수를 직접 지정하는 n-step TD 표기에서는 TD(0)가 1-step TD에 해당한다.
+"0" is not the number of steps being looked ahead. TD(0) is a **1-step** method that observes one reward and writes the value of the state one step later. In n-step TD notation where the number of steps is specified directly, TD(0) corresponds to 1-step TD.
 
-**↑ 올라가기**: [@sec-td8]
+**↑ Go Up**: [@sec-td8]
 
-# IV. λ의 선택 {#sec-partIV}
+# IV. Selection of λ {#sec-partIV}
 
 ## Bias–variance trade-off {#sec-td9}
 
-**먼저 떠올릴 질문.** TD(0)의 목표값 $r_t+\gamma v(s_{t+1})$과 MC의 목표값 $\sum_k\gamma^kr_k$에서, 편향은 어디서 오고 분산은 어디서 오는가?
+**First question to consider.** Given the target value of TD(0) $r_t+\gamma v(s_{t+1})$ and the target value of MC $\sum_k\gamma^kr_k$, where does the bias come from and where does the variance come from?
 
-**답.**
+**Answer.**
 
 $$
 \textbf{큰 }\lambda\textbf{: 작은 bias, 큰 variance}\qquad\qquad
 \textbf{작은 }\lambda\textbf{: 큰 bias, 작은 variance}
 $$
 
-- 큰 λ는 MC에 가깝다. MC는 실제 보상만 쓰므로 편향이 없다. 하지만 긴 궤적의 무작위 보상과 전이를 모두 더하므로 분산이 크다.
-- 작은 λ는 TD(0)에 가깝다. 단일 샘플과 현재 추정치 $v(s_{t+1})$로 근사하므로, $v$가 부정확한 동안에는 편향이 크다. 대신 무작위 요소가 한 스텝뿐이라 분산이 작다.
+- A large λ is close to MC. MC uses only actual rewards, so it is unbiased. However, since it sums up both random rewards and transitions from long trajectories, it has large variance.
+- Small λ is close to TD(0). Since it approximates a single sample with the current estimate $v(s_{t+1})$, the bias is large while $v$ is inaccurate. Instead, the variance is small because there is only one step of random elements.
 
-::: {.callout-note collapse="true" title="근거: 목표값의 비교"}
-TD(λ)의 갱신은 $v(s_t)$를 다음 목표값 쪽으로 옮기는 것이다.
+::: {.callout-note collapse="true" title="Rationale: Comparison of target values"}
+The update of TD(λ) is to move $v(s_t)$ toward the next target value.
 $$
 v(s_t)+\sum_{k\ge t}(\lambda\gamma)^{k-t}d_k.
 $$
 
-- $\lambda=1$: 망원급수로 $\sum_k\gamma^{k-t}r_k$, 즉 실제 할인 누적 보상이다. 무작위 항이 궤적 길이만큼 쌓인다.
-- $\lambda=0$: $r_t+\gamma v(s_{t+1})$. 무작위 항은 $s_{t+1}$ 하나뿐이다. 그 대신 $v$의 오차가 그대로 목표값에 들어간다.
+- $\lambda=1$: $\sum_k\gamma^{k-t}r_k$, that is, the actual discount accumulation reward. Random terms are accumulated for the length of the trajectory.
+- $\lambda=0$: $r_t+\gamma v(s_{t+1})$. There is only one random term, $s_{t+1}$. Instead, the error of $v$ is incorporated directly into the target value.
 :::
 
-**↓ 내려가기**: [@sec-td9a] · [@sec-td9b]
-**↑ 올라가기**: [@sec-td0]
+**↓ Down**: [@sec-td9a] · [@sec-td9b] 
+**↑ Up**: [@sec-td0]
 
-### ✍ 두 상태 예시 {#sec-td9a}
+### ✍ Two-state example {#sec-td9a}
 
-Markov chain에서 두 상태 1, 2가 인접해 있고 $p_{12}>0$, $p_{21}=0$이다. 각 궤적은 상태 1을 한 번만 방문한다.
+In a Markov chain, two states 1 and 2 are adjacent, $p_{12}>0$ and $p_{21}=0$. Each locus visits state 1 exactly once.
 
-안내 질문:
+Guide Question:
 
-1. 궤적 $m$에서 상태 1부터의 누적 보상 $c(1,m)$은 $v^\pi(1)$의 불편추정량인가? 이 표본평균을 쓰는 것은 어떤 TD(λ)에 해당하는가?
-2. $v^\pi(2)$의 정확한 추정치가 이미 있다고 하자. TD(1)은 이 정보를 $v^\pi(1)$ 학습에 쓸 수 있는가?
-3. 1→2 전이가 일어났을 때 TD(0)의 목표값과 MC의 목표값을 비교하라. 어느 쪽 분산이 작은가?
+1. Is the cumulative reward $c(1,m)$ from state 1 at the trajectory $m$Z an unbiased estimator of $v^\pi(1)$? For which TD(λ) does using this sample mean correspond?
+2. Let's assume that an accurate estimate of $v^\pi(2)$ already exists. Can TD(1) use this information for learning $v^\pi(1)$?
+3. Compare the target value of TD(0) and the target value of MC when a 1→2 transition occurs. Which one has smaller variance?
 
-::: {.callout-note collapse="true" title="풀이"}
-**1.** 한 번만 방문하므로 $c(1,m)$은 정의상 $G(1)$의 독립 샘플이고 $\mathbb{E}[c(1,m)]=v^\pi(1)$이다(절단 무시). 표본평균을 쓰는 것은 TD(1)에 해당한다.
+::: {.callout-note collapse="true" title="Solution"}
+**1.** Since it is visited only once, $c(1,m)$ is by definition an independent sample of $G(1)$Z and $\mathbb{E}[c(1,m)]=v^\pi(1)$ (ignoring truncation). Writing the sample mean corresponds to TD(1).
 
-**2.** 쓰지 못한다. TD(1)의 목표값은 실제 보상의 합뿐이고, 어떤 상태의 가치 추정치도 들어가지 않는다 → [@sec-td8a]
+**2.** Cannot be used. The target value of TD(1) is only the sum of actual rewards, and does not include any state value estimates → [@sec-td8a]
 
-**3.** 1→2 전이에서 보상을 $r_1$이라 하자.
+**3.** Let $r_1$ be the reward for a 1→2 transition.
 
-- TD(0): $r_1+\gamma v^\pi(2)$. 무작위성은 $r_1$뿐이다(이 노트의 모델처럼 보상이 결정적이면 0).
-- MC: $r_1+\gamma G(2)$. Markov 성질에 의해 상태 2 이후의 미래는 $r_1$과 독립이므로
+- TD(0): $r_1+\gamma v^\pi(2)$. Randomness is only $r_1$ (0 if the reward is deterministic like the model in this note).
+- MC: $r_1+\gamma G(2)$. Due to Markov properties, the future after state 2 is independent of $r_1$, so
 $$
 \operatorname{Var}\big(r_1+\gamma G(2)\big)=\operatorname{Var}(r_1)+\gamma^2\operatorname{Var}\big(G(2)\big).
 $$
 
-TD(0)는 $\gamma^2\operatorname{Var}(G(2))$만큼의 분산을 없앤다. 상태 2에서 출발하는 미래 전체의 잡음을 정확한 추정치 하나로 대신했기 때문이다.
+TD(0) eliminates variance of $\gamma^2\operatorname{Var}(G(2))$. This is because the noise of the entire future starting from state 2 has been replaced by a single accurate estimate.
 :::
 
-::: {.callout-tip collapse="true" title="의의"}
-TD(0)는 이미 학습된 가치 정보를 매우 효율적으로 활용하고 보상 샘플의 잡음도 줄인다. 다만 그 효율은 $v(2)$가 정확할 때의 이야기다. $v(2)$가 틀리면 그 오차가 그대로 $v(1)$로 옮겨 간다. 이것이 bias 쪽의 대가다.
+::: {.callout-tip collapse="true" title="Significance"}
+TD(0) utilizes already learned value information very efficiently and also reduces noise in the reward samples. However, that efficiency is only when $v(2)$ is accurate. If $v(2)$ is incorrect, that error is transferred directly to $v(1)$. This is the price of bias.
 :::
 
-**↑ 올라가기**: [@sec-td9]
+**↑ Go Up**: [@sec-td9]
 
-### λ 스케줄링 {#sec-td9b}
+### λ scheduling {#sec-td9b}
 
-**먼저 떠올릴 질문.** 학습 초기와 후기에 $v$의 품질은 어떻게 다른가? 그에 따라 어느 쪽 오차를 더 걱정해야 하는가?
+**First question to consider.** How does the quality of $v$ differ between the early and late stages of learning? Accordingly, which error should be a greater concern?
 
-**답.** **큰 λ에서 시작해 0으로 줄인다.**
+**Answer.** **Start with a large λ and reduce to 0.**
 
-- 초기: $v$의 품질이 나쁘므로, $v$에 기대면 편향이 크다. 큰 λ로 실제 보상을 많이 써서 편향을 줄인다.
-- 후기: TD(λ)는 수렴하므로 진행될수록 $v$의 품질이 좋아진다. 이제 $v$에 기대도 편향이 작다. 작은 λ로 이미 가진 가치 정보를 활용해 분산을 줄이며 빠르게 갱신한다.
+- Initial: Since the quality of $v$ is poor, relying on $v$ results in a large bias. Reduce the bias by using a large λ to apply more real rewards.
+- Review: Since TD(λ) converges, the quality of $v$ improves as the process progresses. Now, relying on $v$ also results in small bias. By utilizing existing value information with a small λ, we reduce variance and update quickly.
 
-::: {.callout-tip collapse="true" title="의의"}
-"믿을 만한 정보가 쌓일수록 자기 추정치에 더 기댄다"는 원리다. 탐색 확률을 크게 시작해 줄여 가는 ε 스케줄과 같은 방향의 설계다.
+::: {.callout-tip collapse="true" title="Significance"}
+It is the principle that "the more reliable information accumulates, the more it relies on its own estimate." It is a design in the same direction as the ε schedule, which starts with a large search probability and reduces it.
 :::
 
-**↑ 올라가기**: [@sec-td9]
+**↑ Go Up**: [@sec-td9]
 
-# V. 수렴 {#sec-partV}
+# V. Convergence {#sec-partV}
 
-## 수렴 정리 {#sec-td10}
+## Convergence Theorem {#sec-td10}
 
-**답.**
+**Answer.**
 
-::: {.callout-important title="정리 (TD(λ)의 수렴)"}
-각 상태가 무한히 자주 방문되고
+::: {.callout-important title="Theorem (Convergence of TD(λ))"}
+Each state is visited infinitely often and
 $$
 \sum_{t=0}^\infty\alpha_t=+\infty,\qquad\sum_{t=0}^\infty\alpha_t^2<+\infty
 $$
-이면, 주어진 정책 $\pi\in\Pi$에 대해 TD(λ)가 생성하는 $v(s)$는 각 $s\in S$에서 **확률 1로** $v^\pi(s)$로 수렴한다.
+If , then for a given policy $\pi\in\Pi$, the $v(s)$ generated by TD(λ) converges to $v^\pi(s)$ with **probability 1** at each $s\in S$.
 :::
 
-TD(λ)는 stochastic approximation이므로 SA의 수렴 정리를 그대로 적용한다. step size 조건 두 개는 가정이고, 남은 두 가지는 증명할 수 있다.
+Since TD(λ) is a stochastic approximation, the convergence theorem of SA is applied directly. Two of the step size conditions are assumptions, and the remaining two can be proven.
 
-- multi-step Bellman 연산자 $H$가 축약이다.
-- 잡음이 조건부 평균 0, 조건부 분산 유계 조건을 만족한다.
+- is the multi-step Bellman operator $H$, which is an abbreviation.
+- The noise satisfies the conditional mean 0 and conditional variance bounded conditions.
 
-::: {.callout-tip collapse="true" title="의의"}
-이 정리는 결과와 증명 아이디어 수준으로 알아 두면 충분하다. 실제로는 "모든 상태를 무한히 자주 방문"과 step size 조건을 맞추기가 매우 까다롭다. 이론적 보장이 존재한다는 사실과, 그것이 SA의 두 축(축약 + 잡음 조건)에서 나온다는 구조를 기억한다.
+::: {.callout-tip collapse="true" title="Significance"}
+It is sufficient to know this theorem at the level of the result and the idea of the proof. In practice, satisfying the "visiting every state infinitely often" and step size conditions is very tricky. Remember the fact that theoretical guarantees exist and the structure in which they stem from the two axes of SA (contraction + noise conditions).
 :::
 
-**↓ 내려가기**: [@sec-td10a]
-**↑ 올라가기**: [@sec-td0]
+**↓ Down**: [@sec-td10a] 
+**↑ Up**: [@sec-td0]
 
-### ✍ 증명 아이디어: $H$의 축약과 잡음 조건 {#sec-td10a}
+### ✍ Proof Idea: Contraction of $H$ and noise conditions {#sec-td10a}
 
-안내 질문:
+Guide Question:
 
-1. [@sec-td7]의 고정점 방정식을 벡터로 쓰면 $v=Hv$의 $H$는 무엇인가? 상수항을 구하라.
-2. $H$가 $\|\cdot\|_\infty$에서 축약임을 보이고 계수를 구하라. λ = 0과 λ → 1에서 계수는?
-3. 잡음 $w_t$를 정의하고 조건부 평균 0을 확인하라. 조건부 분산은 왜 유계인가?
+1. If we write the fixed-point equation of [@sec-td7] as a vector, what is $v=Hv$ and $H$? Find the constant term.
+2. Show that $H$ is a contraction of $\|\cdot\|_\infty$Z and find the coefficients. What are the coefficients for λ = 0 and λ → 1?
+3. Define noise $w_t$ and verify that the conditional mean is 0. Why is the conditional variance bounded?
 
-::: {.callout-note collapse="true" title="풀이"}
-**1.** $(\ell+1)$-step 방정식을 벡터로 쓰면 $v=\sum_{k=0}^\ell(\gamma P^\pi)^kR^\pi+(\gamma P^\pi)^{\ell+1}v$이다. 가중치 $(1-\lambda)\lambda^\ell$로 평균하면
+::: {.callout-note collapse="true" title="Solution"}
+**1.** If we write the $(\ell+1)$-step equation as a vector, it is $v=\sum_{k=0}^\ell(\gamma P^\pi)^kR^\pi+(\gamma P^\pi)^{\ell+1}v$. Averaging with the weight $(1-\lambda)\lambda^\ell$
 $$
 v^\pi=\underbrace{(1-\lambda)\sum_{\ell=0}^\infty\lambda^\ell\sum_{k=0}^\ell(\gamma P^\pi)^kR^\pi}_{\text{상수항}}+(1-\lambda)\sum_{\ell=0}^\infty\lambda^\ell(\gamma P^\pi)^{\ell+1}v^\pi=:Hv^\pi.
 $$
-상수항은 [@sec-td7a]의 $A$와 같은 순서 교환으로 정리된다.
+The constant term is rearranged into the same order exchange as $A$ of [@sec-td7a].
 $$
 (1-\lambda)\sum_{k\ge0}(\gamma P^\pi)^kR^\pi\sum_{\ell\ge k}\lambda^\ell=\sum_{k=0}^\infty(\lambda\gamma P^\pi)^kR^\pi.
 $$
-λ = 0일 때만 $R^\pi$와 같다. 상수항은 $Hv-Hu$에서 소거되므로 축약 여부와 무관하다. 상수항을 $R^\pi$로 간단히 적어도 증명 아이디어에는 영향이 없다.
+is equal to $R^\pi$ only when ||| λ = 0. Since the constant term cancels out in $Hv-Hu$, it is independent of whether it is abbreviated. Even if the constant term is simply written as $R^\pi$, it does not affect the idea of the proof.
 
-**2.** $P^\pi$는 확률 행렬이므로 $\|(P^\pi)^nx\|_\infty\le\|x\|_\infty$이다. 따라서
+**2.** Since $P^\pi$ is a probability matrix, it is $\|(P^\pi)^nx\|_\infty\le\|x\|_\infty$. Therefore
 $$
 \|Hv-Hu\|_\infty\le(1-\lambda)\sum_{\ell=0}^\infty\lambda^\ell\gamma^{\ell+1}\|v-u\|_\infty=\frac{\gamma(1-\lambda)}{1-\lambda\gamma}\|v-u\|_\infty.
 $$
-$\gamma<1$이면 $\gamma-\lambda\gamma<1-\lambda\gamma$이므로 계수는 1보다 작다.
+If $\gamma<1$, then $\gamma-\lambda\gamma<1-\lambda\gamma$, so the coefficient is less than 1.
 
-- λ = 0: 계수 $\gamma$. $H=T^\pi$다.
-- λ → 1: 계수 → 0. $H$가 $v$에 거의 의존하지 않고 MC 목표값이 된다.
+- λ = 0: coefficient $\gamma$. $H=T^\pi$.
+- λ → 1: coefficient → 0. $H$ becomes the MC target value with almost no dependence on $v$.
 
 **3.**
 $$
 w_t:=\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k-\mathbb{E}^\pi\Big[\sum_{k=t}^\infty(\lambda\gamma)^{k-t}d_k\,\Big|\,\mathcal F_t\Big].
 $$
-관측 신호 $\sum_k(\lambda\gamma)^{k-t}d_k+v(s_t)$의 조건부 기댓값이 $(Hv)(s_t)$이므로, 신호는 $(Hv)(s_t)+w_t$다. 정의상 $\mathbb{E}[w_t\mid\mathcal F_t]=0$이다. $|r|\le R_{\max}$이면 $|d_k|\le R_{\max}+(1+\gamma)\|v\|_\infty$이므로
+Since the conditional expectation of the observed signal $\sum_k(\lambda\gamma)^{k-t}d_k+v(s_t)$ is $(Hv)(s_t)$, the signal is $(Hv)(s_t)+w_t$. By definition, it is $\mathbb{E}[w_t\mid\mathcal F_t]=0$. If $|r|\le R_{\max}$, then $|d_k|\le R_{\max}+(1+\gamma)\|v\|_\infty$, so
 $$
 \Big|\sum_k(\lambda\gamma)^{k-t}d_k\Big|\le\frac{R_{\max}+2\|v\|_\infty}{1-\lambda\gamma}.
 $$
-따라서 조건부 분산은 $C_0+C_1\|v\|^2$ 꼴로 유계다.
+Therefore, the conditional variance is bounded in the form $C_0+C_1\|v\|^2$.
 :::
 
-::: {.callout-tip collapse="true" title="의의"}
-$v^\pi$는 모든 $(\ell+1)$-step 방정식을 만족하므로 $H$의 고정점이다. $H$가 축약이므로 고정점은 유일하다. 축약 계수 $\gamma(1-\lambda)/(1-\lambda\gamma)$는 λ가 클수록 작아진다. 결정적인 반복으로 보면 큰 λ가 더 빨리 수축하지만, 그 대가로 잡음(분산)이 커진다. [@sec-td9]의 trade-off를 연산자 쪽에서 본 모습이다.
+::: {.callout-tip collapse="true" title="Significance"}
+$v^\pi$ satisfies all $(\ell+1)$-step equations, so it is the fixed point of $H$. Since $H$ is the contraction, the fixed point is unique. The contraction coefficient $\gamma(1-\lambda)/(1-\lambda\gamma)$ decreases as λ increases. In terms of deterministic iteration, a larger λ contracts faster, but at the cost of increased noise (variance). This is the trade-off of [@sec-td9] viewed from the operator side.
 :::
 
-**↑ 올라가기**: [@sec-td10]
+**↑ Go Up**: [@sec-td10]
 
-# VI. 정리 {#sec-partVI}
+# VI. Summary {#sec-partVI}
 
-## 한 장 요약 {#sec-td11}
+## One-page summary {#sec-td11}
 
-| 질문 | 답 | 노드 |
+| Question | Answer | Node |
 |---|---|---|
-| 무엇을 풀려는가 | $v=T^\pi v$를 $p$ 없이, 전이 하나마다 갱신하며 | [@sec-td0] |
-| Monte Carlo | $c(s,m)$의 표본평균. model-free, but not online | [@sec-td1] |
-| $c(s,m)$ | 기댓값이 아니라 $G(s)$의 실현값. $m$은 궤적 인덱스 | [@sec-td1a] |
-| $\alpha_m=1/m$ | 표본평균의 점화식. $1/M$이 아닌 이유: 매 단계 평균 유지 | [@sec-td1b] |
-| 기댓값 형태 | $v^\pi(s)=\mathbb{E}[r+\gamma v^\pi(s_{t+1})\mid s_t=s]$. $p$는 $s_{t+1}$의 분포에 숨음 | [@sec-td3a] |
+| What are you trying to solve | $v=T^\pi v$ without $p$, updating at every transition | [@sec-td0] |
+| Monte Carlo | Sample mean of $c(s,m)$. model-free, but not online | [@sec-td1] |
+| $c(s,m)$ | Not the expected value, but the realized value of $G(s)$. $m$ is the trajectory index | [@sec-td1a] |
+| $\alpha_m=1/m$ | Recurrence relation for the sample mean. Why not $1/M$: Maintain the mean at every step | [@sec-td1b] |
+| Expected value form | $v^\pi(s)=\mathbb{E}[r+\gamma v^\pi(s_{t+1})\mid s_t=s]$. $p$ is hidden in the distribution of $s_{t+1}$ | [@sec-td3a] |
 | TD(0) | $v(s_t)\leftarrow v(s_t)+\alpha_td_t$, $d_t=r_t+\gamma v(s_{t+1})-v(s_t)$ | [@sec-td4] |
-| SA 대응 | $H=T^\pi$, $w_t=\gamma(v(s_{t+1})-\sum p\,v)$, 조건부 평균 0 | [@sec-td4a] |
-| TD(0)의 성격 | incremental, lookup table, lightest, fully online | [@sec-td5] |
-| multi-step | $(\ell+1)$스텝 뒤에서 가치를 분해. 모든 $\ell$에서 성립 | [@sec-td6] |
-| λ-가중평균 | 가중치 $(1-\lambda)\lambda^\ell$ ⇒ $v=\mathbb{E}[\sum(\lambda\gamma)^{k-t}d_k\mid\mathcal F_t]+v$ | [@sec-td7] |
-| TD(λ) | $v(s_t)\leftarrow v(s_t)+\alpha_t\sum_{k\ge t}(\lambda\gamma)^{k-t}d_k$. 궤적 일부가 필요 | [@sec-td8] |
-| 극단 | λ = 0 → TD(0), λ = 1 → MC (망원급수) | [@sec-td8a] |
-| bias–variance | 큰 λ: 작은 bias, 큰 variance. 작은 λ: 반대 | [@sec-td9] |
-| λ 스케줄 | 큰 λ에서 시작해 0으로 | [@sec-td9b] |
-| 수렴 | 모든 상태 무한 방문 + step size 조건 ⇒ 확률 1로 $v^\pi$ | [@sec-td10] |
-| 증명 아이디어 | $H$는 계수 $\gamma(1-\lambda)/(1-\lambda\gamma)$의 축약 + 잡음 조건 | [@sec-td10a] |
+| SA correspondence | $H=T^\pi$, $w_t=\gamma(v(s_{t+1})-\sum p\,v)$, conditional mean 0 | [@sec-td4a] |
+| Nature of TD(0) | incremental, lookup table, lightest, fully online | [@sec-td5] |
+| multi-step | $(\ell+1)$ Decomposes value after steps. Holds for all $\ell$ | [@sec-td6] |
+| λ-weighted average | weight $(1-\lambda)\lambda^\ell$ ⇒ $v=\mathbb{E}[\sum(\lambda\gamma)^{k-t}d_k\mid\mathcal F_t]+v$ | [@sec-td7] |
+| TD(λ) | $v(s_t)\leftarrow v(s_t)+\alpha_t\sum_{k\ge t}(\lambda\gamma)^{k-t}d_k$. Part of the trajectory needed | [@sec-td8] |
+| Extremes | λ = 0 → TD(0), λ = 1 → MC (Telescopic Series) | [@sec-td8a] |
+| bias–variance | Large λ: small bias, large variance. Small λ: opposite | [@sec-td9] |
+| λ schedule | Starting from large λ to 0 | [@sec-td9b] |
+| Converge | Infinitely visit all states + step size condition ⇒ Probability 1 $v^\pi$ | [@sec-td10] |
+| Proof Idea | $H$ is the abbreviation of coefficients $\gamma(1-\lambda)/(1-\lambda\gamma)$ + noise condition | [@sec-td10a] |
 
-**↑ 올라가기**: [@sec-tree]
+**↑ Go Up**: [@sec-tree]

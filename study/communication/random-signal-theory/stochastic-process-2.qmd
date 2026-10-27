@@ -1,9 +1,9 @@
 ---
-title: "확률과정 (Stochastic Processes) - II"
+title: "Stochastic Processes - II"
 number: 4
 aliases:
   - "/study/random-signal-theory/stochastic-process-2.html"
-subtitle: "Random Signal Theory — 임펄스 열 샘플링과 스펙트럼 복제, 랜덤 시퀀스, 포아송 과정(강도, 카운트 통계, 도착 시각)"
+subtitle: "Random Signal Theory — Impulse Stream Sampling and Spectral Replication, Random Sequence, Poisson Process (Intensity, Count Statistics, Arrival Time)"
 date: "2026-09-28"
 format:
   html:
@@ -26,67 +26,67 @@ rng = np.random.default_rng(2026)
 plt.rcParams.update({"figure.dpi": 110, "axes.grid": True, "grid.alpha": 0.3})
 ```
 
-# 전체 흐름
+# Overall flow
 
-이 문서는 두 갈래로 구성된다.
+This document is composed of two branches.
 
-1. **샘플링**: 연속시간 신호를 임펄스 열로 곱하면 주파수 영역에서 스펙트럼이 $\omega_s$ 간격으로 복제된다. 이를 랜덤 과정에 적용하면, 대역제한된 정상 과정은 이산시간 **랜덤 시퀀스**로 손실 없이 표현된다.
-2. **포아송 과정**: "언제 일어날지 모르는 사건"을 모델링하는 점과정. 미소 구간 법칙(small-$\Delta t$ law) 하나로부터 구간 내 사건 수가 포아송 분포를 따른다는 것을 유도한다.
+1. **Sampling**: Multiplying a continuous-time signal by an impulse train replicates the spectrum in the frequency domain at intervals of $\omega_s$. When applied to a random process, a band-limited steady-state process is represented as a discrete-time **random sequence** without loss.
+2. **Poisson Process**: A point process that models "events whose timing is unknown." From the small-$\Delta t$ law, it is derived that the number of events within an interval follows a Poisson distribution.
 
-두 주제는 모두 **시간축 위의 점(point)** 을 다룬다는 공통점이 있다. 샘플링에서는 점이 결정적 격자 $kT_s$에 놓이고, 포아송 과정에서는 점의 위치 자체가 랜덤이다.
+Both topics have in common that they deal with **points on the time axis**. In sampling, points are placed on a deterministic lattice $kT_s$, while in the Poisson process, the positions of the points themselves are random.
 
-# 임펄스 열 샘플링
+# Impulse Column Sampling
 
-## 정의
+## Definition
 
-주기 $T_s$의 임펄스 열(impulse train)을
+impulse train with period $T_s$
 
 $$
 p_{T_s}(t)=\sum_{n=-\infty}^{\infty}\delta(t-nT_s)
 $$
 
-로 정의하면, 샘플링은 신호와 임펄스 열의 곱이다.
+If defined as , sampling is the product of the signal and the impulse train.
 
 $$
 x_s(t)=x(t)\,p_{T_s}(t)=\sum_{n}x(nT_s)\,\delta(t-nT_s)
 $$
 
-두 번째 등호는 $x(t)\delta(t-t_0)=x(t_0)\delta(t-t_0)$ 에서 나온다. 샘플값 $x(nT_s)$가 각 임펄스의 **면적**으로 저장된다.
+The second equality comes from $x(t)\delta(t-t_0)=x(t_0)\delta(t-t_0)$. The sample value $x(nT_s)$ is stored as the **area** of each impulse.
 
-## 푸리에 급수 복습
+## Fourier Series Review
 
-임펄스 열의 푸리에 변환을 구하려면 푸리에 급수가 필요하다.
+To obtain the Fourier transform of an impulse train, a Fourier series is required.
 
-**직교성.** 주기 $T$, $\omega_0=2\pi/T$ 일 때 복소지수 $\{e^{jk\omega_0 t}\}_{k\in\mathbb Z}$ 는 한 주기 위에서 직교한다.
+**Orthogonality.** When the periods are $T$ and $\omega_0=2\pi/T$, the complex exponent $\{e^{jk\omega_0 t}\}_{k\in\mathbb Z}$ is orthogonal over one period.
 
 $$
 \int_{-T/2}^{T/2} e^{jk\omega_0 t}\,\overline{e^{jl\omega_0 t}}\,dt=\int_{-T/2}^{T/2} e^{j(k-l)\omega_0 t}\,dt=
 \begin{cases}T & k=l\\ 0 & k\neq l\end{cases}
 $$
 
-$k\neq l$ 이면 한 주기 동안 정수 번 회전하므로 적분이 0이고, $k=l$ 이면 피적분함수가 1이다.
+If $k\neq l$, the integral is 0 because it rotates an integer number of times during one period, and if $k=l$, the integrand is 1.
 
-**계수.** $x(t)=\sum_k c_k e^{jk\omega_0 t}$ 의 양변에 $e^{-jl\omega_0 t}$ 를 곱해 한 주기 적분하면 $k=l$ 항만 남는다.
+When both sides of **Coefficient.** $x(t)=\sum_k c_k e^{jk\omega_0 t}$ are multiplied by $e^{-jl\omega_0 t}$ and integrated over one period, only the $k=l$ term remains.
 
 $$
 \boxed{c_k=\frac{1}{T}\int_{-T/2}^{T/2}x(t)\,e^{-jk\omega_0 t}\,dt}
 $$
 
 ::: {.callout-note}
-## $1/T$의 출처
-$1/T$는 기저의 노름 제곱 $\int_{-T/2}^{T/2}|e^{jk\omega_0 t}|^2dt=T$ 로 나눈 것이다. 유한차원에서 직교기저 전개 계수가 $c_k=\langle x,e_k\rangle/\langle e_k,e_k\rangle$ 인 것과 같은 구조이다. $c_0$은 한 주기 평균(DC 성분)이다.
+## Source of $1/T$
+$1/T$ is the basis norm squared $\int_{-T/2}^{T/2}|e^{jk\omega_0 t}|^2dt=T$. It has the same structure as the expanded coefficient of an orthogonal basis in finite dimensions, $c_k=\langle x,e_k\rangle/\langle e_k,e_k\rangle$. $c_0$ is the one-period average (DC component).
 :::
 
-## 복소지수의 푸리에 변환: $\mathcal F\{e^{j\omega_0 t}\}=2\pi\delta(\omega-\omega_0)$
+## Fourier transform of complex exponential: $\mathcal F\{e^{j\omega_0 t}\}=2\pi\delta(\omega-\omega_0)$
 
-변환 쌍을 다음 규약으로 둔다.
+The transformation pair is set to the following convention.
 
 $$
 X(j\omega)=\int_{-\infty}^{\infty} x(t)e^{-j\omega t}dt,\qquad
 x(t)=\frac{1}{2\pi}\int_{-\infty}^{\infty} X(j\omega)e^{j\omega t}d\omega
 $$
 
-$x(t)=e^{j\omega_0 t}$ 에 대해 정의식 $\int e^{j(\omega_0-\omega)t}dt$ 는 피적분함수의 절댓값이 1이라 고전적 의미로 수렴하지 않는다. 그래서 **후보를 놓고 역변환으로 확인**한다. $X(j\omega)=A\,\delta(\omega-\omega_0)$ 라 두면
+For $x(t)=e^{j\omega_0 t}$, the defining expression $\int e^{j(\omega_0-\omega)t}dt$ does not converge in the classical sense because the absolute value of the integrand is 1. Therefore, we **consider a candidate and verify it using the inverse transform**. Let $X(j\omega)=A\,\delta(\omega-\omega_0)$.
 
 $$
 \frac{1}{2\pi}\int A\,\delta(\omega-\omega_0)e^{j\omega t}d\omega=\frac{A}{2\pi}e^{j\omega_0 t}
@@ -97,15 +97,15 @@ $$
 \boxed{\mathcal F\{e^{j\omega_0 t}\}=2\pi\,\delta(\omega-\omega_0)}
 $$
 
-**해석.** 한 주파수로 영원히 회전하는 신호의 스펙트럼은 그 주파수 한 점에만 존재한다. 계수 $2\pi$는 역변환의 $1/2\pi$ 규약을 보상하는 값이다. 특히 $\omega_0=0$ 이면 $\mathcal F\{1\}=2\pi\delta(\omega)$ 이다.
+**Interpretation.** The spectrum of a signal rotating forever at a single frequency exists only at that single point of frequency. The coefficient $2\pi$ is a value that compensates for the $1/2\pi$ convention of the inverse transform. In particular, if $\omega_0=0$, then $\mathcal F\{1\}=2\pi\delta(\omega)$.
 
-**분포(distribution)로서의 의미.** 적분을 $[-L,L]$에서 자르면
+**Meaning as a distribution.** If the integral is cut at $[-L,L]$
 
 $$
 \int_{-L}^{L}e^{j(\omega_0-\omega)t}dt=\frac{2\sin\big((\omega-\omega_0)L\big)}{\omega-\omega_0}.
 $$
 
-이 함수는 $L\to\infty$ 에서 높이 $2L$, 폭 $\sim 1/L$ 로 뾰족해지고 면적은 $\int\frac{2\sin(uL)}{u}du=2\pi$ 로 고정된다. 따라서 시험함수에 대해 적분했을 때의 극한이 $2\pi\delta(\omega-\omega_0)$ 이며, 등식은 이 의미로 이해해야 한다.
+This function tapers at $L\to\infty$ with height $2L$ and width $\sim 1/L$, and the area is fixed at $\int\frac{2\sin(uL)}{u}du=2\pi$. Therefore, the limit when integrating over the test function is $2\pi\delta(\omega-\omega_0)$, and the equation should be understood in this sense.
 
 ```{python}
 #| label: fig-sinc-to-delta
@@ -119,9 +119,9 @@ ax.set_xlabel(r"$u=\omega-\omega_0$"); ax.set_ylabel("truncated integral")
 ax.legend(); plt.tight_layout(); plt.show()
 ```
 
-## 임펄스 열의 푸리에 변환
+## Fourier transform of an impulse train
 
-**① 푸리에 급수.** $p_{T_s}(t)$는 주기 $T_s$이고, 한 주기 $[-T_s/2,T_s/2)$ 안에는 $t=0$의 임펄스 하나만 있다. sifting 성질에 의해
+**① Fourier Series.** $p_{T_s}(t)$ has a period $T_s$, and within one period $[-T_s/2,T_s/2)$, there is only one impulse $t=0$. Due to the sifting property
 
 $$
 c_k=\frac{1}{T_s}\int_{-T_s/2}^{T_s/2}\delta(t)e^{-jk\omega_s t}dt=\frac{1}{T_s}\quad(\forall k),
@@ -129,42 +129,42 @@ c_k=\frac{1}{T_s}\int_{-T_s/2}^{T_s/2}\delta(t)e^{-jk\omega_s t}dt=\frac{1}{T_s}
 p_{T_s}(t)=\frac{1}{T_s}\sum_{k\in\mathbb Z}e^{jk\omega_s t},\quad \omega_s=\frac{2\pi}{T_s}.
 $$
 
-모든 조화 성분이 크기와 위상이 같아, $t=nT_s$ 에서만 동시에 보강간섭하여 임펄스를 만든다.
+All harmonic components have the same magnitude and phase, so they simultaneously undergo constructive interference only at $t=nT_s$ to create an impulse.
 
-**② 항별 변환.** 선형성과 위의 결과를 쓰면
+**② Term-wise transformation.** If you use linearity and the above result
 
 $$
 \boxed{P(j\omega)=\mathcal F\{p_{T_s}(t)\}=\frac{1}{T_s}\sum_k 2\pi\,\delta(\omega-k\omega_s)=\frac{2\pi}{T_s}\sum_{k\in\mathbb Z}\delta(\omega-k\omega_s)}
 $$
 
-일반적으로 주기 신호의 급수 계수가 $c_k$이면 $X(j\omega)=\sum_k 2\pi c_k\,\delta(\omega-k\omega_0)$ 이다. 즉 **임펄스의 위치**는 $k\omega_0$, **면적**은 $2\pi c_k$ 이다.
+In general, if the series coefficient of a periodic signal is $c_k$, then it is $X(j\omega)=\sum_k 2\pi c_k\,\delta(\omega-k\omega_0)$. That is, the **position of the impulse** is $k\omega_0$, and the **area** is $2\pi c_k$.
 
-### 계수 $2\pi/T_s$ 해부
+### Coefficient $2\pi/T_s$ Dissection
 
-$\omega_s=2\pi/T_s$ 가 이미 식에 들어 있으니 앞의 계수가 중복처럼 보일 수 있지만, 둘은 역할이 다르다.
+Since $\omega_s=2\pi/T_s$ is already in the formula, the preceding coefficient may appear redundant, but the two have different roles.
 
-| 요소 | 역할 | 출처 |
+| Element | Role | Source |
 |---|---|---|
-| $\delta(\omega-k\omega_s)$ 의 $\omega_s$ | 임펄스의 **위치** | 주기 $T_s$ → 기본 주파수 |
-| 앞의 $1/T_s$ | 임펄스 **면적**의 일부 | 푸리에 급수 계수 $c_k$ |
-| 앞의 $2\pi$ | 임펄스 **면적**의 일부 | $\omega$ 영역 변환 규약 ($e^{j\omega_0t}\leftrightarrow2\pi\delta$) |
+| $\delta(\omega-k\omega_s)$ of $\omega_s$ | **Position** of impulse | Period $T_s$ → Fundamental frequency |
+| Part of the preceding $1/T_s$ | impulse **area** | Fourier series coefficients $c_k$ |
+| Part of the preceding $2\pi$ | impulse **area** | $\omega$ area transformation convention ($e^{j\omega_0t}\leftrightarrow2\pi\delta$) |
 
-면적이 수치상 $\omega_s$와 같으므로 $P(j\omega)=\omega_s\sum_k\delta(\omega-k\omega_s)$ 로 써도 동치이다. 이때 앞의 $\omega_s$는 위치가 아니라 면적을 나타낸다.
+Since the area is numerically equal to $\omega_s$, writing $P(j\omega)=\omega_s\sum_k\delta(\omega-k\omega_s)$ is equivalent. In this case, the preceding $\omega_s$ represents the area, not the location.
 
-**계수가 없다고 가정하면 모순이 생긴다.** $P(j\omega)=\sum_k\delta(\omega-k\omega_s)$ 라 두고 역변환하면, Poisson 합 공식 $\sum_k e^{jk\omega_s t}=T_s\sum_n\delta(t-nT_s)$ 에 의해
+**Assuming there are no coefficients leads to a contradiction.** Letting $P(j\omega)=\sum_k\delta(\omega-k\omega_s)$ and performing the inverse transform, by the Poisson sum formula $\sum_k e^{jk\omega_s t}=T_s\sum_n\delta(t-nT_s)$
 
 $$
 \frac{1}{2\pi}\sum_k e^{jk\omega_s t}=\frac{T_s}{2\pi}\,p_{T_s}(t)\neq p_{T_s}(t).
 $$
 
-### 검산
+### Verification
 
-- **차원**: $p_{T_s}(t)$의 단위는 $1/\mathrm{s}$ 이고 $\int dt$ 를 거치면 변환은 무차원이다. 우변 $\frac{2\pi}{T_s}[1/\mathrm s]\times\delta(\omega)[\mathrm s]$ 도 무차원이다.
-- **$f$ 표기**: $x(t)=\int X(f)e^{j2\pi ft}df$ 규약에서는 $e^{j2\pi f_0t}\leftrightarrow\delta(f-f_0)$ 이므로 $P(f)=\frac{1}{T_s}\sum_k\delta(f-k/T_s)$. $\delta(f)=\delta(\omega/2\pi)=2\pi\delta(\omega)$ 로 바꾸면 $\omega$ 영역 결과와 일치한다. 즉 $2\pi$는 표기 규약의 산물이고, **$1/T_s$가 본질적인 스케일**이다.
+- **Dimension**: The unit of $p_{T_s}(t)$ is $1/\mathrm{s}$, and passing through $\int dt$, the transformation is dimensionless. The right-hand side $\frac{2\pi}{T_s}[1/\mathrm s]\times\delta(\omega)[\mathrm s]$ is also dimensionless.
+- **$f$ Notation**: $x(t)=\int X(f)e^{j2\pi ft}df$. In the $x(t)=\int X(f)e^{j2\pi ft}df$ convention, it is $e^{j2\pi f_0t}\leftrightarrow\delta(f-f_0)$, so $P(f)=\frac{1}{T_s}\sum_k\delta(f-k/T_s)$. If changed to $\delta(f)=\delta(\omega/2\pi)=2\pi\delta(\omega)$, it matches the result of the $\omega$ range. That is, $2\pi$ is a product of the notation convention, and **$1/T_s$ is the intrinsic scale**.
 
-## 샘플링된 신호의 스펙트럼
+## Spectrum of the sampled signal
 
-시간 영역의 곱은 주파수 영역의 컨볼루션이다 ($\omega$ 규약에서 $\frac{1}{2\pi}$가 붙는다).
+The product in the time domain is the convolution in the frequency domain ($\omega$ is attached in the convention $\frac{1}{2\pi}$).
 
 $$
 X_s(j\omega)=\frac{1}{2\pi}X(j\omega)*P(j\omega)
@@ -172,24 +172,24 @@ X_s(j\omega)=\frac{1}{2\pi}X(j\omega)*P(j\omega)
 =\boxed{\frac{1}{T_s}\sum_{k\in\mathbb Z}X\big(j(\omega-k\omega_s)\big)}
 $$
 
-$2\pi/T_s$의 $2\pi$는 컨볼루션의 $1/2\pi$와 상쇄되고, 남은 **$1/T_s$가 각 복제본의 이득**이 된다. 원 스펙트럼이 $\omega_s$ 간격으로 복제된다.
+$2\pi$ of $2\pi/T_s$ is canceled out by the $1/2\pi$ of the convolution, and the remaining **$1/T_s$ becomes the gain of each replica**. The original spectrum is replicated at $\omega_s$ intervals.
 
-## 앨리어싱과 완전 복원
+## Aliasing and Full Restoration
 
-$X(j\omega)=0$ for $|\omega|>\omega_m$ 이라 하자.
+Let's call it $X(j\omega)=0$ for $|\omega|>\omega_m$.
 
-- **$\omega_s>2\omega_m$** : 복제본 $[k\omega_s-\omega_m,\,k\omega_s+\omega_m]$ 들이 겹치지 않는다. 이상적 저역통과필터(LPF)로 기저대역 복제본만 골라내면 $x(t)$가 복원된다.
-- **$\omega_s<2\omega_m$** : 인접 복제본이 겹친다(**앨리어싱**). 겹친 부분에서 원래 성분과 복제 성분이 더해져 버리므로 어떤 필터로도 분리할 수 없다.
+- **$\omega_s>2\omega_m$** : The duplicates $[k\omega_s-\omega_m,\,k\omega_s+\omega_m]$ do not overlap. If only the baseband duplicates are selected using an ideal low-pass filter (LPF), $x(t)$ is restored.
+- **$\omega_s<2\omega_m$** : Adjacent copies overlap (**aliasing**). Since the original component and the duplicate component are added together at the overlapping part, they cannot be separated by any filter.
 
 ::: {.callout-tip}
-## 복원 필터의 세부 조건
-복제본의 이득이 $1/T_s$ 이므로, 원 신호를 정확히 되찾으려면 LPF의 통과대역 이득이 $T_s$ 여야 한다.
+## Detailed conditions of the restoration filter
+Since the gain of the replica is $1/T_s$, the passband gain of the LPF must be $T_s$ to accurately recover the original signal.
 
 $$
 H(j\omega)=\begin{cases}T_s & |\omega|\le\omega_c\\ 0 & |\omega|>\omega_c\end{cases},\qquad \omega_m\le\omega_c\le\omega_s-\omega_m .
 $$
 
-차단주파수는 $\omega_c=\omega_m$ 뿐 아니라 두 복제본 사이의 빈 대역 어디에 두어도 된다. $\omega_c=\omega_s/2$ 로 두면 $h(t)=\mathrm{sinc}(t/T_s)$ (정규화 sinc) 이고 $x(t)=\sum_n x(nT_s)\,\mathrm{sinc}\big((t-nT_s)/T_s\big)$ 의 보간식을 얻는다.
+The cutoff frequency can be placed anywhere in the empty band between the two copies, not just $\omega_c=\omega_m$. If set to $\omega_c=\omega_s/2$, it becomes $h(t)=\mathrm{sinc}(t/T_s)$ (normalized sinc) and yields the interpolation formula $x(t)=\sum_n x(nT_s)\,\mathrm{sinc}\big((t-nT_s)/T_s\big)$.
 :::
 
 ```{python}
@@ -212,85 +212,85 @@ axes[-1].set_xlabel(r"$\omega\ /\ \omega_m$")
 plt.tight_layout(); plt.show()
 ```
 
-# 랜덤 과정의 샘플링과 랜덤 시퀀스
+# Sampling of Random Processes and Random Sequences
 
-## 랜덤 시퀀스
+## Random Sequence
 
-**랜덤 시퀀스**(random sequence)는 시간 인덱스가 정수인 랜덤 과정, 즉 이산시간 랜덤 과정이다.
+A random sequence is a random process with integer time indices, that is, a discrete-time random process.
 
 $$
 \{X(l)\}_{l\in\mathbb Z}\quad(\text{인덱스는 정수, 값은 실수 가능})
 $$
 
-연속시간 과정 $X(t)$를 간격 $T$로 샘플링하면 랜덤 시퀀스가 된다.
+Sampling the continuous-time process $X(t)$ at intervals $T$ results in a random sequence.
 
 $$
 \tilde X(l)\equiv X(lT).
 $$
 
-## 랜덤 과정에 대한 표본화 정리
+## Sampling Theorem for Random Processes
 
-결정적 신호에서는 푸리에 변환 $X(j\omega)$ 가 대역제한인지를 봤다. 랜덤 과정의 표본 경로는 보통 에너지가 무한하여 푸리에 변환이 존재하지 않으므로, **전력스펙트럼밀도(PSD)** 를 기준으로 삼는다.
+For deterministic signals, we examined whether the Fourier transform $X(j\omega)$ is band-limited. Since the sample path of a random process usually has infinite energy and therefore no Fourier transform exists, we use the **Power Spectral Density (PSD)** as the reference.
 
 ::: {.callout-important}
-## 정리
-WSS 과정 $X(t)$가 $S_X(f)=0$ for $|f|>W$ 를 만족하고 샘플 간격이 $T<\dfrac{1}{2W}$ 이면, 이산시간 시퀀스 $X(lT)$가 원래 과정을 표현한다.
+## Cleanup
+WSS If the process $X(t)$ satisfies $S_X(f)=0$ for $|f|>W$ and the sample interval is $T<\dfrac{1}{2W}$, then the discrete-time sequence $X(lT)$ represents the original process.
 :::
 
-여기서 "표현한다"는 것은 개별 표본 경로의 점별 수렴이 아니라 **평균제곱(mean-square) 의미**로
+Here, "expresses" does not mean point-by-point convergence of individual sample paths, but **mean-square** in the sense of
 
 $$
 \lim_{L\to\infty}E\!\left[\Big|X(t)-\sum_{l=-L}^{L}X(lT)\,\mathrm{sinc}\!\Big(\frac{t-lT}{T}\Big)\Big|^2\right]=0
 $$
 
-이 성립한다는 뜻이다. 랜덤 과정에서는 확률적 수렴 개념이 필요하다는 점이 결정적 표본화 정리와의 차이이다.
+This means that  holds. The difference from the deterministic sampling theorem is that the concept of stochastic convergence is required in random processes.
 
-## 샘플링된 시퀀스의 상관함수
+## Correlation function of a sampled sequence
 
-WSS 과정 $X(t)$에 대해 $R_X(\tau)=E[X(t)X(t+\tau)]$ 는 시차 $\tau$에만 의존한다. 샘플링된 시퀀스의 상관함수는
+For the WSS process $X(t)$, $R_X(\tau)=E[X(t)X(t+\tau)]$ depends only on the lag $\tau$. The correlation function of the sampled sequence is
 
 $$
 R_{\tilde X}(k)=E\big[\tilde X(l)\tilde X(l+k)\big]=E\big[X(lT)X(lT+kT)\big]=\boxed{R_X(kT)}
 $$
 
-마지막 등호에서 WSS 성질(시차 $kT$에만 의존, $l$과 무관)을 썼다. 따라서 $\tilde X$ 역시 WSS 시퀀스이며, 그 상관함수는 연속 상관함수를 $T$ 간격으로 샘플링한 것이다.
+In the final equality, the WSS property (depending only on the lag $kT$, independent of $l$) was applied. Therefore, $\tilde X$ is also a WSS sequence, and its correlation function is the continuous correlation function sampled at intervals of $T$.
 
-## 샘플링된 시퀀스의 PSD: 스펙트럼 복제의 확률 버전
+## PSD of sampled sequence: Probabilistic version of spectral replication
 
-정규화 주파수 $\nu$ (cycles/sample)에서 시퀀스의 PSD를 이산시간 푸리에 변환으로 정의한다.
+The PSD of a sequence at normalized frequency $\nu$ (cycles/sample) is defined as the discrete-time Fourier transform.
 
 $$
 S_{\tilde X}(\nu)=\sum_{k}R_{\tilde X}(k)e^{-j2\pi\nu k}.
 $$
 
-$R_X(kT)=\int S_X(f)e^{j2\pi fkT}df$ 를 대입하고 Poisson 합 공식 $\sum_k e^{j2\pi(fT-\nu)k}=\sum_m\delta(fT-\nu-m)=\frac1T\sum_m\delta\!\big(f-\frac{\nu+m}{T}\big)$ 를 쓰면
+If you substitute $R_X(kT)=\int S_X(f)e^{j2\pi fkT}df$ and use the Poisson sum formula $\sum_k e^{j2\pi(fT-\nu)k}=\sum_m\delta(fT-\nu-m)=\frac1T\sum_m\delta\!\big(f-\frac{\nu+m}{T}\big)$
 
 $$
 \boxed{S_{\tilde X}(\nu)=\frac{1}{T}\sum_{m\in\mathbb Z}S_X\!\left(\frac{\nu+m}{T}\right)}
 $$
 
-결정적 신호의 $X_s(j\omega)=\frac1{T_s}\sum_kX(j(\omega-k\omega_s))$ 와 완전히 같은 구조이다. $S_X$가 $|f|\le W$ 에 국한되고 $1/T>2W$ 이면 복제본이 겹치지 않아, $S_{\tilde X}$ 로부터 $S_X$ 를 그대로 되읽을 수 있다. 이것이 PSD 기준 표본화 정리의 주파수 영역 의미이다.
+is exactly the same structure as the deterministic signal $X_s(j\omega)=\frac1{T_s}\sum_kX(j(\omega-k\omega_s))$. $S_X$ is limited to $|f|\le W$, and if it is $1/T>2W$, the copies do not overlap, so $S_X$ can be read back from $S_{\tilde X}$. This is the frequency domain meaning of the PSD reference sampling theorem.
 
-# 포아송 과정: 정의와 기본 성질
+# Poisson Process: Definition and Basic Properties
 
-## 점과정과 계수과정
+## Point process and counting process
 
-**점과정**(point process)은 시간(또는 공간)의 특정 점에서 발생하는 랜덤 사건의 수학적 모델이다. 예: 네트워크의 패킷 도착 시각, 천구 위 별의 위치.
+A point process is a mathematical model of a random event occurring at a specific point in time (or space). Examples: the arrival time of a packet in a network, the position of a star on the celestial sphere.
 
-패킷 도착을 예로 들면, 사용자가 언제 다음 요청을 보낼지 정확히 알 수 없으므로 도착 시각은 랜덤이다. 이를 두 가지 양으로 기술한다.
+Taking packet arrival as an example, the arrival time is random because it is impossible to know exactly when the user will send the next request. This is described in terms of two quantities.
 
-- **계수과정** $N_t$: 관측 시작 $t=0$ 부터 $t$까지 발생한 사건 수. $N_0=0$.
-- **사건 시각** $W_1<W_2<\cdots$ : $i$번째 사건이 발생한 시각. $t$까지의 사건 시각을 모은 벡터를 $\mathbf W\in\mathbb R^{N_t}$ 로 쓴다 (차원 자체가 랜덤).
+- **Counting Process** $N_t$: Start of observation. Number of events that occurred from $t=0$ to $t$. $N_0=0$.
+- **Event Time** $W_1<W_2<\cdots$ : The time when the $i$-th event occurred. The vector containing event times up to $t$ is written as $\mathbf W\in\mathbb R^{N_t}$ (the dimension itself is random).
 
-구간 계수는 누적 계수의 차이로 얻는다.
+The interval coefficient is obtained from the difference of the cumulative coefficients.
 
 $$
 N_{t_1,t_2}=N_{t_2}-N_{t_1},\qquad N_t=N_{0,t}.
 $$
 
-### 구간 끝점 규약
+### interval endpoint convention
 
-$N_t$를 어떻게 정의하느냐에 따라 $N_{t_1,t_2}$가 세는 구간의 끝점 포함 여부가 달라진다.
+Depending on how $N_t$ is defined, whether the endpoint of the interval counted by $N_{t_1,t_2}$ is included depends on the definition.
 
 $$
 N_t=\#\{i:W_i\le t\}\;\Rightarrow\;N_{t_2}-N_{t_1}=\#\{i:\,t_1<W_i\le t_2\}
@@ -300,22 +300,22 @@ $$
 N_t=\#\{i:W_i< t\}\;\Rightarrow\;N_{t_2}-N_{t_1}=\#\{i:\,t_1\le W_i< t_2\}
 $$
 
-| $N_t$ 정의 | 표본 경로의 연속성 | $N_{t_1,t_2}$가 세는 구간 |
+| $N_t$ Definition | Continuity of the sample path | Interval counted by $N_{t_1,t_2}$ |
 |---|---|---|
-| $\#\{W_i\le t\}$ ("$t$까지", 표준) | 우연속 (càdlàg) | $(t_1,t_2]$ |
-| $\#\{W_i< t\}$ | 좌연속 | $[t_1,t_2)$ |
+| $\#\{W_i\le t\}$ ("$t$", standard) | accidental genus (càdlàg) | $(t_1,t_2]$ |
+| $\#\{W_i< t\}$ | Left Continuous | $[t_1,t_2)$ |
 
-"$t$까지 발생한 사건 수"라는 서술과 우연속 성질에 부합하는 것은 $(t_1,t_2]$ 이다. 이 문서의 일부 식은 관례상 $[t_1,t_2)$ 로 적지만, 포아송 과정에서는 사건 시각이 연속분포를 가져 $\Pr(W_i=t_1)=0$ 이므로 **두 규약의 분포는 동일**하다. 차이가 실제로 문제가 되는 것은 사건이 결정적 시각(예: 슬롯 경계)에 몰릴 수 있는 일반 점과정이나 이산시간 모형이다. 어느 규약이든 반열린 구간으로 통일해야 $(t_0,t_1]\cup(t_1,t_2]\cup\cdots=(t_0,t_n]$ 처럼 인접 구간이 겹침·누락 없이 분할된다.
+"number of events occurring up to $t$" is consistent with the properties of the coincidence, and $(t_1,t_2]$ is the one that matches. Although some formulas in this document are written as $[t_1,t_2)$ by convention, since event times in a Poisson process follow a continuous distribution ($\Pr(W_i=t_1)=0$), the **distributions of the two conventions are identical**. The difference becomes an actual issue in general point processes or discrete-time models where events can be clustered at deterministic times (e.g., slot boundaries). Regardless of the convention, the interval must be standardized to a semi-open interval so that adjacent intervals are partitioned without overlap or omission, as in $(t_0,t_1]\cup(t_1,t_2]\cup\cdots=(t_0,t_n]$.
 
-## 표본 경로의 성질
+## Properties of the sample path
 
-$N(t)$ (=$N_t$)의 표본 경로는 계단 함수이며 다음 성질을 가진다.
+The sample path of $N(t)$ (=$N_t$) is a step function and has the following properties.
 
-- **비감소**: 사건 수는 늘거나 그대로일 뿐 줄지 않는다.
-- **정수값**: 사건을 셈하므로 $0,1,2,\dots$
-- **우연속**: 사건이 발생하는 바로 그 순간 카운트가 새 값으로 갱신된다. $N(W_i)=\lim_{s\downarrow W_i}N(s)$.
-- **단위 점프**: 각 점프 시각에서 $N(W_i)-N(W_i^-)=1$.
-- 사건 사이에서는 $N(t)$가 일정하다.
+- **Non-decrease**: The number of events only increases or remains the same and does not decrease.
+- **Integer value**: Since it counts events $0,1,2,\dots$
+- **Casual**: The count is updated to a new value the very moment the event occurs. $N(W_i)=\lim_{s\downarrow W_i}N(s)$.
+- **Unit Jump**: $N(W_i)-N(W_i^-)=1$ at each jump time.
+- Between events, $N(t)$ is constant.
 
 ```{python}
 #| label: fig-staircase
@@ -335,173 +335,173 @@ ax.set_xlabel("t (time)"); ax.set_ylabel("N(t)"); ax.set_ylim(-0.3, len(arr) + 0
 plt.tight_layout(); plt.show()
 ```
 
-### 왜 단위 점프인가: 단순성(orderliness)
+### Why Unit Jumps: Orderliness
 
-"사건 하나가 카운트를 정확히 1 올린다"는 것은 계수과정의 **정의**(사건마다 가중치 1)일 뿐이다. 점프 크기는
+"One event increments the count by exactly 1" is merely the **definition** of the counting process (weight of 1 for each event). The jump size is
 
 $$
 \text{점프 크기}=\#\{\text{그 시각에 발생한 사건 수}\}\times1
 $$
 
-이므로, 같은 시각에 사건이 2개 겹치면 점프는 2가 된다. 실제로 동시 도착(batch arrival)을 허용하는 **비단순(non-simple)** 점과정도 존재한다. 따라서 "단위 점프"가 성립하려면 **한 시각에 사건이 최대 하나**라는 성질이 추가로 필요하고, 포아송 과정은 다음 조건으로 이를 보장한다.
+Since , if two events overlap at the same time, the jump becomes 2. In fact, there exist **non-simple** point processes that allow batch arrival. Therefore, for a "unit jump" to hold, the property that **at most one event at a time** is additionally required, and the Poisson process guarantees this under the following condition.
 
 $$
 \Pr\big[N_{t,t+h}\ge 2\big]=o(h)\qquad(h\to0)
 $$
 
-**증명 (동시 사건의 확률 = 0).** $[0,T]$를 길이 $h=T/n$ 인 $n$개 소구간으로 나눈다. union bound에 의해
+**Proof (Probability of simultaneous events = 0).** Divide $[0,T]$ into Z$h=T/n$ subintervals of length $n$. By the union bound
 
 $$
 \Pr\Big(\bigcup_{i=1}^{n}\{\text{소구간 }i\text{ 에 사건 }\ge2\}\Big)\le n\cdot o(T/n)=T\cdot\frac{o(T/n)}{T/n}\xrightarrow{n\to\infty}0.
 $$
 
-같은 시각의 두 사건은 어떤 분할에서도 같은 소구간에 들어가므로, 그런 일이 일어날 확률은 이 상한보다 작아 0이다. 즉 거의 확실하게(a.s.) 모든 사건 시각은 서로 다르다.
+Since two events at the same time fall into the same subinterval in any partition, the probability of this happening is less than this upper bound and is 0. In other words, almost certainly (as) all event times are different.
 
-**다른 관점.** 뒤에서 보이듯 도착 간격 $W_i-W_{i-1}$ 은 지수분포(연속분포)를 따르므로 $\Pr(W_i=W_{i-1})=0$ 이다.
+**Another perspective.** As shown later, the arrival interval $W_i-W_{i-1}$ follows an exponential distribution (continuous distribution), so it is $\Pr(W_i=W_{i-1})=0$.
 
-동시 도착이 실제로 중요한 모형에서는 **compound Poisson process** $\sum_{i\le N(t)}Y_i$ 를 쓴다. 도착 시각은 포아송이고, 각 도착의 점프 크기 $Y_i$ 가 임의 분포를 따른다.
+In models where co-arrival is actually important, the **compound Poisson process** $\sum_{i\le N(t)}Y_i$ is used. The arrival times are Poisson, and the jump size of each arrival $Y_i$ follows a random distribution.
 
-## 강도(intensity)와 미소 구간 법칙
+## Intensity and Infinitesimal Interval Law
 
-점과정의 확률 법칙은 **강도** $\lambda(t,N_t;\mathbf W)$ 로 규정된다. 충분히 작은 $\Delta t$에 대해
+The probability law of a point process is defined by **strength** $\lambda(t,N_t;\mathbf W)$. For a sufficiently small $\Delta t$
 
 $$
 \boxed{\Pr\big[N_{t,t+\Delta t}=1\;\big|\;N_t;\mathbf W\big]=\lambda(t,N_t;\mathbf W)\,\Delta t+o(\Delta t)}
 $$
 
-| 기호 | 의미 |
+| Symbol | Meaning |
 |---|---|
-| $N_{t,t+\Delta t}$ | 미소 구간 $(t,t+\Delta t]$ 의 사건 수 |
-| $N_t$, $\mathbf W$ | 지금까지의 관측(사건 개수, 사건 시각들) = 과정의 이력 |
-| $\lambda(\cdot)$ | 순간 발생률, 단위는 events/s |
-| $o(\Delta t)$ | $\lim_{\Delta t\to0}o(\Delta t)/\Delta t=0$ 인 항 |
+| $N_{t,t+\Delta t}$ | Number of events in the infinitesimal interval $(t,t+\Delta t]$ |
+| $N_t$, $\mathbf W$ | Observations to date (number of events, times of events) = History of the process |
+| $\lambda(\cdot)$ | Instantaneous occurrence rate, unit is events/s |
+| $o(\Delta t)$ | $\lim_{\Delta t\to0}o(\Delta t)/\Delta t=0$ In Hang |
 
-**직관: 속도 × 시간.** 속도 $v$로 $\Delta t$ 동안 가면 거리 $v\Delta t$ 이듯, 발생률 $\lambda$로 $\Delta t$ 동안이면 사건 확률이 약 $\lambda\Delta t$ (무차원) 이다. 예를 들어 $\lambda=2$ /s, $\Delta t=1$ ms 이면 확률은 약 $0.002$.
+**Intuition: Speed × Time.** Just as traveling at a speed of $v$ for a time of $\Delta t$ results in a distance of $v\Delta t$, if the occurrence rate is $\lambda$ for a time of $\Delta t$, the probability of an event is approximately $\lambda\Delta t$ (dimensionless). For example, if $\lambda=2$/s, $\Delta t=1$ ms, the probability is approximately $0.002$.
 
-**$\lambda$는 사건 개수를 결정하지 않는다.** $\lambda=5$ /s 라고 2초 동안 반드시 10개가 일어나는 것이 아니다. $\lambda$는 미소 구간에서의 **확률**을 정하는 양이고, 실제 개수는 랜덤이다 (뒤에서 평균이 $\lambda T$ 가 됨을 보인다).
+**$\lambda$ does not determine the number of events.** $\lambda=5$ /s does not mean that exactly 10 events occur in 2 seconds. $\lambda$ is a quantity that determines the **probability** in an infinitesimal interval, and the actual number is random (we will show later that the average is $\lambda T$).
 
-**강도의 정의로 읽기.**
+**Read as definition of intensity.**
 
 $$
 \lambda(t,N_t;\mathbf W)=\lim_{\Delta t\to0}\frac{\Pr[N_{t,t+\Delta t}=1\mid N_t;\mathbf W]}{\Delta t}
 $$
 
-확률밀도 $f(x)dx$ 가 작은 구간의 확률을 주는 것과 같은 발상이지만, $\lambda$는 밀도가 아니라 **발생률(rate)** 이므로 1보다 클 수 있다. $\lambda\Delta t\le1$ 이 되도록 $\Delta t$가 충분히 작아야 한다.
+The idea is similar to giving the probability of a small interval $f(x)dx$, but since $\lambda$ is not a density but a **rate**, it can be greater than 1. $\Delta t$ must be sufficiently small so that it becomes $\lambda\Delta t\le1$.
 
-**왜 등호가 아니라 $+o(\Delta t)$ 인가.** 상수 강도 $\lambda$의 포아송 과정에서는 정확히
+**Why is it $+o(\Delta t)$ and not an equal sign?** In the Poisson process of constant intensity $\lambda$, exactly
 
 $$
 \Pr[N_{t,t+\Delta t}=1]=\lambda\Delta t\,e^{-\lambda\Delta t}=\lambda\Delta t-\underbrace{(\lambda\Delta t)^2+\tfrac12(\lambda\Delta t)^3-\cdots}_{o(\Delta t)}
 $$
 
-이다. $\lambda\Delta t$는 1차 근사이고, 나머지는 $(\Delta t)^2$ 이상의 차수라 $\Delta t$ 대비 무시된다.
+. $\lambda\Delta t$ is a first-order approximation, and the rest are of a higher order than $(\Delta t)^2$ and are ignored compared to $\Delta t$.
 
-### 표기: `;` 와 `,`
+### Notation: `;` and `,`
 
-$\lambda(t,N_t;\mathbf W)$, $\Pr[\,\cdot\mid N_t;\mathbf W]$ 에서 `;` 와 `,` 는 **수학적으로 같은 역할**(모두 인자/조건)이며, 차이는 표기상의 그룹핑뿐이다.
+In $\lambda(t,N_t;\mathbf W)$, $\Pr[\,\cdot\mid N_t;\mathbf W]$, `;` and `,` have **mathematically the same role** (all arguments/conditions), and the only difference is the notational grouping.
 
-- `,` : 같은 층위의 인자 나열
-- `;` : 앞은 현재 상태 $(t,N_t)$, 뒤는 이력 $\mathbf W$ 로 역할 구분
+- `,` : List of factors at the same level
+- `;` : The first part is the current status $(t,N_t)$, and the second part is the history $\mathbf W$, distinguishing the roles.
 
-즉 $\lambda(t,N_t;\mathbf W)=\lambda(t,N_t,\mathbf W)$, $\Pr[\cdot\mid N_t;\mathbf W]=\Pr[\cdot\mid N_t,\mathbf W]$ 이다. 참고로 $N_t=\dim\mathbf W$ 이므로 $N_t$는 $\mathbf W$에서 결정되는 정보이다.
+That is, $\lambda(t,N_t;\mathbf W)=\lambda(t,N_t,\mathbf W)$ and $\Pr[\cdot\mid N_t;\mathbf W]=\Pr[\cdot\mid N_t,\mathbf W]$. For reference, since $N_t=\dim\mathbf W$, $N_t$ is information determined from $\mathbf W$.
 
-| 다른 분야의 `;` 관례 | 의미 |
+| `;` conventions in other fields | meaning |
 |---|---|
-| $p(x;\theta)$ | $\theta$는 확률변수가 아닌 고정 매개변수 (빈도주의). $p(x\mid\theta)$는 $\theta$가 확률변수 (베이지안) |
-| $I(X;Y)$, $I(X;Y\mid Z)$ | 상호정보량에서 두 변수 구분; `\mid` 는 조건 |
+| $p(x;\theta)$ | $\theta$ is a fixed parameter, not a random variable (frequency caution). $p(x\mid\theta)$ is $\theta$, which is a random variable (Bayesian) |
+| $I(X;Y)$, $I(X;Y\mid Z)$ | Distinguishing two variables in mutual information; `\mid` is the condition |
 
-여기서 $\mathbf W$는 고정 매개변수가 아니라 **랜덤한 이력**이므로 $p(x;\theta)$ 관례와는 결이 다르다. 점과정 문헌에서는 같은 대상을 이력 $\mathcal H_t$에 대한 **조건부 강도** $\lambda^*(t)=\lambda(t\mid\mathcal H_t)$ 로 쓰는 경우가 많다.
+Here, $\mathbf W$ is not a fixed parameter but a **random history**, so it differs from the $p(x;\theta)$ convention. In point process literature, the same object is often written as the **conditional strength** $\lambda^*(t)=\lambda(t\mid\mathcal H_t)$ for the history $\mathcal H_t$.
 
-### 강도 함수에 따른 점과정의 분류
+### Classification of point processes according to intensity function
 
-| 강도 | 과정 | 예 |
+| Strength | Process | Example |
 |---|---|---|
-| $\lambda(t,N_t;\mathbf W)\equiv\lambda_0$ | 정상(동차) 포아송 | 평균 트래픽이 일정한 패킷 도착 |
-| $\lambda(t)$ | 비정상(비동차) 포아송 | 시간대별 트래픽 변화 (낮↑, 밤↓) |
-| $\lambda$ 가 $\mathbf W$ 에 의존 | 자기흥분 과정(Hawkes 등) | 지진 여진, 버스트 트래픽 |
+| $\lambda(t,N_t;\mathbf W)\equiv\lambda_0$ | Normal (Uniform) Poisson | Packet arrival with constant average traffic |
+| $\lambda(t)$ | Abnormal (Non-vehicle) Poisson | Traffic change by time of day (Day ↑, Night ↓) |
+| $\lambda$ depends on $\mathbf W$ | self-excitation process (Hawkes et al.) | earthquake aftershock, burst traffic |
 
-미소 구간 법칙은 포아송 과정만이 아니라 **점과정 전반을 강도로 규정하는 틀**이며, 강도가 이력에 의존하지 않는 경우가 포아송 과정이다.
+The infinitesimal interval law is a framework that defines the intensity of not only Poisson processes but the **entire point process**, and a Poisson process is a case where the intensity does not depend on hysteresis.
 
-## 정상 포아송 과정과 비정상 포아송 과정
+## Normal Poisson Process and Abnormal Poisson Process
 
-**포아송 과정은 무기억(memoryless)이다**: 강도가 과정의 이력 $(N_t,\mathbf W)$ 에 의존하지 않는다.
+**The Poisson process is memoryless**: its strength does not depend on the process history $(N_t,\mathbf W)$.
 
-- **정상(stationary)**: $\lambda(t,N_t;\mathbf W)=\lambda_0$ (상수). 시간에도, 이력에도 무관하다.
-- **비정상(nonstationary)**: $\lambda(t)$. 시간에 따라 변하지만 여전히 이력과는 무관하다.
+- **Stationary**: $\lambda(t,N_t;\mathbf W)=\lambda_0$ (Constant). Independent of time and history.
+- **nonstationary**: $\lambda(t)$. It changes over time but is still unrelated to history.
 
-**동전 던지기 해석.** 시간축을 $\Delta t$ 칸으로 나누고, 매 칸마다 확률 $\lambda_0\Delta t$ 로 "사건"이 나오는 동전을 던진다. 각 던지기는 과거(와 미래)의 결과와 **독립**이다. 비정상의 경우는 시각 $t$의 칸에서 확률이 $\lambda(t)\Delta t$ 로 바뀔 뿐 독립성은 그대로이다.
+**Interpretation of Coin Toss.** Divide the time axis into $\Delta t$ squares, and for each square, toss a coin that produces an "event" with probability $\lambda_0\Delta t$. Each toss is **independent** of past (and future) results. In the case of anomalies, only the probability changes to $t$ in the square at time $\lambda(t)\Delta t$, while the independence remains the same.
 
 ::: {.callout-warning}
-## "정상"과 "독립"을 구분할 것
-구간 간 **독립성**의 원천은 무기억성(이력 비의존)이지 정상성(상수 강도)이 아니다. 비정상 포아송 과정도 겹치지 않는 구간의 사건 수는 서로 독립이다. 뒤의 카운트 통계 유도가 $\lambda(t)$ 일반 형태로 그대로 성립하는 이유이다.
+## Distinguish between "normal" and "independent"
+The source of **independence** between intervals is memorylessness (hysteresis-independence), not stationarity (constant strength). Even in an anomalous Poisson process, the number of events in non-overlapping intervals is independent of each other. This is the reason why the derivation of the count statistics that follows holds true in the general form $\lambda(t)$.
 :::
 
-## 두 가지 확률 법칙
+## Two Laws of Probability
 
-1. **카운트 통계(count statistics)**: 구간 $[t_1,t_2)$ 에서 사건이 $n$개일 확률 $\Pr[N_{t_1,t_2}=n]$.
-2. **발생 시각(time of occurrence)**: 관측 구간 내 처음 $n$개 사건 시각 $(W_1,\dots,W_n)$ 의 결합분포.
+1. **count statistics**: The probability that there are $n$ events in the interval $[t_1,t_2)$ $\Pr[N_{t_1,t_2}=n]$.
+2. **Time of occurrence**: Joint distribution of the times of the first $n$ events within the observation interval $(W_1,\dots,W_n)$.
 
-### 발생 시각이 왜 중요한가
+### Why the time of occurrence is important
 
-**정보의 포함 관계.** 카운트는 시각의 함수이다.
+**Information inclusion relationship.** The count is a function of time.
 
 $$
 N_{t_1,t_2}=\sum_i\mathbf 1\{t_1<W_i\le t_2\}
 $$
 
-사건 시각의 결합분포를 알면 임의 구간의 카운트 분포가 모두 결정되지만, 카운트 분포만으로는 사건이 구간 안 어디에 몰려 있는지 알 수 없다. 예컨대 $[0,1)$에 "2개"라는 정보는 $\{0.10,0.15\}$ (버스트) 와 $\{0.2,0.8\}$ (분산) 을 구분하지 못한다. 시각 분포가 과정의 **완전한 기술**이고, 카운트는 그 **요약**이다.
+If the joint distribution of event times is known, the count distribution of any interval is determined, but the count distribution alone cannot tell where the events are clustered within the interval. For example, the information that there are "2" in $[0,1)$ cannot distinguish between $\{0.10,0.15\}$ (burst) and $\{0.2,0.8\}$ (variance). The time distribution is a **complete description** of the process, and the count is a **summary** of it.
 
-**통신 시스템에서의 의미.**
+**Meaning in communication systems.**
 
-- **큐잉 지연**: 평균 도착률이 같아도 도착 시각이 몰리면 대기열이 쌓인다.
-- **충돌 확률**(ALOHA 류): 두 전송이 겹치는지는 개수가 아니라 시각 차 $|W_i-W_j|$ 에 달려 있다.
-- **추정·검정**: 관측된 사건 시각으로 $\lambda$를 최대우도 추정하거나 포아송 가정을 검정할 때 쓰는 우도가 시각들의 결합밀도이다.
+- **Queueing Delay**: Even if the average arrival rate is the same, a queue builds up if arrival times are concentrated.
+- **Collision Probability** (ALOHA type): Whether two transmissions overlap depends not on the number of times but on the time difference $|W_i-W_j|$.
+- **Estimation/Testing**: The likelihood used to estimate the maximum likelihood of $\lambda$ with the observed event times or to test the Poisson assumption is the joint density of the times.
 
-카운트 통계를 먼저 유도하는 것은 더 단순한 요약량이기 때문이며, 발생 시각이 덜 중요해서가 아니다. 발생 시각 법칙은 [도착 시각의 분포](#sec-arrival) 에서 카운트 결과로부터 유도한다.
+The reason count statistics are derived first is that they are simpler summaries, not because the time of occurrence is less important. The rule of the time of occurrence is derived from the count results in the distribution of arrival times [](#sec-arrival).
 
-# 카운트 통계의 유도 {#sec-count}
+# Derivation of count statistics {#sec-count}
 
-목표: 강도 $\lambda(t)$ 인 (비정상 포함) 포아송 과정에서
+Objective: In a Poisson process (including abnormal) with intensity $\lambda(t)$
 
 $$
 \Pr[N_{t_1,t_2}=n]=e^{-C}\frac{C^n}{n!},\qquad C=\int_{t_1}^{t_2}\lambda(\alpha)\,d\alpha .
 $$
 
-전략: $t_1$을 원점처럼 고정하고 **$t_2$를 변수**로 본다. $t_2$를 $\delta$만큼 늘렸을 때 확률이 어떻게 변하는지로 $t_2$에 대한 미분방정식을 세운다.
+Strategy: Fix $t_1$ as the origin and treat **$t_2$** as the variable. Formulate a differential equation for $t_2$ based on how the probability changes when $t_2$ is increased by $\delta$.
 
-## 인접 구간 분해
+## Adjacent interval decomposition
 
-두 인접 구간 $[t_1,t_2)$, $[t_2,t_2+\delta)$ 를 생각하면
+If we consider two adjacent intervals $[t_1,t_2)$, $[t_2,t_2+\delta)$
 
 $$
 N_{t_1,t_2+\delta}=N_{t_1,t_2}+N_{t_2,t_2+\delta}. \tag{1}
 $$
 
-목표는 $\Pr[N_{t_1,t_2+\delta}=n]$ 을 두 부분 구간의 확률로 표현하는 것이다.
+The goal is to express as the probability of $\Pr[N_{t_1,t_2+\delta}=n]$ in two subintervals.
 
-## 전확률 분해
+## Total probability decomposition
 
-전체 $n$개가 되려면 앞 구간에 $k$개가 있을 때 뒤 구간에 정확히 $n-k$개가 있어야 한다. 가능한 $(k,n-k)$ 는 $(0,n),(1,n-1),\dots,(n,0)$ 이고, 서로 다른 $k$에 대한 사건들은 **서로소**(disjoint)이므로 확률을 더할 수 있다.
+For the total to be $n$, there must be exactly $k$ in the next interval when there are $n-k$. The possible $(k,n-k)$ is $(0,n),(1,n-1),\dots,(n,0)$, and since the events for different $k$ are **disjoint**, the probabilities can be added.
 
 $$
 \Pr[N_{t_1,t_2+\delta}=n]=\sum_{k=0}^{n}\Pr\big[N_{t_1,t_2}=k,\;N_{t_2,t_2+\delta}=n-k\big].
 $$
 
-**독립성.** 무기억성에 의해 뒤 구간의 강도는 앞 구간의 이력과 무관하므로
+**Independence.** Due to memorylessness, the intensity of the subsequent section is independent of the history of the preceding section, therefore
 
 $$
 \Pr[N_{t_2,t_2+\delta}=j\mid N_{t_1,t_2}=k]=\Pr[N_{t_2,t_2+\delta}=j]
 $$
 
-이고, 따라서
+, and therefore
 
 $$
 \Pr[N_{t_1,t_2+\delta}=n]=\sum_{k=0}^{n}\Pr[N_{t_1,t_2}=k]\;\Pr[N_{t_2,t_2+\delta}=n-k]. \tag{2}
 $$
 
-## 미소 구간의 세 경우
+## Three cases of infinitesimal intervals
 
-$\delta$가 충분히 작으면 뒤 구간에서 일어날 수 있는 일은 "0개 / 1개 / 2개 이상" 세 경우이고, 셋의 확률 합은 1이다.
+If $\delta$ is sufficiently small, there are three possible outcomes in the following interval: "0 / 1 / 2 or more", and the sum of the probabilities of the three is 1.
 
 $$
 \begin{aligned}
@@ -511,79 +511,79 @@ $$
 \end{aligned} \tag{3}
 $$
 
-세 번째 식은 $1-[\lambda\delta+o(\delta)]-o(\delta)$ 를 정리한 것이다.
+The third equation is a simplified version of $1-[\lambda\delta+o(\delta)]-o(\delta)$.
 
 ::: {.callout-note}
-## $o(\cdot)$ 표기의 산술
-$o(\delta)$ 는 특정한 함수가 아니라 "$o(\delta)/\delta\to0$ 을 만족하는 **어떤** 함수"를 뜻하는 표기이다. 같은 식에 두 번 나온 $o(\delta)$ 는 서로 다른 함수일 수 있다 (하나는 $\delta^2$, 다른 하나는 $\delta^3+\delta^{3/2}$ 등). 따라서 $-o(\delta)-o(\delta)$ 의 정확한 값은 알 수 없지만, 결과가 다시 $o(\delta)$ 라는 것은 안다. 성립하는 규칙:
+## $o(\cdot)$ notation arithmetic
+$o(\delta)$ is not a specific function, but a notation meaning "**some** function satisfying $o(\delta)/\delta\to0$". $o(\delta)$, appearing twice in the same equation, can be different functions (one being $\delta^2$, the other $\delta^3+\delta^{3/2}$, etc.). Therefore, while the exact value of $-o(\delta)-o(\delta)$ is unknown, we know that the result is again $o(\delta)$. The rule that holds:
 
-- $o(\delta)\pm o(\delta)=o(\delta)$ (유한 개의 합)
-- $c\cdot o(\delta)=o(\delta)$ ($c$ 는 $\delta$와 무관한 유계 상수. 예: $\Pr[N_{t_1,t_2}=n-2]$)
-- $\delta\cdot O(1)$ 은 $o(\delta)$ 가 **아니다** — 1차 항은 살아남는다.
+- $o(\delta)\pm o(\delta)=o(\delta)$ (finite sum)
+- $c\cdot o(\delta)=o(\delta)$ ($c$ is a bounded constant independent of $\delta$. e.g.: $\Pr[N_{t_1,t_2}=n-2]$)
+- $\delta\cdot O(1)$ is **not** $o(\delta)$ — the first term survives.
 :::
 
-## 차분식에서 미분방정식으로
+## From difference equation to differential equation
 
-(3)을 (2)에 대입한다. $n-k$ 로 경우를 나누면
+Substitute (3) into (2). If we divide the cases into $n-k$
 
 - $k=n$ ($n-k=0$): $\Pr[N_{t_1,t_2}=n]\,(1-\lambda(t_2)\delta+o(\delta))$
 - $k=n-1$ ($n-k=1$): $\Pr[N_{t_1,t_2}=n-1]\,(\lambda(t_2)\delta+o(\delta))$
-- $k\le n-2$ ($n-k\ge2$): $\Pr[N_{t_1,t_2}=k]\cdot o(\delta)=o(\delta)$ — $\delta$와 무관한 확률을 곱해도 $o(\delta)$ 이고, 유한 개($n-1$개)의 합이므로 전체도 $o(\delta)$
+- $k\le n-2$ ($n-k\ge2$): $\Pr[N_{t_1,t_2}=k]\cdot o(\delta)=o(\delta)$ — $\delta$ Even when multiplied by a probability unrelated to $o(\delta)$, and since it is the sum of a finite number ($n-1$), the total is also $o(\delta)$
 
 $$
 \Pr[N_{t_1,t_2+\delta}=n]=\Pr[N_{t_1,t_2}=n]\big(1-\lambda(t_2)\delta\big)+\Pr[N_{t_1,t_2}=n-1]\,\lambda(t_2)\delta+o(\delta). \tag{4}
 $$
 
-양변에서 $\Pr[N_{t_1,t_2}=n]$ 을 **빼고** $\delta$로 나눈 뒤 $\delta\to0$ 을 취하면, 좌변은 도함수의 정의가 되고 $o(\delta)/\delta\to0$ 이다.
+If we **subtract** $\Pr[N_{t_1,t_2}=n]$ from both sides, divide by $\delta$, and take $\delta\to0$, the left side becomes the definition of the derivative and is $o(\delta)/\delta\to0$.
 
 $$
 \frac{\partial}{\partial t_2}\Pr[N_{t_1,t_2}=n]=-\lambda(t_2)\Pr[N_{t_1,t_2}=n]+\lambda(t_2)\Pr[N_{t_1,t_2}=n-1],\qquad \Pr[N_{t_1,t_2}=-1]\equiv0. \tag{5}
 $$
 
-**해석 (확률 흐름).** 상태 $n$의 확률은 "$n-1$에서 사건 하나가 일어나 들어오는 흐름" $\lambda\Pr[n-1]$ 만큼 늘고, "$n$에서 사건 하나가 일어나 나가는 흐름" $\lambda\Pr[n]$ 만큼 준다. 순수 출생 과정(pure birth process)의 Kolmogorov 전진 방정식이다.
+**Interpretation (Probabilistic Flow).** The probability of state $n$ increases by the incoming flow "$\lambda\Pr[n-1]$" when one event occurs in "$n-1$", and decreases by the outgoing flow "$\lambda\Pr[n]$" when one event occurs in "$n$". This is the Kolmogorov forward equation for a pure birth process.
 
-(5)는 $n=0,1,2,\dots$ 에 대한 **무한 연립** 미분방정식이다. $n=0$ 부터 차례로 풀 수도 있지만, 생성함수를 쓰면 한 번에 풀린다.
+(5) is an infinite system of differential equations for $n=0,1,2,\dots$. Although it can be solved sequentially starting from $n=0$, it can be solved in one step using a generating function.
 
-## 생성함수 변환
+## Generator function conversion
 
-카운트 분포의 변환을 정의한다.
+Defines the transformation of the count distribution.
 
 $$
 P(t_2,z)\equiv\sum_{n=0}^{\infty}\Pr[N_{t_1,t_2}=n]\,z^n. \tag{6}
 $$
 
 ::: {.callout-note}
-## 부호 규약
-이것은 확률론의 **확률생성함수**(PGF) $E[z^{N}]$ 이다. 신호처리의 z-변환은 보통 $z^{-n}$ 을 쓰므로 $z\leftrightarrow z^{-1}$ 차이가 있지만, 계수를 읽어 내는 원리는 같다. 이 변환의 장점은 $n$에 대한 무한 연립식을 $z$를 매개변수로 하는 **하나의** 식으로 바꾸는 것이다. $n$의 함수였던 분포가 $(t_2,z)$ 의 함수가 된다.
+## Code convention
+This is the **Probability Generating Function** (PGF) $E[z^{N}]$ of probability theory. Since the z-transform in signal processing usually uses $z^{-n}$, there is a difference $z\leftrightarrow z^{-1}$, but the principle of reading the coefficients is the same. The advantage of this transformation is that it changes an infinite system of equations for $n$ into **a single** equation with $z$ as a parameter. The distribution that was a function of $n$ becomes a function of $(t_2,z)$.
 :::
 
-(5)에 $z^n$ 을 곱해 $n\ge0$ 에 대해 더하면
+If we multiply (5) by $z^n$ and add it for $n\ge0$,
 
 $$
 \frac{\partial P(t_2,z)}{\partial t_2}=-\lambda(t_2)\sum_{n\ge0}\Pr[N=n]z^n+\lambda(t_2)\sum_{n\ge0}\Pr[N=n-1]z^n .
 $$
 
-두 번째 합은 $m=n-1$ 로 인덱스를 옮기면 ($n=0$ 항은 $\Pr[N=-1]=0$)
+If we shift the index to $m=n-1$ for the second sum (the $n=0$ term becomes $\Pr[N=-1]=0$)
 
 $$
 \sum_{n\ge0}\Pr[N=n-1]z^n=\sum_{m\ge0}\Pr[N=m]z^{m+1}=z\,P(t_2,z).
 $$
 
-따라서
+Therefore
 
 $$
 \frac{\partial P(t_2,z)}{\partial t_2}=-\lambda(t_2)\,(1-z)\,P(t_2,z). \tag{7}
 $$
 
-**경계조건.** $t_2=t_1$ 이면 구간 길이가 0이므로 사건이 없다: $\Pr[N_{t_1,t_1}=0]=1$, 나머지는 0. 따라서
+**Boundary condition.** If $t_2=t_1$, the interval length is 0, so there is no event: $\Pr[N_{t_1,t_1}=0]=1$, the rest are 0. Therefore
 
 $$
 P(t_1,z)=1. \tag{8}
 $$
 
-## 해
+## sun
 
-(7)은 $z$를 고정하면 $t_2$에 대한 1계 선형 상미분방정식이다. 변수분리하면
+(7) is a first-order linear ordinary differential equation for $t_2$ when $z$ is fixed. Separating variables
 
 $$
 \frac{1}{P}\frac{\partial P}{\partial t_2}=-\lambda(t_2)(1-z)
@@ -595,31 +595,31 @@ $$
 \boxed{P(t_2,z)=\exp\{-(1-z)\,C\},\qquad C\equiv\int_{t_1}^{t_2}\lambda(\alpha)\,d\alpha} \tag{9}
 $$
 
-$e^{-(1-z)C}=e^{-C}e^{zC}$ 이고 $e^{zC}$ 를 테일러 전개하면
+$e^{-(1-z)C}=e^{-C}e^{zC}$ and if we Taylor expand $e^{zC}$
 
 $$
 P(t_2,z)=e^{-C}\sum_{k=0}^{\infty}\frac{C^k}{k!}z^k. \tag{10}
 $$
 
-(6)과 (10)의 $z^n$ 계수를 비교하면 (생성함수의 역변환)
+(6) and (10) $z^n$ (inverse transformation of the generating function)
 
 $$
 \boxed{\Pr[N_{t_1,t_2}=n]=e^{-C}\,\frac{C^n}{n!},\qquad C=\int_{t_1}^{t_2}\lambda(\alpha)\,d\alpha} \tag{11}
 $$
 
-정상 경우 $\lambda(t)\equiv\lambda_0$ 이면 $C=\lambda_0(t_2-t_1)$ 이고
+In the normal case, if $\lambda(t)\equiv\lambda_0$, then $C=\lambda_0(t_2-t_1)$ and
 
 $$
 \Pr[N_{t_1,t_2}=n]=e^{-\lambda_0(t_2-t_1)}\frac{\big[\lambda_0(t_2-t_1)\big]^n}{n!}.
 $$
 
-정상 경우 분포는 구간의 **길이** $t_2-t_1$ 에만 의존하고 위치와 무관하다(정상 증분). 비정상 경우에는 강도의 **누적량** $C$ 에만 의존하므로, 시간축을 $\tau(t)=\int_0^t\lambda$ 로 재척도화하면 단위 강도의 정상 과정이 된다.
+In the normal case, the distribution depends only on the **length** of the interval $t_2-t_1$ and is independent of location (normal increment). In the abnormal case, since it depends only on the **cumulative amount** of intensity $C$, rescaled to the time axis $\tau(t)=\int_0^t\lambda$ results in a normal process of unit intensity.
 
-## 결과 검증
+## Result Verification
 
-**정규화.** $P(t_2,1)=\sum_n\Pr[N=n]=e^{0}=1$. ✓
+**Normalization.** $P(t_2,1)=\sum_n\Pr[N=n]=e^{0}=1$. ✓
 
-**평균과 분산 (생성함수의 미분).**
+**Mean and Variance (Derivative of the Generating Function).**
 
 $$
 E[N]=\partial_zP\big|_{z=1}=C,\qquad
@@ -627,44 +627,44 @@ E[N(N-1)]=\partial_z^2P\big|_{z=1}=C^2,\qquad
 \mathrm{Var}[N]=C^2+C-C^2=C .
 $$
 
-평균 = 분산 = $C$. 정상 경우 평균이 $\lambda_0(t_2-t_1)$ 이므로 "$\lambda$ = 단위 시간당 **평균** 사건 수"라는 해석이 여기서 정당화된다. 표준편차 $\sqrt C$ 가 평균 $C$ 에 비해 상대적으로 $1/\sqrt C$ 로 줄어들어, 긴 구간에서는 개수가 평균 주위로 상대적으로 집중된다.
+Mean = Variance = $C$. Since the mean in the normal case is $\lambda_0(t_2-t_1)$, the interpretation that "$\lambda$ = **average** number of events per unit time" is justified here. As the standard deviation $\sqrt C$ decreases to $1/\sqrt C$ relative to the mean $C$, the number is relatively concentrated around the mean over long intervals.
 
-**직접 대입.** $p_n(C)=e^{-C}C^n/n!$ 에서 $\frac{dC}{dt_2}=\lambda(t_2)$ 이므로
+**Direct assignment.** Since $p_n(C)=e^{-C}C^n/n!$ in $\frac{dC}{dt_2}=\lambda(t_2)$
 
 $$
 \frac{\partial p_n}{\partial t_2}=\lambda(t_2)\Big(-e^{-C}\frac{C^n}{n!}+e^{-C}\frac{C^{n-1}}{(n-1)!}\Big)=-\lambda(t_2)p_n+\lambda(t_2)p_{n-1}
 $$
 
-로 (5)를 만족한다. ✓
+satisfies (5). ✓
 
-## 극한 거동: 구간과 $n$이 함께 커질 때
+## Extreme behavior: When the interval and $n$ grow together
 
-$C\to\infty$ (구간이 매우 길거나 강도가 큼)일 때 개별 확률질량은 어떻게 되는가?
+What happens to the individual probability mass when $C\to\infty$ (the interval is very long or the intensity is high)?
 
-- **$n$ 고정**: $e^{-C}C^n/n!\to0$. 지수 감쇠가 다항 증가를 이긴다.
-- **$n$도 함께 증가, $n\approx C$** (분포의 최빈 부근): Stirling 공식 $n!\approx\sqrt{2\pi n}\,(n/e)^n$ 로
+- **$n$ Fixed**: $e^{-C}C^n/n!\to0$. Exponential decay beats polynomial increase.
+- **$n$ also increases, $n\approx C$** (near the mode of the distribution): Stirling formula $n!\approx\sqrt{2\pi n}\,(n/e)^n$
 $$
 e^{-C}\frac{C^C}{C!}\approx\frac{1}{\sqrt{2\pi C}}\to0 .
 $$
 
-즉 어떤 $n$이든 개별 질량은 0으로 간다. 가능한 값이 폭 $\sim\sqrt C$ 로 넓게 퍼지므로 각 질량이 작아지는 것이다. 적절히 표준화한 $(N-C)/\sqrt C$ 는 중심극한정리에 의해 표준정규분포로 수렴한다.
+That is, for any $n$, the individual mass approaches 0. Since the possible values spread out widely with a width of $\sim\sqrt C$, each mass becomes smaller. A properly standardized $(N-C)/\sqrt C$ converges to a standard normal distribution by the central limit theorem.
 
-## 대안 유도: 동전 던지기의 이항 극한
+## Alternative Derivation: Binomial Limit of Coin Toss
 
-정상 경우를 동전 던지기 해석으로 직접 유도해 보자. 길이 $T=t_2-t_1$ 을 $m=T/\Delta t$ 칸으로 나누고 각 칸에서 확률 $p=\lambda_0\Delta t$ 로 사건이 일어나면 (독립, 칸당 최대 1개)
+Let's directly derive the normal case using the coin toss interpretation. If we divide length $T=t_2-t_1$ into $m=T/\Delta t$ cells and an event occurs in each cell with probability $p=\lambda_0\Delta t$ (independent, maximum 1 per cell)
 
 $$
 \Pr[N=n]=\binom{m}{n}p^n(1-p)^{m-n},\qquad mp=\lambda_0T\ \text{고정}.
 $$
 
-$m\to\infty$ 에서
+From $m\to\infty$
 
 $$
 \binom{m}{n}p^n=\frac{m(m-1)\cdots(m-n+1)}{m^n}\cdot\frac{(mp)^n}{n!}\to\frac{(\lambda_0T)^n}{n!},\qquad
 (1-p)^{m-n}=\Big(1-\frac{\lambda_0T}{m}\Big)^{m-n}\to e^{-\lambda_0T}
 $$
 
-이므로 같은 결과 $e^{-\lambda_0T}(\lambda_0T)^n/n!$ 를 얻는다. 생성함수 유도는 이 이항 극한을 "칸 하나씩 늘려 가는" 미분 형태로 수행한 것이라고 볼 수 있다.
+Since , we obtain the same result $e^{-\lambda_0T}(\lambda_0T)^n/n!$. The derivation of the generating function can be seen as performing this binomial limit in the form of differentiation that "increases one by one."
 
 ```{python}
 #| label: fig-binom-poisson
@@ -683,13 +683,13 @@ ax.set_xlabel("n"); ax.set_ylabel("probability"); ax.legend()
 plt.tight_layout(); plt.show()
 ```
 
-# 도착 시각의 분포 {#sec-arrival}
+# Distribution of arrival times {#sec-arrival}
 
-카운트 통계로부터 발생 시각 법칙을 유도할 수 있다. 정상 경우($\lambda_0$)를 다룬다.
+The occurrence time rule can be derived from count statistics. We handle the normal case ($\lambda_0$).
 
-## 첫 도착 시각과 도착 간격
+## First arrival time and arrival interval
 
-첫 사건이 $t$ 이후에 일어난다는 것은 $(0,t]$ 에 사건이 없다는 것과 같다.
+The fact that the first event occurs after $t$ is the same as saying that there is no event in $(0,t]$.
 
 $$
 \Pr(W_1>t)=\Pr[N_{0,t}=0]=e^{-\lambda_0t}
@@ -697,11 +697,11 @@ $$
 f_{W_1}(t)=\lambda_0e^{-\lambda_0t},\quad t\ge0 .
 $$
 
-즉 $W_1\sim\mathrm{Exp}(\lambda_0)$. 무기억성에 의해 $W_{i-1}$ 이후 다음 사건까지의 간격 $X_i=W_i-W_{i-1}$ 도 과거와 독립인 $\mathrm{Exp}(\lambda_0)$ 이며, 평균 도착 간격은 $1/\lambda_0$ 이다. 지수분포 자체도 무기억 성질 $\Pr(X>s+t\mid X>s)=\Pr(X>t)$ 을 가진다.
+, that is, $W_1\sim\mathrm{Exp}(\lambda_0)$. Due to memorylessness, the interval $W_{i-1}$ to the next event $X_i=W_i-W_{i-1}$ is also independent of the past $\mathrm{Exp}(\lambda_0)$, and the average arrival interval $1/\lambda_0$. The exponential distribution itself also possesses memorylessness $\Pr(X>s+t\mid X>s)=\Pr(X>t)$.
 
-## 처음 $n$개 사건 시각의 결합밀도
+## The combined density of the first $n$ events
 
-$0<w_1<\cdots<w_n$ 에 대해 "각 $[w_i,w_i+dw_i)$ 에 사건이 하나씩, 그 사이 구간에는 사건 없음"의 확률은
+For $0<w_1<\cdots<w_n$, the probability of "one event for each $[w_i,w_i+dw_i)$, and no events in between" is
 
 $$
 f_{W_1,\dots,W_n}(w_1,\dots,w_n)\,dw_1\cdots dw_n
@@ -712,28 +712,28 @@ $$
 \Longrightarrow\quad f_{W_1,\dots,W_n}(w_1,\dots,w_n)=\lambda_0^n e^{-\lambda_0w_n},\qquad 0<w_1<\cdots<w_n .
 $$
 
-밀도가 마지막 시각 $w_n$ 에만 의존한다는 점이 흥미롭다. 이는 도착 간격들이 i.i.d. 지수분포라는 것과 동치이다 ($\prod_i\lambda_0e^{-\lambda_0x_i}=\lambda_0^ne^{-\lambda_0\sum x_i}$).
+It is interesting that the density depends only on the last time $w_n$. This is equivalent to the arrival intervals following an iid exponential distribution ($\prod_i\lambda_0e^{-\lambda_0x_i}=\lambda_0^ne^{-\lambda_0\sum x_i}$).
 
-## 개수가 주어졌을 때의 조건부 분포: 균등분포
+## Conditional distribution when the number is given: Uniform distribution
 
-관측 구간 $[0,T]$ 에 정확히 $n$개가 관측되었다는 조건에서, 사건 시각 밀도에 "$(w_n,T]$ 에 사건 없음" $e^{-\lambda_0(T-w_n)}$ 을 곱하고 $\Pr[N_{0,T}=n]$ 으로 나누면
+Under the condition that exactly $n$ events were observed in the observation interval $[0,T]$, if we multiply the event time density by "$(w_n,T]$ no events" $e^{-\lambda_0(T-w_n)}$ and divide by $\Pr[N_{0,T}=n]$
 
 $$
 f(w_1,\dots,w_n\mid N_{0,T}=n)=\frac{\lambda_0^ne^{-\lambda_0T}}{e^{-\lambda_0T}(\lambda_0T)^n/n!}=\boxed{\frac{n!}{T^n}},\qquad 0<w_1<\cdots<w_n\le T .
 $$
 
-이는 $[0,T]$ 위 균등분포 i.i.d. 표본 $n$개를 **정렬**한 순서통계량의 결합밀도와 같다. 개수가 주어지면 사건들은 구간 안에 "아무 선호 없이" 흩뿌려진다. 이 결과는 $\lambda_0$ 에 의존하지 않으므로, 시각 정보는 $\lambda_0$ 추정에 개수 이상의 정보를 주지 않는다 (정상 포아송에서 $N_{0,T}$ 는 $\lambda_0$ 의 충분통계량). 반대로 비정상·자기흥분 과정에서는 시각 배치 자체가 강도에 대한 정보를 담는다.
+This is equal to the joint density of the order statistic of $n$ of the uniformly distributed iid samples $[0,T]$. Given the number, the events are scattered within the interval "without any preference." Since this result does not depend on $\lambda_0$, the visual information does not provide more information than the number to the $\lambda_0$ estimation (in normal Poisson, $N_{0,T}$ is a sufficient statistic for $\lambda_0$). Conversely, in abnormal autoexcitation processes, the visual arrangement itself contains information about the intensity.
 
-| | 카운트 통계 | 발생 시각 |
+| | Count Statistics | Time of Occurrence |
 |---|---|---|
-| 묻는 것 | 구간에 몇 개인가 | 정확히 언제인가 |
-| 확률변수 | $N_{t_1,t_2}$ (정수) | $(W_1,\dots,W_n)$ (실수 벡터) |
-| 정보량 | 요약 | 완전한 기술 |
-| 정상 포아송 결과 | $\mathrm{Poisson}(\lambda_0(t_2-t_1))$ | 지수 간격 / 조건부 균등 |
+| What is being asked | How many are in the interval | Exactly when is it |
+| Random variable | $N_{t_1,t_2}$ (Integer) | $(W_1,\dots,W_n)$ (Real vector) |
+| Information | Summary | Full Description |
+| Normal Poisson Result | $\mathrm{Poisson}(\lambda_0(t_2-t_1))$ | Exponential Interval / Conditional Uniform |
 
-# 시뮬레이션 검증
+# Simulation Verification
 
-지수 도착 간격으로 정상 포아송 과정을 생성하고, 위의 결과들을 경험적으로 확인한다.
+Generate a normal Poisson process with an exponent arrival interval and empirically verify the above results.
 
 ```{python}
 #| label: fig-sim-stationary
@@ -768,7 +768,7 @@ plt.tight_layout(); plt.show()
 print(f"sample mean = {counts.mean():.4f}, sample var = {counts.var():.4f}, theory = {lam0*T:.4f}")
 ```
 
-비정상 과정은 **thinning**(솎아내기)으로 생성한다: 상한 $\lambda_{\max}\ge\lambda(t)$ 의 정상 포아송 과정을 만든 뒤, 시각 $t$의 사건을 확률 $\lambda(t)/\lambda_{\max}$ 로 유지한다. 유지된 사건의 미소 구간 확률이 $\lambda_{\max}\delta\cdot\lambda(t)/\lambda_{\max}=\lambda(t)\delta$ 가 되므로 강도 $\lambda(t)$ 의 포아송 과정이 된다.
+The abnormal process is generated by **thinning**: a normal Poisson process of upper limit $\lambda_{\max}\ge\lambda(t)$ is created, and the event at time $t$ is maintained with probability $\lambda(t)/\lambda_{\max}$. Since the probability of the infinitesimal interval of the maintained event becomes $\lambda_{\max}\delta\cdot\lambda(t)/\lambda_{\max}=\lambda(t)\delta$, it becomes a Poisson process of strength $\lambda(t)$.
 
 ```{python}
 #| label: fig-sim-nonstationary
@@ -794,35 +794,35 @@ ax.set_xlabel("n"); ax.legend(); plt.tight_layout(); plt.show()
 print(f"C = {C:.4f}, sample mean = {cnt.mean():.4f}, sample var = {cnt.var():.4f}")
 ```
 
-# 요약
+# Summary
 
-**샘플링**
+**Sampling**
 
-- 샘플링은 임펄스 열과의 곱: $x_s(t)=x(t)p_{T_s}(t)$.
-- $\mathcal F\{p_{T_s}\}=\frac{2\pi}{T_s}\sum_k\delta(\omega-k\omega_s)$. $\omega_s$는 **위치**, $2\pi/T_s$는 **면적** ($1/T_s$: 급수 계수, $2\pi$: 변환 규약).
-- $X_s(j\omega)=\frac1{T_s}\sum_kX(j(\omega-k\omega_s))$: 스펙트럼이 $\omega_s$ 간격으로 복제, 이득 $1/T_s$.
-- 앨리어싱 없음 $\iff\omega_s>2\omega_m$. 이득 $T_s$, 차단 $\omega_m\le\omega_c\le\omega_s-\omega_m$ 인 이상적 LPF로 완전 복원.
+- Sampling is multiplied with the impulse train: $x_s(t)=x(t)p_{T_s}(t)$.
+- $\mathcal F\{p_{T_s}\}=\frac{2\pi}{T_s}\sum_k\delta(\omega-k\omega_s)$. $\omega_s$ is **location**, $2\pi/T_s$ is **area** ($1/T_s$: series coefficient, $2\pi$: conversion convention).
+- $X_s(j\omega)=\frac1{T_s}\sum_kX(j(\omega-k\omega_s))$: Spectrum replicated at $\omega_s$ intervals, gain $1/T_s$.
+- No aliasing $\iff\omega_s>2\omega_m$. Fully restored to an ideal LPF with gain $T_s$ and cutoff $\omega_m\le\omega_c\le\omega_s-\omega_m$.
 
-**랜덤 시퀀스**
+**Random Sequence**
 
-- $S_X(f)=0$ for $|f|>W$ 인 WSS 과정은 $T<1/(2W)$ 로 샘플링하면 (평균제곱 의미로) 보존된다.
+- The WSS process $S_X(f)=0$ for $|f|>W$ is preserved (in the sense of mean square) when sampled as $T<1/(2W)$.
 - $R_{\tilde X}(k)=R_X(kT)$, $S_{\tilde X}(\nu)=\frac1T\sum_mS_X\big(\frac{\nu+m}{T}\big)$.
 
-**포아송 과정**
+**Poisson Process**
 
-- $N(t)$: 비감소, 정수값, 우연속, 단위 점프(단순성 $\Pr[N_{t,t+h}\ge2]=o(h)$ 에서 옴).
-- 미소 구간 법칙 $\Pr[N_{t,t+\Delta t}=1\mid\cdot]=\lambda\Delta t+o(\Delta t)$ 가 점과정을 규정. 포아송 = 강도가 이력과 무관.
-- $\Pr[N_{t_1,t_2}=n]=e^{-C}C^n/n!$, $C=\int_{t_1}^{t_2}\lambda$. 평균 = 분산 = $C$.
-- 정상 경우: 도착 간격 i.i.d. $\mathrm{Exp}(\lambda_0)$, 개수 조건부 사건 시각은 균등분포의 순서통계량.
+- $N(t)$: non-decremental, integer value, random, unit jump(from simplicity $\Pr[N_{t,t+h}\ge2]=o(h)$).
+- The infinitesimal interval law $\Pr[N_{t,t+\Delta t}=1\mid\cdot]=\lambda\Delta t+o(\Delta t)$ defines the point process. Poisson = Strength is independent of history.
+- $\Pr[N_{t_1,t_2}=n]=e^{-C}C^n/n!$, $C=\int_{t_1}^{t_2}\lambda$. Mean = Variance = $C$.
+- Normal case: Arrival interval iid $\mathrm{Exp}(\lambda_0)$, count conditional event time is the order statistic of a uniform distribution.
 
-# 자주 헷갈리는 점
+# Commonly confused points
 
-1. **$2\pi/T_s$ 와 $\omega_s$ 가 중복 아닌가?** 아니다. 수치는 같지만 하나는 임펄스 면적, 하나는 위치이다. 면적을 빼면 역변환이 $T_s/2\pi$ 배 틀어진다.
-2. **$[t_1,t_2)$ vs $(t_1,t_2]$?** 우연속 $N_t=\#\{W_i\le t\}$ 에 맞는 것은 $(t_1,t_2]$. 포아송 과정에서는 분포상 차이가 없다.
-3. **같은 시각에 사건 2개는 불가능한가?** 일반 점과정에서는 가능(비단순). 포아송 과정에서는 확률 0.
-4. **"사건마다 +1" 이면 자동으로 단위 점프인가?** 아니다. "한 시각에 최대 한 사건"이라는 단순성이 추가로 필요하다.
-5. **$\lambda=5$ 면 1초에 5개?** 아니다. 평균이 5개이고 실제 개수는 Poisson(5) 를 따른다.
-6. **$\lambda$ 는 확률인가?** 아니다. 발생률(단위 1/s)이며 1보다 클 수 있다. $\lambda\Delta t$ 가 확률이다.
-7. **`;` 와 `,` 의 차이?** 수학적으로 같다. `;` 는 현재 상태와 이력을 시각적으로 구분하는 표기이다.
-8. **구간 간 독립성은 정상성에서 오는가?** 아니다. 무기억성(이력 비의존)에서 온다. 비정상 포아송에서도 성립한다.
-9. **$o(\delta)-o(\delta)=0$?** 아니다. 두 $o(\delta)$ 는 다른 함수일 수 있고, 결과는 다시 $o(\delta)$ 이다.
+1. **Are $2\pi/T_s$ and $\omega_s$ duplicates?** No. The numerical values are the same, but one is the impulse area and the other is the position. If you subtract the area, the inverse transformation becomes $T_s/2\pi$ times.
+2. **$[t_1,t_2)$ vs $(t_1,t_2]$?** The one that fits $N_t=\#\{W_i\le t\}$ is $(t_1,t_2]$. There is no difference in distribution during the Poisson process.
+3. **Is it impossible for two events to occur at the same time?** Possible in a general point process (non-simple). Probability 0 in a Poisson process.
+4. **If "+1 for every event", is it an automatic unit jump?** No. The simplicity of "maximum one event at a time" is additionally required.
+5. **$\lambda=5$ If it is 5 per second?** No. The average is 5 and the actual number follows Poisson(5).
+6. **Is $\lambda$ a probability?** No. It is an occurrence rate (unit 1/s) and can be greater than 1. $\lambda\Delta t$ is a probability.
+7. **What is the difference between `;` and `,`?** They are mathematically the same. `;` is a notation that visually distinguishes the current state and history.
+8. **Does independence between intervals come from stationarity?** No. It comes from memorylessness (hysteresis-independent). It holds true even in abnormal Poisson.
+9. **$o(\delta)-o(\delta)=0$?** No. The two $o(\delta)$ could be different functions, and the result is again $o(\delta)$.

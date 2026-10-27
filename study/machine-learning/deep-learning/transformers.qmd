@@ -16,139 +16,136 @@ format:
     theme: cosmo
 ---
 
-# 들어가며 {.unnumbered}
+# Introduction {.unnumbered}
 
-Transformer는 2017년 Vaswani 등의 *Attention is All You Need*에서 제안된 이래
-NLP, 비전, 음성, 강화학습에 이르기까지 거의 모든 딥러닝 영역의 표준 백본이
-되었다. 본 문서는 Transformer를 **세 가지 핵심 아이디어** — **토큰(token),
-어텐션(attention), 위치 인코딩(positional encoding)** — 으로 분해한 뒤,
-"왜 이 구조가 RNN/CNN보다 우월한가"라는 구조적 질문에 답하는 형태로
-정리한다.
+Since being proposed in *Attention is All You Need* by Vaswani et al. in 2017, the Transformer has become 
+the standard backbone in almost every area of deep learning, ranging from NLP, vision, speech, and reinforcement learning 
+. This document breaks down the Transformer into **three core ideas** — **token, 
+attention, and positional encoding** — and 
+organizes the information by answering the structural question of "why this structure is superior to RNN/CNN."
 
 ::: {.callout-tip}
-## 무선통신 직관 한 줄 요약
-**Attention은 적응형 빔포밍(adaptive beamforming)이고, Positional Encoding은
-파일럿 심볼이며, Multi-head는 MIMO 다중 빔이다.** 본문 곳곳에서 이 대응을
-구체적으로 풀어둔다.
+## Wireless Communication Intuition One-Line Summary
+**Attention is adaptive beamforming, Positional Encoding is 
+pilot symbols, and Multi-head is MIMO multi-beam.** This correspondence 
+is explained in detail throughout the text.
 :::
 
 ---
 
-# Sequence Modeling의 두 가지 본질적 어려움
+# Two Intrinsic Difficulties of Sequence Modeling
 
-이미지·그래프 같은 *고정 길이 스냅샷* 데이터와 달리, **시퀀스 데이터**(언어,
-음성, 비디오, 시계열)는 다음 두 문제를 동시에 풀어야 한다.
+Unlike *fixed-length snapshot* data such as images and graphs, **sequence data** (language, 
+speech, video, time series) must solve the following two problems simultaneously.
 
-| 문제 | 설명 |
+| Problem | Description |
 |---|---|
-| **Long-term dependency** | 멀리 떨어진 토큰이 현재 토큰의 의미를 결정 |
-| **Context** | 같은 토큰도 주변 문맥에 따라 의미가 달라짐 |
+| **Long-term dependency** | A distant token determines the meaning of the current token |
+| **Context** | Even the same token can have different meanings depending on the surrounding context |
 
 > *"Buffalo buffalo Buffalo buffalo buffalo buffalo Buffalo buffalo."*
-> — 동일한 단어 8개로 이루어진 문법적으로 옳은 영어 문장. 의미는 전적으로
-> 문맥에 의존한다.
+> — A grammatically correct English sentence consisting of 8 identical words. The meaning is entirely
+> Depends on context.
 
-RNN은 이 두 문제를 hidden state의 순차적 갱신으로 풀려 했지만,
-- **Vanishing gradient**: 멀리 있는 정보가 BPTT 과정에서 소실
-- **Sequential 처리**: 병렬화 불가능, GPU 활용 비효율
+RNN attempted to solve these two problems through sequential updates of the hidden state, but
+- **Vanishing gradient**: Information from a distance is lost during the BPTT process
+- **Sequential Processing**: Cannot be parallelized, inefficient GPU utilization
 
-Transformer는 이 한계를 **시퀀스 전체를 한 번에 보는 attention**으로 우회한다.
+The Transformer bypasses this limitation with **attention that views the entire sequence at once**.
 
 ---
 
-# 첫 번째 핵심 아이디어: Token
+# First core idea: Token
 
-## 뉴런에서 토큰으로
+## From neuron to token
 
-기존 신경망의 기본 단위는 스칼라 값을 갖는 **뉴런(neuron)** 이었다.
-Transformer는 단위를 한 단계 격상시켜, **벡터를 단위로** 다룬다.
+The basic unit of existing neural networks was the **neuron**, which has a scalar value. 
+The Transformer elevates the unit by one level and treats **vectors as the unit**.
 
 $$
 \text{Neuron: } x \in \mathbb{R}, \qquad \text{Token: } \mathbf{t} \in \mathbb{R}^{d}
 $$
 
-토큰은 "**정보의 캡슐화된 묶음(encapsulated bundle of information)**"이다.
-하나의 토큰 안에 의미·위치·문맥 등 다차원 속성이 모두 담겨 있다.
+A token is an "**encapsulated bundle of information**." 
+A single token contains all multidimensional attributes, such as meaning, location, and context.
 
 ::: {.callout-note}
-## GNN과의 관계
-Graph Neural Network에서 노드 속성(node feature, node attribute)이라
-부르던 것이 Transformer 세계에서는 토큰이다. 본질적으로 같은 자료구조다.
+## Relationship with GNN
+a node feature or node attribute in Graph Neural Networks 
+is a token in the Transformer world. They are essentially the same data structure.
 :::
 
-## 입력을 토큰화하는 방법
+## How to tokenize input
 
-| 입력 종류 | 토큰화 방식 |
+| Input Type | Tokenization Method |
 |---|---|
-| **이미지** | 16×16 같은 패치로 잘라 각 패치를 벡터로 투영 (ViT) |
-| **언어** | 단어/서브워드 단위로 분할 후 임베딩 |
-| **오디오** | 일정 윈도우의 spectrogram 조각을 벡터로 투영 |
+| **Image** | Cropped into 16×16 patches and projected each patch as a vector (ViT) |
+| **Language** | Split into word/subword units and embedding |
+| **Audio** | Project spectrogram slice of a constant window as a vector |
 
-공통 패턴은 단순하다 — **입력을 청크로 자르고, 각 청크를 고정 차원의 벡터로
-투영한다**.
+project each chunk onto a fixed-dimensional vector **.
 
-## 토큰의 선형 조합과 `.z` 표기
+## Linear combination of tokens and `.z` notation
 
-뉴런의 선형 조합은 스칼라 가중합이다:
+A linear combination of neurons is a scalar weighted sum:
 
 $$x_\text{out} = \sum_{i=1}^N w_i \, x_{\text{in}_i}$$
 
-토큰의 선형 조합도 본질은 같지만, 단위가 벡터이므로 표기가 달라진다:
+Linear combinations of tokens are essentially the same, but the notation differs because the unit is a vector:
 
 $$t_\text{out}.\mathbf{z} = \sum_{i=1}^N w_i \, t_{\text{in}_i}.\mathbf{z}$$
 
 ::: {.callout-important}
-## `.z` 표기의 의미
-`.z`는 **토큰 벡터의 특정 차원(element)**을 가리키는 인덱싱 표기다.
-즉 위 수식은 *"출력 토큰의 $z$번째 차원은, 입력 토큰들의 $z$번째 차원의
-가중합이다"* 라는 뜻이며, 이는 **모든 차원에 대해 동일한 가중치 $w_i$가
-적용된다**는 사실을 명시적으로 드러낸다.
+## `.z` Meaning of the notation
+`.z` is an indexing notation pointing to a specific element of a token vector. 
+In other words, the above formula means *"The $z$-th element of the output token is the weighted sum of the $z$-th elements of the input tokens "*, which 
+explicitly reveals that the same weight $w_i$ is applied to all elements .
 
-벡터 표기로 다시 쓰면 단순하다:
+Rewritten in vector notation, it is simple:
 $$\mathbf{t}_\text{out} = \sum_{i=1}^N w_i \, \mathbf{t}_{\text{in}_i}$$
 :::
 
-이 element-wise 동일 가중치 구조가 바로 attention의 Value 가중합과
-정확히 일치한다.
+This element-wise identical weight structure 
+exactly matches the weighted sum of the values in attention.
 
 ---
 
-# 두 번째 핵심 아이디어: Attention
+# Second key idea: Attention
 
-## CNN의 한계: Locality 편향
+## Limitations of CNN: Locality Bias
 
-CNN은 **국소성(locality)** 가정 위에 세워졌다. $k \times k$ 커널은 항상 인접
-픽셀만 본다:
+CNNs are built on the **locality** assumption. $k \times k$ kernels always 
+look only at adjacent pixels:
 
 $$y_{ij} = \sum_{p=-k}^{k}\sum_{q=-k}^{k} w_{pq} \cdot x_{i+p,\, j+q}$$
 
-이로 인해 두 가지 task에서 본질적으로 어려움을 겪는다:
+This causes inherent difficulties in two tasks:
 
-- **전역 카운팅**: "이미지에 새가 몇 마리?" — 전체 패치를 통합해야 함
-- **장거리 관계**: "좌하단 새와 우상단 새가 같은 종인가?" — 멀리 떨어진 두
-  영역을 **직접** 비교해야 함
+- **Global Counting**: "How many birds are in the image?" — The entire patch must be integrated
+- **Long-distance relationship**: "Are the bird in the bottom left and the bird in the top right the same species?" — Two far apart
+area must be **directly** compared
 
-장거리 관계를 잡으려면 레이어를 깊게 쌓아 receptive field를 키워야 하는데,
-이 과정에서 정보가 희석된다.
+To establish long-distance relationships, you must stack layers deeply to expand the receptive field, but 
+information becomes diluted in this process.
 
 ::: {.callout-tip}
-## 무선통신 직관
-CNN의 locality는 **근거리 안테나끼리만 협력하는 local cooperation**과 같다.
-반면 attention은 **셀 전체가 CSI를 공유하는 cooperative MIMO** —
-거리 제약 없이 임의 두 노드가 직접 정보를 주고받는다.
+## Wireless Communication Intuition
+The locality of CNN is equivalent to **local cooperation where only nearby antennas cooperate**. 
+On the other hand, attention is **cooperative MIMO where the entire cell shares CSI** — 
+any two nodes directly exchange information without distance constraints.
 :::
 
-## Weight vs. Attention: 정적 vs. 동적
+## Weight vs. Attention: Static vs. Dynamic
 
-Transformer 우수성의 **구조적 핵심**은 한 줄로 압축할 수 있다:
+The **structural core** of Transformer excellence can be summarized in a single line:
 
 ::: {.callout-important}
-## 핵심
-**일반 가중치는 학습 후 고정되지만, attention 가중치는 입력에 따라
-실시간으로 생성된다.**
+## Core
+**General weights are fixed after training, but attention weights 
+are generated in real-time based on the input.**
 :::
 
-수식으로 비교하면:
+When compared using the formula:
 
 $$
 \text{일반 Weight: } y = \sum_i \underbrace{w_i}_{\text{고정}} \cdot x_i
@@ -156,14 +153,14 @@ $$
 \text{Attention: } y = \sum_i \underbrace{\alpha_i(\mathbf{x})}_{\text{입력의 함수}} \cdot v_i
 $$
 
-$w_i$는 파라미터 공간 $\Theta$의 점이지만, $\alpha_i$는 **파라미터가 만들어내는
-함수의 출력**이다. 이 한 단계의 메타화가 Transformer의 모든 우월성을 낳는다.
+$w_i$ is a point in the parameter space $\Theta$, but $\alpha_i$ is the **output of the function produced by the parameters 
+**. This one-step meta-fication gives rise to all the superiority of the Transformer.
 
-### 동적 가중치가 만드는 세 가지 능력
+### Three capabilities created by dynamic weights
 
 #### Context-dependent representation
 
-같은 토큰도 문맥에 따라 다른 표현을 가져야 한다.
+Even the same token must have different expressions depending on the context.
 
 ```
 "배가 고프다"  → 배 = 복부
@@ -171,26 +168,25 @@ $w_i$는 파라미터 공간 $\Theta$의 점이지만, $\alpha_i$는 **파라미
 "배를 먹었다"  → 배 = 과일
 ```
 
-고정 weight로는 "배"는 항상 같은 출력을 낸다. Attention은 주변 토큰
-("고프다", "떠난다", "먹었다")에 따라 $\alpha_j$가 달라지므로 **표현 자체가
-달라진다**. 이것이 contextual embedding의 본질이다.
+With a fixed weight, "pear" always produces the same output. Since Attention 
+changes $\alpha_j$ depending on surrounding tokens ("hungry", "leaves", "ate"), **the representation itself 
+changes**. This is the essence of contextual embedding.
 
 #### Adaptive receptive field
 
-CNN은 항상 동일한 윈도우를 본다. Attention은 **데이터에 따라** 다음과 같이
-유연하게 동작한다:
+operates flexibly as follows depending on the data :
 
-| 상황 | Attention의 행동 |
+| Situation | Attention Behavior |
 |---|---|
-| 단순한 평서문 | 인접 토큰에 집중 (사실상 local) |
-| 멀리 있는 지시대명사 | 선행사로 long-range jump |
-| 카운팅 task | 모든 토큰을 균등하게 참조 |
+| Simple declarative | Focus on adjacent tokens (effectively local) |
+| long-range demonstrative pronoun | long-range jump as antecedent |
+| Counting task | Reference all tokens evenly |
 
-**같은 모델, 같은 파라미터인데 데이터에 따라 동작이 바뀐다.**
+**Same model, same parameters, but behavior changes depending on the data.**
 
 #### Learned routing
 
-Q, K, V의 분리는 **"누가 무엇을 누구한테 물어볼지"** 를 학습 가능하게 만든다:
+The separation of Q, K, and V makes **"who asks what to whom"** learnable:
 
 $$
 \underbrace{Q}_{\text{무엇을 찾나?}} \cdot
@@ -200,18 +196,17 @@ $$
 $$
 
 ::: {.callout-tip}
-## 무선통신 직관
-- **고정 weight = 고정 빔포밍**: 빔 방향이 미리 정해져 있음
-- **Attention = 적응형 빔포밍**: 채널 상태(입력)를 보고 매 순간 빔 방향을 재조정
+## Wireless Communication Intuition
+- **Fixed weight = Fixed beamforming**: Beam direction is predetermined
+- **Attention = Adaptive Beamforming**: Readjusts the beam direction at every moment based on the channel state (input).
 
-빔포밍 가중치 $\mathbf{w}^*(\mathbf{h})$가 채널 $\mathbf{h}$의 함수인 것처럼,
-attention score $\alpha_i(\mathbf{x})$는 입력 $\mathbf{x}$의 함수다.
+Just as the beamforming weights $\mathbf{w}^*(\mathbf{h})$ are a function of the channel $\mathbf{h}$, 
+the attention score $\alpha_i(\mathbf{x})$ is a function of the input $\mathbf{x}$.
 :::
 
-## Self-Attention: 행렬 연산으로 보기
+## Self-Attention: View as Matrix Operation
 
-입력 토큰 행렬 $\mathbf{T}_\text{in} \in \mathbb{R}^{N \times d}$ ($N$개 토큰,
-각 차원 $d$)에 대해:
+For the input token matrix $\mathbf{T}_\text{in} \in \mathbb{R}^{N \times d}$ ($N$ tokens, each dimension $d$):
 
 $$
 \mathbf{Q} = \mathbf{T}_\text{in}\mathbf{W}_q^\top, \quad
@@ -219,133 +214,129 @@ $$
 \mathbf{V} = \mathbf{T}_\text{in}\mathbf{W}_v^\top
 $$
 
-세 개의 학습 가능한 투영 행렬 $\mathbf{W}_q, \mathbf{W}_k, \mathbf{W}_v$로
-각 토큰을 query/key/value 벡터로 분기시킨다.
+Split each token into query/key/value vectors using three trainable projection matrices $\mathbf{W}_q, \mathbf{W}_k, \mathbf{W}_v$ .
 
-Attention matrix와 출력은:
+The attention matrix and output are:
 
 $$
 \mathbf{A} = \text{softmax}\!\left(\frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{m}}\right), \qquad
 \mathbf{T}_\text{out} = \mathbf{A}\mathbf{V}
 $$
 
-여기서 $m = d_k$ (key 벡터의 차원).
+where $m = d_k$ (dimension of the key vector).
 
 ::: {.callout-note}
-## 왜 $\sqrt{d_k}$로 나누는가
-$\mathbf{Q}\mathbf{K}^\top$의 분산이 $d_k$에 비례해 커지면 softmax가
-극단값으로 쏠려 gradient가 사라진다. $\sqrt{d_k}$로 나눠 분산을 1 근처로
-유지하는 것이 학습 안정성의 열쇠다.
+## Why divide into $\sqrt{d_k}$
+If the variance of $\mathbf{Q}\mathbf{K}^\top$ increases in proportion to $d_k$, the softmax shifts toward extreme values and the gradient disappears. Dividing by $\sqrt{d_k}$ 
+to keep the variance near 1 is the key to learning stability.
 :::
 
-### 의미 해석
+### Meaning Interpretation
 
-Self-attention은 **"이웃 토큰을 고려해 자기 자신의 표현을 정제(refine)하는
-연산"** 이다. 한 패치가 자기 주변 패치들을 보고 "내가 강아지의 어느 부분인지"
-다시 판단하는 과정이라 보면 된다.
+Self-attention is **"an operation that refines its own representation by considering neighboring tokens 
+"**. It can be viewed as a process where a patch looks at its surrounding patches 
+and re-determines "which part of the dog I am. "
 
-VQA(Visual Question Answering) 예를 보자:
+Let's look at a VQA (Visual Question Answering) example:
 
-| Query | Attention이 집중하는 곳 |
+| Query | Where Attention Focuses |
 |---|---|
-| "How many animals?" | 동물이 있는 모든 패치 (균등 분포) |
-| "What color is the impala?" | 임팔라 패치만 집중 |
+| "How many animals?" | All patches containing animals (uniformly distributed) |
+| "What color is the impala?" | Focus only on the Impala patch |
 
-같은 이미지라도 **질문(query)에 따라 attention 분포가 동적으로 바뀐다**.
-이것이 attention을 "**query 기반 dynamic pooling**"이라 부르는 이유다.
+Even with the same image, the attention distribution changes dynamically depending on the query. 
+This is why attention is called "query-based dynamic pooling."
 
 ## Masked Attention
 
-특정 토큰이 다른 토큰을 보지 못하도록 차단하는 변형:
+A variant that blocks a specific token from seeing other tokens:
 
 $$
 \text{MaskedAttn}(\mathbf{Q},\mathbf{K},\mathbf{V}) =
 \text{softmax}\!\left(\frac{\mathbf{Q}\mathbf{K}^\top + \mathbf{M}}{\sqrt{d_k}}\right)\mathbf{V}
 $$
 
-마스크 $\mathbf{M}$은 차단할 위치에 $-\infty$를 넣는다 — softmax 후 0이 되어
-완전히 차단된다.
+Mask $\mathbf{M}$ inserts $-\infty$ at the location to be blocked — after softmax it becomes 0 and 
+is completely blocked.
 
-**가장 흔한 용도**: 디코더의 **causal mask**. 자기회귀 생성에서 미래 토큰을
-보면 컨닝(cheating)이 되므로, $j > i$ 위치를 모두 마스킹한다.
+**Most common use**: **causal mask** in decoders. Since looking at future tokens in autoregressive generation 
+is cheating, all positions $j > i$ are masked.
 
 $$M_{ij} = \begin{cases} 0 & j \leq i \\ -\infty & j > i \end{cases}$$
 
 ## Multi-Head Self-Attention (MHSA)
 
-단일 $(Q, K, V)$ 투영으로는 한 가지 관계 패턴만 학습하기 쉽다. 그래서
-**여러 head를 병렬로 운영**한다:
+With a single $(Q, K, V)$ projection, it is easy to learn only one relationship pattern. Therefore, 
+**multiple heads are operated in parallel**:
 
 $$\text{MultiHead}(Q,K,V) = \text{Concat}(\text{head}_1, \ldots, \text{head}_h)\mathbf{W}^O$$
 
-각 head는 자기만의 $(\mathbf{W}_q^{(i)}, \mathbf{W}_k^{(i)}, \mathbf{W}_v^{(i)})$를
-가지고 서로 다른 subspace에서 attention을 계산한다.
+Each head has its own $(\mathbf{W}_q^{(i)}, \mathbf{W}_k^{(i)}, \mathbf{W}_v^{(i)})$ 
+and calculates attention in a different subspace.
 
 ::: {.callout-tip}
-## 무선통신 직관: MIMO 빔포밍
-$h$개의 head는 $h$개의 독립적인 빔. 각 빔이 서로 다른 방향(subspace)으로
-빔포밍하여 다양한 채널 상태를 동시에 포착한다. Multi-head가 일반 attention보다
-표현력이 강한 이유는, **다중 빔이 단일 빔보다 angular diversity가 높은**
-이유와 정확히 같다.
+## Wireless Communication Intuition: MIMO Beamforming
+The $h$ heads are $h$ independent beams. Each beam 
+is beamformed in a different direction (subspace) to simultaneously capture various channel states. 
+The reason why multi-head attention is more expressive than general attention is exactly the same as the reason why **multi-beams have higher angular diversity than single beams** 
+.
 :::
 
-해석 가능성 측면에서도 흥미롭다 — 학습된 head를 분석하면 어떤 head는 문법적
-관계를, 어떤 head는 의미적 관계를, 어떤 head는 위치적 관계를 잡는 식의
-**역할 분화(specialization)** 가 관찰된다.
+It is also interesting in terms of interpretability — analyzing the learned heads 
+reveals **specialization** where some heads establish grammatical relationships, others semantic relationships, and still others positional relationships .
 
 ---
 
-# 세 번째 핵심 아이디어: Positional Encoding
+# Third Key Idea: Positional Encoding
 
-## Permutation Equivariance라는 함정
+## The trap called Permutation Equivariance
 
-순수 self-attention은 **permutation equivariant**하다:
+Pure self-attention is **permutation equivariant**:
 
 $$F_\theta(\text{permute}(\mathbf{T}_\text{in})) = \text{permute}(F_\theta(\mathbf{T}_\text{in}))$$
 
-즉 **토큰 순서를 섞으면 출력도 같은 방식으로 섞일 뿐, 정보 손실은 없다.**
-다시 말해, attention만으로는 **순서 정보가 무시된다**.
+In other words, **shuffling the token order simply shuffles the output in the same way, without any loss of information.** 
+Put another way, attention alone **ignores order information.**
 
-이것은 이미지 패치를 셔플한 결과와 원본을 동일한 표현으로 인코딩한다는
-뜻이며, 언어에서는 *"나는 너를 사랑한다"* 와 *"너를 나는 사랑한다"* 가 같은
-표현을 갖게 된다는 치명적 문제다.
+This means that the result of shuffling the image patch and the original are encoded with the same expression 
+, which is a fatal problem in languages where *"I love you"* and *"I love you"* 
+have the same expression.
 
-## 해법: 위치 정보를 입력에 직접 주입
+## Solution: Directly inject location information into the input
 
-각 위치 $pos$에 대해 고유한 벡터를 더해준다:
+Add a unique vector for each position $pos$:
 
 $$\text{PE}_{(pos, 2i)} = \sin\!\left(\frac{pos}{10000^{2i/d_\text{model}}}\right), \quad
 \text{PE}_{(pos, 2i+1)} = \cos\!\left(\frac{pos}{10000^{2i/d_\text{model}}}\right)$$
 
-최종 입력: $\mathbf{x}_\text{input} = \mathbf{x}_\text{embed} + \text{PE}$.
+Final input: $\mathbf{x}_\text{input} = \mathbf{x}_\text{embed} + \text{PE}$.
 
-### Sinusoidal PE의 장점
+### Advantages of Sinusoidal PE
 
-- **외삽 가능성**: 학습 시 본 적 없는 긴 시퀀스에도 합리적인 위치 표현 제공
-- **상대 위치 인코딩**: $\text{PE}_{pos+k}$가 $\text{PE}_{pos}$의 선형변환으로
-  표현 가능 → 모델이 상대 거리를 쉽게 학습
-- **스케일 다양성**: 차원마다 다른 주파수로 진동 → 짧은 거리부터 긴 거리까지
-  다양한 패턴 포착
+- **Extrapolability**: Provides reasonable positional representations even for long sequences never seen during training
+- **Relative Position Encoding**: $\text{PE}_{pos+k}$ as a linear transformation of $\text{PE}_{pos}$
+Representable → Model easily learns relative distance
+- **Scale Variety**: Vibrating at different frequencies per dimension → From short distances to long distances
+Capturing various patterns
 
 ::: {.callout-tip}
-## 무선통신 직관: 파일럿 심볼
-OFDM에서 수신단이 채널을 추정하기 위해 **미리 약속된 파일럿 심볼**을 특정
-서브캐리어에 삽입하는 것과 본질적으로 같다.
+## Wireless Communication Intuition: Pilot Symbol
+is essentially the same as the receiver in OFDM inserting **pre-agreed pilot symbols** into a specific subcarrier to estimate the channel .
 
-- **파일럿** = 위치마다 다른, 미리 알려진 패턴
-- **PE** = 위치마다 다른, 결정론적인 sin/cos 패턴
+- **Pilot** = A pre-known pattern that differs for each location
+- **PE** = Deterministic sin/cos pattern that varies by location
 
-수신단이 파일럿으로 채널을 추정하듯, Transformer는 PE로 "이 토큰이 어디에서
-왔는지"를 추정한다.
+Just as the receiver estimates the channel with a pilot, the Transformer 
+estimates "where this token came from" with a PE.
 :::
 
 ---
 
-# 전체 아키텍처 종합
+# Overall Architecture Summary
 
-이제 세 아이디어를 합쳐 원 논문의 Encoder-Decoder 구조를 완성한다.
+Now, combine the three ideas to complete the Encoder-Decoder structure of the original paper.
 
-## 데이터 흐름
+## Data Flow
 
 ```
 Inputs
@@ -364,66 +355,64 @@ Outputs (shifted right)
             ⇒ Linear → Softmax → Output Probabilities
 ```
 
-## Nx의 의미: 깊이 쌓기
+## Meaning of Nx: Deep stacking
 
 $$\mathbf{h}^{(l)} = \text{TransformerBlock}(\mathbf{h}^{(l-1)}), \quad l = 1, \ldots, N$$
 
-원 논문은 $N=6$이었지만, 현대 LLM은 $N=96$ (GPT-3) 이상으로 늘어났다.
-레이어가 깊어질수록 표현이 점점 추상화된다:
+The original paper was $N=6$, but modern LLMs have increased to $N=96$ (GPT-3) or higher. 
+As the layers deepen, the representation becomes increasingly abstract:
 
-| 레이어 | 학습되는 표현 |
+| Layer | Representation being learned |
 |---|---|
-| 하위 (1~2) | 어휘적, 문법적 패턴 |
-| 중위 (3~5) | 구문적 의존, 상호참조 |
-| 상위 (6~N) | 의미론, 추론, task-specific 패턴 |
+| Sub- (1~2) | Lexical, Grammatical Patterns |
+| Infix (3~5) | Syntactic dependency, cross-reference |
+| Upper (6~N) | Semantics, Inference, Task-Specific Patterns |
 
-## Add & Norm: 잔차 연결과 정규화
+## Add & Norm: Residual Linking and Normalization
 
-각 서브레이어는 다음 형태로 감싸진다:
+Each sublayer is wrapped in the following form:
 
 $$\mathbf{x}' = \text{LayerNorm}(\mathbf{x} + \text{SubLayer}(\mathbf{x}))$$
 
-- **Residual connection ($\mathbf{x} +$)**: gradient highway 역할로
-  깊은 네트워크의 학습을 가능케 함 (ResNet 원리). 또한 원본 정보가 손실되지
-  않도록 보장.
-- **Layer Normalization**: 토큰 단위로 정규화하여 학습 안정성 확보.
-  Batch norm과 달리 **샘플 간 통계에 의존하지 않으므로** 가변 길이
-  시퀀스와 RNN-like 처리에 적합.
+- **Residual connection ($\mathbf{x} +$)**: acting as a gradient highway
+Enables the learning of deep networks (ResNet principle). Also 
+guarantees that original information is not lost.
+- **Layer Normalization**: Ensures training stability by normalizing at the token level.
+Unlike batch norm, it does not rely on inter-sample statistics, so 
+it is suitable for variable-length sequences and RNN-like processing.
 
 $$\text{LayerNorm}(\mathbf{x}) = \boldsymbol{\gamma} \odot \frac{\mathbf{x} - \mu}{\sigma + \epsilon} + \boldsymbol{\beta}$$
 
 ## Feed Forward Network (FFN)
 
-각 토큰에 **독립적으로** 적용되는 2-layer MLP:
+2-layer MLP applied **independently** to each token:
 
 $$\text{FFN}(\mathbf{x}) = \max(0, \mathbf{x}\mathbf{W}_1 + \mathbf{b}_1)\mathbf{W}_2 + \mathbf{b}_2$$
 
-차원 변화: $d_\text{model} \to d_{ff} \to d_\text{model}$ (보통 $d_{ff} = 4 d_\text{model}$).
+Dimensional change: $d_\text{model} \to d_{ff} \to d_\text{model}$ (usually $d_{ff} = 4 d_\text{model}$).
 
 ::: {.callout-note}
-## Attention과 FFN의 역할 분담
-- **Attention**: 토큰 **간**의 정보 교환 — 누구의 정보를 얼마나 가져올지
-- **FFN**: 토큰 **내부**의 비선형 변환 — 가져온 정보를 어떻게 가공할지
+## Division of roles between Attention and FFN
+- **Attention**: Information exchange **between** tokens — whose information to retrieve and how much
+- **FFN**: Non-linear transformation **inside** the token — how to process the imported information
 
-이 둘이 번갈아 쌓이는 것이 Transformer 블록의 본질이다.
+The essence of a Transformer block is that these two are stacked alternately.
 :::
 
-## Cross-Attention: Encoder ↔ Decoder의 다리
+## Cross-Attention: Legs of Encoder ↔ Decoder
 
-디코더의 두 번째 attention은 **query는 디코더에서, key/value는 인코더에서**
-가져온다:
+The decoder's second attention 
+takes the **query from the decoder, and the key/value from the encoder**:
 
 $$\mathbf{Q} = \mathbf{H}_\text{dec}\mathbf{W}_q, \quad
 \mathbf{K} = \mathbf{H}_\text{enc}\mathbf{W}_k, \quad
 \mathbf{V} = \mathbf{H}_\text{enc}\mathbf{W}_v$$
 
-이 한 줄이 **"디코더가 출력 토큰을 생성할 때 입력 시퀀스의 어디를 참조할지"**
-를 결정한다. 번역에서 한국어 *"사랑"*을 출력할 때 영어 *"love"*에 attention을
-주는 식의 자연스러운 정렬(soft alignment)이 이 메커니즘에서 자동으로 학습된다.
+This single line determines **“where in the input sequence the decoder will refer when generating output tokens.”** In translation, the mechanism automatically learns a natural soft alignment, such as attending to the English word *“love”* when producing the corresponding target word.
 
-## "Outputs (shifted right)"의 의미
+## Meaning of "Outputs (shifted right)"
 
-Teacher forcing 방식 학습:
+Teacher forcing method learning:
 
 ```
 Target:  <BOS>  나는  밥을  먹었다  <EOS>
@@ -431,129 +420,127 @@ Target:  <BOS>  나는  밥을  먹었다  <EOS>
 출력:    나는   밥을  먹었다  <EOS>      (첫 토큰 제외)
 ```
 
-훈련 시 디코더는 **이전 정답 토큰들을 입력으로 받아 다음 토큰을 예측**한다.
-추론 시에는 정답이 없으므로 **이전 예측 토큰을 피드백**한다 (autoregressive).
+During training, the decoder **predicts the next token by taking previous correct answer tokens as input**. 
+During inference, since there are no correct answers, it **feeds back the previous predicted token** (autoregressive).
 
 ---
 
-# MLP vs Transformer 비교
+# MLP vs Transformer Comparison
 
-| 항목 | MLP | Transformer (vanilla) |
+| Item | MLP | Transformer (vanilla) |
 |---|---|---|
-| 기본 단위 | 뉴런(스칼라) | 토큰(벡터) |
-| 토큰 간 연산 | linear (모든 입력 → 모든 출력) | self-attention (학습된 동적 routing) |
-| 토큰 내 연산 | ReLU (neuron-wise) | MLP (token-wise) |
-| 가중치 성격 | 학습 후 고정 | 입력에 의존하여 매번 재계산 |
-| 순서 처리 | 위치별 다른 weight | permutation equivariant + PE |
+| Basic unit | Neuron (Scalar) | Token (Vector) |
+| Inter-token operation | linear (all inputs → all outputs) | self-attention (learned dynamic routing) |
+| In-token operation | ReLU (neuron-wise) | MLP (token-wise) |
+| Weight nature | Fixed after training | Recalculated every time depending on input |
+| Sequential processing | Different weights per position | Permutation equivariant + PE |
 
-Transformer는 본질적으로 *"MLP의 linear 대신 attention을 끼워 넣은 구조"*
-라고 볼 수 있다. Linear 변환이 정적 구조로 만든 한계를 attention이 동적
-구조로 우회한다.
+Transformer 
+can essentially be viewed as a structure that inserts attention instead of the linearity of an MLP. Attention 
+bypasses the limitations of a static structure created by a linear transformation into a dynamic structure.
 
 ---
 
-# 응용: Language Model과 GPT
+# Application: Language Model and GPT
 
-## Language Model의 정의
+## Definition of Language Model
 
-이전 단어들이 주어졌을 때 다음 단어의 확률 분포를 모델링:
+Modeling the probability distribution of the next word given the previous words:
 
 $$P(w_t \mid w_1, w_2, \ldots, w_{t-1})$$
 
-근사적으로는 고정 윈도우 가정:
+Approximately fixed window assumption:
 
 $$P(w_t \mid w_{t-n}, \ldots, w_{t-1})$$
 
-규모가 커지면 **Large Language Model (LLM)** — GPT, Claude, HyperCLOVA X 등.
+As the scale increases, **Large Language Model (LLM)** — GPT, Claude, HyperCLOVA X, etc.
 
 ## GPT: Decoder-only Transformer
 
-GPT(Generative Pretrained Transformer)는 원 논문의 **디코더 부분만** 사용한
-구조다.
+GPT(Generative Pretrained Transformer) is 
+a structure that uses only the **decoder part** of the original paper.
 
-- Encoder 제거, Cross-attention 제거
-- **Causal masked self-attention만** 사용
-- 다음 토큰 예측(next token prediction)으로 사전학습
+- Remove Encoder, Remove Cross-attention
+- **Use only causal masked self-attention**
+- Pre-training with next token prediction
 
 $$\mathcal{L} = -\sum_t \log P(w_t \mid w_{<t}; \theta)$$
 
-이 단순한 학습 목표로 거대 코퍼스를 학습하면 zero-shot/few-shot 일반화
-능력이 emergent하게 나타난다는 것이 GPT 시리즈의 핵심 발견이다.
+The key finding of the GPT series is that training a massive corpus with this simple learning objective 
+leads to emergent zero-shot/few-shot generalization ability.
 
 ::: {.callout-note}
 ## minGPT
-Andrej Karpathy의 [minGPT](https://github.com/karpathy/minGPT)는 ~300줄 안에
-GPT를 구현한 교육용 코드. 본문의 모든 개념이 어떻게 코드로 매핑되는지 확인할
-때 매우 유용하다.
+Andrej Karpathy’s [minGPT](https://github.com/karpathy/minGPT) is an educational implementation of GPT in about 300 lines. It is useful for seeing how the concepts in the text map to code.
 :::
 
 ---
 
-# 한계와 후속 연구
+# Limitations and Follow-up Research
 
-## 계산 복잡도
+## Computational complexity
 
-Self-attention의 시간/공간 복잡도는 시퀀스 길이 $n$에 대해:
+The time/space complexity of self-attention for sequence length $n$ is:
 
 $$O(n^2 \cdot d)$$
 
-모든 토큰 쌍의 유사도를 계산하기 때문이다. 길이 $n=10{,}000$이면 1억 쌍이
-필요하다.
+This is because it calculates the similarity of all token pairs. If the length is $n=10{,}000$, 100 million pairs 
+are required.
 
-## 윈도우 외부 정보 부재
+## Absence of external Windows information
 
-윈도우(컨텍스트 길이) 바깥의 정보는 **완전히** 보이지 않는다. RNN은 이론상
-무한 길이를 처리할 수 있지만 (실제로는 vanishing 때문에 못함), Transformer는
-하드 제약이 있다.
+Information outside the window (context length) is **completely** invisible. While RNNs 
+can theoretically handle infinite lengths (though in practice they cannot due to vanishing), Transformers 
+have hard constraints.
 
-## 후속 연구 방향
+## Direction of follow-up research
 
-| 분류 | 대표 기법 | 핵심 아이디어 |
+| Classification | Representative Technique | Key Idea |
 |---|---|---|
-| Sparse Attention | Longformer, BigBird | 일부 토큰 쌍만 계산 |
-| Linear Attention | Performer, Linformer | 커널 트릭으로 $O(n)$ 화 |
-| Long-context | FlashAttention | 메모리 IO 최적화로 실용적 가속 |
-| RNN-Transformer 하이브리드 | Mamba (SSM) | 상태공간 모델로 $O(n)$ + 무한 컨텍스트 |
+| Sparse Attention | Longformer, BigBird | Calculate only some token pairs |
+| Linear Attention | Performer, Linformer | $O(n)$ with kernel tricks |
+| Long-context | FlashAttention | Practical acceleration with memory IO optimization |
+| RNN-Transformer Hybrid | Mamba (SSM) | State-space model $O(n)$ + Infinite Context |
 
 ---
 
-# 요약
+# Summary
 
 ::: {.callout-important}
-## 한 페이지 요약
+## One-page summary
 
-**세 가지 핵심 아이디어**
+**Three Key Ideas**
 
-1. **Token**: 데이터의 기본 단위를 스칼라 뉴런에서 벡터 토큰으로 격상
-2. **Attention**: 입력에 따라 매번 새로 계산되는 **동적 가중치**로 토큰 간
-   정보를 라우팅. Q-K-V 분리, scaled dot-product, multi-head, causal mask가
-   세부 설계
-3. **Positional Encoding**: permutation equivariance를 깨기 위해 위치마다
-   다른 결정론적 신호를 입력에 가산
+1. **Token**: Elevate the basic unit of data from a scalar neuron to a vector token
+2. **Attention**: Between tokens using **dynamic weights** that are recalculated every time based on the input
+Routing information. QKV separation, scaled dot-product, multi-head, causal mask 
+detailed design
+3. **Positional Encoding**: at each position to break permutation equivariance
+Add another deterministic signal to the input
 
-**구조적 우월성의 핵심**
+**The Core of Structural Superiority**
 
-> 일반 weight는 파라미터 공간에 고정되지만, attention score는 입력의 함수.
-> $w_i \in \Theta$ 대신 $\alpha_i = f_\Theta(\mathbf{x})$. 이 한 단계의
-> 메타화가 context-dependent representation, adaptive receptive field,
-> learned routing이라는 세 우월성을 모두 낳는다.
+> General weights are fixed in the parameter space, but the attention score is a function of the input.
+> $w_i \in \Theta$ instead of $\alpha_i = f_\Theta(\mathbf{x})$. This one step of
+> meta-ization, context-dependent representation, adaptive receptive field,
+> produces all three superiorities known as learned routing.
 
-**무선통신 대응표**
+**Wireless Communication Correspondence Table**
 
-| Transformer 개념 | 무선통신 대응 |
+| Transformer Concept | Wireless Communication Support |
 |---|---|
-| Attention weight $\alpha_i(\mathbf{x})$ | 적응형 빔포밍 가중치 $\mathbf{w}^*(\mathbf{h})$ |
-| Multi-head | MIMO 다중 빔, angular diversity |
-| Q-K dot product | 채널 정렬, 매칭 필터 |
-| Positional Encoding | OFDM 파일럿 심볼 |
-| Causal mask | 인과 시스템 (causal filter) |
-| FFN | 채널별 비선형 등화기 |
-| Cross-attention | 송신단-수신단 협력 디코딩 |
+| Attention weight $\alpha_i(\mathbf{x})$ | Adaptive beamforming weight $\mathbf{w}^*(\mathbf{h})$ |
+| Multi-head | MIMO Multi-beam, angular diversity |
+| QK dot product | Channel alignment, matching filter |
+| Positional Encoding | OFDM Pilot Symbol |
+| Causal mask | causal system (causal filter) |
+| FFN | Per-channel Non-linear Equalizer |
+| Cross-attention | Transmitter-Receiver Cooperative Decoding |
 :::
 
 ---
 
-# 참고자료 {.unnumbered}
+# References {.unnumbered}
 
 - Vaswani, A., et al. *Attention is All You Need.* NeurIPS 2017.
 - Radford, A., et al. *Improving Language Understanding by Generative
@@ -562,6 +549,6 @@ $$O(n^2 \cdot d)$$
   Transformers.* ICCV 2021. (DINO)
 - Tay, Y., et al. *Efficient Transformers: A Survey.* ACM Computing Surveys
   2022.
-- [d2l.ai - Transformer 챕터](https://d2l.ai/chapter_attention-mechanisms-and-transformers/transformer.html)
+- [d2l.ai - Transformer Chapter ](https://d2l.ai/chapter_attention-mechanisms-and-transformers/transformer.html)
 - [Mathematics for Machine Learning (Thomas)](https://gwthomas.github.io/docs/math4ml.pdf)
 - [minGPT (Karpathy)](https://github.com/karpathy/minGPT)

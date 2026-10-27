@@ -9,7 +9,7 @@
 <meta name="author" content="dreamian">
 <meta name="dcterms.date" content="2026-04-01">
 
-<title>MLP 심화: 출력 유닛, 활성화 함수, 그리고 정규화 – Rokei Notes</title>
+<title>MLP Advanced: Output Units, Activation Functions, and Regularization – Rokei Notes</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -259,87 +259,87 @@ window.Quarto = {
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#전체-그림" id="toc-전체-그림" class="nav-link active" data-scroll-target="#전체-그림"><span class="header-section-number">1</span> 전체 그림</a></li>
-  <li><a href="#왜-cross-entropy인가-mse와의-기울기-비교" id="toc-왜-cross-entropy인가-mse와의-기울기-비교" class="nav-link" data-scroll-target="#왜-cross-entropy인가-mse와의-기울기-비교"><span class="header-section-number">2</span> 왜 Cross Entropy인가: MSE와의 기울기 비교</a>
+  <li><a href="#full-picture" id="toc-full-picture" class="nav-link active" data-scroll-target="#full-picture"><span class="header-section-number">1</span> Full picture</a></li>
+  <li><a href="#why-cross-entropy-gradient-comparison-with-mse" id="toc-why-cross-entropy-gradient-comparison-with-mse" class="nav-link" data-scroll-target="#why-cross-entropy-gradient-comparison-with-mse"><span class="header-section-number">2</span> Why Cross Entropy: Gradient Comparison with MSE</a>
   <ul class="collapse">
-  <li><a href="#문제-설정" id="toc-문제-설정" class="nav-link" data-scroll-target="#문제-설정"><span class="header-section-number">2.1</span> 문제 설정</a></li>
-  <li><a href="#mse의-기울기" id="toc-mse의-기울기" class="nav-link" data-scroll-target="#mse의-기울기"><span class="header-section-number">2.2</span> MSE의 기울기</a></li>
-  <li><a href="#ce이진-분류의-기울기" id="toc-ce이진-분류의-기울기" class="nav-link" data-scroll-target="#ce이진-분류의-기울기"><span class="header-section-number">2.3</span> CE(이진 분류)의 기울기</a></li>
-  <li><a href="#ce의-통계적-정당성-bernoulli-mle와의-동치" id="toc-ce의-통계적-정당성-bernoulli-mle와의-동치" class="nav-link" data-scroll-target="#ce의-통계적-정당성-bernoulli-mle와의-동치"><span class="header-section-number">2.4</span> CE의 통계적 정당성: Bernoulli MLE와의 동치</a></li>
-  <li><a href="#정리-ce를-선호하는-두-가지-이유" id="toc-정리-ce를-선호하는-두-가지-이유" class="nav-link" data-scroll-target="#정리-ce를-선호하는-두-가지-이유"><span class="header-section-number">2.5</span> 정리: CE를 선호하는 두 가지 이유</a></li>
+  <li><a href="#problem-settings" id="toc-problem-settings" class="nav-link" data-scroll-target="#problem-settings"><span class="header-section-number">2.1</span> Problem Settings</a></li>
+  <li><a href="#slope-of-mse" id="toc-slope-of-mse" class="nav-link" data-scroll-target="#slope-of-mse"><span class="header-section-number">2.2</span> Slope of MSE</a></li>
+  <li><a href="#gradient-of-ce-binary-classification" id="toc-gradient-of-ce-binary-classification" class="nav-link" data-scroll-target="#gradient-of-ce-binary-classification"><span class="header-section-number">2.3</span> Gradient of CE (Binary Classification)</a></li>
+  <li><a href="#statistical-justification-of-ce-equivalence-with-bernoulli-mle" id="toc-statistical-justification-of-ce-equivalence-with-bernoulli-mle" class="nav-link" data-scroll-target="#statistical-justification-of-ce-equivalence-with-bernoulli-mle"><span class="header-section-number">2.4</span> Statistical Justification of CE: Equivalence with Bernoulli MLE</a></li>
+  <li><a href="#summary-two-reasons-to-prefer-ce" id="toc-summary-two-reasons-to-prefer-ce" class="nav-link" data-scroll-target="#summary-two-reasons-to-prefer-ce"><span class="header-section-number">2.5</span> Summary: Two reasons to prefer CE</a></li>
   </ul></li>
-  <li><a href="#출력-유닛-output-units" id="toc-출력-유닛-output-units" class="nav-link" data-scroll-target="#출력-유닛-output-units"><span class="header-section-number">3</span> 출력 유닛 (Output Units)</a>
+  <li><a href="#output-units" id="toc-output-units" class="nav-link" data-scroll-target="#output-units"><span class="header-section-number">3</span> Output Units</a>
   <ul class="collapse">
-  <li><a href="#softmax는-정규화-그-이상이다" id="toc-softmax는-정규화-그-이상이다" class="nav-link" data-scroll-target="#softmax는-정규화-그-이상이다"><span class="header-section-number">3.1</span> Softmax는 정규화 그 이상이다</a></li>
+  <li><a href="#softmax-is-more-than-normalization" id="toc-softmax-is-more-than-normalization" class="nav-link" data-scroll-target="#softmax-is-more-than-normalization"><span class="header-section-number">3.1</span> Softmax is more than normalization</a></li>
   </ul></li>
-  <li><a href="#gumbel-softmax-argmax를-미분-가능하게" id="toc-gumbel-softmax-argmax를-미분-가능하게" class="nav-link" data-scroll-target="#gumbel-softmax-argmax를-미분-가능하게"><span class="header-section-number">4</span> Gumbel Softmax: argmax를 미분 가능하게</a>
+  <li><a href="#gumbel-softmax-makes-argmax-differentiable" id="toc-gumbel-softmax-makes-argmax-differentiable" class="nav-link" data-scroll-target="#gumbel-softmax-makes-argmax-differentiable"><span class="header-section-number">4</span> Gumbel Softmax: Makes argmax differentiable</a>
   <ul class="collapse">
-  <li><a href="#동기-두-네트워크의-종단간end-to-end-연결" id="toc-동기-두-네트워크의-종단간end-to-end-연결" class="nav-link" data-scroll-target="#동기-두-네트워크의-종단간end-to-end-연결"><span class="header-section-number">4.1</span> 동기: 두 네트워크의 종단간(end-to-end) 연결</a></li>
-  <li><a href="#해법-노이즈를-더해-샘플링으로-바꾸기" id="toc-해법-노이즈를-더해-샘플링으로-바꾸기" class="nav-link" data-scroll-target="#해법-노이즈를-더해-샘플링으로-바꾸기"><span class="header-section-number">4.2</span> 해법: 노이즈를 더해 샘플링으로 바꾸기</a></li>
-  <li><a href="#왜-하필-gumbel-분포인가" id="toc-왜-하필-gumbel-분포인가" class="nav-link" data-scroll-target="#왜-하필-gumbel-분포인가"><span class="header-section-number">4.3</span> 왜 하필 Gumbel 분포인가</a></li>
-  <li><a href="#응용" id="toc-응용" class="nav-link" data-scroll-target="#응용"><span class="header-section-number">4.4</span> 응용</a></li>
+  <li><a href="#synchronous-end-to-end-connection-between-two-networks" id="toc-synchronous-end-to-end-connection-between-two-networks" class="nav-link" data-scroll-target="#synchronous-end-to-end-connection-between-two-networks"><span class="header-section-number">4.1</span> Synchronous: End-to-end connection between two networks</a></li>
+  <li><a href="#solution-add-noise-to-convert-to-sampling" id="toc-solution-add-noise-to-convert-to-sampling" class="nav-link" data-scroll-target="#solution-add-noise-to-convert-to-sampling"><span class="header-section-number">4.2</span> Solution: Add noise to convert to sampling</a></li>
+  <li><a href="#why-the-gumbel-distribution-of-all-things" id="toc-why-the-gumbel-distribution-of-all-things" class="nav-link" data-scroll-target="#why-the-gumbel-distribution-of-all-things"><span class="header-section-number">4.3</span> Why the Gumbel distribution of all things?</a></li>
+  <li><a href="#application" id="toc-application" class="nav-link" data-scroll-target="#application"><span class="header-section-number">4.4</span> Application</a></li>
   </ul></li>
-  <li><a href="#활성화-함수-activation-functions" id="toc-활성화-함수-activation-functions" class="nav-link" data-scroll-target="#활성화-함수-activation-functions"><span class="header-section-number">5</span> 활성화 함수 (Activation Functions)</a>
+  <li><a href="#activation-functions" id="toc-activation-functions" class="nav-link" data-scroll-target="#activation-functions"><span class="header-section-number">5</span> Activation Functions</a>
   <ul class="collapse">
-  <li><a href="#후보들" id="toc-후보들" class="nav-link" data-scroll-target="#후보들"><span class="header-section-number">5.1</span> 후보들</a></li>
-  <li><a href="#relu에-대한-첫인상과-반전" id="toc-relu에-대한-첫인상과-반전" class="nav-link" data-scroll-target="#relu에-대한-첫인상과-반전"><span class="header-section-number">5.2</span> ReLU에 대한 첫인상과 반전</a></li>
-  <li><a href="#relu의-일반화와-변형들" id="toc-relu의-일반화와-변형들" class="nav-link" data-scroll-target="#relu의-일반화와-변형들"><span class="header-section-number">5.3</span> ReLU의 일반화와 변형들</a></li>
-  <li><a href="#직관적-정당화-공간-접기folding" id="toc-직관적-정당화-공간-접기folding" class="nav-link" data-scroll-target="#직관적-정당화-공간-접기folding"><span class="header-section-number">5.4</span> 직관적 정당화: 공간 접기(folding)</a></li>
+  <li><a href="#candidates" id="toc-candidates" class="nav-link" data-scroll-target="#candidates"><span class="header-section-number">5.1</span> Candidates</a></li>
+  <li><a href="#first-impressions-and-twist-on-relu" id="toc-first-impressions-and-twist-on-relu" class="nav-link" data-scroll-target="#first-impressions-and-twist-on-relu"><span class="header-section-number">5.2</span> First Impressions and Twist on ReLU</a></li>
+  <li><a href="#generalizations-and-variations-of-relu" id="toc-generalizations-and-variations-of-relu" class="nav-link" data-scroll-target="#generalizations-and-variations-of-relu"><span class="header-section-number">5.3</span> Generalizations and Variations of ReLU</a></li>
+  <li><a href="#intuitive-justification-space-folding" id="toc-intuitive-justification-space-folding" class="nav-link" data-scroll-target="#intuitive-justification-space-folding"><span class="header-section-number">5.4</span> Intuitive Justification: Space Folding</a></li>
   </ul></li>
-  <li><a href="#기울기-소실-gradient-vanishing" id="toc-기울기-소실-gradient-vanishing" class="nav-link" data-scroll-target="#기울기-소실-gradient-vanishing"><span class="header-section-number">6</span> 기울기 소실 (Gradient Vanishing)</a>
+  <li><a href="#gradient-vanishing" id="toc-gradient-vanishing" class="nav-link" data-scroll-target="#gradient-vanishing"><span class="header-section-number">6</span> Gradient Vanishing</a>
   <ul class="collapse">
-  <li><a href="#메커니즘-인과-사슬" id="toc-메커니즘-인과-사슬" class="nav-link" data-scroll-target="#메커니즘-인과-사슬"><span class="header-section-number">6.1</span> 메커니즘 (인과 사슬)</a></li>
-  <li><a href="#활성화-함수별-영향" id="toc-활성화-함수별-영향" class="nav-link" data-scroll-target="#활성화-함수별-영향"><span class="header-section-number">6.2</span> 활성화 함수별 영향</a></li>
+  <li><a href="#mechanism-causal-chain" id="toc-mechanism-causal-chain" class="nav-link" data-scroll-target="#mechanism-causal-chain"><span class="header-section-number">6.1</span> mechanism (causal chain)</a></li>
+  <li><a href="#effects-by-activation-function" id="toc-effects-by-activation-function" class="nav-link" data-scroll-target="#effects-by-activation-function"><span class="header-section-number">6.2</span> Effects by activation function</a></li>
   </ul></li>
-  <li><a href="#파국적-망각-catastrophic-forgetting" id="toc-파국적-망각-catastrophic-forgetting" class="nav-link" data-scroll-target="#파국적-망각-catastrophic-forgetting"><span class="header-section-number">7</span> 파국적 망각 (Catastrophic Forgetting)</a>
+  <li><a href="#catastrophic-forgetting" id="toc-catastrophic-forgetting" class="nav-link" data-scroll-target="#catastrophic-forgetting"><span class="header-section-number">7</span> Catastrophic Forgetting</a>
   <ul class="collapse">
-  <li><a href="#정의" id="toc-정의" class="nav-link" data-scroll-target="#정의"><span class="header-section-number">7.1</span> 정의</a></li>
-  <li><a href="#미니배치-학습에서의-발생-메커니즘" id="toc-미니배치-학습에서의-발생-메커니즘" class="nav-link" data-scroll-target="#미니배치-학습에서의-발생-메커니즘"><span class="header-section-number">7.2</span> 미니배치 학습에서의 발생 메커니즘</a></li>
-  <li><a href="#왜-파국적인가-두-가지-원인" id="toc-왜-파국적인가-두-가지-원인" class="nav-link" data-scroll-target="#왜-파국적인가-두-가지-원인"><span class="header-section-number">7.3</span> 왜 “파국적”인가 — 두 가지 원인</a></li>
-  <li><a href="#다중-에폭-학습과의-관계" id="toc-다중-에폭-학습과의-관계" class="nav-link" data-scroll-target="#다중-에폭-학습과의-관계"><span class="header-section-number">7.4</span> 다중 에폭 학습과의 관계</a></li>
-  <li><a href="#파생-개념" id="toc-파생-개념" class="nav-link" data-scroll-target="#파생-개념"><span class="header-section-number">7.5</span> 파생 개념</a></li>
+  <li><a href="#definition" id="toc-definition" class="nav-link" data-scroll-target="#definition"><span class="header-section-number">7.1</span> Definition</a></li>
+  <li><a href="#occurrence-mechanism-in-mini-batch-learning" id="toc-occurrence-mechanism-in-mini-batch-learning" class="nav-link" data-scroll-target="#occurrence-mechanism-in-mini-batch-learning"><span class="header-section-number">7.2</span> Occurrence mechanism in mini-batch learning</a></li>
+  <li><a href="#why-it-is-cataclysmic-two-causes" id="toc-why-it-is-cataclysmic-two-causes" class="nav-link" data-scroll-target="#why-it-is-cataclysmic-two-causes"><span class="header-section-number">7.3</span> Why It Is “Cataclysmic” — Two Causes</a></li>
+  <li><a href="#relationship-with-multi-epoch-learning" id="toc-relationship-with-multi-epoch-learning" class="nav-link" data-scroll-target="#relationship-with-multi-epoch-learning"><span class="header-section-number">7.4</span> Relationship with multi-epoch learning</a></li>
+  <li><a href="#derived-concept" id="toc-derived-concept" class="nav-link" data-scroll-target="#derived-concept"><span class="header-section-number">7.5</span> Derived concept</a></li>
   </ul></li>
-  <li><a href="#네트워크-설계의-두-가지-질문" id="toc-네트워크-설계의-두-가지-질문" class="nav-link" data-scroll-target="#네트워크-설계의-두-가지-질문"><span class="header-section-number">8</span> 네트워크 설계의 두 가지 질문</a>
+  <li><a href="#two-questions-in-network-design" id="toc-two-questions-in-network-design" class="nav-link" data-scroll-target="#two-questions-in-network-design"><span class="header-section-number">8</span> Two questions in network design</a>
   <ul class="collapse">
-  <li><a href="#q1.-얼마나-깊어야-하는가" id="toc-q1.-얼마나-깊어야-하는가" class="nav-link" data-scroll-target="#q1.-얼마나-깊어야-하는가"><span class="header-section-number">8.1</span> Q1. 얼마나 깊어야 하는가?</a></li>
-  <li><a href="#q2.-파라미터는-몇-개여야-하는가" id="toc-q2.-파라미터는-몇-개여야-하는가" class="nav-link" data-scroll-target="#q2.-파라미터는-몇-개여야-하는가"><span class="header-section-number">8.2</span> Q2. 파라미터는 몇 개여야 하는가?</a></li>
-  <li><a href="#결론" id="toc-결론" class="nav-link" data-scroll-target="#결론"><span class="header-section-number">8.3</span> 결론</a></li>
+  <li><a href="#q1.-how-deep-should-it-be" id="toc-q1.-how-deep-should-it-be" class="nav-link" data-scroll-target="#q1.-how-deep-should-it-be"><span class="header-section-number">8.1</span> Q1. How deep should it be?</a></li>
+  <li><a href="#q2.-how-many-parameters-should-there-be" id="toc-q2.-how-many-parameters-should-there-be" class="nav-link" data-scroll-target="#q2.-how-many-parameters-should-there-be"><span class="header-section-number">8.2</span> Q2. How many parameters should there be?</a></li>
+  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion"><span class="header-section-number">8.3</span> Conclusion</a></li>
   </ul></li>
-  <li><a href="#역전파의-수렴성-convergence-of-backpropagation" id="toc-역전파의-수렴성-convergence-of-backpropagation" class="nav-link" data-scroll-target="#역전파의-수렴성-convergence-of-backpropagation"><span class="header-section-number">9</span> 역전파의 수렴성 (Convergence of Backpropagation)</a>
+  <li><a href="#convergence-of-backpropagation" id="toc-convergence-of-backpropagation" class="nav-link" data-scroll-target="#convergence-of-backpropagation"><span class="header-section-number">9</span> Convergence of Backpropagation</a>
   <ul class="collapse">
-  <li><a href="#볼록에서-비볼록으로" id="toc-볼록에서-비볼록으로" class="nav-link" data-scroll-target="#볼록에서-비볼록으로"><span class="header-section-number">9.1</span> 볼록에서 비볼록으로</a></li>
-  <li><a href="#해-공간의-결정-요인" id="toc-해-공간의-결정-요인" class="nav-link" data-scroll-target="#해-공간의-결정-요인"><span class="header-section-number">9.2</span> 해 공간의 결정 요인</a></li>
-  <li><a href="#결과와-역사" id="toc-결과와-역사" class="nav-link" data-scroll-target="#결과와-역사"><span class="header-section-number">9.3</span> 결과와 역사</a></li>
+  <li><a href="#from-convex-to-non-convex" id="toc-from-convex-to-non-convex" class="nav-link" data-scroll-target="#from-convex-to-non-convex"><span class="header-section-number">9.1</span> From convex to non-convex</a></li>
+  <li><a href="#determinants-of-the-solution-space" id="toc-determinants-of-the-solution-space" class="nav-link" data-scroll-target="#determinants-of-the-solution-space"><span class="header-section-number">9.2</span> Determinants of the solution space</a></li>
+  <li><a href="#results-and-history" id="toc-results-and-history" class="nav-link" data-scroll-target="#results-and-history"><span class="header-section-number">9.3</span> Results and History</a></li>
   </ul></li>
-  <li><a href="#정규화-regularizer" id="toc-정규화-regularizer" class="nav-link" data-scroll-target="#정규화-regularizer"><span class="header-section-number">10</span> 정규화 (Regularizer)</a>
+  <li><a href="#regularization-regularizer" id="toc-regularization-regularizer" class="nav-link" data-scroll-target="#regularization-regularizer"><span class="header-section-number">10</span> Regularization (Regularizer)</a>
   <ul class="collapse">
-  <li><a href="#학습-목적함수의-일반형" id="toc-학습-목적함수의-일반형" class="nav-link" data-scroll-target="#학습-목적함수의-일반형"><span class="header-section-number">10.1</span> 학습 목적함수의 일반형</a></li>
+  <li><a href="#general-form-of-the-learning-objective-function" id="toc-general-form-of-the-learning-objective-function" class="nav-link" data-scroll-target="#general-form-of-the-learning-objective-function"><span class="header-section-number">10.1</span> General form of the learning objective function</a></li>
   <li><a href="#hard-constraint-vs-soft-constraint" id="toc-hard-constraint-vs-soft-constraint" class="nav-link" data-scroll-target="#hard-constraint-vs-soft-constraint"><span class="header-section-number">10.2</span> Hard Constraint vs Soft Constraint</a></li>
-  <li><a href="#l1-l0-페널티와-희소성sparsity" id="toc-l1-l0-페널티와-희소성sparsity" class="nav-link" data-scroll-target="#l1-l0-페널티와-희소성sparsity"><span class="header-section-number">10.3</span> L1, L0 페널티와 희소성(Sparsity)</a></li>
-  <li><a href="#베이지안-관점-regularizer-prior" id="toc-베이지안-관점-regularizer-prior" class="nav-link" data-scroll-target="#베이지안-관점-regularizer-prior"><span class="header-section-number">10.4</span> 베이지안 관점: Regularizer = Prior</a></li>
+  <li><a href="#l1-l0-penalty-and-sparsity" id="toc-l1-l0-penalty-and-sparsity" class="nav-link" data-scroll-target="#l1-l0-penalty-and-sparsity"><span class="header-section-number">10.3</span> L1, L0 Penalty and Sparsity</a></li>
+  <li><a href="#bayesian-perspective-regularizer-prior" id="toc-bayesian-perspective-regularizer-prior" class="nav-link" data-scroll-target="#bayesian-perspective-regularizer-prior"><span class="header-section-number">10.4</span> Bayesian perspective: Regularizer = Prior</a></li>
   </ul></li>
-  <li><a href="#딥러닝을-위한-정규화-기법" id="toc-딥러닝을-위한-정규화-기법" class="nav-link" data-scroll-target="#딥러닝을-위한-정규화-기법"><span class="header-section-number">11</span> 딥러닝을 위한 정규화 기법</a>
+  <li><a href="#regularization-techniques-for-deep-learning" id="toc-regularization-techniques-for-deep-learning" class="nav-link" data-scroll-target="#regularization-techniques-for-deep-learning"><span class="header-section-number">11</span> Regularization techniques for deep learning</a>
   <ul class="collapse">
-  <li><a href="#데이터셋-증강-dataset-augmentation" id="toc-데이터셋-증강-dataset-augmentation" class="nav-link" data-scroll-target="#데이터셋-증강-dataset-augmentation"><span class="header-section-number">11.1</span> 데이터셋 증강 (Dataset Augmentation)</a></li>
-  <li><a href="#적대적-예제-adversarial-examples" id="toc-적대적-예제-adversarial-examples" class="nav-link" data-scroll-target="#적대적-예제-adversarial-examples"><span class="header-section-number">11.2</span> 적대적 예제 (Adversarial Examples)</a></li>
-  <li><a href="#남은-데이터-주도-정규화-기법-다음-노트에서-상세히" id="toc-남은-데이터-주도-정규화-기법-다음-노트에서-상세히" class="nav-link" data-scroll-target="#남은-데이터-주도-정규화-기법-다음-노트에서-상세히"><span class="header-section-number">11.3</span> 남은 데이터 주도 정규화 기법 (다음 노트에서 상세히)</a></li>
+  <li><a href="#dataset-augmentation" id="toc-dataset-augmentation" class="nav-link" data-scroll-target="#dataset-augmentation"><span class="header-section-number">11.1</span> Dataset Augmentation</a></li>
+  <li><a href="#adversarial-examples" id="toc-adversarial-examples" class="nav-link" data-scroll-target="#adversarial-examples"><span class="header-section-number">11.2</span> Adversarial Examples</a></li>
+  <li><a href="#remaining-data-driven-normalization-techniques-detailed-in-the-next-note" id="toc-remaining-data-driven-normalization-techniques-detailed-in-the-next-note" class="nav-link" data-scroll-target="#remaining-data-driven-normalization-techniques-detailed-in-the-next-note"><span class="header-section-number">11.3</span> Remaining Data-Driven Normalization Techniques (Detailed in the next note)</a></li>
   </ul></li>
-  <li><a href="#핵심-비교표-모음" id="toc-핵심-비교표-모음" class="nav-link" data-scroll-target="#핵심-비교표-모음"><span class="header-section-number">12</span> 핵심 비교표 모음</a>
+  <li><a href="#collection-of-key-comparison-tables" id="toc-collection-of-key-comparison-tables" class="nav-link" data-scroll-target="#collection-of-key-comparison-tables"><span class="header-section-number">12</span> Collection of Key Comparison Tables</a>
   <ul class="collapse">
-  <li><a href="#손실-함수" id="toc-손실-함수" class="nav-link" data-scroll-target="#손실-함수"><span class="header-section-number">12.1</span> 손실 함수</a></li>
-  <li><a href="#무선통신-대응-총괄" id="toc-무선통신-대응-총괄" class="nav-link" data-scroll-target="#무선통신-대응-총괄"><span class="header-section-number">12.2</span> 무선통신 대응 총괄</a></li>
+  <li><a href="#loss-function" id="toc-loss-function" class="nav-link" data-scroll-target="#loss-function"><span class="header-section-number">12.1</span> Loss function</a></li>
+  <li><a href="#wireless-communication-response-overview" id="toc-wireless-communication-response-overview" class="nav-link" data-scroll-target="#wireless-communication-response-overview"><span class="header-section-number">12.2</span> Wireless Communication Response Overview</a></li>
   </ul></li>
-  <li><a href="#분-치트시트" id="toc-분-치트시트" class="nav-link" data-scroll-target="#분-치트시트"><span class="header-section-number">13</span> 1분 치트시트</a></li>
-  <li><a href="#부록-검증-코드" id="toc-부록-검증-코드" class="nav-link" data-scroll-target="#부록-검증-코드"><span class="header-section-number">14</span> 부록: 검증 코드</a>
+  <li><a href="#minute-cheat-sheet" id="toc-minute-cheat-sheet" class="nav-link" data-scroll-target="#minute-cheat-sheet"><span class="header-section-number">13</span> 1-Minute Cheat Sheet</a></li>
+  <li><a href="#appendix-verification-code" id="toc-appendix-verification-code" class="nav-link" data-scroll-target="#appendix-verification-code"><span class="header-section-number">14</span> Appendix: Verification Code</a>
   <ul class="collapse">
-  <li><a href="#ce-vs-mse-기울기-비교" id="toc-ce-vs-mse-기울기-비교" class="nav-link" data-scroll-target="#ce-vs-mse-기울기-비교"><span class="header-section-number">14.1</span> CE vs MSE 기울기 비교</a></li>
-  <li><a href="#softmax-vs-l1-정규화의-크기-민감성" id="toc-softmax-vs-l1-정규화의-크기-민감성" class="nav-link" data-scroll-target="#softmax-vs-l1-정규화의-크기-민감성"><span class="header-section-number">14.2</span> Softmax vs L1 정규화의 크기 민감성</a></li>
-  <li><a href="#gumbel-max-trick-실증-argmaxlogitgumbel-의-경험-분포-softmax" id="toc-gumbel-max-trick-실증-argmaxlogitgumbel-의-경험-분포-softmax" class="nav-link" data-scroll-target="#gumbel-max-trick-실증-argmaxlogitgumbel-의-경험-분포-softmax"><span class="header-section-number">14.3</span> Gumbel-Max trick 실증: argmax(logit+Gumbel) 의 경험 분포 = softmax</a></li>
-  <li><a href="#relu-일반화-공식의-변형들" id="toc-relu-일반화-공식의-변형들" class="nav-link" data-scroll-target="#relu-일반화-공식의-변형들"><span class="header-section-number">14.4</span> ReLU 일반화 공식의 변형들</a></li>
-  <li><a href="#기울기-소실-시뮬레이션-층-수에-따른-기울기-크기" id="toc-기울기-소실-시뮬레이션-층-수에-따른-기울기-크기" class="nav-link" data-scroll-target="#기울기-소실-시뮬레이션-층-수에-따른-기울기-크기"><span class="header-section-number">14.5</span> 기울기 소실 시뮬레이션: 층 수에 따른 기울기 크기</a></li>
+  <li><a href="#ce-vs-mse-slope-comparison" id="toc-ce-vs-mse-slope-comparison" class="nav-link" data-scroll-target="#ce-vs-mse-slope-comparison"><span class="header-section-number">14.1</span> CE vs MSE Slope Comparison</a></li>
+  <li><a href="#size-sensitivity-of-softmax-vs-l1-regularization" id="toc-size-sensitivity-of-softmax-vs-l1-regularization" class="nav-link" data-scroll-target="#size-sensitivity-of-softmax-vs-l1-regularization"><span class="header-section-number">14.2</span> Size Sensitivity of Softmax vs L1 Regularization</a></li>
+  <li><a href="#empirical-verification-of-the-gumbel-max-trick-the-empirical-distribution-of-argmaxlogitgumbel-softmax" id="toc-empirical-verification-of-the-gumbel-max-trick-the-empirical-distribution-of-argmaxlogitgumbel-softmax" class="nav-link" data-scroll-target="#empirical-verification-of-the-gumbel-max-trick-the-empirical-distribution-of-argmaxlogitgumbel-softmax"><span class="header-section-number">14.3</span> Empirical verification of the Gumbel-Max trick: The empirical distribution of argmax(logit+Gumbel) = softmax</a></li>
+  <li><a href="#variations-of-the-relu-generalized-formula" id="toc-variations-of-the-relu-generalized-formula" class="nav-link" data-scroll-target="#variations-of-the-relu-generalized-formula"><span class="header-section-number">14.4</span> Variations of the ReLU generalized formula</a></li>
+  <li><a href="#gradient-vanishing-simulation-gradient-magnitude-according-to-number-of-floors" id="toc-gradient-vanishing-simulation-gradient-magnitude-according-to-number-of-floors" class="nav-link" data-scroll-target="#gradient-vanishing-simulation-gradient-magnitude-according-to-number-of-floors"><span class="header-section-number">14.5</span> Gradient Vanishing Simulation: Gradient Magnitude According to Number of Floors</a></li>
   <li><a href="#label-smoothing" id="toc-label-smoothing" class="nav-link" data-scroll-target="#label-smoothing"><span class="header-section-number">14.6</span> Label Smoothing</a></li>
   </ul></li>
-  <li><a href="#참고-자료-매핑" id="toc-참고-자료-매핑" class="nav-link" data-scroll-target="#참고-자료-매핑"><span class="header-section-number">15</span> 참고 자료 매핑</a></li>
+  <li><a href="#reference-material-mapping" id="toc-reference-material-mapping" class="nav-link" data-scroll-target="#reference-material-mapping"><span class="header-section-number">15</span> Reference Material Mapping</a></li>
   </ul>
 </nav>
     </div>
@@ -348,8 +348,8 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">MLP 심화: 출력 유닛, 활성화 함수, 그리고 정규화</h1>
-<p class="subtitle lead">Cross Entropy의 기울기 우위에서 Gumbel Softmax, 기울기 소실, 파국적 망각, 정규화의 베이지안 해석까지</p>
+<h1 class="title">MLP Advanced: Output Units, Activation Functions, and Regularization</h1>
+<p class="subtitle lead">From Gradient Dominance in Cross Entropy to Gumbel Softmax, Gradient Vanishing, Catastrophic Forgetting, and the Bayesian Interpretation of Normalization</p>
   <div class="quarto-categories">
     <div class="quarto-category">Deep Learning</div>
     <div class="quarto-category">MLP</div>
@@ -385,9 +385,9 @@ window.Quarto = {
 </header>
 
 
-<section id="전체-그림" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="전체-그림"><span class="header-section-number">1</span> 전체 그림</h2>
-<p>이 노트는 MLP를 구성하는 마지막 퍼즐 조각들과, 학습을 망치는 두 가지 병리 현상(기울기 소실, 파국적 망각), 그리고 일반화를 위한 정규화(regularization)를 다룬다.</p>
+<section id="full-picture" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="full-picture"><span class="header-section-number">1</span> Full picture</h2>
+<p>This note covers the final puzzle pieces that make up MLPs, two pathologies that ruin learning (vanishing gradients, catastrophic forgetting), and regularization for generalization.</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode default code-with-copy"><code class="sourceCode default"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>flowchart TD</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  A[손실 함수 비교&lt;br/&gt;CE vs MSE] --&gt;|기울기 분석| B[CE가 선호되는 이유]</span>
@@ -431,48 +431,48 @@ window.Quarto = {
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Important</span>시험 직결 핵심 5가지
+<span class="screen-reader-only">Important</span>5 Key Points Directly Related to the Exam
 </div>
 </div>
 <div class="callout-body-container callout-body">
 <ol type="1">
-<li><strong>CE vs MSE 기울기 비교</strong>: MSE 기울기에는 <span class="math inline">\(\sigma'(z)\)</span>가 곱해지지만 CE 기울기에는 없다. <span class="math inline">\(\sigma'(z) \le 0.25\)</span>이므로 MSE는 기울기 소실을 악화시킨다 — 미분 과정을 직접 쓸 수 있어야 한다.</li>
-<li><strong>Softmax는 단순 정규화가 아니다</strong>: L1 정규화와 달리 <strong>크기에 민감(magnitude sensitive)</strong> 하여 max와 non-max의 격차를 증폭한다. 수치 예시까지 기억할 것.</li>
-<li><strong>Gumbel Softmax</strong>: argmax는 미분 불가 → Gumbel 노이즈를 더한 reparameterization trick으로 end-to-end 학습 가능. <span class="math inline">\(\text{argmax}(\text{logit} + \text{Gumbel noise})\)</span>가 softmax 분포를 따른다는 성질이 핵심.</li>
-<li><strong>ReLU 일반화 공식</strong> <span class="math inline">\(h_i = \max(0, z_i) + \alpha_i \min(0, z_i)\)</span>에서 <span class="math inline">\(\alpha_i\)</span> 값에 따른 4가지 변형(ReLU / 절댓값 정류 / Leaky / PReLU)을 구분할 것.</li>
-<li><strong>정규화의 베이지안 해석</strong>: MAP <span class="math inline">\(= \log p(\theta) + \log p(\mathcal{D}|\theta)\)</span> = Regularizer + MLE loss. L2 ↔︎ Gaussian prior, L1 ↔︎ Laplace prior.</li>
+<li><strong>CE vs MSE Gradient Comparison</strong>: <span class="math inline">\(\sigma'(z)\)</span> is multiplied to the MSE gradient, but not to the CE gradient. Since <span class="math inline">\(\sigma'(z) \le 0.25\)</span>, MSE exacerbates the vanishing gradient — one must be able to write the differentiation process directly.</li>
+<li><strong>Softmax is not simple normalization</strong>: Unlike L1 normalization, it is <strong>magnitude sensitive</strong> and amplifies the gap between the max and non-max values. Remember the numerical examples as well.</li>
+<li><strong>Gumbel Softmax</strong>: Argmax is non-differentiable → End-to-end learning is possible using a reparameterization trick that adds Gumbel noise. The key property is that <span class="math inline">\(\text{argmax}(\text{logit} + \text{Gumbel noise})\)</span> follows a softmax distribution.</li>
+<li><strong>ReLU Generalized Formula</strong> Distinguish the 4 variations (ReLU / Absolute Value Static / Leaky / PReLU) based on the values from <span class="math inline">\(h_i = \max(0, z_i) + \alpha_i \min(0, z_i)\)</span> to <span class="math inline">\(\alpha_i\)</span>.</li>
+<li><strong>Bayesian Interpretation of Regularization</strong>: MAP <span class="math inline">\(= \log p(\theta) + \log p(\mathcal{D}|\theta)\)</span> = Regularizer + MLE loss. L2 ↔︎ Gaussian prior, L1 ↔︎ Laplace prior.</li>
 </ol>
 </div>
 </div>
 <hr>
 </section>
-<section id="왜-cross-entropy인가-mse와의-기울기-비교" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="왜-cross-entropy인가-mse와의-기울기-비교"><span class="header-section-number">2</span> 왜 Cross Entropy인가: MSE와의 기울기 비교</h2>
-<section id="문제-설정" class="level3" data-number="2.1">
-<h3 data-number="2.1" class="anchored" data-anchor-id="문제-설정"><span class="header-section-number">2.1</span> 문제 설정</h3>
-<p>단일 시그모이드 출력 유닛을 생각하자.</p>
+<section id="why-cross-entropy-gradient-comparison-with-mse" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="why-cross-entropy-gradient-comparison-with-mse"><span class="header-section-number">2</span> Why Cross Entropy: Gradient Comparison with MSE</h2>
+<section id="problem-settings" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="problem-settings"><span class="header-section-number">2.1</span> Problem Settings</h3>
+<p>Let’s consider a single sigmoid output unit.</p>
 <p><span class="math display">\[
 \hat{y} = \sigma(z), \qquad z = w^\top x + b, \qquad \sigma(z) = \frac{1}{1+e^{-z}}
 \]</span></p>
-<p>같은 모델에 대해 두 손실 함수의 기울기를 비교한다.</p>
+<p>Compare the gradients of two loss functions for the same model.</p>
 </section>
-<section id="mse의-기울기" class="level3" data-number="2.2">
-<h3 data-number="2.2" class="anchored" data-anchor-id="mse의-기울기"><span class="header-section-number">2.2</span> MSE의 기울기</h3>
+<section id="slope-of-mse" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="slope-of-mse"><span class="header-section-number">2.2</span> Slope of MSE</h3>
 <p><span class="math display">\[
 L_{\text{MSE}} = \frac{1}{2}\left(y - \sigma(z)\right)^2
 \]</span></p>
-<p>연쇄 법칙으로 미분하면:</p>
+<p>Differentiating using the chain rule:</p>
 <p><span class="math display">\[
 \frac{\partial L_{\text{MSE}}}{\partial w}
 = \underbrace{(\sigma(z) - y)}_{\text{오차}} \cdot \underbrace{\sigma'(z)}_{\text{문제의 항}} \cdot \, x
 \]</span></p>
 </section>
-<section id="ce이진-분류의-기울기" class="level3" data-number="2.3">
-<h3 data-number="2.3" class="anchored" data-anchor-id="ce이진-분류의-기울기"><span class="header-section-number">2.3</span> CE(이진 분류)의 기울기</h3>
+<section id="gradient-of-ce-binary-classification" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="gradient-of-ce-binary-classification"><span class="header-section-number">2.3</span> Gradient of CE (Binary Classification)</h3>
 <p><span class="math display">\[
 L_{\text{CE}} = -\left[ y \log \sigma(z) + (1-y)\log(1 - \sigma(z)) \right]
 \]</span></p>
-<p><span class="math inline">\(\frac{d}{dz}\log\sigma(z) = 1 - \sigma(z)\)</span>, <span class="math inline">\(\sigma'(z) = \sigma(z)(1-\sigma(z))\)</span>를 이용하면 <span class="math inline">\(\sigma'(z)\)</span> 항이 <strong>약분되어 사라지고</strong>:</p>
+<p>If we use <span class="math inline">\(\frac{d}{dz}\log\sigma(z) = 1 - \sigma(z)\)</span>, <span class="math inline">\(\sigma'(z) = \sigma(z)(1-\sigma(z))\)</span>, the <span class="math inline">\(\sigma'(z)\)</span> term <strong>cancels out and disappears</strong>:</p>
 <p><span class="math display">\[
 \frac{\partial L_{\text{CE}}}{\partial w} = (\sigma(z) - y) \cdot x
 \]</span></p>
@@ -482,44 +482,44 @@ L_{\text{CE}} = -\left[ y \log \sigma(z) + (1-y)\log(1 - \sigma(z)) \right]
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Warning</span>인과 메커니즘 사슬 (서술형 답안 필수 구조)
+<span class="screen-reader-only">Warning</span>Causal Mechanism Chain (Essential Structure for Essay Answers)
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>“CE가 좋다”로 끝내면 감점이다. 다음 사슬을 모두 써야 한다:</p>
+<p>Ending with “CE is good” will result in a deduction. You must write the entire following chain:</p>
 <ol type="1">
-<li>시그모이드의 도함수는 <span class="math inline">\(\sigma'(z) = \sigma(z)(1-\sigma(z))\)</span>로, <strong>최댓값이 <span class="math inline">\(z=0\)</span>에서 <span class="math inline">\(0.25\)</span></strong> 이고 <span class="math inline">\(|z|\)</span>가 커지면 지수적으로 0에 수렴한다(포화, saturation).</li>
-<li>MSE 기울기에는 <span class="math inline">\(\sigma'(z)\)</span>가 <strong>곱셈 인자로 남아</strong> 있으므로, 뉴런이 포화 영역에 있으면 오차가 커도 기울기가 거의 0이 된다.</li>
-<li>층을 쌓으면 역전파에서 각 층의 국소 기울기가 <strong>연쇄적으로 곱해지므로</strong>, <span class="math inline">\(\le 0.25\)</span>인 인자가 층 수만큼 곱해져 입력층 근처의 기울기는 사실상 0이 된다 (기울기 소실).</li>
-<li>따라서 입력층 근처 파라미터는 초기값에서 거의 갱신되지 않아 학습이 진행되지 않는다.</li>
-<li>반면 CE는 <span class="math inline">\(\sigma'(z)\)</span> 인자가 소거되어 기울기가 <strong>오차 <span class="math inline">\((\sigma(z)-y)\)</span>에 직접 비례</strong>하므로, 예측이 틀릴수록 큰 기울기를 받아 학습이 빠르고 소실이 완화된다.</li>
+<li>The derivative of the sigmoid is <span class="math inline">\(\sigma'(z) = \sigma(z)(1-\sigma(z))\)</span>, <strong>the maximum value is at <span class="math inline">\(z=0\)</span> and <span class="math inline">\(0.25\)</span></strong>, and as <span class="math inline">\(|z|\)</span> increases, it converges exponentially to 0 (saturation).</li>
+<li>Since <span class="math inline">\(\sigma'(z)\)</span> remains as a <strong>multiplication factor</strong> in the MSE gradient, the gradient becomes almost 0 even if the error is large when the neuron is in the saturation region.</li>
+<li>When stacking layers, the local gradients of each layer are <strong>multiplied sequentially</strong> during backpropagation, so the factor <span class="math inline">\(\le 0.25\)</span> is multiplied by the number of layers, and the gradient near the input layer becomes virtually zero (vanishing gradient).</li>
+<li>Therefore, parameters near the input layer are hardly updated from their initial values, so learning does not proceed.</li>
+<li>On the other hand, since the <span class="math inline">\(\sigma'(z)\)</span> factor is eliminated for CE, the gradient is <strong>directly proportional to the error <span class="math inline">\((\sigma(z)-y)\)</span></strong>; therefore, as predictions become incorrect, it receives a larger gradient, resulting in faster learning and mitigated vanishing.</li>
 </ol>
 </div>
 </div>
 </section>
-<section id="ce의-통계적-정당성-bernoulli-mle와의-동치" class="level3" data-number="2.4">
-<h3 data-number="2.4" class="anchored" data-anchor-id="ce의-통계적-정당성-bernoulli-mle와의-동치"><span class="header-section-number">2.4</span> CE의 통계적 정당성: Bernoulli MLE와의 동치</h3>
-<p>Bernoulli 분포의 pmf는 <span class="math inline">\(P(y) = q^y (1-q)^{1-y}\)</span>이다. i.i.d. 샘플 <span class="math inline">\(\{y_i\}_{i=1}^N\)</span>에 대한 로그우도는:</p>
+<section id="statistical-justification-of-ce-equivalence-with-bernoulli-mle" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="statistical-justification-of-ce-equivalence-with-bernoulli-mle"><span class="header-section-number">2.4</span> Statistical Justification of CE: Equivalence with Bernoulli MLE</h3>
+<p>The pmf of the Bernoulli distribution is <span class="math inline">\(P(y) = q^y (1-q)^{1-y}\)</span>. The log-likelihood for the iid sample <span class="math inline">\(\{y_i\}_{i=1}^N\)</span> is:</p>
 <p><span class="math display">\[
 \log \mathcal{L}(q) = \sum_{i=1}^{N} \left[ y_i \log q_i + (1-y_i)\log(1-q_i) \right]
 \]</span></p>
-<p>이를 <strong>최대화</strong>하는 것은 CE를 <strong>최소화</strong>하는 것과 정확히 같다. 즉 CE 최소화 = 로지스틱 회귀의 Bernoulli 최대우도추정.</p>
+<p><strong>Maximizing</strong> this is exactly the same as <strong>minimizing</strong> the CE. That is, CE minimization = Bernoulli maximum likelihood estimation in logistic regression.</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>i.i.d. 합산 주의 (실수 패턴 A 방지)
+<span class="screen-reader-only">Note</span>Caution regarding iid summation (prevention of floating-point pattern A)
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>단일 샘플 형태 <span class="math inline">\(y\log q + (1-y)\log(1-q)\)</span>만 쓰고 끝내지 말 것. MLE 유도 문제에서는 반드시 <span class="math inline">\(\sum_{i=1}^N\)</span> (로그우도) 또는 <span class="math inline">\(\prod_{i=1}^N\)</span> (우도)로 <strong>전체 데이터에 대해 집계</strong>한 형태를 먼저 쓴다.</p>
+<p>Do not stop after writing only the single-sample form <span class="math inline">\(y\log q + (1-y)\log(1-q)\)</span>. In MLE derivation problems, you must first write the form <strong>aggregated over the entire data</strong> using <span class="math inline">\(\sum_{i=1}^N\)</span> (log-likelihood) or <span class="math inline">\(\prod_{i=1}^N\)</span> (likelihood).</p>
 </div>
 </div>
 </section>
-<section id="정리-ce를-선호하는-두-가지-이유" class="level3" data-number="2.5">
-<h3 data-number="2.5" class="anchored" data-anchor-id="정리-ce를-선호하는-두-가지-이유"><span class="header-section-number">2.5</span> 정리: CE를 선호하는 두 가지 이유</h3>
+<section id="summary-two-reasons-to-prefer-ce" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="summary-two-reasons-to-prefer-ce"><span class="header-section-number">2.5</span> Summary: Two reasons to prefer CE</h3>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 50%">
@@ -527,28 +527,28 @@ L_{\text{CE}} = -\left[ y \log \sigma(z) + (1-y)\log(1 - \sigma(z)) \right]
 </colgroup>
 <thead>
 <tr class="header">
-<th>관점</th>
-<th>내용</th>
+<th>Perspective</th>
+<th>Content</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><strong>실용적</strong></td>
-<td>MSE 기울기의 <span class="math inline">\(\sigma'(z)\)</span> 인자가 없어 기울기 소실이 덜하다</td>
+<td><strong>Practical</strong></td>
+<td>Less slope vanishing due to the absence of the <span class="math inline">\(\sigma'(z)\)</span> factor in the MSE slope</td>
 </tr>
 <tr class="even">
-<td><strong>이론적</strong></td>
-<td>Bernoulli(이진) / Multinoulli(다중) 분포의 음의 로그우도(NLL)와 동치 — 통계적으로 원리에 입각한(principled) 손실</td>
+<td><strong>Theoretical</strong></td>
+<td>Equivalent to the negative log-likelihood (NLL) of Bernoulli / Multinoulli distributions — Statistically principled loss</td>
 </tr>
 </tbody>
 </table>
-<p>MSE는 회귀에 자연스럽고(<span class="math inline">\(f^*(x) = \mathbb{E}[y|x]\)</span>, 조건부 <strong>평균</strong> 예측), MAE는 조건부 <strong>중앙값</strong>을 예측하는 함수를 학습한다. 단순한 문제에서는 여전히 널리 쓰인다.</p>
+<p>MSE is natural for regression (<span class="math inline">\(f^*(x) = \mathbb{E}[y|x]\)</span>, conditional <strong>mean</strong> prediction), while MAE learns a function to predict the conditional <strong>median</strong>. It is still widely used for simple problems.</p>
 <hr>
 </section>
 </section>
-<section id="출력-유닛-output-units" class="level2" data-number="3">
-<h2 data-number="3" class="anchored" data-anchor-id="출력-유닛-output-units"><span class="header-section-number">3</span> 출력 유닛 (Output Units)</h2>
-<p>마지막 층에서 출력(확률 또는 값)을 만들어내는 유닛. 출력 분포 가정과 1:1로 대응된다.</p>
+<section id="output-units" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="output-units"><span class="header-section-number">3</span> Output Units</h2>
+<p>A unit that generates an output (probability or value) in the last layer. It corresponds 1:1 with the assumption of the output distribution.</p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 25%">
@@ -558,10 +558,10 @@ L_{\text{CE}} = -\left[ y \log \sigma(z) + (1-y)\log(1 - \sigma(z)) \right]
 </colgroup>
 <thead>
 <tr class="header">
-<th>출력 유닛</th>
-<th>수식</th>
-<th>대응 출력 분포</th>
-<th>용도</th>
+<th>Output Unit</th>
+<th>Formula</th>
+<th>Corresponding Output Distribution</th>
+<th>Application</th>
 </tr>
 </thead>
 <tbody>
@@ -569,44 +569,44 @@ L_{\text{CE}} = -\left[ y \log \sigma(z) + (1-y)\log(1 - \sigma(z)) \right]
 <td><strong>Linear</strong></td>
 <td><span class="math inline">\(\hat{y} = W^\top h + b\)</span></td>
 <td>Gaussian: <span class="math inline">\(p(y|x) = \mathcal{N}(y; \hat{y}, I)\)</span></td>
-<td>회귀</td>
+<td>regression</td>
 </tr>
 <tr class="even">
 <td><strong>Sigmoid</strong></td>
 <td><span class="math inline">\(\hat{y} = \sigma(w^\top h + b)\)</span></td>
 <td>Bernoulli</td>
-<td>이진 분류</td>
+<td>Binary Classification</td>
 </tr>
 <tr class="odd">
 <td><strong>Softmax</strong></td>
 <td><span class="math inline">\(\text{softmax}(z)_i = \dfrac{e^{z_i}}{\sum_j e^{z_j}}\)</span></td>
-<td>Multinoulli (Bernoulli의 다중 클래스 확장)</td>
-<td>다중 분류</td>
+<td>Multinoulli (Multi-class extension of Bernoulli)</td>
+<td>Multi-class</td>
 </tr>
 </tbody>
 </table>
-<p>여기서 <span class="math inline">\(z = w^\top h + b\)</span>를 <strong>logit</strong>이라 부른다.</p>
+<p>Here, <span class="math inline">\(z = w^\top h + b\)</span> is called <strong>logit</strong>.</p>
 <div class="callout callout-style-default callout-warning callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Warning</span>시그모이드 출력의 함정
+<span class="screen-reader-only">Warning</span>The Trap of Sigmoid Output
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>10차원 출력에 각각 시그모이드를 걸면 각 차원은 <span class="math inline">\([0,1]\)</span> 값을 갖지만 <strong>합이 1이 아니다</strong>. 즉 확률분포가 아니라 “정규화되지 않은 확률처럼 보이는 것”이다. 지수를 취해 정규화하면 softmax가 된다.</p>
+<p>If a sigmoid is applied to each of the 10-dimensional outputs, each dimension takes on the value <span class="math inline">\([0,1]\)</span>, but the <strong>sum is not 1</strong>. In other words, it is not a probability distribution but “appears like unnormalized probability.” Normalizing it by taking the exponent results in softmax.</p>
 </div>
 </div>
-<section id="softmax는-정규화-그-이상이다" class="level3" data-number="3.1">
-<h3 data-number="3.1" class="anchored" data-anchor-id="softmax는-정규화-그-이상이다"><span class="header-section-number">3.1</span> Softmax는 정규화 그 이상이다</h3>
-<p>L1 정규화와 비교하면 본질이 드러난다 (수치는 직접 계산으로 검증한 값):</p>
+<section id="softmax-is-more-than-normalization" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="softmax-is-more-than-normalization"><span class="header-section-number">3.1</span> Softmax is more than normalization</h3>
+<p>The essence is revealed when compared to L1 normalization (values verified by direct calculation):</p>
 <table class="caption-top table">
 <thead>
 <tr class="header">
-<th>입력</th>
-<th>L1 정규화</th>
+<th>Input</th>
+<th>L1 Normalization</th>
 <th>Softmax</th>
 </tr>
 </thead>
@@ -624,10 +624,10 @@ L_{\text{CE}} = -\left[ y \log \sigma(z) + (1-y)\log(1 - \sigma(z)) \right]
 </tbody>
 </table>
 <ul>
-<li>L1 정규화는 <strong>비율만 보존</strong>한다 — <span class="math inline">\([1,2]\)</span>와 <span class="math inline">\([10,20]\)</span>의 결과가 같다.</li>
-<li>Softmax는 <strong>크기에 민감(magnitude sensitive)</strong> 하다 — 절대적 격차가 클수록 max를 1에 가깝게 증폭한다.</li>
-<li>즉 softmax는 max를 <strong>부드럽게(soft)</strong> 취하는 연산이다: 결정적(deterministic) argmax가 아니라, 격차를 증폭하되 미분 가능한 형태로 유지한다.</li>
-<li>실용적 이점: 증폭된 확률 격차는 <strong>증폭된 기울기</strong>로 이어져 학습을 쉽게 만든다.</li>
+<li>L1 normalization <strong>preserves only ratios</strong> — <span class="math inline">\([1,2]\)</span> and <span class="math inline">\([10,20]\)</span> are the same.</li>
+<li>Softmax is <strong>magnitude sensitive</strong> — the larger the absolute difference, the closer it amplifies the max to 1.</li>
+<li>That is, softmax is an operation that takes the max <strong>softly</strong>: it is not a deterministic argmax, but amplifies the gap while maintaining it in a differentiable form.</li>
+<li>Practical Benefit: The amplified probability gap leads to an <strong>amplified gradient</strong>, making learning easier.</li>
 </ul>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -635,30 +635,30 @@ L_{\text{CE}} = -\left[ y \log \sigma(z) + (1-y)\log(1 - \sigma(z)) \right]
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Tip</span>무선통신 관점: Soft Decision vs Hard Decision
+<span class="screen-reader-only">Tip</span>Wireless Communication Perspective: Soft Decision vs Hard Decision
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>softmax vs argmax의 관계는 수신기의 <strong>연판정(soft decision) vs 경판정(hard decision)</strong> 관계와 정확히 같다. argmax는 심볼을 즉시 확정하는 경판정으로 정보(신뢰도)를 버리지만, softmax는 LLR처럼 각 후보의 신뢰도를 보존하는 연판정이다. 채널 디코더에 LLR을 넘겨야 성능이 좋아지듯, 역전파에는 미분 가능한 softmax가 필요하다.</p>
+<p>The relationship between softmax and argmax is exactly the same as the relationship between a receiver’s <strong>soft decision vs.&nbsp;hard decision</strong>. Argmax is a hard decision that immediately confirms a symbol and discards information (reliability), whereas softmax is a soft decision that preserves the reliability of each candidate, similar to LLR. Just as passing LLR to the channel decoder improves performance, a differentiable softmax is required for backpropagation.</p>
 </div>
 </div>
 <hr>
 </section>
 </section>
-<section id="gumbel-softmax-argmax를-미분-가능하게" class="level2" data-number="4">
-<h2 data-number="4" class="anchored" data-anchor-id="gumbel-softmax-argmax를-미분-가능하게"><span class="header-section-number">4</span> Gumbel Softmax: argmax를 미분 가능하게</h2>
-<section id="동기-두-네트워크의-종단간end-to-end-연결" class="level3" data-number="4.1">
-<h3 data-number="4.1" class="anchored" data-anchor-id="동기-두-네트워크의-종단간end-to-end-연결"><span class="header-section-number">4.1</span> 동기: 두 네트워크의 종단간(end-to-end) 연결</h3>
-<p>신경망 A의 <strong>이산적 출력</strong>(softmax + argmax)을 신경망 B의 입력으로 연결하고 싶다고 하자.</p>
-<p>대표적 응용이 <strong>로보틱스 파운데이션 모델</strong>이다: 네트워크 A는 고수준 행동(“문으로 가라”, “냉장고로 가라”)을 결정하고, 네트워크 B는 세밀한(fine-grained) 행동(문손잡이를 잡을 수 있는 적절한 거리 유지, 손잡이 돌리기, 당기기)을 생성한다. 전체를 하나의 모델로 입력→출력 <strong>end-to-end 학습</strong>하려면 중간의 모든 연산이 미분 가능해야 역전파가 통과한다.</p>
-<p>문제는:</p>
+<section id="gumbel-softmax-makes-argmax-differentiable" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="gumbel-softmax-makes-argmax-differentiable"><span class="header-section-number">4</span> Gumbel Softmax: Makes argmax differentiable</h2>
+<section id="synchronous-end-to-end-connection-between-two-networks" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="synchronous-end-to-end-connection-between-two-networks"><span class="header-section-number">4.1</span> Synchronous: End-to-end connection between two networks</h3>
+<p>Let’s assume that we want to connect the <strong>discrete output</strong> (softmax + argmax) of neural network A as the input to neural network B.</p>
+<p>A representative application is the <strong>Robotics Foundation Model</strong>: Network A determines high-level actions (“Go to the door,” “Go to the refrigerator”), while Network B generates fine-grained actions (maintaining an appropriate distance to grasp the doorknob, turning the handle, pulling). To perform <strong>end-to-end learning</strong> of the entire model from input to output, all intermediate operations must be differentiable for backpropagation to pass.</p>
+<p>The problem is:</p>
 <ul>
-<li>softmax: 무한히 미분 가능 ✓</li>
-<li><strong>argmax: 인덱스 선택 연산이라 미분 불가</strong> ✗ — 여기서 역전파가 끊긴다</li>
+<li>softmax: infinitely differentiable ✓</li>
+<li><strong>argmax: Cannot be differentiated as it is an index selection operation</strong> ✗ — Backpropagation stops here</li>
 </ul>
 </section>
-<section id="해법-노이즈를-더해-샘플링으로-바꾸기" class="level3" data-number="4.2">
-<h3 data-number="4.2" class="anchored" data-anchor-id="해법-노이즈를-더해-샘플링으로-바꾸기"><span class="header-section-number">4.2</span> 해법: 노이즈를 더해 샘플링으로 바꾸기</h3>
+<section id="solution-add-noise-to-convert-to-sampling" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="solution-add-noise-to-convert-to-sampling"><span class="header-section-number">4.2</span> Solution: Add noise to convert to sampling</h3>
 <p><span class="math display">\[
 \text{(기존)} \quad p_i = \frac{\exp(z_i)}{\sum_j \exp(z_j)}, \qquad y_i = \begin{cases} 1 &amp; i = \text{argmax}_j\, p_j \\ 0 &amp; \text{otherwise} \end{cases}
 \]</span></p>
@@ -666,36 +666,36 @@ L_{\text{CE}} = -\left[ y \log \sigma(z) + (1-y)\log(1 - \sigma(z)) \right]
 \text{(Gumbel Softmax)} \quad y_i = \frac{\exp\!\left(\dfrac{z_i + g_i}{\tau}\right)}{\sum_{j=1}^{k} \exp\!\left(\dfrac{z_j + g_j}{\tau}\right)}
 \]</span></p>
 <ul>
-<li><span class="math inline">\(g_i\)</span>: <strong>Gumbel 분포</strong>에서 샘플링한 노이즈</li>
-<li><span class="math inline">\(\tau\)</span>: 온도(temperature) 하이퍼파라미터 — 작을수록 one-hot에 가깝고, 클수록 균등분포에 가깝다</li>
+<li><span class="math inline">\(g_i\)</span>: Noise sampled from a <strong>Gumbel distribution</strong></li>
+<li><span class="math inline">\(\tau\)</span>: Temperature hyperparameter — The smaller the value, the closer it is to one-hot; the larger the value, the closer it is to a uniform distribution.</li>
 </ul>
 </section>
-<section id="왜-하필-gumbel-분포인가" class="level3" data-number="4.3">
-<h3 data-number="4.3" class="anchored" data-anchor-id="왜-하필-gumbel-분포인가"><span class="header-section-number">4.3</span> 왜 하필 Gumbel 분포인가</h3>
-<p>Gumbel 분포의 PDF는 <span class="math inline">\(f(x) = e^{-(x + e^{-x})}\)</span> (지수 안에 지수가 들어간 형태)이다. 핵심 성질:</p>
+<section id="why-the-gumbel-distribution-of-all-things" class="level3" data-number="4.3">
+<h3 data-number="4.3" class="anchored" data-anchor-id="why-the-gumbel-distribution-of-all-things"><span class="header-section-number">4.3</span> Why the Gumbel distribution of all things?</h3>
+<p>The PDF of the Gumbel distribution is <span class="math inline">\(f(x) = e^{-(x + e^{-x})}\)</span> (in the form of an exponent inside an exponent). Key property:</p>
 <div class="callout callout-style-default callout-important callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Important</span>Gumbel-Max Trick (핵심 성질)
+<span class="screen-reader-only">Important</span>Gumbel-Max Trick (Key Properties)
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>logit에 Gumbel 노이즈를 더한 뒤 argmax를 취하면, 그 결과는 <strong>softmax 분포에서의 샘플링과 동일한 분포</strong>를 따른다:</p>
+<p>If Gumbel noise is added to the logit and then argmax is applied, the result follows the <strong>distribution identical to sampling from a softmax distribution</strong>:</p>
 <p><span class="math display">\[
 \text{argmax}_i (z_i + g_i) \sim \text{Categorical}\left(\text{softmax}(z)\right)
 \]</span></p>
-<p>즉, 결정적이던 argmax가 <strong>확률변수의 샘플링</strong>으로 재해석되고, 그 샘플링 과정을 softmax 식(위의 <span class="math inline">\(y_i\)</span>)으로 연속화하면 전체가 미분 가능해진다. 이렇게 미분 불가능한 것을 미분 가능하게 만드는 기법을 <strong>reparameterization trick</strong>이라 하고, Gumbel 분포를 쓰는 이 특수한 경우를 <strong>Gumbel-Max trick</strong>이라 한다.</p>
+<p>That is, the deterministic argmax is reinterpreted as <strong>sampling of a random variable</strong>, and if that sampling process is continuous with the softmax formula (<span class="math inline">\(y_i\)</span> above), the whole becomes differentiable. This technique of making something non-differentiable differentiable is called the <strong>reparameterization trick</strong>, and this special case using the Gumbel distribution is called the <strong>Gumbel-Max trick</strong>.</p>
 </div>
 </div>
 </section>
-<section id="응용" class="level3" data-number="4.4">
-<h3 data-number="4.4" class="anchored" data-anchor-id="응용"><span class="header-section-number">4.4</span> 응용</h3>
+<section id="application" class="level3" data-number="4.4">
+<h3 data-number="4.4" class="anchored" data-anchor-id="application"><span class="header-section-number">4.4</span> Application</h3>
 <ul>
-<li>두 네트워크를 cascade로 연결한 단일 모델의 end-to-end 학습</li>
-<li><strong>VAE(Variational Autoencoder)</strong> 의 이산 잠재변수(latent variable) 제어 — VAE는 현대 생성 AI(GAN도 VAE 구조에 기반)의 토대이며, 2017년 제안(Jang et al., Maddison et al., ICLR 2017) 당시보다 요즘 VLA(Vision-Language-Action) 등 파운데이션 모델에서 더 널리 쓰인다.</li>
+<li>End-to-end training of a single model connecting two networks via cascade</li>
+<li><strong>Variational Autoencoder (VAE)</strong> control of discrete latent variables — VAE is the foundation of modern generative AI (GAN is also based on VAE architecture), and is more widely used in foundation models such as VLA (Vision-Language-Action) these days than when it was proposed in 2017 (Jang et al., Maddison et al., ICLR 2017).</li>
 </ul>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -703,20 +703,20 @@ L_{\text{CE}} = -\left[ y \log \sigma(z) + (1-y)\log(1 - \sigma(z)) \right]
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Tip</span>무선통신 관점: 학습 가능한 통신 시스템의 변조기
+<span class="screen-reader-only">Tip</span>Wireless Communication Perspective: Modulators in Learnable Communication Systems
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>오토인코더 기반 통신 시스템(end-to-end learned communication)에서 송신기의 <strong>심볼 매핑(constellation mapping)은 이산 선택</strong>이라 미분 불가다. 송수신기를 하나의 신경망으로 묶어 BER을 직접 최소화하려면 이 이산 선택을 미분 가능하게 완화해야 하는데, 그때 쓰는 표준 도구가 바로 Gumbel Softmax다. 또한 reparameterization trick은 CSI 피드백 압축(CsiNet 계열)의 양자화(quantization) 층을 학습 가능하게 만들 때도 같은 역할을 한다.</p>
+<p>In end-to-end learned communication systems based on autoencoders, the transmitter’s <strong>constellation mapping</strong> is discrete selection and therefore non-differentiable. To directly minimize BER by combining the transmitter and receiver into a single neural network, this discrete selection must be relaxed to be differentiable, and the standard tool used for this is Gumbel Softmax. Additionally, the reparameterization trick plays the same role when making the quantization layer of CSI feedback compression (CsiNet family) learnable.</p>
 </div>
 </div>
 <hr>
 </section>
 </section>
-<section id="활성화-함수-activation-functions" class="level2" data-number="5">
-<h2 data-number="5" class="anchored" data-anchor-id="활성화-함수-activation-functions"><span class="header-section-number">5</span> 활성화 함수 (Activation Functions)</h2>
-<section id="후보들" class="level3" data-number="5.1">
-<h3 data-number="5.1" class="anchored" data-anchor-id="후보들"><span class="header-section-number">5.1</span> 후보들</h3>
+<section id="activation-functions" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="activation-functions"><span class="header-section-number">5</span> Activation Functions</h2>
+<section id="candidates" class="level3" data-number="5.1">
+<h3 data-number="5.1" class="anchored" data-anchor-id="candidates"><span class="header-section-number">5.1</span> Candidates</h3>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 25%">
@@ -726,10 +726,10 @@ L_{\text{CE}} = -\left[ y \log \sigma(z) + (1-y)\log(1 - \sigma(z)) \right]
 </colgroup>
 <thead>
 <tr class="header">
-<th>함수</th>
-<th>수식</th>
-<th>치역</th>
-<th>특징</th>
+<th>Function</th>
+<th>Formula</th>
+<th>Range</th>
+<th>Characteristics</th>
 </tr>
 </thead>
 <tbody>
@@ -737,30 +737,30 @@ L_{\text{CE}} = -\left[ y \log \sigma(z) + (1-y)\log(1 - \sigma(z)) \right]
 <td>Logistic Sigmoid</td>
 <td><span class="math inline">\(\sigma(z)\)</span></td>
 <td><span class="math inline">\((0,1)\)</span></td>
-<td>매끄럽고 무한히 미분 가능, 그러나 <span class="math inline">\(\sigma' \le 0.25\)</span>로 기울기 소실 심각</td>
+<td>Smooth and infinitely differentiable, but severe vanishing gradient in <span class="math inline">\(\sigma' \le 0.25\)</span></td>
 </tr>
 <tr class="even">
 <td>Hyperbolic Tangent</td>
 <td><span class="math inline">\(\tanh(z)\)</span></td>
 <td><span class="math inline">\((-1,1)\)</span></td>
-<td>시그모이드와 유사하나 곡률이 다름; 응용에 따라 더 나은 정확도 — 둘 사이 선택은 본질적 우위가 아니라 응용/실험에 의해 결정</td>
+<td>Similar to sigmoid but with different curvature; better accuracy depending on the application — the choice between the two is determined by application/experimentation, not intrinsic superiority</td>
 </tr>
 <tr class="odd">
 <td><strong>ReLU</strong></td>
 <td><span class="math inline">\(\max(0, z)\)</span></td>
 <td><span class="math inline">\([0,\infty)\)</span></td>
-<td>현대 딥러닝의 표준; 기울기 소실 완화, 파국적 망각 완화에도 기여</td>
+<td>The standard of modern deep learning; contributes to vanishing gradient mitigation and catastrophic forgetting mitigation</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="relu에-대한-첫인상과-반전" class="level3" data-number="5.2">
-<h3 data-number="5.2" class="anchored" data-anchor-id="relu에-대한-첫인상과-반전"><span class="header-section-number">5.2</span> ReLU에 대한 첫인상과 반전</h3>
-<p>ReLU는 양수 구간에서 그냥 선형이고 음수는 0으로 죽이는, “허무할 만큼 단순한” 함수다. 단일 층에서는 입출력 간 비선형성을 거의 주지 못하는 것처럼 보인다. 그러나 <strong>여러 층을 쌓으면 입출력 간 비선형성이 지수적으로 복잡해진다</strong>. 단순한 활성화라도 깊이가 충분하면 충분한 표현력을 확보하며, 동시에 기울기 소실이 적다는 결정적 이점 때문에 시그모이드/tanh보다 선호된다.</p>
+<section id="first-impressions-and-twist-on-relu" class="level3" data-number="5.2">
+<h3 data-number="5.2" class="anchored" data-anchor-id="first-impressions-and-twist-on-relu"><span class="header-section-number">5.2</span> First Impressions and Twist on ReLU</h3>
+<p>ReLU is a “futilely simple” function that is linear in the positive range and kills negative values to zero. In a single layer, it appears to provide almost no non-linearity between input and output. However, <strong>when stacking multiple layers, the non-linearity between input and output becomes exponentially complex</strong>. It is preferred over sigmoid/tanh because it ensures sufficient expressiveness even with simple activation if the depth is sufficient, while simultaneously having the decisive advantage of minimal vanishing gradients.</p>
 </section>
-<section id="relu의-일반화와-변형들" class="level3" data-number="5.3">
-<h3 data-number="5.3" class="anchored" data-anchor-id="relu의-일반화와-변형들"><span class="header-section-number">5.3</span> ReLU의 일반화와 변형들</h3>
-<p>음수 입력 정보가 중요한 응용도 있다. vanilla ReLU는 음수를 전부 죽이므로, 이를 일반화한 공식:</p>
+<section id="generalizations-and-variations-of-relu" class="level3" data-number="5.3">
+<h3 data-number="5.3" class="anchored" data-anchor-id="generalizations-and-variations-of-relu"><span class="header-section-number">5.3</span> Generalizations and Variations of ReLU</h3>
+<p>There are also applications where negative input information is important. Since vanilla ReLU kills all negative numbers, a generalized formula is:</p>
 <p><span class="math display">\[
 h_i = \max(0, z_i) + \alpha_i \min(0, z_i)
 \]</span></p>
@@ -773,65 +773,65 @@ h_i = \max(0, z_i) + \alpha_i \min(0, z_i)
 <thead>
 <tr class="header">
 <th><span class="math inline">\(\alpha_i\)</span></th>
-<th>결과</th>
-<th>비고</th>
+<th>Result</th>
+<th>Remarks</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td><span class="math inline">\(0\)</span></td>
 <td><strong>ReLU</strong></td>
-<td>음수 완전 차단</td>
+<td>Completely block negatives</td>
 </tr>
 <tr class="even">
 <td><span class="math inline">\(1\)</span></td>
-<td>선형 유닛</td>
-<td>활성화가 사라짐 (비선형성 없음)</td>
+<td>Linear unit</td>
+<td>Activation vanished (no non-linearity)</td>
 </tr>
 <tr class="odd">
 <td><span class="math inline">\(-1\)</span></td>
-<td><strong>절댓값 정류 (Absolute value rectification)</strong>: <span class="math inline">\(h_i = |z_i|\)</span></td>
-<td>음수를 양수로 접음</td>
+<td><strong>Absolute value rectification</strong>: <span class="math inline">\(h_i = |z_i|\)</span></td>
+<td>Folding a negative number into a positive</td>
 </tr>
 <tr class="even">
-<td><span class="math inline">\(0.01\)</span> (작은 양수)</td>
+<td><span class="math inline">\(0.01\)</span> (small positive)</td>
 <td><strong>Leaky ReLU</strong></td>
-<td>음수 정보를 “조금 누설(leak)”시킴</td>
+<td>“Leaks” negative information</td>
 </tr>
 <tr class="odd">
-<td>학습 가능 파라미터</td>
+<td>Trainable Parameter</td>
 <td><strong>PReLU (Parametric ReLU)</strong></td>
-<td><span class="math inline">\(\alpha\)</span> 자체를 데이터로 학습 — “배울 수 있으면 다 배우자”는 철학</td>
+<td><span class="math inline">\(\alpha\)</span> Learn from itself as data — The philosophy of “Let’s learn everything we can”</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Maxout</strong>도 같은 정신의 변형(여러 선형 함수의 max를 취함)이다.</p>
+<p><strong>Maxout</strong> is also a variation of the same spirit (taking the maximum of several linear functions).</p>
 </section>
-<section id="직관적-정당화-공간-접기folding" class="level3" data-number="5.4">
-<h3 data-number="5.4" class="anchored" data-anchor-id="직관적-정당화-공간-접기folding"><span class="header-section-number">5.4</span> 직관적 정당화: 공간 접기(folding)</h3>
-<p>절댓값 정류 <span class="math inline">\(h = |z|\)</span>를 쓰면 입력 공간이 <strong>반으로 접힌다</strong>. 접힌 공간에서 단순한(거의 선형인) 분류 경계를 학습한 뒤 펼치면, 원래 공간에서는 훨씬 복잡한 경계가 된다.</p>
+<section id="intuitive-justification-space-folding" class="level3" data-number="5.4">
+<h3 data-number="5.4" class="anchored" data-anchor-id="intuitive-justification-space-folding"><span class="header-section-number">5.4</span> Intuitive Justification: Space Folding</h3>
+<p>Using Absolute Value Rectification <span class="math inline">\(h = |z|\)</span> causes the input space to <strong>fold in half</strong>. When simple (nearly linear) classification boundaries are learned in the folded space and then unfolded, they become much more complex boundaries in the original space.</p>
 <ul>
-<li>1번 접기 → 경계 복잡도 2배 효과</li>
-<li><span class="math inline">\(n\)</span>번 접기(= <span class="math inline">\(n\)</span>개 은닉층 cascade) → <strong>지수적으로</strong> 복잡한 분류 경계</li>
+<li>Fold 1 → Double boundary complexity effect</li>
+<li><span class="math inline">\(n\)</span> folds (= <span class="math inline">\(n\)</span> hidden layer cascade) → <strong>exponentially</strong> complex classification boundary</li>
 </ul>
-<p>즉, 각 층의 활성화가 단순해도 깊이가 복잡도를 지수적으로 증폭하므로, 심층 신경망은 매우 복잡한 분류 경계를 인코딩할 수 있다. 이것이 “단순한 활성화 + 깊은 구조”의 정당화다.</p>
+<p>In other words, since depth exponentially amplifies complexity even if the activation of each layer is simple, deep neural networks can encode very complex classification boundaries. This is the justification for “simple activation + deep structure”.</p>
 <hr>
 </section>
 </section>
-<section id="기울기-소실-gradient-vanishing" class="level2" data-number="6">
-<h2 data-number="6" class="anchored" data-anchor-id="기울기-소실-gradient-vanishing"><span class="header-section-number">6</span> 기울기 소실 (Gradient Vanishing)</h2>
-<section id="메커니즘-인과-사슬" class="level3" data-number="6.1">
-<h3 data-number="6.1" class="anchored" data-anchor-id="메커니즘-인과-사슬"><span class="header-section-number">6.1</span> 메커니즘 (인과 사슬)</h3>
+<section id="gradient-vanishing" class="level2" data-number="6">
+<h2 data-number="6" class="anchored" data-anchor-id="gradient-vanishing"><span class="header-section-number">6</span> Gradient Vanishing</h2>
+<section id="mechanism-causal-chain" class="level3" data-number="6.1">
+<h3 data-number="6.1" class="anchored" data-anchor-id="mechanism-causal-chain"><span class="header-section-number">6.1</span> mechanism (causal chain)</h3>
 <ol type="1">
-<li>심층 신경망의 역전파는 연쇄 법칙에 의해 <strong>각 층의 국소 기울기를 곱하는 것</strong>이다.</li>
-<li>국소 기울기의 크기가 <span class="math inline">\([0,1]\)</span> 구간(특히 1보다 충분히 작은 값)에 있으면, 층을 거칠 때마다 기울기 크기가 기하급수적으로 감소한다.</li>
-<li>출력층에서의 기울기 크기가 충분히 커도, 입력층에 도달할 즈음에는 거의 0이 된다.</li>
-<li>기울기 크기가 0에 가까우면 <span class="math inline">\(w \leftarrow w - \eta \nabla_w L\)</span>에서 갱신량이 0에 가깝다.</li>
-<li>따라서 <strong>입력층 근처 파라미터는 초기화 상태에서 거의 변하지 않고</strong>, 학습이 아무리 진행돼도 그 층은 배우지 못한다 → 학습 효율이 극도로 낮아져, 반복 횟수를 크게 늘리거나 기울기를 증폭하는 메커니즘이 필요한데, 증폭은 기울기의 노이즈까지 증폭한다.</li>
+<li>Backpropagation in deep neural networks is <strong>multiplying the local gradients of each layer</strong> by the chain rule.</li>
+<li>If the magnitude of the local gradient is in the <span class="math inline">\([0,1]\)</span> interval (especially a value sufficiently smaller than 1), the magnitude of the gradient decreases exponentially with each passing layer.</li>
+<li>Even if the magnitude of the gradient at the output layer is sufficiently large, it becomes almost 0 by the time it reaches the input layer.</li>
+<li>If the gradient magnitude is close to 0, the update amount in <span class="math inline">\(w \leftarrow w - \eta \nabla_w L\)</span> is close to 0.</li>
+<li>Therefore, <strong>parameters near the input layer hardly change from the initial state</strong>, and no matter how much training progresses, that layer cannot learn → learning efficiency becomes extremely low, so a mechanism to greatly increase the number of iterations or amplify the gradient is required, but amplification amplifies even the noise in the gradient.</li>
 </ol>
 </section>
-<section id="활성화-함수별-영향" class="level3" data-number="6.2">
-<h3 data-number="6.2" class="anchored" data-anchor-id="활성화-함수별-영향"><span class="header-section-number">6.2</span> 활성화 함수별 영향</h3>
+<section id="effects-by-activation-function" class="level3" data-number="6.2">
+<h3 data-number="6.2" class="anchored" data-anchor-id="effects-by-activation-function"><span class="header-section-number">6.2</span> Effects by activation function</h3>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 33%">
@@ -840,61 +840,61 @@ h_i = \max(0, z_i) + \alpha_i \min(0, z_i)
 </colgroup>
 <thead>
 <tr class="header">
-<th>활성화</th>
-<th>국소 기울기</th>
-<th>결과</th>
+<th>Activation</th>
+<th>Local Gradient</th>
+<th>Result</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td>Sigmoid</td>
-<td>최대 <span class="math inline">\(0.25\)</span> (<span class="math inline">\(z=0\)</span>에서), 포화 영역에서 <span class="math inline">\(\approx 0\)</span></td>
-<td><span class="math inline">\(0.25\)</span> 이하를 반복해서 곱함 → 소실 심각</td>
+<td>Max <span class="math inline">\(0.25\)</span> (at <span class="math inline">\(z=0\)</span>), in the saturation region <span class="math inline">\(\approx 0\)</span></td>
+<td><span class="math inline">\(0.25\)</span> repeatedly multiplied → severe vanishing</td>
 </tr>
 <tr class="even">
 <td><strong>ReLU</strong></td>
-<td>양수 구간에서 정확히 <span class="math inline">\(1\)</span></td>
-<td><span class="math inline">\(1 \times 1 \times \cdots\)</span> → 출력층의 기울기 크기가 <strong>입력층까지 살아서 전달</strong></td>
+<td>Exactly in the positive range <span class="math inline">\(1\)</span></td>
+<td><span class="math inline">\(1 \times 1 \times \cdots\)</span> → The magnitude of the gradient in the output layer is <strong>transmitted alive to the input layer</strong></td>
 </tr>
 </tbody>
 </table>
-<p>이것이 깊은 네트워크에서 ReLU를 선호하는 가장 큰 이유다.</p>
+<p>This is the biggest reason why ReLU is preferred in deep networks.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Tip</span>무선통신 관점: 다중 홉 릴레이의 SNR 열화
+<span class="screen-reader-only">Tip</span>Wireless Communication Perspective: SNR Degradation of Multi-Hop Relays
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>각 층의 국소 기울기 곱셈은 <strong>multi-hop relay에서 홉마다 곱해지는 채널 이득</strong>과 같다. 각 홉의 이득이 1보다 작으면(감쇠) 홉 수가 늘수록 수신 신호는 지수적으로 약해진다 — amplify-and-forward 릴레이가 신호와 함께 잡음도 증폭하는 것이, 기울기 부스팅이 기울기 노이즈도 증폭하는 것과 정확히 대응된다. ReLU는 이득이 정확히 1인 <strong>regenerative(decode-and-forward) 릴레이</strong>처럼 신호 크기를 보존한다.</p>
+<p>The local gradient multiplication at each layer is equivalent to the <strong>channel gain multiplied at each hop in a multi-hop relay</strong>. If the gain at each hop is less than 1 (attenuation), the received signal weakens exponentially as the number of hops increases — this corresponds exactly to how an amplify-and-forward relay amplifies noise along with the signal, and how gradient boosting amplifies gradient noise. ReLU preserves the signal magnitude like a <strong>regenerative (decode-and-forward) relay</strong> with a gain of exactly 1.</p>
 </div>
 </div>
 <hr>
 </section>
 </section>
-<section id="파국적-망각-catastrophic-forgetting" class="level2" data-number="7">
-<h2 data-number="7" class="anchored" data-anchor-id="파국적-망각-catastrophic-forgetting"><span class="header-section-number">7</span> 파국적 망각 (Catastrophic Forgetting)</h2>
-<section id="정의" class="level3" data-number="7.1">
-<h3 data-number="7.1" class="anchored" data-anchor-id="정의"><span class="header-section-number">7.1</span> 정의</h3>
+<section id="catastrophic-forgetting" class="level2" data-number="7">
+<h2 data-number="7" class="anchored" data-anchor-id="catastrophic-forgetting"><span class="header-section-number">7</span> Catastrophic Forgetting</h2>
+<section id="definition" class="level3" data-number="7.1">
+<h3 data-number="7.1" class="anchored" data-anchor-id="definition"><span class="header-section-number">7.1</span> Definition</h3>
 <blockquote class="blockquote">
-<p>이전에 학습한 태스크(태스크 A)에 대한 지식이, 현재 태스크(태스크 B)와 관련된 정보가 통합되면서 <strong>급격히(abruptly) 소실</strong>되는 경향 (McCloskey and Cohen, 1989)</p>
+<p>Knowledge about a previously learned task (Task A) tends to be <strong>abruptly</strong> lost as information related to the current task (Task B) is integrated (McCloskey and Cohen, 1989)</p>
 </blockquote>
 </section>
-<section id="미니배치-학습에서의-발생-메커니즘" class="level3" data-number="7.2">
-<h3 data-number="7.2" class="anchored" data-anchor-id="미니배치-학습에서의-발생-메커니즘"><span class="header-section-number">7.2</span> 미니배치 학습에서의 발생 메커니즘</h3>
+<section id="occurrence-mechanism-in-mini-batch-learning" class="level3" data-number="7.2">
+<h3 data-number="7.2" class="anchored" data-anchor-id="occurrence-mechanism-in-mini-batch-learning"><span class="header-section-number">7.2</span> Occurrence mechanism in mini-batch learning</h3>
 <ol type="1">
-<li>고정된 크기의 네트워크를 미니배치 단위로 학습한다: 배치 1로 파라미터 갱신 → 배치 2로 갱신 → ⋯</li>
-<li>배치 1 학습 직후에는 배치 1에 대한 손실이 거의 0이다 (잘 학습됨).</li>
-<li>그러나 이후 배치들의 기울기가 <strong>같은 파라미터 집합을 계속 덮어쓴다</strong>. 어떤 보호 장치(barrier/protector)도 없다.</li>
-<li>특정 배치와 무관한 파라미터라도 기울기가 정확히 0이 아닌 한(예: <span class="math inline">\(10^{-6}\)</span>), 수백만 번 누적되면 유의미하게 변한다.</li>
-<li>에폭이 끝나갈 무렵 배치 1로 추론해 보면 손실이 다시 올라가 있다 — <strong>초기 배치의 정보가 망각</strong>된 것이다. 5천 개 미니배치라면 에폭 초반 배치의 정보는 마지막 미니배치 시점에 거의 잊힌다.</li>
+<li>Train a fixed-size network in mini-batches: Update parameters with Batch 1 → Update with Batch 2 → ⋯</li>
+<li>Immediately after training Batch 1, the loss for Batch 1 is nearly 0 (well trained).</li>
+<li>However, the slopes of subsequent batches <strong>continue to overwrite the same set of parameters</strong>. There is no barrier/protector.</li>
+<li>Even parameters independent of a specific batch will change significantly when accumulated millions of times, as long as the slope is not exactly 0 (e.g., <span class="math inline">\(10^{-6}\)</span>).</li>
+<li>When looking at Batch 1 as the epoch nears its end, the loss has risen again — <strong>information from the initial batch has been forgotten</strong>. In the case of a 5,000-unit mini-batch, information from the early batches of the epoch is almost forgotten by the time of the last mini-batch.</li>
 </ol>
 </section>
-<section id="왜-파국적인가-두-가지-원인" class="level3" data-number="7.3">
-<h3 data-number="7.3" class="anchored" data-anchor-id="왜-파국적인가-두-가지-원인"><span class="header-section-number">7.3</span> 왜 “파국적”인가 — 두 가지 원인</h3>
+<section id="why-it-is-cataclysmic-two-causes" class="level3" data-number="7.3">
+<h3 data-number="7.3" class="anchored" data-anchor-id="why-it-is-cataclysmic-two-causes"><span class="header-section-number">7.3</span> Why It Is “Cataclysmic” — Two Causes</h3>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 50%">
@@ -902,31 +902,31 @@ h_i = \max(0, z_i) + \alpha_i \min(0, z_i)
 </colgroup>
 <thead>
 <tr class="header">
-<th>원인</th>
-<th>설명</th>
+<th>Cause</th>
+<th>Explanation</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><strong>보호 장치 부재</strong></td>
-<td>고정된 파라미터 집합을 모든 데이터가 공유하며 덮어씀; “이 파라미터는 건드리지 마라”는 메커니즘이 없음</td>
+<td><strong>Absence of Protection</strong></td>
+<td>A fixed set of parameters is shared and overwritten by all data; there is no mechanism to say “Do not touch this parameter”</td>
 </tr>
 <tr class="even">
-<td><strong>용량 부족</strong></td>
-<td>정보량 &gt; 네트워크 용량이면 새 정보를 넣기 위해 옛 정보를 지울 수밖에 없음. 2MB 데이터를 500KB 저장장치에 넣으려면 덮어쓰기(override)뿐 — 마지막에 넣은 것만 남는다</td>
+<td><strong>Insufficient Capacity</strong></td>
+<td>If the amount of data &gt; network capacity, old data must be deleted to insert new data. To put 2MB of data onto a 500KB storage device, the only option is to overwrite — only the last data inserted remains.</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="다중-에폭-학습과의-관계" class="level3" data-number="7.4">
-<h3 data-number="7.4" class="anchored" data-anchor-id="다중-에폭-학습과의-관계"><span class="header-section-number">7.4</span> 다중 에폭 학습과의 관계</h3>
-<p>“왜 여러 에폭을 도는가?”에 대한 <strong>확정된 단일 이론(winning theory)은 아직 없다</strong>. 유력한 가설 중 하나가 파국적 망각이다: 같은 데이터를 여러 번 복습(review)하면 망각이 완화(mitigated)되기 때문이다. 실무적으로는 다중 에폭이 더 나은 모델을 주는 것이 경험적으로 알려져 있다.</p>
+<section id="relationship-with-multi-epoch-learning" class="level3" data-number="7.4">
+<h3 data-number="7.4" class="anchored" data-anchor-id="relationship-with-multi-epoch-learning"><span class="header-section-number">7.4</span> Relationship with multi-epoch learning</h3>
+<p>There is no <strong>winning theory</strong> yet regarding “why run multiple epochs?” One of the leading hypotheses is catastrophic forgetting: because reviewing the same data multiple times mitigates forgetting. In practice, it is empirically known that multiple epochs provide a better model.</p>
 </section>
-<section id="파생-개념" class="level3" data-number="7.5">
-<h3 data-number="7.5" class="anchored" data-anchor-id="파생-개념"><span class="header-section-number">7.5</span> 파생 개념</h3>
+<section id="derived-concept" class="level3" data-number="7.5">
+<h3 data-number="7.5" class="anchored" data-anchor-id="derived-concept"><span class="header-section-number">7.5</span> Derived concept</h3>
 <ul>
-<li><strong>Continual Learning (연속 학습)</strong>: 데이터를 한 번만 보고 스트림으로 흘려보내는(복습 불가) 시나리오. 망각이 가장 심각하게 드러나는 환경이며, 머신러닝의 한 하위 분야다. 모델이 작을수록(용량이 부족할수록) 더 심각하다.</li>
-<li><strong>대형 모델 시대의 양상</strong>: LLM/VLA처럼 파라미터가 막대한 모델은 정보가 여유 파라미터 공간에 “스며들” 수 있어 망각이 상대적으로 덜 심각하다. 즉 망각 문제는 대형 모델 영역에서 다른 양상을 띤다.</li>
+<li><strong>Continual Learning</strong>: A scenario where data is viewed only once and passed through as a stream (review is impossible). It is an environment where forgetting is most severe and is a subfield of machine learning. The smaller the model (the less capacity it has), the more severe the problem.</li>
+<li><strong>Aspects of the Era of Large Models</strong>: Models with massive parameters, such as LLM/VLA, can “seep” information into the spare parameter space, making forgetting relatively less severe. In other words, the forgetting problem takes on a different aspect in the realm of large models.</li>
 </ul>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -934,38 +934,38 @@ h_i = \max(0, z_i) + \alpha_i \min(0, z_i)
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Tip</span>무선통신 관점: 적응 필터의 시변 채널 추적
+<span class="screen-reader-only">Tip</span>Wireless Communication Perspective: Time-varying Channel Tracking of Adaptive Filters
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>LMS/RLS 적응 등화기는 시변 채널을 추적하기 위해 <strong>forgetting factor</strong> <span class="math inline">\(\lambda\)</span>로 과거 정보를 의도적으로 잊는다. 신경망의 파국적 망각은 이 forgetting factor를 제어할 수 없이 데이터 순서가 강제하는 상황과 같다. 또한 “정보량 &gt; 용량이면 덮어쓸 수밖에 없다”는 논리는 <strong>채널 용량을 초과하는 전송률에서는 오류 없는 전송이 불가능하다</strong>는 Shannon 정리의 저장 버전으로 읽을 수 있다.</p>
+<p>The LMS/RLS adaptive equalizer intentionally forgets past information using a <strong>forgetting factor</strong> <span class="math inline">\(\lambda\)</span> to track time-varying channels. The catastrophic forgetting of neural networks is akin to a situation where data order is enforced without being able to control this forgetting factor. Furthermore, the logic that “if information amount &gt; capacity, overwriting is unavoidable” can be interpreted as a stored version of Shannon’s theorem, which states that <strong>error-free transmission is impossible at transmission rates exceeding channel capacity</strong>.</p>
 </div>
 </div>
 <hr>
 </section>
 </section>
-<section id="네트워크-설계의-두-가지-질문" class="level2" data-number="8">
-<h2 data-number="8" class="anchored" data-anchor-id="네트워크-설계의-두-가지-질문"><span class="header-section-number">8</span> 네트워크 설계의 두 가지 질문</h2>
-<section id="q1.-얼마나-깊어야-하는가" class="level3" data-number="8.1">
-<h3 data-number="8.1" class="anchored" data-anchor-id="q1.-얼마나-깊어야-하는가"><span class="header-section-number">8.1</span> Q1. 얼마나 깊어야 하는가?</h3>
-<p>다중 숫자 전사(multi-digit transcription) 류의 과제에서 층 수를 늘리면 정확도가 92% → 95% → 96%처럼 오르지만 <strong>증가 폭이 점점 줄어든다</strong>. 이 현상의 이름:</p>
+<section id="two-questions-in-network-design" class="level2" data-number="8">
+<h2 data-number="8" class="anchored" data-anchor-id="two-questions-in-network-design"><span class="header-section-number">8</span> Two questions in network design</h2>
+<section id="q1.-how-deep-should-it-be" class="level3" data-number="8.1">
+<h3 data-number="8.1" class="anchored" data-anchor-id="q1.-how-deep-should-it-be"><span class="header-section-number">8.1</span> Q1. How deep should it be?</h3>
+<p>In multi-digit transcription tasks, increasing the number of layers raises accuracy from 92% → 95% → 96%, but the <strong>rate of increase gradually slows down</strong>. The name of this phenomenon:</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>수확 체감 (Diminishing Returns)
+<span class="screen-reader-only">Note</span>Diminishing Returns
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>투입(층 수, 파라미터 수)을 늘릴수록 한계 이득이 감소하는 현상. 자연계 대부분의 현상이 이 패턴을 따른다. (한국어로 한계효용 체감에 해당)</p>
+<p>A phenomenon in which marginal gain decreases as inputs (number of layers, number of parameters) increase. Most phenomena in nature follow this pattern. (Equivalent to diminishing marginal utility in Korean)</p>
 </div>
 </div>
 </section>
-<section id="q2.-파라미터는-몇-개여야-하는가" class="level3" data-number="8.2">
-<h3 data-number="8.2" class="anchored" data-anchor-id="q2.-파라미터는-몇-개여야-하는가"><span class="header-section-number">8.2</span> Q2. 파라미터는 몇 개여야 하는가?</h3>
-<p>파라미터 수를 늘리면 수확 체감을 넘어 <strong>성능이 오히려 하락</strong>하기도 하고, 일관된 추세 없이 오르내리기도 한다. 각각의 원인:</p>
+<section id="q2.-how-many-parameters-should-there-be" class="level3" data-number="8.2">
+<h3 data-number="8.2" class="anchored" data-anchor-id="q2.-how-many-parameters-should-there-be"><span class="header-section-number">8.2</span> Q2. How many parameters should there be?</h3>
+<p>Increasing the number of parameters can lead to performance actually declining beyond diminishing returns, or fluctuating without a consistent trend. Causes for each:</p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 50%">
@@ -973,32 +973,32 @@ h_i = \max(0, z_i) + \alpha_i \min(0, z_i)
 </colgroup>
 <thead>
 <tr class="header">
-<th>현상</th>
-<th>원인</th>
+<th>Phenomenon</th>
+<th>Cause</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>성능 하락</td>
-<td>데이터 수 대비 파라미터가 과도하면 <strong>과적합(overfitting)</strong> — 훈련 데이터에는 맞지만 일반화 실패</td>
+<td>Performance degradation</td>
+<td>If parameters are excessive relative to the amount of data, <strong>overfitting</strong> — fits the training data but fails to generalize</td>
 </tr>
 <tr class="even">
-<td>불규칙한 등락</td>
-<td><strong>테스트셋도 세계(world)의 표본일 뿐</strong>이라 세계를 완벽히 대표하지 못함 → 국소적 노이즈에 의한 ups and downs는 자연스러운 현상</td>
+<td>Irregular fluctuations</td>
+<td><strong>The test set is merely a sample of the world</strong> and therefore cannot perfectly represent the world → Ups and downs caused by local noise are a natural phenomenon</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="결론" class="level3" data-number="8.3">
-<h3 data-number="8.3" class="anchored" data-anchor-id="결론"><span class="header-section-number">8.3</span> 결론</h3>
-<p>“몇 층, 몇 개 파라미터가 최적인가”에 대한 일반 해답은 <strong>없다</strong>. 응용, 데이터셋, 아키텍처에 모두 의존한다(it all depends). 이 비자명성이 머신러닝 엔지니어가 필요한 이유다.</p>
+<section id="conclusion" class="level3" data-number="8.3">
+<h3 data-number="8.3" class="anchored" data-anchor-id="conclusion"><span class="header-section-number">8.3</span> Conclusion</h3>
+<p>There is <strong>no</strong> general answer to the question of “how many layers and parameters are optimal.” It all depends on the application, the dataset, and the architecture. This non-obviousness is why machine learning engineers are needed.</p>
 <hr>
 </section>
 </section>
-<section id="역전파의-수렴성-convergence-of-backpropagation" class="level2" data-number="9">
-<h2 data-number="9" class="anchored" data-anchor-id="역전파의-수렴성-convergence-of-backpropagation"><span class="header-section-number">9</span> 역전파의 수렴성 (Convergence of Backpropagation)</h2>
-<section id="볼록에서-비볼록으로" class="level3" data-number="9.1">
-<h3 data-number="9.1" class="anchored" data-anchor-id="볼록에서-비볼록으로"><span class="header-section-number">9.1</span> 볼록에서 비볼록으로</h3>
+<section id="convergence-of-backpropagation" class="level2" data-number="9">
+<h2 data-number="9" class="anchored" data-anchor-id="convergence-of-backpropagation"><span class="header-section-number">9</span> Convergence of Backpropagation</h2>
+<section id="from-convex-to-non-convex" class="level3" data-number="9.1">
+<h3 data-number="9.1" class="anchored" data-anchor-id="from-convex-to-non-convex"><span class="header-section-number">9.1</span> From convex to non-convex</h3>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 33%">
@@ -1007,48 +1007,48 @@ h_i = \max(0, z_i) + \alpha_i \min(0, z_i)
 </colgroup>
 <thead>
 <tr class="header">
-<th>모델</th>
-<th>해 공간(solution space)</th>
-<th>수렴 보장</th>
+<th>Model</th>
+<th>Solution Space</th>
+<th>Convergence Guarantee</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>단층 퍼셉트론 + 로지스틱 회귀 손실</td>
-<td><strong>볼록(convex)</strong></td>
-<td>경사하강법이 <strong>전역 최솟값</strong> 도달 보장</td>
+<td>Single-layer Perceptron + Logistic Regression Loss</td>
+<td><strong>Convex</strong></td>
+<td>Gradient Descent Guarantees <strong>Reaching Global Minimum</strong></td>
 </tr>
 <tr class="even">
-<td>퍼셉트론 2층 이상 (XOR 해결 가능 시점부터)</td>
-<td><strong>비볼록(non-convex)</strong></td>
-<td>경사하강법이 <strong>국소 최솟값</strong>에 갇힐 수 있음</td>
+<td>Perceptron layer 2 or higher (from the point where XOR solving is possible)</td>
+<td><strong>Non-convex</strong></td>
+<td>Gradient descent can get stuck at a <strong>local minimum</strong></td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="해-공간의-결정-요인" class="level3" data-number="9.2">
-<h3 data-number="9.2" class="anchored" data-anchor-id="해-공간의-결정-요인"><span class="header-section-number">9.2</span> 해 공간의 결정 요인</h3>
-<p>해 공간은 <strong>손실 함수 정의 × 데이터셋</strong>의 조합으로 결정된다. 손실을 로지스틱 회귀에서 CE로 바꾸거나, 데이터가 100개에서 1000개로 바뀌면 해 공간 자체가 달라진다.</p>
+<section id="determinants-of-the-solution-space" class="level3" data-number="9.2">
+<h3 data-number="9.2" class="anchored" data-anchor-id="determinants-of-the-solution-space"><span class="header-section-number">9.2</span> Determinants of the solution space</h3>
+<p>The solution space is determined by the combination of <strong>loss function definition × dataset</strong>. If the loss is changed from logistic regression to CE, or if the data changes from 100 to 1000, the solution space itself changes.</p>
 <div class="callout callout-style-default callout-warning callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Warning</span>시험 트랩: “해가 여러 개 = 비볼록”이 아니다
+<span class="screen-reader-only">Warning</span>Test Trap: “Multiple solutions = non-convex” is not true
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>비볼록성의 근거는 “다층 합성으로 인해 목적함수가 볼록성을 잃는다”는 구조적 사실이지, 해가 여러 개라는 관찰이 아니다(볼록 함수도 최솟값 집합이 여러 점일 수 있다). 또한 고차원 해 공간 전체를 탐색하는 것은 사실상 불가능하므로, 경사하강법은 지역 정보만으로 움직이다 국소 최솟값에 정착한다.</p>
+<p>The basis for non-convexity is the structural fact that “the objective function loses convexity due to multilayer composition,” not the observation that there are multiple solutions (convex functions can also have multiple sets of minimums). Furthermore, since it is virtually impossible to search the entire high-dimensional solution space, gradient descent operates based solely on local information and settles at a local minimum.</p>
 </div>
 </div>
 </section>
-<section id="결과와-역사" class="level3" data-number="9.3">
-<h3 data-number="9.3" class="anchored" data-anchor-id="결과와-역사"><span class="header-section-number">9.3</span> 결과와 역사</h3>
+<section id="results-and-history" class="level3" data-number="9.3">
+<h3 data-number="9.3" class="anchored" data-anchor-id="results-and-history"><span class="header-section-number">9.3</span> Results and History</h3>
 <ul>
-<li>은닉 유닛 수, 층 수의 선택은 <strong>하이퍼파라미터</strong> — 수렴 보장이 없으므로 좋은 국소해를 찾는 데 사람의 개입이 필요하다.</li>
-<li>수렴 보장 부재 때문에 신경망은 <strong>10년 이상 SVM에 밀렸다</strong>: SVM은 볼록 최적화로 수렴이 보장되고 일반화 이론이 탄탄하며(커널 트릭으로 더 강력해짐) 다중 에폭 학습도 불필요했다. 그러나 SVM은 본질적으로 (커널을 써도) 용량이 제한된 얕은 모델이고, 고용량 신경망이 2012년 <strong>AlexNet</strong>으로 SVM을 꺾었다.</li>
-<li>목적함수가 비볼록임을 알면서도 볼록 최적화 도구(경사 기반 방법)를 쓰는 이유: <strong>수학적으로 보장된 더 나은 대안이 없기 때문</strong>. 비볼록 공간에서도 좋은 국소 최솟값을 찾는 가장 신뢰할 만한 도구가 여전히 볼록 최적화의 기법들이다.</li>
+<li>The selection of the number of hidden units and layers is a <strong>hyperparameter</strong> — since there is no guarantee of convergence, human intervention is required to find a good local solution.</li>
+<li>Neural networks lagged behind SVMs for over 10 years due to the lack of convergence guarantees: SVMs guaranteed convergence through convex optimization, had robust generalization theory (made stronger by kernel tricks), and did not require multiple epochs of training. However, SVMs were inherently shallow models with limited capacity (even with kernels), and high-capacity neural networks defeated SVMs in 2012 with <strong>AlexNet</strong>.</li>
+<li>The reason for using convex optimization tools (gradient-based methods) even knowing that the objective function is non-convex: <strong>Because there is no mathematically guaranteed better alternative</strong>. Convex optimization techniques remain the most reliable tools for finding good local minima, even in non-convex spaces.</li>
 </ul>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -1056,37 +1056,37 @@ h_i = \max(0, z_i) + \alpha_i \min(0, z_i)
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>여담이지만 기억에 남는 비유
+<span class="screen-reader-only">Note</span>As a side note, a memorable metaphor
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>좋은 국소해를 찾는 문제는 인생의 많은 결정(예: 배우자 찾기)과 닮았다 — 전체 해 공간을 탐색하는 것은 NP-hard이므로, 제약된 탐색 공간(내 도시, 내 학교) 안에서 좋은 국소 최솟값을 찾는다. 그리고 <strong>탐색 공간을 넓히면 더 나은 국소해가 거의 확실히 존재한다</strong> — 지금의 해가 전역 최적일 확률은 매우 낮다.</p>
+<p>The problem of finding a good local solution is similar to many life decisions (e.g., finding a spouse) — since exploring the entire solution space is NP-hard, we look for a good local minimum within a constrained search space (my city, my school). And <strong>if we expand the search space, a better local solution almost certainly exists</strong> — the probability that the current solution is the global optimal is very low.</p>
 </div>
 </div>
 <hr>
 </section>
 </section>
-<section id="정규화-regularizer" class="level2" data-number="10">
-<h2 data-number="10" class="anchored" data-anchor-id="정규화-regularizer"><span class="header-section-number">10</span> 정규화 (Regularizer)</h2>
-<section id="학습-목적함수의-일반형" class="level3" data-number="10.1">
-<h3 data-number="10.1" class="anchored" data-anchor-id="학습-목적함수의-일반형"><span class="header-section-number">10.1</span> 학습 목적함수의 일반형</h3>
+<section id="regularization-regularizer" class="level2" data-number="10">
+<h2 data-number="10" class="anchored" data-anchor-id="regularization-regularizer"><span class="header-section-number">10</span> Regularization (Regularizer)</h2>
+<section id="general-form-of-the-learning-objective-function" class="level3" data-number="10.1">
+<h3 data-number="10.1" class="anchored" data-anchor-id="general-form-of-the-learning-objective-function"><span class="header-section-number">10.1</span> General form of the learning objective function</h3>
 <p><span class="math display">\[
 \min_\theta \;\; \underbrace{L(\theta)}_{\text{Loss}} + \underbrace{\Omega(\theta)}_{\text{Regularizer}}
 \]</span></p>
 <ul>
-<li><strong>Loss</strong>: 최소화 대상. 데이터가 부족하면 신뢰도가 떨어진다 (동전 던지기 예시 — 표본이 적으면 MLE가 불안정).</li>
-<li><strong>Regularizer</strong> <span class="math inline">\(\Omega\)</span>: <strong>귀납적 편향(inductive bias)</strong> 으로서, 훈련 데이터가 항상 불충분하다는 전제 하에 과적합을 막는 가이던스(사전 정보) 역할.</li>
-<li>설계 원칙: 정규화 항은 <strong>최소화되도록</strong> 설계해야 한다. 최대화되어야 의미가 있는 양이라면 부호를 뒤집어 <span class="math inline">\(-\Omega\)</span>로 넣는다.</li>
+<li><strong>Loss</strong>: Target for minimization. Reliability decreases if data is insufficient (coin toss example — MLE is unstable if the sample size is small).</li>
+<li><strong>Regularizer</strong> <span class="math inline">\(\Omega\)</span>: <strong>As an inductive bias</strong>, it acts as guidance (prior information) to prevent overfitting under the premise that training data is always insufficient.</li>
+<li>Design Principle: Normalization terms should be designed to <strong>minimize</strong>. If a quantity is meaningful only when maximized, invert the sign and insert <span class="math inline">\(-\Omega\)</span>.</li>
 </ul>
 </section>
 <section id="hard-constraint-vs-soft-constraint" class="level3" data-number="10.2">
 <h3 data-number="10.2" class="anchored" data-anchor-id="hard-constraint-vs-soft-constraint"><span class="header-section-number">10.2</span> Hard Constraint vs Soft Constraint</h3>
-<p><strong>Hard constraint</strong> — 제약 조건이 있는 최적화:</p>
+<p><strong>Hard constraint</strong> — Optimization with constraints:</p>
 <p><span class="math display">\[
 \min_\theta L(\theta) \quad \text{s.t.} \quad \theta \in \mathcal{H} \qquad \text{예: } \|\theta\|_2^2 \le r^2
 \]</span></p>
-<p>해가 집합 밖이면 무효(infeasible)이므로 매번 제약 만족을 확인해야 하고, 일반적으로 풀기 어렵다. 제약은 함수 공간이 아니라 <strong>파라미터 공간</strong> 위에 걸 수도 있다(신경망은 파라미터로 정의되므로).</p>
-<p><strong>Soft constraint</strong> — 페널티 항으로 흡수:</p>
+<p>Since a solution is infeasible if it is outside the set, constraint satisfaction must be checked every time, and it is generally difficult to solve. Constraints can be applied to the <strong>parameter space</strong> rather than the function space (since neural networks are defined by parameters).</p>
+<p><strong>Soft constraint</strong> — Absorbed as penalty term:</p>
 <p><span class="math display">\[
 \min_\theta \; L(\theta) + \lambda \|\theta\|_2^2
 \]</span></p>
@@ -1096,18 +1096,18 @@ h_i = \max(0, z_i) + \alpha_i \min(0, z_i)
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Important</span>두 형식의 동치 (Lagrangian)
+<span class="screen-reader-only">Important</span>Equivalence of two forms (Lagrangian)
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>어떤 정규화 파라미터 <span class="math inline">\(\lambda^* &gt; 0\)</span>가 존재하여, hard-constraint 최적화는 soft-constraint 최적화와 <strong>동치</strong>다 — 이것이 라그랑주 승수법이다. 차이점: hard는 해가 공(ball) 안에 있음을 <strong>보장</strong>하지만, soft는 보장 없이 “크기가 과도하지 않도록 유도”한다. soft 형식은 제약 없는 최적화라 훨씬 풀기 쉽다.</p>
+<p>There exists a normalization parameter <span class="math inline">\(\lambda^* &gt; 0\)</span> such that hard-constraint optimization is <strong>equivalent</strong> to soft-constraint optimization — this is the Lagrange multiplier method. The difference: hard <strong>guarantees</strong> that the solution is inside the ball, whereas soft “guides to keep the size from becoming excessive” without such guarantee. The soft form is much easier to solve because it is an unconstrained optimization.</p>
 </div>
 </div>
-<p>“페널티(penalty)”라는 이름은 최적화가 끝났을 때 모델이 큰 크기(magnitude)를 갖지 않도록 <strong>벌점을 부과</strong>한다는 의미다. 단순한 모델을 선호하는 이 원칙은 <strong>Occam’s razor</strong>이며, 13차 다항식 과적합 예시에서 본 것과 같은 맥락이다 — 모든 것이 연결되어 있다.</p>
+<p>The name “penalty” implies that <strong>penalties</strong> are imposed to ensure the model does not have a large magnitude when optimization is finished. This principle of favoring simple models is <strong>Occam’s razor</strong>, and it is in the same context as what we saw in the 13th-order polynomial overfitting example — everything is connected.</p>
 </section>
-<section id="l1-l0-페널티와-희소성sparsity" class="level3" data-number="10.3">
-<h3 data-number="10.3" class="anchored" data-anchor-id="l1-l0-페널티와-희소성sparsity"><span class="header-section-number">10.3</span> L1, L0 페널티와 희소성(Sparsity)</h3>
-<p><strong>희소 벡터(sparse vector)</strong>: 성분 대부분이 0인 벡터 (vs.&nbsp;dense vector: 거의 모든 차원에 0이 아닌 값). “얼마나 0이 많아야 희소인가”는 아름다운 꽃/아닌 꽃의 구분처럼 다소 주관적이다.</p>
+<section id="l1-l0-penalty-and-sparsity" class="level3" data-number="10.3">
+<h3 data-number="10.3" class="anchored" data-anchor-id="l1-l0-penalty-and-sparsity"><span class="header-section-number">10.3</span> L1, L0 Penalty and Sparsity</h3>
+<p><strong>Sparse vector</strong>: A vector in which most of the components are zero (vs.&nbsp;dense vector: non-zero values in almost every dimension). “How many zeros must there be to be sparse” is somewhat subjective, like the distinction between a beautiful flower and a non-beautiful one.</p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 25%">
@@ -1117,30 +1117,30 @@ h_i = \max(0, z_i) + \alpha_i \min(0, z_i)
 </colgroup>
 <thead>
 <tr class="header">
-<th>페널티</th>
-<th>효과</th>
-<th>베이지안 해석</th>
-<th>최적화 난이도</th>
+<th>Penalty</th>
+<th>Effect</th>
+<th>Bayesian Interpretation</th>
+<th>Optimization Difficulty</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td><span class="math inline">\(\ell_2\)</span>: <span class="math inline">\(\|\theta\|_2^2\)</span></td>
-<td>크기 억제 (weight decay)</td>
-<td><strong>Gaussian prior</strong>를 가진 MAP</td>
-<td>쉬움 (미분 가능)</td>
+<td>Size suppression (weight decay)</td>
+<td>MAP with <strong>Gaussian prior</strong></td>
+<td>Easy (differentiable)</td>
 </tr>
 <tr class="even">
 <td><span class="math inline">\(\ell_1\)</span>: <span class="math inline">\(\|\theta\|_1\)</span></td>
-<td>희소성을 <strong>유도(encourage)</strong> — 보장은 아님</td>
-<td><strong>Laplace prior</strong>를 가진 MAP</td>
-<td>NP-hard지만 근사해 존재 → 경사 기반 도구로 풀 수 있음</td>
+<td><strong>encourage</strong> sparsity — not guaranteed</td>
+<td>MAP with <strong>Laplace prior</strong></td>
+<td>NP-hard but approximate exists → can be solved with gradient-based tools</td>
 </tr>
 <tr class="odd">
-<td><span class="math inline">\(\ell_0\)</span>: 0 아닌 성분 개수</td>
-<td>희소성을 <strong>강제(force)</strong> — 더 희소한 해</td>
+<td><span class="math inline">\(\ell_0\)</span>: Number of non-zero components</td>
+<td><strong>force</strong> scarcity — rarer year</td>
 <td>—</td>
-<td><strong>NP-hard, 조합 최적화</strong> — 사실상 직접 최적화 불가</td>
+<td><strong>NP-hard, combination optimization</strong> — virtually impossible to optimize directly</td>
 </tr>
 </tbody>
 </table>
@@ -1150,70 +1150,70 @@ h_i = \max(0, z_i) + \alpha_i \min(0, z_i)
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Warning</span>시험 트랩: encourage vs force
+<span class="screen-reader-only">Warning</span>Test Trap: encourage vs force
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><span class="math inline">\(\ell_1\)</span>은 희소성을 <strong>유도</strong>할 뿐 보장하지 않는다. <span class="math inline">\(\ell_0\)</span>은 희소성을 <strong>강제</strong>하지만 조합 최적화라 풀기 어렵다. <span class="math inline">\(\ell_1\)</span>이 실무 표준인 이유는 <span class="math inline">\(\ell_0\)</span>의 다루기 쉬운(tractable) 근사이기 때문이다. (정의 뒤집힘 주의 — 실수 패턴 C)</p>
+<p><span class="math inline">\(\ell_1\)</span> only <strong>induced</strong> sparsity, not guaranteed it. <span class="math inline">\(\ell_0\)</span> <strong>enforced</strong> sparsity, but it is difficult to solve because it is a combinatorial optimization. The reason <span class="math inline">\(\ell_1\)</span> is the practice standard is that it is a tractable approximation of <span class="math inline">\(\ell_0\)</span>. (Caution regarding definition inversion — Real pattern C)</p>
 </div>
 </div>
 </section>
-<section id="베이지안-관점-regularizer-prior" class="level3" data-number="10.4">
-<h3 data-number="10.4" class="anchored" data-anchor-id="베이지안-관점-regularizer-prior"><span class="header-section-number">10.4</span> 베이지안 관점: Regularizer = Prior</h3>
-<p>베이즈 정리:</p>
+<section id="bayesian-perspective-regularizer-prior" class="level3" data-number="10.4">
+<h3 data-number="10.4" class="anchored" data-anchor-id="bayesian-perspective-regularizer-prior"><span class="header-section-number">10.4</span> Bayesian perspective: Regularizer = Prior</h3>
+<p>Bayes’ Theorem:</p>
 <p><span class="math display">\[
 p(\theta \mid \{x_i, y_i\}) = \frac{p(\theta) \, p(\{x_i, y_i\} \mid \theta)}{p(\{x_i, y_i\})}
 \]</span></p>
 <ul>
-<li><span class="math inline">\(p(\theta)\)</span>: 가설(파라미터)에 대한 <strong>prior</strong> — 모델/파라미터에 대한 가정이며, 파라미터에 대한 제약으로 번역된다</li>
+<li><span class="math inline">\(p(\theta)\)</span>: <strong>prior</strong> regarding the hypothesis (parameter) — an assumption about the model/parameter, which translates to a constraint on the parameter.</li>
 <li><span class="math inline">\(p(\{x_i,y_i\} \mid \theta)\)</span>: <strong>likelihood</strong></li>
-<li>분모: 정규화 상수(partition function)</li>
+<li>Denominator: Normalization constant (partition function)</li>
 </ul>
-<p>로그를 취해 MAP를 쓰면 구조가 투명해진다:</p>
+<p>Taking the logarithm and using MAP makes the structure transparent:</p>
 <p><span class="math display">\[
 \max_\theta \; \log p(\theta \mid \{x_i, y_i\}) = \max_\theta \; \underbrace{\log p(\theta)}_{\text{Regularizer}} + \underbrace{\log p(\{x_i, y_i\} \mid \theta)}_{\text{MLE loss}}
 \]</span></p>
-<p>즉 <strong>베이지안 관점에서 정규화 항은 prior, 손실 항은 likelihood</strong>다. 정규화 항과 함께 최적화한 해는 MAP 해가 된다.</p>
+<p>That is, from a Bayesian perspective, the normalization term is the prior, and the loss term is the likelihood. The solution optimized together with the normalization term becomes the MAP solution.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Tip</span>무선통신 관점: MMSE vs 희소 채널 추정 (복습 겸 통합)
+<span class="screen-reader-only">Tip</span>Wireless Communication Perspective: MMSE vs.&nbsp;Sparse Channel Estimation (Review and Integration)
 </div>
 </div>
 <div class="callout-body-container callout-body">
 <ul>
-<li><span class="math inline">\(\ell_2\)</span> 정규화 = Gaussian prior MAP ↔︎ <strong>MMSE 채널 추정</strong> (채널 계수에 Gaussian prior; LS 추정의 잡음 증폭을 prior가 억제)</li>
-<li><span class="math inline">\(\ell_1\)</span> 정규화 = Laplace prior MAP ↔︎ <strong>mmWave/Massive MIMO의 희소 채널 추정</strong> (LASSO/OMP; 지연-각도 영역에서 경로 수가 적다는 prior)</li>
-<li><span class="math inline">\(\ell_0\)</span> ↔︎ 정확한 sparse support 복원 문제 — compressed sensing에서도 <span class="math inline">\(\ell_0\)</span>는 NP-hard라 <span class="math inline">\(\ell_1\)</span> 볼록 완화(Basis Pursuit)를 쓰는 것과 정확히 같은 논리</li>
-<li>데이터(파일럿)가 부족할수록 prior(정규화)의 역할이 커진다는 점도 동일하다.</li>
+<li><span class="math inline">\(\ell_2\)</span> Normalization = Gaussian prior MAP ↔︎ <strong>MMSE Channel Estimation</strong> (Gaussian prior to channel coefficients; the prior suppresses noise amplification in LS estimation)</li>
+<li><span class="math inline">\(\ell_1\)</span> Normalization = Laplace prior MAP ↔︎ <strong>Sparse Channel Estimation for mmWave/Massive MIMO</strong> (LASSO/OMP; prior indicating a small number of paths in the delay-angle domain)</li>
+<li><span class="math inline">\(\ell_0\)</span> ↔︎ The problem of restoring accurate sparse support — even in compressed sensing, <span class="math inline">\(\ell_0\)</span> is NP-hard, so it is exactly the same logic as using <span class="math inline">\(\ell_1\)</span> Convex Relaxation (Basis Pursuit).</li>
+<li>It is also the same that the role of the prior (normalization) becomes greater as the data (pilot) becomes scarce.</li>
 </ul>
 </div>
 </div>
 <hr>
 </section>
 </section>
-<section id="딥러닝을-위한-정규화-기법" class="level2" data-number="11">
-<h2 data-number="11" class="anchored" data-anchor-id="딥러닝을-위한-정규화-기법"><span class="header-section-number">11</span> 딥러닝을 위한 정규화 기법</h2>
-<p>전통적 정규화는 손으로 설계한(hand-crafted) prior였지만, end-to-end 철학의 딥러닝에서는 <strong>데이터 주도(data-driven)</strong> 방식의 정규화를 선호한다.</p>
-<section id="데이터셋-증강-dataset-augmentation" class="level3" data-number="11.1">
-<h3 data-number="11.1" class="anchored" data-anchor-id="데이터셋-증강-dataset-augmentation"><span class="header-section-number">11.1</span> 데이터셋 증강 (Dataset Augmentation)</h3>
-<p>정규화의 근본 동기는 <strong>훈련 데이터의 부족</strong>과 싸우는 것이다. 가장 쉽지만 비싼 해법은 “데이터를 더 모으는 것” — 예산이 없다면, <strong>의미(semantic)는 유지하면서 표현만 바꾼</strong> 가짜 신규 데이터를 만든다.</p>
+<section id="regularization-techniques-for-deep-learning" class="level2" data-number="11">
+<h2 data-number="11" class="anchored" data-anchor-id="regularization-techniques-for-deep-learning"><span class="header-section-number">11</span> Regularization techniques for deep learning</h2>
+<p>Traditional normalization was a hand-crafted prior, but deep learning with an end-to-end philosophy prefers a <strong>data-driven</strong> normalization method.</p>
+<section id="dataset-augmentation" class="level3" data-number="11.1">
+<h3 data-number="11.1" class="anchored" data-anchor-id="dataset-augmentation"><span class="header-section-number">11.1</span> Dataset Augmentation</h3>
+<p>The fundamental motivation behind normalization is to combat the <strong>lack of training data</strong>. The easiest but most expensive solution is to “collect more data”—but if budget is limited, create new, fake data that <strong>represents the data while retaining its semantics</strong>.</p>
 <ul>
-<li>이미지: 아핀 변형(affine distortion), 노이즈 주입, 축별 변형(deformation), 뒤집기(flip), 평행이동, 색상 변화 — 픽셀은 달라지지만 같은 클래스</li>
-<li>텍스트: 단어 변형 — “trash can” ↔︎ “recycle bin”, “chair” ↔︎ “sofa”처럼 유의어/변형 표현으로 문장 다양성 확보</li>
+<li>Image: Affine distortion, noise injection, axis deformation, flip, translation, color change — pixels change, but same class</li>
+<li>Text: Word Variations — Ensuring sentence diversity through synonyms/variants like “trash can” ↔︎ “recycle bin”, “chair” ↔︎ “sofa”</li>
 </ul>
 </section>
-<section id="적대적-예제-adversarial-examples" class="level3" data-number="11.2">
-<h3 data-number="11.2" class="anchored" data-anchor-id="적대적-예제-adversarial-examples"><span class="header-section-number">11.2</span> 적대적 예제 (Adversarial Examples)</h3>
-<p>신경망은 훈련 데이터에 과적합된 해를 갖기 쉬워서, <strong>사람 눈에 보이지 않는 미세한 노이즈</strong>로 출력을 조종할 수 있다.</p>
+<section id="adversarial-examples" class="level3" data-number="11.2">
+<h3 data-number="11.2" class="anchored" data-anchor-id="adversarial-examples"><span class="header-section-number">11.2</span> Adversarial Examples</h3>
+<p>Neural networks are prone to having solutions that are overfitted to the training data, so the output can be manipulated by <strong>microscopic noise invisible to the human eye</strong>.</p>
 <ul>
-<li>고전 사례: panda 이미지(신뢰도 57.7%) + 미세 노이즈 → <strong>gibbon으로 99.3% 신뢰도 오분류</strong>. 노이즈 패턴이 다른 의미(semantic)에 대응되는 내부 통계/반응을 발화시키기 때문.</li>
-<li>안전 직결 사례: 정지(STOP) 표지판에 스티커 몇 장을 붙이면 자율주행차의 비전 모델이 속도 제한 표지로 오인 → 정지하지 않음. 초기 신경망 기반 자율주행에서 실제로 시연된 공격.</li>
+<li>Classic example: panda image (57.7% confidence) + fine noise → <strong>99.3% confidence misclassification as gibbon</strong>. This is because the noise pattern triggers an internal statistical/response corresponding to a different semantic.</li>
+<li>Safety-related case: If a few stickers are attached to a STOP sign, the autonomous vehicle’s vision model mistakes it for a speed limit sign → it does not stop. An attack actually demonstrated in early neural network-based autonomous driving.</li>
 </ul>
-<p>방어이자 정규화로서의 활용 — 두 가지 방법:</p>
+<p>Utilization as defense and normalization — Two methods:</p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 50%">
@@ -1221,18 +1221,18 @@ p(\theta \mid \{x_i, y_i\}) = \frac{p(\theta) \, p(\{x_i, y_i\} \mid \theta)}{p(
 </colgroup>
 <thead>
 <tr class="header">
-<th>방법</th>
-<th>내용</th>
+<th>Method</th>
+<th>Content</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><strong>Method 1: 입력에 노이즈</strong></td>
-<td>적대적 예제를 만들어 올바른 라벨(“이것도 panda다”)로 다시 학습 → 모델이 적대적 섭동에 강건해짐 (adversarial training; 주목적은 보안이지만 일반적 정규화 효과도 있음)</td>
+<td><strong>Method 1: Noise in Input</strong></td>
+<td>Generate adversarial examples and retrain with correct labels (“This is also a panda”) → The model becomes robust to adversarial perturbations (adversarial training; the primary purpose is security, but it also has the effect of general regularization)</td>
 </tr>
 <tr class="even">
-<td><strong>Method 2: 출력 타깃에 노이즈 = Label Smoothing</strong></td>
-<td>one-hot 타깃을 부드럽게: <span class="math inline">\(1 \to 1-\epsilon\)</span>, <span class="math inline">\(\;0 \to \dfrac{\epsilon}{k-1}\)</span> (<span class="math inline">\(\epsilon\)</span>: 작은 값, <span class="math inline">\(k\)</span>: 클래스 수). “98% panda, 2% gibbon”처럼 과신을 막아 덜 과적합된 해를 유도 (Szegedy et al., CVPR 2016)</td>
+<td><strong>Method 2: Noise on output target = Label Smoothing</strong></td>
+<td>Smooth one-hot targets: <span class="math inline">\(1 \to 1-\epsilon\)</span>, <span class="math inline">\(\;0 \to \dfrac{\epsilon}{k-1}\)</span> (<span class="math inline">\(\epsilon\)</span>: small value, <span class="math inline">\(k\)</span>: number of classes). Prevents overconfidence like “98% pandas, 2% gibbon” to induce less overfitted solutions (Szegedy et al., CVPR 2016)</td>
 </tr>
 </tbody>
 </table>
@@ -1242,11 +1242,11 @@ p(\theta \mid \{x_i, y_i\}) = \frac{p(\theta) \, p(\{x_i, y_i\} \mid \theta)}{p(
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Warning</span>Label Smoothing 공식은 암기
+<span class="screen-reader-only">Warning</span>Label Smoothing formula memorize
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><span class="math inline">\(k\)</span>-클래스에서 정답 차원은 <span class="math inline">\(1-\epsilon\)</span>, 오답 차원은 <span class="math inline">\(\epsilon/(k-1)\)</span>. 합이 정확히 <span class="math inline">\(1\)</span>이 됨을 확인하라: <span class="math inline">\((1-\epsilon) + (k-1)\cdot\frac{\epsilon}{k-1} = 1\)</span>.</p>
+<p><span class="math inline">\(k\)</span>-In class, the correct dimension is <span class="math inline">\(1-\epsilon\)</span> and the incorrect dimension is <span class="math inline">\(\epsilon/(k-1)\)</span>. Verify that the sum is exactly <span class="math inline">\(1\)</span>: <span class="math inline">\((1-\epsilon) + (k-1)\cdot\frac{\epsilon}{k-1} = 1\)</span>.</p>
 </div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
@@ -1255,24 +1255,24 @@ p(\theta \mid \{x_i, y_i\}) = \frac{p(\theta) \, p(\{x_i, y_i\} \mid \theta)}{p(
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Tip</span>무선통신 관점: 최소 전력 표적 재밍
+<span class="screen-reader-only">Tip</span>Wireless Communication Perspective: Minimum Power Target Jamming
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>적대적 섭동은 <strong>수신기의 결정 경계(decision boundary)를 알고 있는 공격자가 최소 전력으로 심볼을 경계 너머로 밀어내는 표적 재밍(smart jamming)</strong> 과 같다 — 광대역 잡음(전력 낭비)이 아니라 경계에 수직인 방향으로만 미는 것이 효율적이라는 점까지 동일하다. 그리고 label smoothing은 LLR 클리핑처럼 <strong>과신(overconfidence)을 제한해 강건성을 얻는</strong> 기법에 대응한다.</p>
+<p>Adversarial perturbation is similar to <strong>smart jamming</strong>, where an attacker who knows the receiver’s decision boundary pushes symbols beyond the boundary with minimum power — it is identical in that it is efficient to push only in a direction perpendicular to the boundary rather than using broadband noise (a waste of power). And label smoothing corresponds to techniques like LLR clipping, which <strong>gain robustness by limiting overconfidence</strong>.</p>
 </div>
 </div>
 </section>
-<section id="남은-데이터-주도-정규화-기법-다음-노트에서-상세히" class="level3" data-number="11.3">
-<h3 data-number="11.3" class="anchored" data-anchor-id="남은-데이터-주도-정규화-기법-다음-노트에서-상세히"><span class="header-section-number">11.3</span> 남은 데이터 주도 정규화 기법 (다음 노트에서 상세히)</h3>
-<p>Semi-supervised learning(비라벨 데이터 = 정규화 정보), Multi-task learning, Early stopping, Parameter sharing/tying(<span class="math inline">\(\|B-A\|_2^2\)</span> 최소화), Bagging/Ensemble, Dropout, Tangent propagation. 이후 최적화 방법론(Momentum, 초기화, 적응적 학습률, BatchNorm 등)으로 이어진다.</p>
+<section id="remaining-data-driven-normalization-techniques-detailed-in-the-next-note" class="level3" data-number="11.3">
+<h3 data-number="11.3" class="anchored" data-anchor-id="remaining-data-driven-normalization-techniques-detailed-in-the-next-note"><span class="header-section-number">11.3</span> Remaining Data-Driven Normalization Techniques (Detailed in the next note)</h3>
+<p>Semi-supervised learning (unlabeled data = normalized information), Multi-task learning, Early stopping, Parameter sharing/tying (<span class="math inline">\(\|B-A\|_2^2\)</span> minimization), Bagging/Ensemble, Dropout, Tangent propagation. This is followed by optimization methodologies (Momentum, initialization, adaptive learning rate, BatchNorm, etc.).</p>
 <hr>
 </section>
 </section>
-<section id="핵심-비교표-모음" class="level2" data-number="12">
-<h2 data-number="12" class="anchored" data-anchor-id="핵심-비교표-모음"><span class="header-section-number">12</span> 핵심 비교표 모음</h2>
-<section id="손실-함수" class="level3" data-number="12.1">
-<h3 data-number="12.1" class="anchored" data-anchor-id="손실-함수"><span class="header-section-number">12.1</span> 손실 함수</h3>
+<section id="collection-of-key-comparison-tables" class="level2" data-number="12">
+<h2 data-number="12" class="anchored" data-anchor-id="collection-of-key-comparison-tables"><span class="header-section-number">12</span> Collection of Key Comparison Tables</h2>
+<section id="loss-function" class="level3" data-number="12.1">
+<h3 data-number="12.1" class="anchored" data-anchor-id="loss-function"><span class="header-section-number">12.1</span> Loss function</h3>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 25%">
@@ -1290,28 +1290,28 @@ p(\theta \mid \{x_i, y_i\}) = \frac{p(\theta) \, p(\{x_i, y_i\} \mid \theta)}{p(
 </thead>
 <tbody>
 <tr class="odd">
-<td>최적해의 의미</td>
-<td><span class="math inline">\(f^*(x)=\mathbb{E}[y\mid x]\)</span> (조건부 평균)</td>
-<td>조건부 중앙값</td>
+<td>Meaning of Optimum Solution</td>
+<td><span class="math inline">\(f^*(x)=\mathbb{E}[y\mid x]\)</span> (Conditional Mean)</td>
+<td>Conditional Median</td>
 <td>Bernoulli/Multinoulli MLE</td>
 </tr>
 <tr class="even">
-<td>기울기의 <span class="math inline">\(\sigma'\)</span> 인자</td>
-<td>있음 → 소실 악화</td>
+<td><span class="math inline">\(\sigma'\)</span> Factor of Gradient</td>
+<td>Present → Worsening of Loss</td>
 <td>—</td>
-<td><strong>없음</strong> → 소실 완화</td>
+<td><strong>Absent</strong> → Alleviation of Loss</td>
 </tr>
 <tr class="odd">
-<td>주 용도</td>
-<td>회귀</td>
-<td>단순 문제의 강건한 회귀</td>
-<td>분류의 표준</td>
+<td>Primary Use</td>
+<td>Regression</td>
+<td>Robust regression for simple problems</td>
+<td>Standard for classification</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="무선통신-대응-총괄" class="level3" data-number="12.2">
-<h3 data-number="12.2" class="anchored" data-anchor-id="무선통신-대응-총괄"><span class="header-section-number">12.2</span> 무선통신 대응 총괄</h3>
+<section id="wireless-communication-response-overview" class="level3" data-number="12.2">
+<h3 data-number="12.2" class="anchored" data-anchor-id="wireless-communication-response-overview"><span class="header-section-number">12.2</span> Wireless Communication Response Overview</h3>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 50%">
@@ -1319,69 +1319,69 @@ p(\theta \mid \{x_i, y_i\}) = \frac{p(\theta) \, p(\{x_i, y_i\} \mid \theta)}{p(
 </colgroup>
 <thead>
 <tr class="header">
-<th>딥러닝 개념</th>
-<th>무선통신 대응</th>
+<th>Deep Learning Concepts</th>
+<th>Wireless Communication Support</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td>softmax / argmax</td>
-<td>연판정(LLR) / 경판정</td>
+<td>Soft Judgment (LLR) / Hard Judgment</td>
 </tr>
 <tr class="even">
 <td>Gumbel softmax</td>
-<td>학습형 송수신기의 이산 선택(성상 매핑, 양자화) 미분가능화</td>
+<td>Differentiability of Discrete Selection (Star Image Mapping, Quantization) for Learning Transceivers</td>
 </tr>
 <tr class="odd">
-<td>기울기 소실</td>
-<td>다중 홉 릴레이의 누적 감쇠 (ReLU = 이득 1의 재생 릴레이)</td>
+<td>Vanishing Gradient</td>
+<td>Cumulative Attenuation of Multi-Hop Relays (ReLU = Regenerating Relay with Gain of 1)</td>
 </tr>
 <tr class="even">
-<td>파국적 망각</td>
-<td>적응 필터의 forgetting factor 폭주 / 용량 초과 시 덮어쓰기</td>
+<td>Catastrophic forgetting</td>
+<td>Adaptive filter’s forgetting factor runaway / Overwrite when capacity exceeds</td>
 </tr>
 <tr class="odd">
 <td><span class="math inline">\(\ell_2\)</span> / <span class="math inline">\(\ell_1\)</span> / <span class="math inline">\(\ell_0\)</span></td>
-<td>MMSE(Gaussian prior) / LASSO·OMP 희소 채널 추정 / NP-hard support 복원</td>
+<td>MMSE(Gaussian prior) / LASSO·OMP Sparse Channel Estimation / NP-hard Support Reconstruction</td>
 </tr>
 <tr class="even">
-<td>적대적 예제</td>
-<td>결정 경계 표적 최소전력 재밍</td>
+<td>Adversarial Example</td>
+<td>Decision Boundary Target Minimum Power Jamming</td>
 </tr>
 <tr class="odd">
 <td>Label smoothing</td>
-<td>LLR 클리핑 (과신 제한)</td>
+<td>LLR clipping (overconfidence limit)</td>
 </tr>
 </tbody>
 </table>
 <hr>
 </section>
 </section>
-<section id="분-치트시트" class="level2" data-number="13">
-<h2 data-number="13" class="anchored" data-anchor-id="분-치트시트"><span class="header-section-number">13</span> 1분 치트시트</h2>
+<section id="minute-cheat-sheet" class="level2" data-number="13">
+<h2 data-number="13" class="anchored" data-anchor-id="minute-cheat-sheet"><span class="header-section-number">13</span> 1-Minute Cheat Sheet</h2>
 <ul>
-<li>CE 기울기 <span class="math inline">\(=(\sigma(z)-y)x\)</span>, MSE 기울기 <span class="math inline">\(=(\sigma(z)-y)\sigma'(z)x\)</span>. <span class="math inline">\(\sigma'_{\max}=0.25\)</span>.</li>
-<li>CE 최소화 ≡ Bernoulli 로그우도 <span class="math inline">\(\sum_i [y_i\log q_i + (1-y_i)\log(1-q_i)]\)</span> 최대화.</li>
-<li>Sigmoid 다차원 출력은 합이 1이 아님 → 지수 정규화하면 softmax.</li>
-<li>Softmax는 크기 민감: <span class="math inline">\([1,2]\)</span>와 <span class="math inline">\([10,20]\)</span>의 결과가 다름 (L1 정규화는 같음).</li>
-<li>Gumbel-Max trick: <span class="math inline">\(\text{argmax}(z_i+g_i)\)</span> ~ softmax 분포; reparameterization trick의 일종; 온도 <span class="math inline">\(\tau\)</span>.</li>
-<li><span class="math inline">\(h_i=\max(0,z_i)+\alpha_i\min(0,z_i)\)</span>: <span class="math inline">\(\alpha=0\)</span> ReLU, <span class="math inline">\(-1\)</span> 절댓값, <span class="math inline">\(0.01\)</span> Leaky, 학습형 PReLU.</li>
-<li>접기(folding) <span class="math inline">\(n\)</span>회 → 경계 복잡도 지수 증가.</li>
-<li>기울기 소실: 국소 기울기(<span class="math inline">\(\in[0,1]\)</span>) 연쇄 곱 → 입력층 기울기 <span class="math inline">\(\approx 0\)</span>; ReLU는 1을 곱함.</li>
-<li>파국적 망각: 보호장치 없는 파라미터 공유 + 용량 부족; 다중 에폭은 완화책(확정 이론은 없음); 극단 시나리오 = continual learning.</li>
-<li>깊이/파라미터: 수확 체감; 과다 파라미터 → 과적합; 테스트 정확도 등락은 테스트셋도 표본이기 때문.</li>
-<li>퍼셉트론(볼록, 전역해 보장) vs MLP(비볼록, 국소해); 해 공간 = 손실 × 데이터셋; SVM에 10여 년 열세 → 2012 AlexNet.</li>
-<li><span class="math inline">\(\min L + \Omega\)</span>; hard ↔︎ soft 제약은 <span class="math inline">\(\lambda^*\)</span>로 동치(Lagrangian); <span class="math inline">\(\ell_1\)</span> 유도/<span class="math inline">\(\ell_0\)</span> 강제(NP-hard).</li>
-<li>MAP <span class="math inline">\(= \log p(\theta) + \log p(\mathcal{D}|\theta)\)</span> = prior(정규화) + MLE.</li>
+<li>CE slope <span class="math inline">\(=(\sigma(z)-y)x\)</span>, MSE slope <span class="math inline">\(=(\sigma(z)-y)\sigma'(z)x\)</span>. <span class="math inline">\(\sigma'_{\max}=0.25\)</span>.</li>
+<li>CE Minimize ≡ Bernoulli Log-likelihood <span class="math inline">\(\sum_i [y_i\log q_i + (1-y_i)\log(1-q_i)]\)</span> Maximize.</li>
+<li>Sigmoid Multidimensional output sums are not 1 → Exponential normalization results in softmax.</li>
+<li>Softmax is size sensitive: the results of <span class="math inline">\([1,2]\)</span> and <span class="math inline">\([10,20]\)</span> are different (L1 regularization is the same).</li>
+<li>Gumbel-Max trick: <span class="math inline">\(\text{argmax}(z_i+g_i)\)</span> ~ softmax distribution; a type of reparameterization trick; temperature <span class="math inline">\(\tau\)</span>.</li>
+<li><span class="math inline">\(h_i=\max(0,z_i)+\alpha_i\min(0,z_i)\)</span>: <span class="math inline">\(\alpha=0\)</span> ReLU, <span class="math inline">\(-1\)</span> Absolute Value, <span class="math inline">\(0.01\)</span> Leaky, Learning PReLU.</li>
+<li>Folding <span class="math inline">\(n\)</span> times → Boundary complexity exponential increase.</li>
+<li>Vanishing Gradient: Local Gradient (<span class="math inline">\(\in[0,1]\)</span>) Chain Product → Input Layer Gradient <span class="math inline">\(\approx 0\)</span>; ReLU multiplies by 1.</li>
+<li>Catastrophic forgetting: unprotected parameter sharing + insufficient capacity; multiple epochs are a mitigation (no definitive theory); extreme scenario = continual learning.</li>
+<li>Depth/parameter: Diminishing returns; Over-parameters → Overfitting; Fluctuations in test accuracy are because the test set is also a sample.</li>
+<li>Perceptron (convex, global solution guaranteed) vs MLP (non-convex, local solution); Solution space = Loss × Dataset; lagging behind SVM for over 10 years → 2012 AlexNet.</li>
+<li><span class="math inline">\(\min L + \Omega\)</span>; hard ↔︎ soft constraints are equivalent to <span class="math inline">\(\lambda^*\)</span> (Lagrangian); <span class="math inline">\(\ell_1\)</span> inductive/<span class="math inline">\(\ell_0\)</span> enforced (NP-hard).</li>
+<li>MAP <span class="math inline">\(= \log p(\theta) + \log p(\mathcal{D}|\theta)\)</span> = prior(normalization) + MLE.</li>
 <li>Label smoothing: <span class="math inline">\(1\to1-\epsilon\)</span>, <span class="math inline">\(0\to\epsilon/(k-1)\)</span>.</li>
 </ul>
 <hr>
 </section>
-<section id="부록-검증-코드" class="level2" data-number="14">
-<h2 data-number="14" class="anchored" data-anchor-id="부록-검증-코드"><span class="header-section-number">14</span> 부록: 검증 코드</h2>
-<section id="ce-vs-mse-기울기-비교" class="level3" data-number="14.1">
-<h3 data-number="14.1" class="anchored" data-anchor-id="ce-vs-mse-기울기-비교"><span class="header-section-number">14.1</span> CE vs MSE 기울기 비교</h3>
-<div id="016d5e84" class="cell" data-execution_count="1">
+<section id="appendix-verification-code" class="level2" data-number="14">
+<h2 data-number="14" class="anchored" data-anchor-id="appendix-verification-code"><span class="header-section-number">14</span> Appendix: Verification Code</h2>
+<section id="ce-vs-mse-slope-comparison" class="level3" data-number="14.1">
+<h3 data-number="14.1" class="anchored" data-anchor-id="ce-vs-mse-slope-comparison"><span class="header-section-number">14.1</span> CE vs MSE Slope Comparison</h3>
+<div id="5bef37f1" class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -1403,18 +1403,11 @@ p(\theta \mid \{x_i, y_i\}) = \frac{p(\theta) \, p(\{x_i, y_i\} \mid \theta)}{p(
 <span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">1</span>].set_title(<span class="st">"y=1일 때 기울기 크기: 포화 영역(z≪0)에서 MSE는 죽는다"</span>)</span>
 <span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">1</span>].set_xlabel(<span class="st">"z"</span>)<span class="op">;</span> ax[<span class="dv">1</span>].legend()</span>
 <span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()<span class="op">;</span> plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="DL-lecture-260401-notes_files/figure-html/cell-2-output-1.png" width="1048" height="374" class="figure-img"></p>
-</figure>
-</div>
-</div>
 </div>
 </section>
-<section id="softmax-vs-l1-정규화의-크기-민감성" class="level3" data-number="14.2">
-<h3 data-number="14.2" class="anchored" data-anchor-id="softmax-vs-l1-정규화의-크기-민감성"><span class="header-section-number">14.2</span> Softmax vs L1 정규화의 크기 민감성</h3>
-<div id="3b89cae9" class="cell" data-execution_count="2">
+<section id="size-sensitivity-of-softmax-vs-l1-regularization" class="level3" data-number="14.2">
+<h3 data-number="14.2" class="anchored" data-anchor-id="size-sensitivity-of-softmax-vs-l1-regularization"><span class="header-section-number">14.2</span> Size Sensitivity of Softmax vs L1 Regularization</h3>
+<div id="1b56840c" class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> softmax(x):</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    e <span class="op">=</span> np.exp(x <span class="op">-</span> np.<span class="bu">max</span>(x))</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> e <span class="op">/</span> e.<span class="bu">sum</span>()</span>
@@ -1422,138 +1415,112 @@ p(\theta \mid \{x_i, y_i\}) = \frac{p(\theta) \, p(\{x_i, y_i\} \mid \theta)}{p(
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> v <span class="kw">in</span> ([<span class="fl">1.</span>, <span class="fl">2.</span>], [<span class="fl">10.</span>, <span class="fl">20.</span>]):</span>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    v <span class="op">=</span> np.array(v)</span>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"input=</span><span class="sc">{</span>v<span class="sc">}</span><span class="ss">,  L1=</span><span class="sc">{</span>v<span class="op">/</span>v<span class="sc">.</span><span class="bu">sum</span>()<span class="sc">}</span><span class="ss">,  softmax=</span><span class="sc">{</span>softmax(v)<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>input=[1. 2.],  L1=[0.33333333 0.66666667],  softmax=[0.26894142 0.73105858]
-input=[10. 20.],  L1=[0.33333333 0.66666667],  softmax=[4.53978687e-05 9.99954602e-01]</code></pre>
-</div>
 </div>
 </section>
-<section id="gumbel-max-trick-실증-argmaxlogitgumbel-의-경험-분포-softmax" class="level3" data-number="14.3">
-<h3 data-number="14.3" class="anchored" data-anchor-id="gumbel-max-trick-실증-argmaxlogitgumbel-의-경험-분포-softmax"><span class="header-section-number">14.3</span> Gumbel-Max trick 실증: argmax(logit+Gumbel) 의 경험 분포 = softmax</h3>
-<div id="ea154950" class="cell" data-execution_count="3">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">0</span>)</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> np.array([<span class="fl">2.0</span>, <span class="fl">1.0</span>, <span class="fl">0.5</span>])</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="dv">200_000</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> rng.gumbel(size<span class="op">=</span>(N, <span class="dv">3</span>))                  <span class="co"># 표준 Gumbel 노이즈</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>samples <span class="op">=</span> np.argmax(logits <span class="op">+</span> g, axis<span class="op">=</span><span class="dv">1</span>)      <span class="co"># Gumbel-Max 샘플링</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>emp <span class="op">=</span> np.bincount(samples, minlength<span class="op">=</span><span class="dv">3</span>) <span class="op">/</span> N</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"softmax(logits) :"</span>, np.<span class="bu">round</span>(softmax(logits), <span class="dv">4</span>))</span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"empirical freq  :"</span>, np.<span class="bu">round</span>(emp, <span class="dv">4</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>softmax(logits) : [0.6285 0.2312 0.1402]
-empirical freq  : [0.6276 0.233  0.1394]</code></pre>
-</div>
+<section id="empirical-verification-of-the-gumbel-max-trick-the-empirical-distribution-of-argmaxlogitgumbel-softmax" class="level3" data-number="14.3">
+<h3 data-number="14.3" class="anchored" data-anchor-id="empirical-verification-of-the-gumbel-max-trick-the-empirical-distribution-of-argmaxlogitgumbel-softmax"><span class="header-section-number">14.3</span> Empirical verification of the Gumbel-Max trick: The empirical distribution of argmax(logit+Gumbel) = softmax</h3>
+<div id="f0b42c69" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">0</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> np.array([<span class="fl">2.0</span>, <span class="fl">1.0</span>, <span class="fl">0.5</span>])</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="dv">200_000</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> rng.gumbel(size<span class="op">=</span>(N, <span class="dv">3</span>))                  <span class="co"># 표준 Gumbel 노이즈</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>samples <span class="op">=</span> np.argmax(logits <span class="op">+</span> g, axis<span class="op">=</span><span class="dv">1</span>)      <span class="co"># Gumbel-Max 샘플링</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>emp <span class="op">=</span> np.bincount(samples, minlength<span class="op">=</span><span class="dv">3</span>) <span class="op">/</span> N</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"softmax(logits) :"</span>, np.<span class="bu">round</span>(softmax(logits), <span class="dv">4</span>))</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"empirical freq  :"</span>, np.<span class="bu">round</span>(emp, <span class="dv">4</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
-<section id="relu-일반화-공식의-변형들" class="level3" data-number="14.4">
-<h3 data-number="14.4" class="anchored" data-anchor-id="relu-일반화-공식의-변형들"><span class="header-section-number">14.4</span> ReLU 일반화 공식의 변형들</h3>
-<div id="f001c059" class="cell" data-execution_count="4">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gen_relu(z, alpha):</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.maximum(<span class="dv">0</span>, z) <span class="op">+</span> alpha <span class="op">*</span> np.minimum(<span class="dv">0</span>, z)</span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>z <span class="op">=</span> np.linspace(<span class="op">-</span><span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">300</span>)</span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">7</span>, <span class="fl">4.5</span>))</span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> a, name <span class="kw">in</span> [(<span class="dv">0</span>, <span class="st">"ReLU"</span>), (<span class="op">-</span><span class="dv">1</span>, <span class="st">"|z| (abs rectifier)"</span>),</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>                (<span class="fl">0.01</span>, <span class="st">"Leaky ReLU"</span>), (<span class="fl">0.3</span>, <span class="st">"PReLU (α=0.3 예시)"</span>)]:</span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    plt.plot(z, gen_relu(z, a), label<span class="op">=</span><span class="ss">f"</span><span class="sc">{</span>name<span class="sc">}</span><span class="ss">, α=</span><span class="sc">{</span>a<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>plt.legend()<span class="op">;</span> plt.title(<span class="vs">r"</span><span class="dv">$</span><span class="vs">h=</span><span class="dv">\m</span><span class="vs">ax</span><span class="kw">(</span><span class="vs">0,z</span><span class="kw">)</span><span class="op">+</span><span class="ch">\a</span><span class="vs">lpha</span><span class="dv">\m</span><span class="vs">in</span><span class="kw">(</span><span class="vs">0,z</span><span class="kw">)</span><span class="dv">$</span><span class="vs">"</span>)<span class="op">;</span> plt.grid(alpha<span class="op">=</span><span class="fl">.3</span>)</span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="DL-lecture-260401-notes_files/figure-html/cell-5-output-1.png" width="582" height="395" class="figure-img"></p>
-</figure>
-</div>
-</div>
+<section id="variations-of-the-relu-generalized-formula" class="level3" data-number="14.4">
+<h3 data-number="14.4" class="anchored" data-anchor-id="variations-of-the-relu-generalized-formula"><span class="header-section-number">14.4</span> Variations of the ReLU generalized formula</h3>
+<div id="807397bb" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gen_relu(z, alpha):</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.maximum(<span class="dv">0</span>, z) <span class="op">+</span> alpha <span class="op">*</span> np.minimum(<span class="dv">0</span>, z)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>z <span class="op">=</span> np.linspace(<span class="op">-</span><span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">300</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">7</span>, <span class="fl">4.5</span>))</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> a, name <span class="kw">in</span> [(<span class="dv">0</span>, <span class="st">"ReLU"</span>), (<span class="op">-</span><span class="dv">1</span>, <span class="st">"|z| (abs rectifier)"</span>),</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>                (<span class="fl">0.01</span>, <span class="st">"Leaky ReLU"</span>), (<span class="fl">0.3</span>, <span class="st">"PReLU (α=0.3 예시)"</span>)]:</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    plt.plot(z, gen_relu(z, a), label<span class="op">=</span><span class="ss">f"</span><span class="sc">{</span>name<span class="sc">}</span><span class="ss">, α=</span><span class="sc">{</span>a<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>plt.legend()<span class="op">;</span> plt.title(<span class="vs">r"</span><span class="dv">$</span><span class="vs">h=</span><span class="dv">\m</span><span class="vs">ax</span><span class="kw">(</span><span class="vs">0,z</span><span class="kw">)</span><span class="op">+</span><span class="ch">\a</span><span class="vs">lpha</span><span class="dv">\m</span><span class="vs">in</span><span class="kw">(</span><span class="vs">0,z</span><span class="kw">)</span><span class="dv">$</span><span class="vs">"</span>)<span class="op">;</span> plt.grid(alpha<span class="op">=</span><span class="fl">.3</span>)</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
-<section id="기울기-소실-시뮬레이션-층-수에-따른-기울기-크기" class="level3" data-number="14.5">
-<h3 data-number="14.5" class="anchored" data-anchor-id="기울기-소실-시뮬레이션-층-수에-따른-기울기-크기"><span class="header-section-number">14.5</span> 기울기 소실 시뮬레이션: 층 수에 따른 기울기 크기</h3>
-<div id="f3c82f2f" class="cell" data-execution_count="5">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>layers <span class="op">=</span> np.arange(<span class="dv">1</span>, <span class="dv">31</span>)</span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>sigmoid_chain <span class="op">=</span> <span class="fl">0.25</span> <span class="op">**</span> layers   <span class="co"># 각 층 최대 기울기 0.25 가정</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>relu_chain <span class="op">=</span> <span class="fl">1.0</span> <span class="op">**</span> layers</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">7</span>, <span class="dv">4</span>))</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>plt.semilogy(layers, sigmoid_chain, <span class="st">'o-'</span>, label<span class="op">=</span><span class="st">"Sigmoid (×0.25/layer, 최선의 경우)"</span>)</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>plt.semilogy(layers, relu_chain, <span class="st">'s-'</span>, label<span class="op">=</span><span class="st">"ReLU (×1/layer)"</span>)</span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"layer depth"</span>)<span class="op">;</span> plt.ylabel(<span class="st">"gradient magnitude (log)"</span>)</span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>plt.legend()<span class="op">;</span> plt.grid(alpha<span class="op">=</span><span class="fl">.3</span>)<span class="op">;</span> plt.title(<span class="st">"Gradient Vanishing"</span>)</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="DL-lecture-260401-notes_files/figure-html/cell-6-output-1.png" width="606" height="377" class="figure-img"></p>
-</figure>
-</div>
-</div>
+<section id="gradient-vanishing-simulation-gradient-magnitude-according-to-number-of-floors" class="level3" data-number="14.5">
+<h3 data-number="14.5" class="anchored" data-anchor-id="gradient-vanishing-simulation-gradient-magnitude-according-to-number-of-floors"><span class="header-section-number">14.5</span> Gradient Vanishing Simulation: Gradient Magnitude According to Number of Floors</h3>
+<div id="59e2322f" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>layers <span class="op">=</span> np.arange(<span class="dv">1</span>, <span class="dv">31</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>sigmoid_chain <span class="op">=</span> <span class="fl">0.25</span> <span class="op">**</span> layers   <span class="co"># 각 층 최대 기울기 0.25 가정</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>relu_chain <span class="op">=</span> <span class="fl">1.0</span> <span class="op">**</span> layers</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">7</span>, <span class="dv">4</span>))</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>plt.semilogy(layers, sigmoid_chain, <span class="st">'o-'</span>, label<span class="op">=</span><span class="st">"Sigmoid (×0.25/layer, 최선의 경우)"</span>)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>plt.semilogy(layers, relu_chain, <span class="st">'s-'</span>, label<span class="op">=</span><span class="st">"ReLU (×1/layer)"</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"layer depth"</span>)<span class="op">;</span> plt.ylabel(<span class="st">"gradient magnitude (log)"</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>plt.legend()<span class="op">;</span> plt.grid(alpha<span class="op">=</span><span class="fl">.3</span>)<span class="op">;</span> plt.title(<span class="st">"Gradient Vanishing"</span>)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="label-smoothing" class="level3" data-number="14.6">
 <h3 data-number="14.6" class="anchored" data-anchor-id="label-smoothing"><span class="header-section-number">14.6</span> Label Smoothing</h3>
-<div id="0d7cff37" class="cell" data-execution_count="6">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> label_smooth(onehot, eps):</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    k <span class="op">=</span> <span class="bu">len</span>(onehot)</span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.where(onehot <span class="op">==</span> <span class="dv">1</span>, <span class="dv">1</span> <span class="op">-</span> eps, eps <span class="op">/</span> (k <span class="op">-</span> <span class="dv">1</span>))</span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>t <span class="op">=</span> np.array([<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>])</span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"original :"</span>, t)</span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>sm_t <span class="op">=</span> label_smooth(t, eps<span class="op">=</span><span class="fl">0.1</span>)</span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"smoothed :"</span>, sm_t, <span class="st">"  sum ="</span>, sm_t.<span class="bu">sum</span>())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>original : [0 0 1 0 0]
-smoothed : [0.025 0.025 0.9   0.025 0.025]   sum = 1.0</code></pre>
-</div>
+<div id="9347ff66" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> label_smooth(onehot, eps):</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    k <span class="op">=</span> <span class="bu">len</span>(onehot)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.where(onehot <span class="op">==</span> <span class="dv">1</span>, <span class="dv">1</span> <span class="op">-</span> eps, eps <span class="op">/</span> (k <span class="op">-</span> <span class="dv">1</span>))</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>t <span class="op">=</span> np.array([<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>])</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"original :"</span>, t)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>sm_t <span class="op">=</span> label_smooth(t, eps<span class="op">=</span><span class="fl">0.1</span>)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"smoothed :"</span>, sm_t, <span class="st">"  sum ="</span>, sm_t.<span class="bu">sum</span>())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <hr>
 </section>
 </section>
-<section id="참고-자료-매핑" class="level2" data-number="15">
-<h2 data-number="15" class="anchored" data-anchor-id="참고-자료-매핑"><span class="header-section-number">15</span> 참고 자료 매핑</h2>
+<section id="reference-material-mapping" class="level2" data-number="15">
+<h2 data-number="15" class="anchored" data-anchor-id="reference-material-mapping"><span class="header-section-number">15</span> Reference Material Mapping</h2>
 <table class="caption-top table">
 <thead>
 <tr class="header">
-<th>주제</th>
+<th>Topic</th>
 <th>Goodfellow et al.&nbsp;<em>Deep Learning</em></th>
 <th>d2l.ai</th>
-<th>기타</th>
+<th>Others</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>출력 유닛, CE vs MSE</td>
+<td>Output Unit, CE vs MSE</td>
 <td>Ch. 6.2</td>
 <td><a href="https://d2l.ai/chapter_linear-classification/softmax-regression.html">4.1 Softmax Regression</a></td>
 <td>—</td>
 </tr>
 <tr class="even">
-<td>활성화 함수, ReLU 계열</td>
+<td>Activation functions, ReLU family</td>
 <td>Ch. 6.3</td>
 <td><a href="https://d2l.ai/chapter_multilayer-perceptrons/mlp.html">5.1 MLP</a></td>
 <td>—</td>
 </tr>
 <tr class="odd">
-<td>기울기 소실</td>
+<td>Vanishing Gradient</td>
 <td>Ch. 8.2.5</td>
 <td><a href="https://d2l.ai/chapter_multilayer-perceptrons/numerical-stability-and-init.html">5.4 Numerical Stability</a></td>
 <td>—</td>
 </tr>
 <tr class="even">
-<td>정규화 (hard/soft, L1/L2, MAP)</td>
+<td>Normalization (hard/soft, L1/L2, MAP)</td>
 <td>Ch. 7.1–7.2</td>
 <td><a href="https://d2l.ai/chapter_linear-regression/weight-decay.html">3.7 Weight Decay</a></td>
-<td>Math4ML §3 (볼록성, 노름), §5 (베이즈) — <a href="https://gwthomas.github.io/docs/math4ml.pdf">gwthomas.github.io/docs/math4ml.pdf</a></td>
+<td>Math4ML §3 (Convexity, Norm), §5 (Bayesian) — <a href="https://gwthomas.github.io/docs/math4ml.pdf">gwthomas.github.io/docs/math4ml.pdf</a></td>
 </tr>
 <tr class="odd">
-<td>데이터 증강, 라벨 스무딩</td>
+<td>Data Augmentation, Label Smoothing</td>
 <td>Ch. 7.4–7.5</td>
 <td><a href="https://d2l.ai/chapter_computer-vision/image-augmentation.html">14.1 Image Augmentation</a></td>
 <td>Szegedy et al., CVPR 2016</td>
 </tr>
 <tr class="even">
-<td>적대적 예제</td>
+<td>Adversarial Examples</td>
 <td>Ch. 7.13</td>
 <td>—</td>
 <td>Goodfellow et al., ICLR 2015</td>
@@ -1565,10 +1532,10 @@ smoothed : [0.025 0.025 0.9   0.025 0.025]   sum = 1.0</code></pre>
 <td>Jang et al., ICLR 2017; Maddison et al., ICLR 2017</td>
 </tr>
 <tr class="even">
-<td>비볼록 최적화와 수렴</td>
+<td>Non-convex Optimization and Convergence</td>
 <td>Ch. 8.2</td>
 <td><a href="https://d2l.ai/chapter_optimization/optimization-intro.html">12.1 Optimization Intro</a></td>
-<td>Math4ML §3.4 (볼록 최적화)</td>
+<td>Math4ML §3.4 (Convex Optimization)</td>
 </tr>
 </tbody>
 </table>

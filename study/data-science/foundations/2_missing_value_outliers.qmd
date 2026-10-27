@@ -1,15 +1,15 @@
 ---
-title: "결측치·이상치 처리 실습 문제"
+title: "Missing Value and Outlier Handling Practice Problem"
 number: 2
 aliases:
   - "/study/data-science/2_missing_value_outliers.html"
-subtitle: "pandas의 apply·pipe·assign과 결측치/이상치 처리, Random Forest 기반 대체"
+subtitle: "pandas' apply·pipe·assign and missing/outlier handling, Random Forest-based replacement"
 date: "2026-07-19"
 format:
   html:
     toc: true
     toc-depth: 3
-    toc-title: "목차"
+    toc-title: "Table of Contents"
     number-sections: false
     code-copy: true
     code-tools: true
@@ -18,27 +18,27 @@ format:
 execute:
   warning: false
 jupyter: python3
-lang: ko
+lang: en
 ---
 
-pandas의 핵심 메서드(`apply`, `pipe`, `assign`, `clip`)와 결측치·이상치 처리 기법을 직접 손으로 익히기 위한 문제 모음입니다.
+This is a collection of problems designed to help you learn the core methods of pandas (`apply`, `pipe`, `assign`, `clip`) and techniques for handling missing and outlier values firsthand.
 
-| Part | 주제 |
+| Part | Topic |
 |------|------|
-| 1 | pandas 도구 다지기 — `axis`, `pipe`, `assign` |
-| 2 | 결측치 처리 — 범주형/수치형 대체, 보간, 모델 기반 대체 |
-| 3 | 이상치 처리 — IQR 판별, 제거, clipping |
-| 4 | 심화 — Random Forest의 앙상블 효과 확인 |
+| 1 | pandas chopping tool — `axis`, `pipe`, `assign` |
+| 2 | Missing Value Handling — Categorical/Numerical Improperty, Interpolation, Model-Based Improperty |
+| 3 | Outlier Handling — IQR detection, removal, clipping |
+| 4 | Advanced — Verifying Ensemble Effects in Random Forest |
 
-각 문제를 먼저 스스로 풀어 본 뒤, 문제 아래의 **"정답 및 해설" 접힌 상자**를 열어 비교해 보세요. 외부 데이터 파일 없이 실행되도록 데이터는 코드로 생성합니다.
+Try solving each problem on your own first, then open the **"Answers and Explanations" collapsed box** below the problem to compare your answers. Data is generated as code so that it runs without external data files.
 
-## Part 0. 준비 — 데이터 생성
+## Part 0. Preparation — Data Generation
 
-아래 셀을 실행하면 세 가지 데이터가 만들어집니다. 문제를 풀기 전에 `info()`, `head()` 등으로 구조를 먼저 살펴보세요.
+Running the cell below generates three pieces of data. Before solving the problem, first examine the structure using `info()`, `head()`, etc.
 
-1. **`df_pass`** — 승객 정보 (범주형/수치형 혼합, `Age`·`Embarked`·`Deck`에 결측 존재)
-2. **`s_rssi`** — 불규칙한 시점에 측정된 RSSI 신호 세기 (일부 결측). **인덱스가 등간격이 아닌** 시계열입니다.
-3. **`df_field`** — 세 개의 연속형 변수 `fruitset`, `fruitmass`, `seeds` (일부 이상치 주입됨)
+1. **`df_pass`** — Passenger information (mixed categorical/numerical, missing values in `Age`·`Embarked`·`Deck`)
+2. **`s_rssi`** — RSSI signal strength measured at irregular intervals (some missing). This is a time series with **non-equally intervald indices**.
+3. **`df_field`** — Three continuous variables `fruitset`, `fruitmass`, `seeds` (Some outliers injected)
 
 ```{python}
 import pandas as pd
@@ -120,11 +120,11 @@ display(s_rssi.head(8))
 display(df_field.describe())
 ```
 
-## Part 1. pandas 도구 다지기
+## Part 1. Mastering Pandas Tools
 
-### 문제 1-1. `axis` 예측하기
+### Problem 1-1. Predict `axis`
 
-아래의 `df_toy`에 대해, **코드를 실행하기 전에** 네 줄의 출력 결과(값과 인덱스)를 종이에 먼저 적어 보세요. 그 다음 실행해서 확인합니다.
+For `df_toy` below, **before running the code**, write down the four lines of output (values and indices) on a piece of paper first. Then, run the code to verify.
 
 ```python
 df_toy = pd.DataFrame({'A': [1, 2, 3], 'B': [10, 20, 30], 'C': [100, 200, 300]},
@@ -136,7 +136,7 @@ df_toy = pd.DataFrame({'A': [1, 2, 3], 'B': [10, 20, 30], 'C': [100, 200, 300]},
 (4) df_toy.apply(lambda x: x.max() - x.min(), axis=1)
 ```
 
-추가 질문: (3)에서 람다 함수는 **총 몇 번 호출**될까요? (4)에서는 몇 번일까요?
+Additional question: In (3), how many times is the lambda function called in total? How many times in (4)?
 
 ```{python}
 df_toy = pd.DataFrame({'A': [1, 2, 3], 'B': [10, 20, 30], 'C': [100, 200, 300]},
@@ -145,16 +145,16 @@ df_toy = pd.DataFrame({'A': [1, 2, 3], 'B': [10, 20, 30], 'C': [100, 200, 300]},
 # 예측을 먼저 적은 뒤, 여기에 네 줄을 실행해서 확인하세요.
 ```
 
-::: {.callout-tip collapse="true" title="정답 및 해설 1-1"}
+::: {.callout-tip collapse="true" title="Answers and Explanations 1-1"}
 
-핵심: **`axis=k`는 "k번 축을 따라(그 축이 붕괴되도록)" 연산**한다는 뜻입니다.
+Key: **`axis=k` means performing an operation "alter along the k-th axis (so that the axis collapses)".
 
-- `(1) sum(axis=0)` — 행 축이 붕괴 → 세로로 더함 → **열별 합**: `A=6, B=60, C=600` (인덱스는 열 이름)
-- `(2) sum(axis=1)` — 열 축이 붕괴 → 가로로 더함 → **행별 합**: `r1=111, r2=222, r3=333` (인덱스는 행 이름)
-- `(3) apply(..., axis=0)` — 람다의 `x`에 **열**이 하나씩 → 열별 `max-min`: `A=2, B=20, C=200`. 열이 3개이므로 람다는 **3번** 호출됩니다.
-- `(4) apply(..., axis=1)` — 람다의 `x`에 **행**이 하나씩 → 행별 `max-min`: `r1=99, r2=198, r3=297`. 행이 3개이므로 역시 **3번** 호출됩니다 (행 수가 크면 호출 수도 그만큼 커집니다).
+- `(1) sum(axis=0)` — Row axis collapsed → Add vertically → **Column sum**: `A=6, B=60, C=600` (Index is column name)
+- `(2) sum(axis=1)` — Column axis collapsed → Add horizontally → **Row sum**: `r1=111, r2=222, r3=333` (Index is row name)
+- `(3) apply(..., axis=0)` — One **column** in Lambda's `x` → per column `max-min`: `A=2, B=20, C=200`. Since there are 3 columns, Lambda is called **3 times**.
+- `(4) apply(..., axis=1)` — **rows** one by one in Lambda's `x` → row by row `max-min`: `r1=99, r2=198, r3=297`. Since there are 3 rows, it is also called **3 times** (if the number of rows is large, the number of calls increases accordingly).
 
-"axis=1이니까 열에 적용"이라고 외우면 (3), (4)가 뒤집힙니다. **사라지는 축**으로 기억하세요.
+If you memorize it as "since axis=1, apply to column," (3) and (4) will be flipped. Remember it as the **vanishing axis**.
 
 ```{python}
 display(df_toy.sum(axis=0))
@@ -165,21 +165,21 @@ display(df_toy.apply(lambda x: x.max() - x.min(), axis=1))
 
 :::
 
-### 문제 1-2. `pipe`로 중간 변수 없이 계산하기
+### Problem 1-2. Calculate `pipe` without intermediate variables
 
-"운임(`Fare`)이 중앙값보다 큰 승객들의 평균 나이"에서 "전체 승객의 평균 나이"를 뺀 값을 구하세요.
+Calculate the value obtained by subtracting the "average age of all passengers" from the "average age of passengers whose fare (`Fare`) is greater than the median".
 
-**조건**: 필터링된 DataFrame을 담는 중간 변수를 만들지 말고, `pipe`를 사용해 **하나의 체인**으로 작성하세요.
+**Condition**: Do not create intermediate variables to hold the filtered DataFrame, and write it as a **single chain** using `pipe`.
 
-> 힌트: `df.loc[조건].pipe(lambda x: ...)` 패턴 — 필터링 결과가 `x`로 들어오므로 한 번만 필터링하면 됩니다.
+> Hint: `df.loc[조건].pipe(lambda x: ...)` pattern — Since the filtering result comes in as `x`, you only need to filter once.
 
 ```{python}
 # 여기에 작성하세요.
 ```
 
-::: {.callout-tip collapse="true" title="정답 및 해설 1-2"}
+::: {.callout-tip collapse="true" title="Answers and Explanations 1-2"}
 
-`pipe(f)`는 `f(객체 전체)`와 같습니다. 필터링된 DataFrame이 `x`로 통째로 들어오므로, 중간 변수 없이 그 안에서 `Age` 평균을 꺼낼 수 있습니다. 람다는 정확히 **1번** 호출됩니다 (`apply`와의 결정적 차이).
+`pipe(f)` is equivalent to `f(객체 전체)`. Since the filtered DataFrame comes in as `x`, the average `Age` can be extracted from it without intermediate variables. The lambda is called exactly **1 time** (the decisive difference from `apply`).
 
 ```{python}
 df_pass.loc[df_pass['Fare'] > df_pass['Fare'].median()].pipe(
@@ -187,31 +187,31 @@ df_pass.loc[df_pass['Fare'] > df_pass['Fare'].median()].pipe(
 )
 ```
 
-양수가 나옵니다. 운임과 나이가 (Pclass를 매개로) 양의 상관을 갖도록 데이터를 생성했기 때문입니다. 참고로 `mean()`은 결측을 자동으로 제외하고 계산합니다(`skipna=True`가 기본값).
+A positive value is obtained. This is because the data was generated so that fare and age have a positive correlation (via Pclass). For reference, `mean()` automatically excludes missing values during calculation (`skipna=True` is the default).
 
 :::
 
-### 문제 1-3. `assign`으로 파생 변수 만들기
+### Problem 1-3. Create a derived variable from `assign`
 
-`df_pass`에 아래 세 개의 파생 변수를 **하나의 `assign` 호출**로 추가한 `df_a`를 만드세요. 원본 `df_pass`는 변경되지 않아야 합니다.
+Create `df_a` by adding the following three derived variables to `df_pass` with a **single call to `assign`**. The original `df_pass` must not be changed.
 
-| 새 변수 | 정의 |
+| New variable | Definition |
 |---------|------|
 | `FamilySize` | `SibSp + Parch + 1` |
-| `IsAlone` | `FamilySize == 1`이면 1, 아니면 0 (정수형) |
+| `IsAlone` | `FamilySize == 1` if 1, otherwise 0 (integer) |
 | `FarePerPerson` | `Fare / FamilySize` |
 
-> 힌트: `IsAlone`과 `FarePerPerson`은 같은 호출 안에서 방금 만든 `FamilySize`를 참조해야 합니다. `assign`은 키워드 순서대로 평가된다는 점을 이용하세요.
+> Hint: `IsAlone` and `FarePerPerson` must refer to the `FamilySize` just created within the same call. Take advantage of the fact that `assign` is evaluated in keyword order.
 
-작성 후 `'FamilySize' in df_pass.columns`가 `False`인지도 확인하세요.
+After writing, please also check if `'FamilySize' in df_pass.columns` is `False`.
 
 ```{python}
 # 여기에 작성하세요.
 ```
 
-::: {.callout-tip collapse="true" title="정답 및 해설 1-3"}
+::: {.callout-tip collapse="true" title="Answers and Explanations 1-3"}
 
-`assign`은 **같은 호출 안에서도 키워드 순서대로 평가**되므로, 뒤의 람다가 앞에서 만든 열을 참조할 수 있습니다. 그리고 원본을 바꾸지 않고 새 DataFrame을 반환합니다.
+`assign` is **evaluated in keyword order even within the same call**, so the subsequent lambda can reference the column created earlier. It also returns a new DataFrame without replacing the source.
 
 ```{python}
 df_a = df_pass.assign(
@@ -226,15 +226,15 @@ print('원본에 FamilySize가 있는가?', 'FamilySize' in df_pass.columns)
 
 :::
 
-## Part 2. 결측치 처리
+## Part 2. Handling Missing Values
 
-### 문제 2-1. 결측 현황 요약표 만들기
+### Problem 2-1. Creating a Summary Table of Missing Data
 
-`df_pass`의 변수별 결측 개수(`n_missing`)와 결측 비율(`ratio`)을 담은 DataFrame을 만들고, 결측 개수 **내림차순**으로 정렬하세요.
+Create a DataFrame containing the number of missing values (`n_missing`) and the percentage of missing values (`ratio`) for each variable of `df_pass`, and sort it in **descending order** by the number of missing values.
 
-**조건**: `isna()`, `sum()`, `to_frame()`, `assign()`, `sort_values()`를 체이닝으로 연결해 한 문장으로 작성하세요.
+**Condition**: Chain `isna()`, `sum()`, `to_frame()`, `assign()`, `sort_values()` into a single sentence.
 
-기대 형태:
+Expected form:
 
 ```
           n_missing  ratio
@@ -244,15 +244,15 @@ Embarked        ...    ...
 ...
 ```
 
-> 생각해 볼 점: `df_pass.isna().sum()`에서 `sum()`은 `axis=0`과 `axis=1` 중 어느 쪽으로 동작하고 있나요? 그 결과 무엇이 세어지는 건가요?
+> Point to consider: In `df_pass.isna().sum()`, is `sum()` operating in the direction of `axis=0` or `axis=1`? What is being counted as a result?
 
 ```{python}
 # 여기에 작성하세요.
 ```
 
-::: {.callout-tip collapse="true" title="정답 및 해설 2-1"}
+::: {.callout-tip collapse="true" title="Answers and Explanations 2-1"}
 
-`df_pass.isna()`는 같은 shape의 불리언 DataFrame이고, `sum()`의 기본값은 `axis=0`이므로 **세로 방향으로**(행 축이 붕괴되며) True(=1)를 세어 **열별 결측 개수**가 나옵니다. `to_frame('n_missing')`으로 Series를 DataFrame으로 바꾸면서 열 이름을 붙이고, `assign`으로 비율 열을 추가합니다.
+`df_pass.isna()` is a Boolean DataFrame of the same shape, and since the default value of `sum()` is `axis=0`, the **number of missing values per column** is obtained by counting True (=1) in the **vertical direction** (where the row axis collapses). `to_frame('n_missing')` converts the Series to a DataFrame and assigns column names, and `assign` adds a ratio column.
 
 ```{python}
 df_pass.isna().sum().to_frame('n_missing').assign(
@@ -262,17 +262,17 @@ df_pass.isna().sum().to_frame('n_missing').assign(
 
 :::
 
-### 문제 2-2. 결측을 새로운 범주로 대체
+### Problem 2-2. Replace missing values with new categories
 
-`df_pass`를 복사한 `df_p1`을 만들고, `Embarked`의 결측치를 `'Unk'` 범주로 대체하세요. 처리 후 `value_counts()`로 `'Unk'`가 4건인지 확인하세요.
+Create `df_p1` by copying `df_pass`, and replace the missing values in `Embarked` with the `'Unk'` category. After processing, check with `value_counts()` to see if there are 4 records of `'Unk'`.
 
 ```{python}
 # 여기에 작성하세요.
 ```
 
-::: {.callout-tip collapse="true" title="정답 및 해설 2-2"}
+::: {.callout-tip collapse="true" title="Answers and Explanations 2-2"}
 
-결측 자체가 정보일 수 있으므로(예: 기록이 없다는 사실 자체가 특정 집단과 연관), 삭제하지 않고 `'Unk'`라는 범주로 보존하는 접근입니다.
+Since missing values themselves can be information (e.g., the fact that there is no record is associated with a specific group), this is an approach that preserves them in the category `'Unk'` instead of deleting them.
 
 ```{python}
 df_p1 = df_pass.copy()
@@ -282,30 +282,30 @@ df_p1['Embarked'].value_counts()
 
 :::
 
-### 문제 2-3. 그룹별 최빈값으로 대체
+### Problem 2-3. Replace with group mode
 
-`df_p1`의 `Deck`은 결측이 매우 많고, `Pclass`별로 등장하는 범주가 다릅니다. 전체 최빈값 하나로 채우면 그룹 구조가 무너지므로, **각 `Pclass` 그룹 내부의 최빈값**으로 결측을 채우세요.
+`Deck` of `df_p1` has a very high number of missing values, and the categories appearing for `Pclass` differ. Since filling with a single overall mode would cause the group structure to collapse, please fill the missing values with the **mode within each `Pclass` group**.
 
-**조건**:
+**Condition**:
 
-- `groupby('Pclass')` + `transform`을 사용하세요.
-- 최빈값이 여러 개일 경우 **사전순으로 앞선 것**을 사용하세요 (`mode()`가 Series를 반환하는 이유를 생각해 보세요).
+- Please use `groupby('Pclass')` + `transform`.
+- If there are multiple modes, use the **lexicographically earlier** (think about why `mode()` returns a Series).
 
-처리 후 두 가지를 확인하세요:
+Please check two things after processing:
 
-1. `Deck`의 결측이 0인가?
-2. 각 `Pclass`별 최빈값이 무엇이었는가? (`groupby().agg()`로 확인)
+1. Is the missing value of `Deck` 0?
+2. What was the mode for each `Pclass`? (Confirmed as `groupby().agg()`)
 
 ```{python}
 # 여기에 작성하세요.
 ```
 
-::: {.callout-tip collapse="true" title="정답 및 해설 2-3"}
+::: {.callout-tip collapse="true" title="Answers and Explanations 2-3"}
 
-두 가지 포인트:
+Two points:
 
-1. **`mode()`는 Series를 반환**합니다 — 최빈값이 동수로 여러 개일 수 있기 때문입니다. 그래서 `sort_values().iloc[0]`으로 "사전순 첫 번째"를 결정적으로 뽑습니다. 이 처리가 없으면 동수 상황에서 결과가 모호해집니다.
-2. **`transform` vs `agg`**: `agg`는 그룹당 값 1개로 **축약**하지만(그룹 수만큼의 결과), `transform`은 그 값을 그룹의 모든 행에 **브로드캐스트**해서 원본과 같은 길이의 결과를 돌려줍니다. 원본 열에 그대로 대입하려면 길이가 같아야 하므로 `transform`이 필요합니다.
+1. **`mode()` returns a Series** — because there can be multiple equal modes. Therefore, we definitively select the "lexicographically first" using `sort_values().iloc[0]`. Without this processing, the result becomes ambiguous in cases of ties.
+2. **`transform` vs `agg`**: `agg` **abbreviates** to one value per group (results equal to the number of groups), whereas `transform` **broadcasts** that value to all rows in the group, returning a result of the same length as the original. `transform` is required because the length must be the same to apply it directly to the original column.
 
 ```{python}
 df_p1['Deck'] = df_p1.groupby('Pclass')['Deck'].transform(
@@ -319,27 +319,27 @@ display(df_p1.groupby('Pclass')['Deck'].agg(lambda x: x.mode().sort_values().ilo
 display(pd.crosstab(df_p1['Pclass'], df_p1['Deck']))
 ```
 
-전체 최빈값 하나로 채웠다면 예컨대 3등석 승객에게 1등석에만 존재하는 Deck이 배정되는 왜곡이 생겼을 것입니다. 그룹별 대체는 조건부 분포 $P(\text{Deck} \mid \text{Pclass})$ 구조를 보존하는 방식입니다.
+If the entire distribution were filled with a single mode, for example, a distortion would occur where a third-class passenger would be assigned a deck that exists only in first class. Group imputation is a method that preserves the structure of the conditional distribution $P(\text{Deck} \mid \text{Pclass})$.
 
 :::
 
-### 문제 2-4. 보간 — `linear` vs `index`
+### Problem 2-4. Interpolation — `linear` vs `index`
 
-`s_rssi`는 **측정 간격이 불규칙한** 신호 세기 시계열입니다.
+`s_rssi` is a signal strength time series with **irregular** measurement intervals.
 
-**(a)** `method='linear'`와 `method='index'`로 각각 보간한 결과를 구하고, 두 결과의 차이의 절대값이 **가장 큰 시점**과 그 차이를 출력하세요.
+Calculate the results of interpolating **(a)** `method='linear'` and `method='index'` respectively, and output the point in time when the absolute value of the difference between the two results is **largest** and that difference.
 
-**(b)** `plt.subplots(1, 2, figsize=(12, 4))`로 1×2 subplot을 만들어 두 방식을 나란히 시각화하세요. 각 subplot에:
+Create a 1×2 subplot with **(b)** `plt.subplots(1, 2, figsize=(12, 4))` to visualize the two methods side by side. For each subplot:
 
-- 관측점(결측 아닌 값)들을 잇는 회색 선
-- 관측점을 빨간 점으로
-- 보간으로 **채워진 점만** 파란 점으로
+- Gray line connecting observation points (non-missing values)
+- The observation point is marked in red.
+- **Only filled points** in blue by interpolation
 
-을 그리고, 제목에 방식 이름을 표시하세요.
+Draw and display the method name in the title.
 
-**(c)** 두 방식의 결과가 달라지는 이유를 한두 문장으로 적어 보세요. 이 데이터에는 어느 방식이 물리적으로 타당한가요?
+**(c)** Write in one or two sentences why the results of the two methods differ. Which method is physically valid for this data?
 
-> 힌트: `for method, ax in zip(['linear', 'index'], axes):` 구조를 쓰면 됩니다. 채워진 점만 골라내려면 `보간결과.loc[s_rssi.isna()]`. `subplots(1, 2)`의 반환값이 무엇인지, `figsize` 단위가 무엇인지도 함께 떠올려 보세요.
+> Hint: You can use the `for method, ax in zip(['linear', 'index'], axes):` structure. To extract only the filled points, use `보간결과.loc[s_rssi.isna()]`. Also, try to recall what the return value of `subplots(1, 2)` is, and what the `figsize` unit is.
 
 ```{python}
 # (a) 여기에 작성하세요.
@@ -349,7 +349,7 @@ display(pd.crosstab(df_p1['Pclass'], df_p1['Deck']))
 # (b) 여기에 작성하세요.
 ```
 
-::: {.callout-tip collapse="true" title="정답 및 해설 2-4"}
+::: {.callout-tip collapse="true" title="Answers and Explanations 2-4"}
 
 ```{python}
 # (a) 두 방식으로 보간하고 차이가 가장 큰 지점을 찾습니다.
@@ -392,28 +392,28 @@ plt.tight_layout()
 plt.show()
 ```
 
-**(c) 해설**
+**(c) Explanation**
 
-- `method='linear'`는 인덱스 값을 무시하고 **관측치들이 등간격이라고 가정**한 채 "몇 번째 위치인가"만으로 보간합니다. 반면 `method='index'`는 인덱스(측정 시각)를 실제 x좌표로 삼아 기하학적으로 올바른 선형 보간 $y = y_0 + (x - x_0)\frac{y_1 - y_0}{x_1 - x_0}$ 을 수행합니다.
-- 이 데이터는 측정 간격이 불규칙하므로 두 방식의 결과가 달라지고, 시간 축이 물리적 의미를 갖는 이상 **`index` 방식이 타당**합니다. 결측 구간 앞뒤의 시간 간격이 비대칭일수록(예: 직전 관측 0.5초 전, 직후 관측 5초 뒤) `linear`의 왜곡이 커집니다.
-- 인덱스가 `DatetimeIndex`라면 `method='time'`이 같은 역할을 합니다.
+- `method='linear'` interpolates based solely on "which position it is," ignoring index values and **assuming observations are equally spaced**. On the other hand, `method='index'` performs geometrically correct linear interpolation $y = y_0 + (x - x_0)\frac{y_1 - y_0}{x_1 - x_0}$ by using the index (measurement time) as the actual x-coordinate.
+- Since the measurement intervals of this data are irregular, the results of the two methods differ, and as long as the time axis has physical meaning, the **`index` method is valid**. The more asymmetric the time intervals before and after the missing interval are (e.g., 0.5 seconds before the previous observation, 5 seconds after the next observation), the greater the distortion of `linear`.
+- If the index is ZZZPH0003265ZZZ  `DatetimeIndex`, then `method='time'` performs the same role.
 
 :::
 
-### 문제 2-5. 모델 기반 결측 대체 (Random Forest)
+### Problem 2-5. Model-based Missing Value Impulse (Random Forest)
 
-`df_pass`의 `Age` 결측(20%)을 Random Forest 회귀 모델의 예측값으로 대체하세요.
+Replace the missing values (20%) of `Age` in `df_pass` with the predicted values from the Random Forest regression model.
 
-**절차**:
+**Procedure**:
 
-1. `df_pass`를 복사한 `df_p2`를 만들고, `Embarked` 결측은 최빈값으로 먼저 처리합니다.
-2. `ColumnTransformer`를 구성합니다 — `Pclass`, `Sex`, `Embarked`는 `OneHotEncoder`, 나머지 입력(`SibSp`, `Parch`, `Fare`)은 `'passthrough'`.
-3. `make_pipeline`으로 전처리와 `RandomForestRegressor(n_estimators=100, random_state=123)`를 묶습니다.
-4. `Age`가 **관측된 행만으로** 학습하고, **결측인 행에만** 예측값을 채웁니다.
+1. Create `df_p2` by copying `df_pass`, and process the missing values of `Embarked` as the mode first.
+2. Constructs `ColumnTransformer` — `Pclass`, `Sex`, `Embarked`, `OneHotEncoder`, and the remainder inputs (`SibSp`, `Parch`, `Fare`) are `'passthrough'`.
+3. Combine preprocessing with `make_pipeline` and `RandomForestRegressor(n_estimators=100, random_state=123)`.
+4. `Age` trains using only observed rows and fills with predicted values only for missing rows.
 
-**추가 분석**: 대체 후 `Age`의 표준편차를 다음 세 경우로 비교하세요 — (i) 관측치만, (ii) 전체 평균으로 대체한 경우, (iii) RF로 대체한 경우. 어느 방식이 분산을 가장 심하게 축소시키나요? 왜 그럴까요?
+**Additional Analysis**: Compare the standard deviations of `Age` after replacement for the following three cases — (i) observations only, (ii) replacement with the overall mean, and (iii) replacement with RF. Which method reduces the variance the most? Why?
 
-> 힌트: 학습 단계는 `df_p2.loc[조건].pipe(lambda x: model.fit(x[X_cols], x['Age']))` 패턴을 쓰면 필터링을 한 번만 해도 됩니다.
+> Hint: For the learning step, if you use the `df_p2.loc[조건].pipe(lambda x: model.fit(x[X_cols], x['Age']))` pattern, you only need to filter once.
 
 ```{python}
 from sklearn.pipeline import make_pipeline
@@ -424,7 +424,7 @@ from sklearn.ensemble import RandomForestRegressor
 # 여기에 작성하세요.
 ```
 
-::: {.callout-tip collapse="true" title="정답 및 해설 2-5"}
+::: {.callout-tip collapse="true" title="Answers and Explanations 2-5"}
 
 ```{python}
 # 1. 복사 후 Embarked를 최빈값으로 처리
@@ -460,19 +460,19 @@ pd.Series({'관측치만': std_obs, '평균 대체': std_mean, 'RF 대체': std_
           name='Age std').round(3).to_frame()
 ```
 
-**해설**
+**Explanation**
 
-- **평균 대체**가 분산을 가장 크게 축소합니다. 결측 20%를 전부 분포의 무게중심 한 점에 몰아넣기 때문입니다. 관측 비율을 $p$라 하면 대체 후 분산은 대략 $p \cdot \sigma^2$ 수준으로 줄어듭니다.
-- **RF 대체**는 조건부 기대값 $E[\text{Age} \mid \text{Pclass}, \text{Sex}, \dots]$ 를 근사하므로 채워진 값들이 여러 위치에 퍼져 분산 축소가 덜합니다. 다만 조건부 평균 근처로 수축하는 성질은 남아 있어 관측치만의 표준편차보다는 여전히 작습니다.
-- 어떤 단일값 대체(single imputation)도 "대체값이 불확실하다"는 정보는 반영하지 못합니다. 이후 추론(신뢰구간, 가설검정)이 중요하다면 다중 대체(multiple imputation)처럼 불확실성을 명시적으로 다루는 방법을 고려해야 합니다.
+- **Mean imputation** reduces variance the most. This is because it concentrates all 20% of missing values into a single point at the centroid of the distribution. If the proportion of observations is $p$, the variance after imputation is reduced to approximately $p \cdot \sigma^2$.
+- **RF substitution** approximates the conditional expectation $E[\text{Age} \mid \text{Pclass}, \text{Sex}, \dots]$, so the filled values are spread across multiple locations, resulting in less variance reduction. However, the property of contracting near the conditional mean remains, so it is still smaller than the standard deviation of the observations alone.
+- No single imputation can reflect the information that "the imputation value is uncertain." If subsequent inference (confidence intervals, hypothesis testing) is important, you should consider methods that explicitly handle uncertainty, such as multiple imputation.
 
 :::
 
-## Part 3. 이상치 처리
+## Part 3. Outlier Handling
 
-### 문제 3-1. IQR 경계 테이블 만들기
+### Problem 3-1. Creating an IQR Boundary Table
 
-`df_field`의 세 변수에 대해, 아래 형태의 경계 테이블 `df_iqr`을 **하나의 체인**(`apply` → `.T` → `assign`)으로 만드세요.
+For the three variables `df_field`, make the boundary table `df_iqr` of the form below into a **single chain** (`apply` → `.T` → `assign`).
 
 ```
                  Q1        Q3       IQR        LB        UB
@@ -484,13 +484,13 @@ seeds           ...       ...       ...       ...       ...
 - $\mathrm{IQR} = Q_3 - Q_1$
 - $\mathrm{LB} = Q_1 - 1.5 \times \mathrm{IQR}$,  $\mathrm{UB} = Q_3 + 1.5 \times \mathrm{IQR}$
 
-> 생각해 볼 점: `apply` 직후 결과에서 변수명은 행과 열 중 어디에 있나요? `.T`가 필요한 이유는 이후 어떤 조회 패턴을 위해서인가요?
+> Points to consider: In the result immediately following `apply`, where are the variable names located—in the row or the column? What is the reason for needing `.T` for what subsequent query pattern?
 
 ```{python}
 # 여기에 작성하세요.
 ```
 
-::: {.callout-tip collapse="true" title="정답 및 해설 3-1"}
+::: {.callout-tip collapse="true" title="Answers and Explanations 3-1"}
 
 ```{python}
 cols = ['fruitset', 'fruitmass', 'seeds']
@@ -505,27 +505,27 @@ df_iqr = df_field[cols].apply(
 df_iqr
 ```
 
-**해설**
+**Explanation**
 
-- `apply(axis=0)` 직후에는 변수명이 **열**, 통계량(Q1/Q3)이 **행**에 있습니다. `.T`로 뒤집어 변수명을 행 인덱스로 놓는 이유는, 다음 문제에서 `df_iqr.loc[변수명, 'LB']` 형태의 **룩업**을 하기 위한 사전 설계입니다.
-- `assign`은 키워드 순서대로 평가되므로 `LB`, `UB`가 같은 호출 안에서 방금 만든 `IQR`을 참조할 수 있습니다.
-- 참고: 정규분포 가정 하에서 $Q_3 + 1.5 \cdot \mathrm{IQR}$은 약 $\mu + 2.7\sigma$에 해당하며, 전체의 약 0.7%만 경계 밖에 놓이는 보수적 기준입니다. 사분위수는 극단값에 오염되지 않는 로버스트 통계량이라는 점이 평균·표준편차 기반 기준 대비 장점입니다.
+- Immediately after `apply(axis=0)`, the variable name is in the **column** and the statistics (Q1/Q3) are in the **row**. The reason for flipping it to `.T` and placing the variable name as the row index is a preliminary design for performing a **lookup** in the form of `df_iqr.loc[변수명, 'LB']` in the next problem.
+- Since `assign` is evaluated in keyword order, `LB` and `UB` can refer to the `IQR` just created within the same call.
+- Note: Under the assumption of a normal distribution, $Q_3 + 1.5 \cdot \mathrm{IQR}$ corresponds to approximately $\mu + 2.7\sigma$, which is a conservative standard where only about 0.7% of the total falls outside the boundary. The advantage of quartiles over mean-standard deviation-based standards is that they are robust statistics that are not contaminated by extreme values.
 
 :::
 
-### 문제 3-2. 이상치 제거
+### Problem 3-2. Outlier Removal
 
-**(a)** 각 셀이 이상치인지 여부(True/False)를 담은 `df_is_out`을 만드세요. `apply`와 `x.name`을 활용해 변수별로 서로 다른 경계를 `df_iqr`에서 조회해야 합니다.
+**(a)** Create `df_is_out` containing whether each cell is an outlier (True/False). You must use `apply` and `x.name` to query different boundaries for each variable in `df_iqr`.
 
-**(b)** 변수별 이상치 개수와, **하나라도 이상치인 행**의 개수를 출력하세요. 후자에는 `any`를 쓰되, `axis` 값을 무엇으로 해야 하는지 근거와 함께 정하세요.
+**(b)** Output the number of outliers for each variable and the number of rows containing at least one outlier. For the latter, use `any`, but determine what the value of `axis` should be and provide the rationale.
 
-**(c)** 이상치가 하나라도 있는 행을 제거한 `df_field2`를 만들고 shape를 확인하세요.
+**(c)** Create `df_field2` with at least one outlier removed and check the shape.
 
 ```{python}
 # 여기에 작성하세요.
 ```
 
-::: {.callout-tip collapse="true" title="정답 및 해설 3-2"}
+::: {.callout-tip collapse="true" title="Answers and Explanations 3-2"}
 
 ```{python}
 # (a) 셀 단위 이상치 판별
@@ -550,25 +550,25 @@ df_field2 = df_field.drop(index=df_field.loc[df_is_out.any(axis=1)].index)
 print('제거 전:', df_field.shape, '→ 제거 후:', df_field2.shape)
 ```
 
-**`any(axis=1)`인 이유**: "한 **행** 안에서 세 변수 중 하나라도 True인가"를 물으려면, **열 축을 따라(가로로)** 훑으며 열 축이 붕괴되어야 합니다. 결과는 행 개수만큼의 불리언 Series가 되고, 이것이 행 필터로 쓰입니다. `any(axis=0)`이었다면 "각 변수에 이상치가 하나라도 있는가"라는 변수별 답(길이 3)이 나왔을 것입니다.
+**Reason for `any(axis=1)`**: To ask "Is at least one of the three variables True within a single **row**?", the column axis must collapse as you scan **horizontally**. The result is a Boolean Series equal to the number of rows, which is used as a row filter. If it had been `any(axis=0)`, a variable-specific answer (length 3) asking "Is there at least one outlier in each variable?" would have been produced.
 
-또한 `drop(axis=...)` 계열의 구조 조작에서는 axis가 "대상 축"(`axis=0`이면 행 삭제)이라는 직관적 의미로 쓰인다는 점도 함께 기억해 두세요 — 집계 연산의 "붕괴되는 축"과 뉘앙스가 다릅니다.
+Also, please keep in mind that in structural operations of the `drop(axis=...)` series, 'axis' is used with the intuitive meaning of "target axis" (if `axis=0`, row deletion) — this has a different nuance from the "collapsed axis" in aggregation operations.
 
 :::
 
-### 문제 3-3. 범위 한정 (clipping)
+### Problem 3-3. Range Confinement (clipping)
 
-`df_field`를 복사한 `df_field3`을 만들고, 세 변수를 각 변수의 `[LB, UB]` 구간으로 clip 하세요.
+Create `df_field3` by copying `df_field`, and clip the three variables to the `[LB, UB]` range of each variable.
 
-**조건**: `apply` 한 번으로 세 변수를 동시에 처리하세요. 람다 안에서 `x.name`으로 `df_iqr`의 해당 행을 조회합니다.
+**Condition**: `apply` Process three variables simultaneously in a single step. Inside Lambda, query the corresponding row of `df_iqr` using `x.name`.
 
-**검증**: clip 후 데이터에 문제 3-2의 이상치 판별을 다시 적용했을 때 이상치가 **0건**이어야 합니다.
+**Verification**: When applying the outlier detection from Problem 3-2 back to the data after clipping, there must be **0** outliers.
 
 ```{python}
 # 여기에 작성하세요.
 ```
 
-::: {.callout-tip collapse="true" title="정답 및 해설 3-3"}
+::: {.callout-tip collapse="true" title="Answers and Explanations 3-3"}
 
 ```{python}
 df_field3 = df_field.copy()
@@ -586,25 +586,25 @@ print('clip 후 이상치 수:', n_out_after)
 df_field3[cols].agg(['min', 'max'])
 ```
 
-`clip(L, U)`는 $\min(\max(x, L), U)$ — 구간 밖의 값을 경계로 밀어 넣는 포화(saturation) 연산입니다. 판별(3-2)과 동일하게 `x.name`으로 변수별 경계를 룩업하므로, 변수가 늘어나도 코드는 그대로입니다. 경계 계산(`df_iqr`)과 적용(clip)이 분리되어 있어서, 예컨대 학습 데이터에서 구한 경계를 나중에 테스트 데이터에 그대로 적용하는 재사용도 자연스럽습니다.
+`clip(L, U)` is a saturation operation that pushes values outside the range into the boundaries of $\min(\max(x, L), U)$. Since the boundaries for each variable are looked up using `x.name` just like in the discriminant (3-2), the code remains the same even if the number of variables increases. Because the boundary calculation (`df_iqr`) and application (clip) are separated, reuse is also natural, for example, by applying the boundaries obtained from the training data directly to the test data later.
 
 :::
 
-### 문제 3-4. 제거 vs clip — 통계량 비교
+### Problem 3-4. Removal vs. Clip — Comparison of Statistics
 
-원본 `df_field`, 제거본 `df_field2`, clip본 `df_field3` 세 데이터의 변수별 **평균과 표준편차**를 한 표로 모아 비교하세요 (`pd.concat`에 dict를 넘기면 계층 인덱스로 묶을 수 있습니다).
+Original `df_field`, Removed `df_field2`, Clipped `df_field3`. Gather the **mean and standard deviation** by variable for the three data sets into a single table and compare them (you can group them by hierarchical index by passing a dict to `pd.concat`).
 
-그리고 다음 질문에 답해 보세요:
+And answer the following question:
 
-1. 표준편차는 어느 처리에서 더 많이 줄어들었나요?
-2. 표본 크기 관점에서 두 방식의 차이는 무엇인가요?
-3. 만약 이 이상치들이 측정 오류가 아니라 실제 현상(예: heavy-tailed 분포의 꼬리)이라면, 두 방식 모두 어떤 문제를 일으킬까요?
+1. In which treatment did the standard deviation decrease more?
+2. What is the difference between the two methods in terms of sample size?
+3. If these outliers are not measurement errors but actual phenomena (e.g., tails of a heavy-tailed distribution), what problems would both methods cause?
 
 ```{python}
 # 여기에 작성하세요.
 ```
 
-::: {.callout-tip collapse="true" title="정답 및 해설 3-4"}
+::: {.callout-tip collapse="true" title="Answers and Explanations 3-4"}
 
 ```{python}
 pd.concat({
@@ -614,31 +614,31 @@ pd.concat({
 }).round(4)
 ```
 
-**해설**
+**Explanation**
 
-1. **표준편차 감소는 제거(removed) 쪽이 더 큽니다.** 제거는 극단값을 완전히 없애지만, clip은 그 관측치를 경계값 위치에 남겨두기 때문입니다. 두 경우 모두 원본보다 작아지는데, 이상치가 분산에 기여하던 몫이 사라지거나 줄어든 결과입니다.
-2. **표본 크기**: 제거는 행 자체를 버리므로 $n$이 줄고, 그 행의 **다른 변수 값들까지 함께 손실**됩니다 (한 변수만 이상해도 행 전체가 사라짐). clip은 $n$을 보존하면서 극단값의 지렛대 효과만 제한합니다 — 통계에서 윈저라이징(winsorizing)이라 부르는 방식입니다.
-3. **진짜 신호였다면**: 두 방식 모두 분포의 꼬리를 인위적으로 잘라내므로, heavy tail 자체가 관심 대상인 문제(예: 드물지만 깊은 신호 감쇠 이벤트, 극단적 지연)에서는 핵심 정보를 파괴합니다. clip은 추가로 경계값 한 점에 질량이 뭉치는 왜곡도 만듭니다. 이상치 처리는 항상 "오류인가, 현상인가"라는 도메인 판단이 선행되어야 합니다.
+1. **The reduction in standard deviation is greater with removal.** This is because removal completely eliminates extreme values, whereas clipping leaves those observations at boundary values. In both cases, the result is smaller than the original, which is the disappearance or reduction of the portion of the variance contributed by outliers.
+2. **Sample Size**: Removal discards the row itself, reducing $n$, and **other variable values** in that row are lost along with it (the entire row disappears if even one variable is abnormal). Clipping preserves $n$ while limiting only the leverage effect of extreme values — a method called winsorizing in statistics.
+3. **If it were a real signal**: Since both methods artificially clip the tails of the distribution, they destroy key information in problems where the heavy tail itself is the object of interest (e.g., rare but deep signal attenuation events, extreme latency). Additionally, clipping creates a distortion where mass is clustered at a single boundary value. Outlier handling must always be preceded by a domain judgment of "is it an error or a phenomenon?"
 
 :::
 
-## Part 4. 심화 — 앙상블은 정말 분산을 줄이는가
+## Part 4. Advanced — Does Ensemble Really Reduce Variance?
 
-Random Forest의 핵심 원리는 "상관이 낮은 고분산 추정기들을 평균 내면 분산이 줄어든다"는 것입니다:
+The core principle of Random Forest is that "averaging highly variance estimators with low correlation reduces variance":
 
 $$\mathrm{Var}\left(\frac{1}{B}\sum_b \hat f_b\right) = \rho\sigma^2 + \frac{1-\rho}{B}\sigma^2$$
 
-### 문제 4-1. 나무 수 $B$와 예측의 안정성
+### Problem 4-1. Number of Trees $B$ and Stability of Prediction
 
-이를 실험으로 확인합니다. `Age`가 관측된 행들을 학습/평가 세트로 나눈 뒤:
+Verify this experimentally. After splitting the rows where `Age` was observed into training/evaluation sets:
 
-1. `n_estimators` $B \in \{1, 5, 25, 100\}$ 각각에 대해,
-2. `random_state`를 0~4로 바꿔가며 5개의 모델을 학습시키고 평가 세트를 예측합니다.
-3. 각 평가 샘플에 대해 **5개 시드 간 예측값의 표준편차**를 구하고, 그 평균을 $B$별로 비교하세요.
+1. `n_estimators` $B \in \{1, 5, 25, 100\}$ For each,
+2. Train 5 models by changing `random_state` to 0~4 and predict the evaluation set.
+3. For each evaluation sample, calculate the **standard deviation of the predicted values between 5 seeds** and compare the averages by $B$.
 
-$B$가 커질수록 시드 간 예측 편차(= 모델의 무작위성에 의한 분산)가 줄어드는지, 줄어드는 속도가 $1/B$ 꼴에 가까운지 관찰해 보세요.
+Observe whether the prediction deviation between seeds (= variance due to the randomness of the model) decreases as $B$ increases, and whether the rate of decrease approaches the form $1/B$.
 
-> 힌트: 예측값들을 `np.array`로 쌓으면(shape: 5 × 평가샘플수) `np.std(arr, axis=0)`이 샘플별 시드 간 표준편차입니다. 이때 왜 `axis=0`인지도 설명할 수 있어야 합니다.
+> Hint: If you stack the predicted values as `np.array` (shape: 5 × number of evaluation samples), `np.std(arr, axis=0)` is the standard deviation between seeds per sample. You should also be able to explain why it is `axis=0`.
 
 ```{python}
 from sklearn.model_selection import train_test_split
@@ -646,7 +646,7 @@ from sklearn.model_selection import train_test_split
 # 여기에 작성하세요.
 ```
 
-::: {.callout-tip collapse="true" title="정답 및 해설 4-1"}
+::: {.callout-tip collapse="true" title="Answers and Explanations 4-1"}
 
 ```{python}
 # Age가 관측된 행만 사용 (Embarked는 이미 처리된 df_p2 이용)
@@ -691,22 +691,22 @@ plt.tight_layout()
 plt.show()
 ```
 
-**해설**
+**Explanation**
 
-- $B$가 커질수록 시드 간 예측 편차가 뚜렷하게 감소합니다 — 나무 하나($B=1$)는 학습 데이터의 무작위성에 매우 민감하지만, 평균을 내면 그 요동이 상쇄됩니다.
-- 분산 공식 $\rho\sigma^2 + \frac{1-\rho}{B}\sigma^2$에서 두 번째 항이 $1/B$로 줄어드는 부분입니다 (표준편차 기준으로는 $1/\sqrt{B}$). log-log 그림에서 관측 곡선이 $1/\sqrt{B}$ 기울기와 유사하게 내려가는 것을 확인할 수 있습니다. 다만 나무들 사이의 상관 $\rho$ 때문에 첫 번째 항 $\rho\sigma^2$는 남고, 여기서 측정한 "시드 간 편차"가 0으로 수렴하더라도 **앙상블 전체의 예측 분산에는 $\rho\sigma^2$ 바닥이 존재**합니다. 그래서 부트스트랩과 분할 시 무작위 특성 선택으로 $\rho$를 낮추는 것이 Random Forest 설계의 핵심입니다.
-- `np.std(preds, axis=0)`에서 `axis=0`인 이유: `preds`의 shape는 (시드 5, 샘플 수)이고, 우리가 원하는 것은 **샘플별로** 시드 축이 붕괴된 표준편차이기 때문입니다. `axis=1`로 했다면 "시드별로 샘플 간 표준편차"라는 전혀 다른 양이 나옵니다 — Part 1에서 다진 axis 감각이 그대로 쓰이는 지점입니다.
+- As $B$ increases, the prediction deviation between seeds decreases significantly — a single tree ($B=1$) is very sensitive to the randomness of the training data, but the fluctuations are offset when averaged.
+- This is the part where the second term in the variance formula $\rho\sigma^2 + \frac{1-\rho}{B}\sigma^2$ decreases to $1/B$ ($1/\sqrt{B}$ in terms of standard deviation). In the log-log plot, you can see that the observed curve slopes downward similarly to $1/\sqrt{B}$. However, due to the correlation between the trees $\rho$, the first term $\rho\sigma^2$ remains, and even if the "inter-seed deviation" measured here converges to 0, **a $\rho\sigma^2$ bottom exists in the predicted variance of the entire ensemble**. Therefore, the core of the Random Forest design is to reduce $\rho$ through bootstrapping and random feature selection during splitting.
+- The reason for the change from `np.std(preds, axis=0)` to `axis=0`: The shape of `preds` is (seed 5, number of samples), and what we want is the standard deviation with the seed axis collapsed **per sample**. If we had used `axis=1`, a completely different quantity called "standard deviation between samples per seed" would result — this is where the sense of axis established in Part 1 comes into play.
 
 :::
 
-## 마무리 체크리스트
+## Final Checklist
 
-- [ ] `axis=k`는 "k번 축이 붕괴"로 기억한다. 단, `drop`/`concat` 등 구조 조작에서는 "대상 축"이다.
-- [ ] `pipe` = 객체 전체를 함수에 1회 전달 / `apply` = 조각(원소·행·열)마다 반복 호출 / `assign` = 파생 열 추가 후 DataFrame 반환.
-- [ ] `apply(axis=0)`에서 람다로 들어온 Series의 `.name`에는 열 이름이 있다 → 룩업 테이블(`df_iqr.loc[x.name, ...]`) 패턴.
-- [ ] `mode()`는 동수 가능성 때문에 Series를 반환한다. 결정적 선택 규칙(`sort_values().iloc[0]`)을 명시할 것.
-- [ ] `transform`은 원본 길이를 보존하므로 대입에 쓰고, `agg`는 그룹당 1개로 축약한다.
-- [ ] 인덱스가 물리적 축(시간·거리)이면 보간은 `method='index'`(또는 `'time'`). 기본값 `'linear'`는 등간격 가정.
-- [ ] 단일값 대체는 분산을 축소한다 (평균 대체 ≫ 모델 기반 대체). 불확실성 반영이 필요하면 다중 대체.
-- [ ] 이상치 제거는 $n$과 다른 변수 정보를 잃고, clip(윈저라이징)은 $n$을 보존하되 경계에 질량이 뭉친다. 어느 쪽이든 "오류 vs 현상" 판단이 먼저다.
-- [ ] 앙상블 평균의 분산은 $\rho\sigma^2 + \frac{1-\rho}{B}\sigma^2$ — 나무 수를 늘리는 것만으로는 $\rho\sigma^2$ 바닥을 못 넘는다.
+- [ ] `axis=k` is remembered as "the k-th axis has collapsed". However, in structural operations such as `drop`/`concat`, it is the "target axis".
+- [ ] `pipe` = Pass the entire object to the function once / `apply` = Call repeatedly for each piece (element, row, column) / `assign` = Return DataFrame after adding derived columns.
+- [ ] `.name` of the Series coming into Lambda from `apply(axis=0)` has column names → Lookup table(`df_iqr.loc[x.name, ...]`) pattern.
+- [ ] `mode()` returns a Series due to the possibility of ties. Specify a deterministic choice rule (`sort_values().iloc[0]`).
+- [ ] `transform` preserves the original length, so it is used for assignment, and `agg` is abbreviated to 1 per group.
+- [ ] If the index is a physical axis (time/distance), interpolation is `method='index'` (or `'time'`). The default value `'linear'` assumes equal intervals.
+- [ ] Single-value imputation reduces variance (mean imputation ≫ model-based imputation). Use multiple imputation if uncertainty needs to be accounted for.
+- [ ] Outlier removal loses variable information different from $n$, while clip (Winserizing) preserves $n$ but causes mass to clump at the boundary. In either case, the judgment of "error vs. phenomenon" comes first.
+- [ ] The variance of the ensemble mean $\rho\sigma^2 + \frac{1-\rho}{B}\sigma^2$ — $\rho\sigma^2$ cannot be exceeded by increasing the number of trees alone.

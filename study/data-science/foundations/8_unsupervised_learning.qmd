@@ -1,5 +1,5 @@
 ---
-title: "비지도 학습 개념 정리: 군집화 · 차원 축소 · 이상치 탐색"
+title: "Summary of Unsupervised Learning Concepts: Clustering · Dimensionality Reduction · Outlier Detection"
 number: 8
 aliases:
   - "/study/data-science/8_unsupervised_learning.html"
@@ -9,7 +9,7 @@ format:
     toc: true
     toc-depth: 3
     toc-location: left
-    toc-title: "목차"
+    toc-title: "Table of Contents"
     number-sections: true
     embed-resources: true
     code-fold: false
@@ -41,32 +41,32 @@ np.set_printoptions(precision=4, suppress=True)
 ```
 
 ::: {.callout-note}
-## 이 문서의 코드에 대해
+## About the code in this document
 
-기본적으로 코드 블록은 실행되지 않도록(`eval: false`) 설정되어 있습니다.
-**"수식 확인"** 이라고 표시된 블록만 자체 완결형 합성 데이터를 사용하며 실제로 실행됩니다.
-외부 파일 의존성이 없으므로 그대로 재현할 수 있습니다.
+By default, code blocks are set not to execute (`eval: false`). 
+Only the block labeled **"Equation Check"** uses self-contained synthetic data and is actually executed. Since 
+there are no external file dependencies, it can be reproduced as is.
 :::
 
 ---
 
-# 군집화 (Clustering)
+# Clustering
 
-군집화는 레이블 없이 데이터를 유사한 그룹으로 나누는 작업입니다.
-"유사하다"를 무엇으로 정의하느냐에 따라 크게 네 계열로 나뉩니다.
+Clustering is the process of dividing data into similar groups without labels. 
+It is broadly divided into four categories depending on how "similar" is defined.
 
-| 계열 | 유사도의 정의 | 대표 모델 |
+| Series | Definition of Similarity | Representative Model |
 |---|---|---|
-| 중심 기반 | 대표점까지의 거리 | K-Means, K-Medoids |
-| 계층 기반 | 군집 쌍 사이의 연결 기준 | 병합 군집화 |
-| 밀도 기반 | 이웃 밀도의 연결성 | DBSCAN |
-| 모델 기반 | 확률 분포의 소속 확률 | 가우시안 혼합 모델 |
+| Center-based | Distance to representative point | K-Means, K-Medoids |
+| Hierarchy-based | Connection criteria between cluster pairs | Merge clustering |
+| Density-based | Connectivity of neighbor density | DBSCAN |
+| Model-based | Membership probability of a probability distribution | Gaussian mixture model |
 
-## 중심 기반 군집화
+## Center-based clustering
 
 ### K-Means
 
-**목적 함수.** 군집 분할 $S = \{S_1, \dots, S_k\}$ 에 대해
+**Objective function.** For cluster partitioning $S = \{S_1, \dots, S_k\}$
 
 $$
 \arg\min_{S} \sum_{i=1}^{k} \sum_{x \in S_i} \lVert x - \mu_i \rVert^2,
@@ -74,50 +74,50 @@ $$
 \mu_i = \frac{1}{|S_i|} \sum_{x \in S_i} x
 $$
 
-이 값이 **SSE**(Sum of Squared Error) 이며 scikit-learn 에서는 `inertia_` 로 노출됩니다.
+This value is the **SSE** (Sum of Squared Error) and is exposed as `inertia_` in scikit-learn.
 
-**학습 알고리즘 (Lloyd).**
+**Learning Algorithm (Lloyd).**
 
-1. **초기화** — 중심점 $k$ 개를 정합니다.
-   - *Forgy*: 서로 다른 데이터 포인트 $k$ 개를 중심점으로 선택
-   - *랜덤 분할*: 각 포인트를 임의 군집에 배정한 뒤 평균을 계산
-2. **할당 단계** — 각 포인트를 가장 가까운 중심점의 군집에 배정
-3. **갱신 단계** — 각 군집에 속한 포인트들의 평균으로 중심점을 갱신
-4. 중심점이 더 이상 변하지 않거나 `max_iter` 도달 시 종료
-5. 초기화를 `n_init` 번 반복하여 SSE 가 가장 낮은 결과를 채택
+1. **Initialization** — Sets $k$ center points.
+   - *Forgy*: Select $k$ distinct data points as center points
+   - *Random Split*: Assign each point to a random cluster and calculate the average
+2. **Assignment Phase** — Assign each point to the cluster of the nearest centroid.
+3. **Update Phase** — Update the centroid with the average of the points belonging to each cluster
+4. Terminate when the center point no longer changes or `max_iter` is reached
+5. Repeat initialization `n_init` times and select the result with the lowest SSE
 
 ::: {.callout-tip collapse="true"}
-## 왜 수렴하는가 — 좌표하강법으로서의 K-Means
+## Why It Converges — K-Means as Coordinate Descent
 
-목적 함수를 두 변수 $(S, \mu)$ 의 함수 $J(S, \mu)$ 로 보면, Lloyd 알고리즘은
-**한 변수를 고정하고 다른 변수를 최적화하는 좌표하강법**입니다.
+If we view the objective function as a function of two variables $(S, \mu)$Z $J(S, \mu)$, the Lloyd algorithm 
+is a **coordinate descent method that fixes one variable and optimizes the other**.
 
-- **할당 단계**: $\mu$ 고정 → 각 포인트를 가장 가까운 중심에 배정하는 것이 $J$ 의 최소값
-- **갱신 단계**: $S$ 고정 → $\frac{\partial}{\partial \mu_i}\sum_{x \in S_i}\lVert x - \mu_i\rVert^2 = -2\sum_{x \in S_i}(x - \mu_i) = 0$ 에서 $\mu_i = \bar{x}_{S_i}$
+- **Assignment Phase**: $\mu$ Fixed → Assigning each point to the nearest center is the minimum value of $J$
+- **Update Phase**: $S$ Fixed → $\frac{\partial}{\partial \mu_i}\sum_{x \in S_i}\lVert x - \mu_i\rVert^2 = -2\sum_{x \in S_i}(x - \mu_i) = 0$ to $\mu_i = \bar{x}_{S_i}$
 
-두 단계 모두 $J$ 를 **단조 비증가**시키고, 가능한 분할의 수가 유한($k^n$ 이하)하므로
-알고리즘은 유한 스텝 안에 반드시 멈춥니다.
+Both steps make $J$ **monotonically non-increasing**, and since the number of possible partitions is finite ($k^n$ or less), 
+the algorithm must stop within a finite step.
 
-다만 **전역 최적은 보장되지 않습니다.** 초기값에 따라 다른 국소 최적에 빠지며,
-이것이 `n_init` 이 필요한 이유입니다.
+However, **global optimality is not guaranteed.** Depending on the initial values, it falls into different local optima, 
+which is why `n_init` is necessary.
 :::
 
 ::: {.callout-important}
-## 유클리드 거리가 전제인 이유
+## The reason why Euclidean distance is a premise
 
-갱신 단계에서 "산술평균"을 쓸 수 있는 것은 **제곱 유클리드 거리의 최소점이 평균**이기 때문입니다.
-맨해튼 거리를 쓴다면 최소점은 평균이 아니라 **중앙값**이 되고(→ K-Medians),
-임의의 거리에 대해서는 "평균"이 정의되지 않을 수도 있습니다.
+The reason we can use the "arithmetic mean" in the update phase is that the minimum point of the squared Euclidean distance is the mean. 
+If we use the Manhattan distance, the minimum point becomes the **median** rather than the mean (→ K-Medians), and 
+the "mean" may not be defined for arbitrary distances.
 
-따라서 K-Means 에 다른 거리를 그냥 끼워 넣으면 목적 함수의 단조 감소가 깨지고 수렴 보장도 사라집니다.
+Therefore, if you simply insert different distances into K-Means, the monotonically decreasing objective function is broken and the convergence guarantee disappears.
 :::
 
-**암묵적 가정과 한계**
+**Implicit Assumptions and Limitations**
 
-- 군집이 **등방적(isotropic)** 이고 대략 **구형**이라고 가정합니다.
-- 군집의 크기(포인트 수)와 분산이 비슷하다고 암묵적으로 가정합니다.
-- 제곱 손실이므로 **이상치에 민감**합니다.
-- 군집 수 $k$ 를 미리 정해야 합니다.
+- Assume the cluster is **isotropic** and approximately **spherical**.
+- It is implicitly assumed that the cluster size (number of points) and variance are similar.
+- Since it is squared loss, it is **sensitive to outliers**.
+- You must predetermine the number of clusters $k$.
 
 ```{python}
 #| label: kmeans-api
@@ -131,11 +131,11 @@ km.cluster_centers_   # 중심점
 km.inertia_           # SSE (목적 함수 값)
 ```
 
-| 하이퍼파라미터 | 설명 |
+| Hyperparameter | Description |
 |---|---|
-| `n_clusters` | 군집 수 $k$ |
-| `n_init` | 초기화 반복 횟수 (SSE 최소인 결과 채택) |
-| `max_iter` | 한 번의 초기화당 최대 중심점 이동 횟수 |
+| `n_clusters` | Cluster count $k$ |
+| `n_init` | Initialization iteration count (SSE minimum result accepted) |
+| `max_iter` | Maximum number of center point moves per initialization |
 
 ```{python}
 #| label: kmeans-verify
@@ -159,10 +159,10 @@ print("단조 비증가 여부:", bool(np.all(np.diff(hist) <= 1e-9)))
 
 ### K-Medoids
 
-K-Means 의 대표점이 **평균으로 계산된 가상의 점(centroid)** 인 반면,
-K-Medoids 의 대표점은 **군집 안에 실제로 존재하는 데이터 포인트(medoid)** 입니다.
+While the representative points of K-Means are **virtual points calculated as the mean (centroids**), 
+the representative points of K-Medoids are **data points that actually exist within the cluster (medoids**).
 
-**목적 함수.** 제곱합이 아니라 **거리의 합**을 최소화합니다.
+**Objective function.** Minimizes the **sum of distances**, not the sum of squares.
 
 $$
 \arg\min_{S} \sum_{i=1}^{k} \sum_{x \in S_i} d(x, m_i),
@@ -170,59 +170,59 @@ $$
 m_i = \arg\min_{y \in S_i} \sum_{x \in S_i} d(x, y)
 $$
 
-**학습 알고리즘**
+**Learning Algorithm**
 
-1. 임의의 데이터 포인트 $k$ 개를 medoid 로 초기화
-2. **할당 단계** — 각 포인트를 가장 가까운 medoid 의 군집에 배정
-3. **갱신 단계** — 각 군집에서 *군집 내 다른 포인트들과의 거리 합이 최소*인 포인트로 medoid 교체
-4. medoid 가 변하지 않을 때까지 반복
-5. 여러 초기화 중 최선의 결과를 채택
+1. Initialize random data points $k$ into medoids
+2. **Assignment Phase** — Assign each point to the cluster of the nearest medoid
+3. **Update Phase** — Replace medoid in each cluster with the point that has the *minimum sum of distances to other points within the cluster*
+4. Repeat until the medoid no longer changes
+5. Adopt the best result among multiple initializations
 
 ::: {.callout-tip collapse="true"}
-## K-Means 대비 강건한 이유 — 평균과 중앙값의 관계
+## Why it is more robust than K-Means — The relationship between mean and median
 
-이것은 **제곱 손실 vs 절대 손실**의 차이와 정확히 같은 구조입니다.
+This is exactly the same structure as the difference between **squared loss vs. absolute loss**.
 
-- $\min_\mu \sum (x_i - \mu)^2 \Rightarrow \mu = \text{평균}$ — 이상치 하나가 평균을 끌고 갑니다.
-- $\min_m \sum |x_i - m| \Rightarrow m = \text{중앙값}$ — 이상치가 순위만 바꿀 뿐 위치를 크게 못 바꿉니다.
+- $\min_\mu \sum (x_i - \mu)^2 \Rightarrow \mu = \text{평균}$ — One outlier is dragging the average down.
+- $\min_m \sum |x_i - m| \Rightarrow m = \text{중앙값}$ — Outliers only change ranks and cannot significantly change positions.
 
-K-Medoids 는 후자에 해당하므로 이상치에 덜 민감합니다.
+K-Medoids belong to the latter category and are therefore less sensitive to outliers.
 :::
 
-**K-Means 와의 비교**
+**Comparison with K-Means**
 
-| 항목 | K-Means | K-Medoids |
+| Item | K-Means | K-Medoids |
 |---|---|---|
-| 대표점 | 가상의 평균점 | 실제 데이터 포인트 |
-| 손실 | 거리의 제곱합 | 거리의 합 |
-| 거리 척도 | 유클리드 사실상 고정 | 맨해튼·코사인 등 자유 |
-| 이상치 | 민감 | 강건 |
-| 계산 비용 | $O(nkp)$ / 반복 | 거리행렬 $O(n^2)$ 필요 |
-| 해석 | 대표점이 실존하지 않음 | 대표점이 실존 → 해석 용이 |
+| Representative point | Hypothetical average point | Actual data point |
+| Loss | Sum of Squares of Distances | Sum of Distances |
+| Distance measure | Euclidean virtually fixed | Manhattan, cosine, etc. free |
+| Outlier | Sensitive | Robust |
+| Calculation Cost | $O(nkp)$ / Iteration | Distance Matrix $O(n^2)$ Required |
+| Interpretation | Representative point does not exist | Representative point exists → Interpretation easy |
 
 ::: {.callout-warning}
-scikit-learn 본체에는 K-Medoids 구현이 없습니다.
-(별도 패키지 `scikit-learn-extra` 의 `KMedoids` 를 사용해야 합니다.)
+The scikit-learn core does not have a K-Medoids implementation. 
+(You must use `KMedoids` from the separate package `scikit-learn-extra`Z.)
 :::
 
-## 계층적 군집화 (Hierarchical Clustering)
+## Hierarchical Clustering
 
-각 데이터 포인트가 하나의 군집인 상태에서 시작하여,
-가장 유사한 군집 쌍을 반복적으로 병합해 나가는 **병합(agglomerative)** 방식입니다.
-모든 데이터가 하나의 군집이 될 때까지 진행하면 나무 구조(dendrogram)가 만들어집니다.
+This is an **agglomerative** method that 
+starts with each data point belonging to a single cluster and repeatedly merges the most similar pairs of clusters. 
+A tree structure (dendrogram) is formed when the process continues until all data forms a single cluster.
 
-### 연결 기준 (Linkage)
+### Linkage
 
-군집 $A$, $B$ 를 병합할지 판단하는 기준입니다. $d(a,b)$ 는 포인트 사이의 거리입니다.
+This is the criterion for determining whether to merge clusters $A$ and $B$. $d(a,b)$ is the distance between points.
 
-| 방법 | 정의 | 기하학적 편향 |
+| Method | Definition | Geometric Bias |
 |---|---|---|
-| 단일 연결 (single) | $\min_{a \in A, b \in B} d(a,b)$ | 사슬 효과(chaining), 길쭉한 군집 |
-| 완전 연결 (complete) | $\max_{a \in A, b \in B} d(a,b)$ | 조밀한 구형, 이상치에 민감 |
-| 평균 연결 (average) | $\dfrac{1}{|A||B|}\sum_{a \in A}\sum_{b \in B} d(a,b)$ | 위 둘의 절충 |
-| 워드 연결 (ward) | 병합 시 분산 증가량 최소화 | 크기가 비슷한 구형 군집 |
+| Single linkage (single) | $\min_{a \in A, b \in B} d(a,b)$ | Chaining, elongated cluster |
+| Fully connected (complete) | $\max_{a \in A, b \in B} d(a,b)$ | Compact spherical, sensitive to outliers |
+| Average Connection (average) | $\dfrac{1}{|A||B|}\sum_{a \in A}\sum_{b \in B} d(a,b)$ | Compromise between the two above |
+| Word concatenation (ward) | Minimize increase in variance upon merging | Spherical clusters of similar size |
 
-**워드 연결의 기준.** 병합으로 인해 늘어나는 군집 내 제곱합(MISSQ)입니다.
+**Criteria for word linking.** This is the sum of squares within clusters (MISSQ) that increases due to merging.
 
 $$
 \Delta(A, B)
@@ -232,22 +232,21 @@ $$
 $$
 
 ::: {.callout-note}
-워드 연결은 **K-Means 와 같은 목적 함수 계열**(군집 내 제곱합)을 씁니다.
-차이는 최적화 방식뿐입니다 — K-Means 는 반복적 재배정, 워드는 탐욕적 병합.
-그래서 두 방법의 결과가 종종 비슷하게 나옵니다.
+Word linking uses the same family of objective functions as **K-Means** (sum of squares within clusters). 
+The only difference is the optimization method — K-Means uses iterative reassignment, while Word uses greedy merging. 
+Therefore, the results of the two methods are often similar.
 :::
 
-### Lance–Williams 점화식
+### Lance–Williams recurrence relation
 
-$\Delta(A,B)$ 를 매번 정의대로 계산하면 비용이 매우 큽니다.
-**Lance–Williams 점화식**은 이미 계산된 거리만으로 새 거리를 갱신합니다.
+Calculating $\Delta(A,B)$ according to definition every time is very expensive. 
+The **Lance–Williams recurrence relation** updates new distances using only already calculated distances.
 
 $$
 d(k, i \cup j) = \alpha_i\, d(k,i) + \alpha_j\, d(k,j) + \beta\, d(i,j) + \gamma\, |d(k,i) - d(k,j)|
 $$
 
-워드 연결의 경우, **제곱 유클리드 거리** 기준으로
-$T = n_i + n_j + n_k$ 라 할 때
+when $T = n_i + n_j + n_k$ based on **squared Euclidean distance**
 
 $$
 \alpha_i = \frac{n_i + n_k}{T}, \quad
@@ -256,8 +255,8 @@ $$
 \gamma = 0
 $$
 
-`scipy.cluster.hierarchy.linkage` 도 이 점화식에 기반해 구현되어 있으며,
-반환되는 기준값은 제곱 거리의 **제곱근**입니다.
+`scipy.cluster.hierarchy.linkage` is also implemented based on this recurrence relation, and 
+the returned reference value is the **square root** of the squared distance.
 
 ```{python}
 #| label: ward-verify
@@ -301,19 +300,19 @@ print("직접 구현 == scipy:",
       bool(np.max(np.abs(np.array(Z_manual) - Z_scipy)) < 1e-10))
 ```
 
-### 병합 정보 행렬 `Z`
+### Merge Information Matrix `Z`
 
-`linkage` 가 반환하는 `Z` 는 $(n-1) \times 4$ 행렬이며, $i$ 번째 행은
+The ZZZPH0004009ZZZ ||| `Z` returned by `linkage` is the $(n-1) \times 4$ matrix, and the $i$-th row is
 
-| 열 | 의미 |
+| Column | Meaning |
 |---|---|
-| `Z[i, 0]`, `Z[i, 1]` | 병합된 두 군집의 인덱스 |
-| `Z[i, 2]` | 두 군집 사이의 거리(연결 기준값) |
-| `Z[i, 3]` | 병합 후 군집에 포함된 원 데이터 포인트 수 |
+| `Z[i, 0]`, `Z[i, 1]` | Index of the two merged clusters |
+| `Z[i, 2]` | Distance between two clusters (connection threshold) |
+| `Z[i, 3]` | Number of original data points included in the cluster after merging |
 
 ::: {.callout-note}
-군집 인덱스는 $0 \dots n-1$ 이 원 데이터 포인트이고,
-병합으로 새로 생긴 군집은 $n$ 부터 1씩 증가하며 부여됩니다.
+The cluster index is $0 \dots n-1$, which is the original data point, and 
+the newly created clusters from the merge are assigned starting from $n$, increasing by 1.
 :::
 
 ```{python}
@@ -332,67 +331,67 @@ agg = AgglomerativeClustering(n_clusters=3, metric="euclidean", linkage="ward")
 agg.fit_predict(X_std)
 ```
 
-| 함수 / 파라미터 | 설명 |
+| Function / Parameter | Description |
 |---|---|
-| `linkage(y, method, metric)` | `y` 는 데이터프레임 또는 축약형 거리행렬 |
-| `fcluster(Z, t, criterion)` | `maxclust` → `t` 는 군집 수 / `distance` → `t` 는 거리 상한 |
+| `linkage(y, method, metric)` | `y` is a data frame or abbreviated distance matrix |
+| `fcluster(Z, t, criterion)` | `maxclust` → `t` is the number of clusters / `distance` → `t` is the distance upper limit |
 | `AgglomerativeClustering` | `n_clusters`, `metric`, `linkage`, `distance_threshold` |
 
 ::: {.callout-important}
-## 자주 걸리는 지점
+## frequently occurring points
 
-- `AgglomerativeClustering` 의 거리 인자 이름은 구버전 `affinity`, 최신 버전 `metric` 입니다.
-- `linkage="ward"` 는 **유클리드 거리에서만** 정의됩니다. 다른 metric 과 조합하면 오류입니다.
-- `n_clusters` 와 `distance_threshold` 는 **동시에 지정할 수 없습니다**.
-  `distance_threshold` 를 쓰려면 `n_clusters=None` 이어야 합니다.
+- The distance argument name for `AgglomerativeClustering` is `affinity` for the old version and `metric` for the latest version.
+- `linkage="ward"` is defined **only by Euclidean distance**. Combining it with other metrics results in an error.
+- `n_clusters` and `distance_threshold` cannot be specified at the same time.
+To write `distance_threshold`, it must be `n_clusters=None`.
 :::
 
-## 밀도 기반 군집화 — DBSCAN
+## Density-based clustering — DBSCAN
 
-**DBSCAN** (Density-Based Spatial Clustering of Applications with Noise)
-은 데이터 포인트 주변의 밀도를 기준으로 군집을 형성합니다.
+**DBSCAN** (Density-Based Spatial Clustering of Applications with Noise) 
+forms clusters based on the density around data points.
 
-### 핵심 요소
+### Key Elements
 
-- $\epsilon$ **반경**: 이웃으로 간주할 주변 영역의 반경
-- **최소 이웃 수** (`min_samples`): 핵심 포인트가 되기 위한 $\epsilon$ 반경 내 최소 포인트 수
+- $\epsilon$ **Radius**: Radius of surrounding areas to be considered as neighbors
+- **Minimum Neighbor Count** (`min_samples`): Minimum number of points within a $\epsilon$ radius to become a key point
 
-### 포인트의 세 가지 분류
+### Three classifications of points
 
-| 분류 | 조건 |
+| Category | Condition |
 |---|---|
-| 핵심 포인트 (core) | $\epsilon$ 반경 안에 최소 이웃 수 이상의 포인트가 존재 |
-| 경계 포인트 (border) | 자신은 핵심이 아니지만, 어떤 핵심 포인트의 $\epsilon$ 반경 안에 있음 |
-| 잡음 포인트 (noise) | 핵심도 아니고 어떤 핵심 포인트의 반경에도 속하지 않음 |
+| Core Point | $\epsilon$ Points with a minimum number of neighbors exist within the radius |
+| Boundary point (border) | It is not a core, but is within the $\epsilon$ radius of a core point |
+| Noise point (noise) | Not a core and not within the radius of any core point |
 
-### 군집 형성 기준
+### Cluster formation criteria
 
-- **도달 가능성 (reachability)**: 핵심 포인트에서 $\epsilon$ 반경 내 다른 포인트로는 도달 가능합니다.
-  **비핵심 포인트에서는 다른 포인트로 도달할 수 없습니다.** — 이 비대칭성이 경계 포인트가
-  군집을 이어 붙이지 못하게 막는 장치입니다.
-- **밀도 연결 (density-connected)**: $p$ 와 $q$ 모두에 도달 가능한 포인트 $o$ 가 존재하면
-  $p$ 와 $q$ 는 밀도 연결 상태입니다.
-- **상호 밀도 연결된 모든 포인트가 하나의 군집을 이룹니다.**
+- **Reachability**: It is possible to reach other points within a $\epsilon$ radius from the core point.
+**You cannot reach other points from non-core points.** — This asymmetry 
+is the mechanism that prevents boundary points from joining clusters.
+- **Density-connected**: If there exists a point $o$ that is reachable to both $p$ and $q$,
+$p$ and $q$ are densely connected.
+- **All densely connected points form a single cluster.**
 
-### 학습 알고리즘
+### Learning algorithm
 
-1. 모든 포인트의 label 을 *미정의(undefined)* 로 초기화, 군집 번호 $C = 0$,
-   각 포인트의 $\epsilon$ 반경 이웃 목록을 계산
-2. label 이 미정의인 포인트 $P$ 를 선택 (없으면 종료)
-3. $P$ 의 이웃 수가 최소 이웃 수 미만이면 label 을 *잡음* 으로 표시하고 2로 이동
+1. Initialize labels of all points to *undefined*, cluster number $C = 0$,
+Calculate the list of $\epsilon$ radius neighbors for each point
+2. Select point $P$ where label is undefined (exit if none)
+3. If the neighbor count of $P$ is less than the minimum neighbor count, mark the label as *Noise* and move to 2.
 4. $C \leftarrow C + 1$, $\text{label}(P) = C$
-5. $P$ 에서 도달 가능한 포인트들을 리스트 $S$ 로 정의
-6. $S$ 에서 포인트 $Q$ 를 하나 꺼냄 (비었으면 2로 이동)
-7. $Q$ 가 *잡음* 이면 label 을 $C$ 로 변경 (경계 포인트가 됨), *미정의* 가 아니면 6으로 이동
-8. $\text{label}(Q) = C$ 로 설정하고, $Q$ 가 핵심 포인트이면 $Q$ 의 이웃을 $S$ 에 추가한 뒤 6으로 이동
+5. Define the reachable points from $P$ as list $S$
+6. Take one point $Q$ from $S$ (move to 2 if empty)
+7. If $Q$ is *noise*, change the label to $C$ (becomes the boundary point), otherwise move to 6.
+8. Set to $\text{label}(Q) = C$, and if $Q$ is the key point, add the neighbors of $Q$ to $S$ and then move to 6.
 
 ::: {.callout-important}
-## `min_samples` 는 자기 자신을 포함합니다
+## `min_samples` includes itself
 
-이론적 서술에서는 "자기 자신을 제외한 이웃 수"로 다루는 경우가 많지만,
-**scikit-learn 의 `DBSCAN` 은 자기 자신을 포함하여 계산**합니다.
+In theoretical descriptions, it is often treated as "number of neighbors excluding itself," but 
+**scikit-learn's `DBSCAN` calculates it including itself**.
 
-따라서 이론상 최소 이웃 수 $m$ 에 대응하려면 `min_samples = m + 1` 로 지정해야 합니다.
+Therefore, to correspond to the theoretical minimum neighbor number $m$, you must specify `min_samples = m + 1`.
 :::
 
 ```{python}
@@ -423,36 +422,36 @@ labels                       # -1 은 잡음 포인트
 db.core_sample_indices_      # 핵심 포인트의 인덱스
 ```
 
-| 하이퍼파라미터 | 설명 |
+| Hyperparameter | Description |
 |---|---|
-| `eps` | $\epsilon$ 반경 |
-| `min_samples` | 핵심 포인트 판정을 위한 반경 내 최소 표본 수 (**자기 자신 포함**) |
+| `eps` | $\epsilon$ Radius |
+| `min_samples` | Minimum sample size within radius for determining key points (**including itself**) |
 
-**특징**
+**Features**
 
-- 군집 수를 미리 정할 필요가 없습니다.
-- **비볼록(non-convex) 형태**의 군집을 찾을 수 있습니다 (동심원, 초승달 등).
-- 잡음을 명시적으로 분리합니다 → 이상치 탐색에 그대로 활용 가능합니다.
-- 반면 **밀도가 서로 다른 군집이 섞여 있으면** 단일 $\epsilon$ 으로는 잘 잡히지 않습니다.
-- 고차원에서는 거리 집중(distance concentration) 현상으로 $\epsilon$ 설정이 어려워집니다.
+- There is no need to predetermine the number of clusters.
+- You can find clusters of **non-convex shapes** (concentric circles, crescent moons, etc.).
+- Explicitly separates noise → Can be used directly for outlier detection.
+- On the other hand, if clusters of different densities are mixed, they are not captured well by a single $\epsilon$.
+- In higher dimensions, $\epsilon$ becomes difficult to set due to the distance concentration phenomenon.
 
-## 혼합 모델 기반 군집화 — 가우시안 혼합 모델
+## Mixture Model-Based Clustering — Gaussian Mixture Model
 
-데이터가 여러 확률 분포의 혼합으로 생성되었다고 가정합니다.
+Assume that the data was generated from a mixture of multiple probability distributions.
 
 $$
 p(x) = \sum_{j=1}^{C} \tau_j \, \mathcal{N}(x \mid \mu_j, \Sigma_j),
 \qquad \sum_{j=1}^{C} \tau_j = 1
 $$
 
-각 포인트는 소속 확률이 가장 높은 성분의 군집으로 배정됩니다.
-K-Means 의 **하드 할당**과 달리 GMM 은 **소프트 할당**(소속 확률)을 제공합니다.
+Each point is assigned to the cluster of the component with the highest membership probability. 
+Unlike K-Means' **hard assignment**, GMM provides **soft assignment** (membership probability).
 
-### EM 알고리즘
+### EM algorithm
 
-모수는 $\theta = (\mu, \Sigma, \tau)$ 입니다.
+The parameter is $\theta = (\mu, \Sigma, \tau)$.
 
-**E-step** — 각 포인트가 각 성분에 속할 사후확률(responsibility)을 계산합니다.
+**E-step** — Calculates the posterior probability (responsibility) that each point belongs to each component.
 
 $$
 T_{j,i}
@@ -460,7 +459,7 @@ T_{j,i}
        {\sum_{k=1}^{C} P(X_i = x_i \mid Z_i = k;\ \theta')\, P(Z = k)}
 $$
 
-**M-step** — responsibility 를 가중치로 모수를 갱신합니다.
+**M-step** — Updates parameters with responsibility as weights.
 
 $$
 \tau_j = \frac{1}{n}\sum_{i=1}^{n} T_{j,i},
@@ -471,19 +470,19 @@ $$
 $$
 
 ::: {.callout-tip collapse="true"}
-## K-Means 는 GMM 의 특수한 경우다
+## K-Means is a special case of GMM.
 
-GMM 에서 다음 제약을 걸면 K-Means 로 수렴합니다.
+In GMM, if the following constraints are applied, it converges to K-Means.
 
-1. 모든 성분의 공분산을 $\Sigma_j = \sigma^2 I$ (등방·동일)로 고정
+1. Covariance of all components is fixed at $\Sigma_j = \sigma^2 I$ (isotropic/identical).
 2. $\sigma^2 \to 0$
 
-이때 responsibility $T_{j,i}$ 는 가장 가까운 중심에 대해 1, 나머지는 0 이 되어
-**소프트 할당이 하드 할당으로 붕괴**합니다.
-M-step 의 $\mu_j$ 갱신식은 그대로 산술평균이 되므로, EM 이 곧 Lloyd 알고리즘이 됩니다.
+At this point, responsibility $T_{j,i}$ becomes 1 for the nearest center and 0 for the rest, so 
+**soft allocation collapses into hard allocation**. 
+Since the update formula $\mu_j$ of the M-step becomes the arithmetic mean, EM becomes the Lloyd algorithm.
 
-이 관점에서 보면 K-Means 의 "구형 군집 가정"은 사실 **등방 공분산 가정**이었음이 드러납니다.
-GMM 이 타원형 군집을 잡을 수 있는 이유도 $\Sigma_j$ 를 자유롭게 추정하기 때문입니다.
+From this perspective, it is revealed that K-Means' "spherical clustering assumption" was actually the **isotropic covariance assumption**. 
+The reason GMM can capture elliptical clusters is also because it freely estimates $\Sigma_j$.
 :::
 
 ```{python}
@@ -519,48 +518,48 @@ gm.predict_proba(X)  # 소프트 할당 (소속 확률)
 gm.means_, gm.covariances_, gm.weights_
 ```
 
-| 하이퍼파라미터 | 설명 |
+| Hyperparameter | Description |
 |---|---|
-| `n_components` | 군집(혼합 성분) 수 |
-| `n_init` | 초기화 및 학습 시행 수 |
-| `max_iter` | EM 반복 횟수 |
+| `n_components` | Number of clusters (mixed components) |
+| `n_init` | Initialization and training trials |
+| `max_iter` | EM Repeat Count |
 | `covariance_type` | `full`, `tied`, `diag`, `spherical` |
 
 ::: {.callout-warning}
-표본 수가 적거나 성분 수가 많으면 공분산 추정이 불안정해지고,
-극단적으로는 한 성분이 한 점에 붕괴하여 우도가 발산하는 **특이해(singularity)** 문제가 생깁니다.
-`reg_covar` 로 대각 성분에 작은 값을 더해 이를 방지합니다.
+If the sample size is small or the number of components is large, the covariance estimation becomes unstable, and 
+in extreme cases, a **singularity** problem occurs where one component collapses to a single point and the likelihood diverges. 
+This is prevented by adding small values to the diagonal components as `reg_covar`.
 :::
 
-## 군집화 모델 장단점 비교
+## Comparison of Clustering Model Pros and Cons
 
-| 모델 | 장점 | 단점 |
+| Model | Pros | Cons |
 |---|---|---|
-| K-Means / K-Medoids | 이해와 결과 해석이 쉽고 계산이 빠름 | 군집 수를 지정해야 함 / 초기값에 따라 결과가 달라져 일관성이 부족 |
-| 계층적 군집화 | 군집 수를 나중에 유연하게 정할 수 있고 나무 구조로 계층을 볼 수 있음 | 연산량이 큼 ($O(n^2)$ 메모리, $O(n^2 \log n)$ 이상) |
-| DBSCAN | 군집 수 지정 불필요 / 다양한 형태의 군집 탐지 / 잡음 분리 | 밀도가 다양한 데이터에 적용이 어려움 / $\epsilon$ 민감 |
-| 혼합 모델 | 타원형 군집과 소프트 할당 지원 / 확률적 해석 가능 | 데이터 수가 적으면 불안정 / 분포 가정 필요 |
+| K-Means / K-Medoids | Easy to understand and interpret results, fast computation | Number of clusters must be specified / Results vary depending on initial values, so there is a lack of consistency |
+| Hierarchical Clustering | Number of clusters can be flexibly determined later and hierarchy can be viewed in a tree structure | High computational load ($O(n^2)$ memory, $O(n^2 \log n)$ or more) |
+| DBSCAN | No need to specify cluster count / Detect various types of clusters / Noise separation | Difficult to apply to data with varying densities / $\epsilon$ Sensitive |
+| Mixed Model | Supports Elliptical Clustering and Soft Assignment / Stochastic Interpretation Possible | Unstable with Small Data Size / Requires Distribution Assumptions |
 
 ---
 
-# 차원 축소 (Dimension Reduction)
+# Dimension Reduction
 
-| 방법 | 기준 | 지도 여부 | 선형성 |
+| Method | Criteria | Map Status | Linearity |
 |---|---|---|---|
-| PCA | 분산 최대화 | 비지도 | 선형 |
-| SVD | 행렬 근사 | 비지도 | 선형 |
-| MDS | 거리 보존 | 비지도 | 선형/비선형 |
-| t-SNE | 이웃 확률 분포 보존 | 비지도 | 비선형 |
-| LDA | 클래스 판별력 최대화 | 지도 | 선형 |
-| PLS | 대상 변수와의 공분산 최대화 | 지도 | 선형 |
+| PCA | Variance Maximization | Unsupervised | Linear |
+| SVD | Matrix Approximation | Unsupervised | Linear |
+| MDS | Distance Preservation | Non-map | Linear/Non-linear |
+| t-SNE | Preserves neighborhood probability distribution | Unsupervised | Nonlinear |
+| LDA | Maximize Class Discrimination | Map | Linear |
+| PLS | Maximize Covariance with Target Variable | Map | Linear |
 
-## 주성분 분석 (PCA)
+## Principal Component Analysis (PCA)
 
-PCA 는 **공분산 행렬의 고윳값 분해**를 통해 데이터가 지닌 정보량(변동성)을 분석하는 방법입니다.
+PCA is a method that analyzes the amount of information (variability) contained in data through **eigenvalue decomposition of the covariance matrix**.
 
-### 공분산 행렬
+### Covariance Matrix
 
-$p$ 차원 데이터 $X$ 에 대해
+For $p$ dimension data $X$
 
 $$
 \operatorname{cov}(X) =
@@ -574,104 +573,104 @@ $$
 \sigma_{ij} = \frac{1}{n-1}\sum_{k=1}^{n}(x_{ki} - \bar{x}_i)(x_{kj} - \bar{x}_j)
 $$
 
-**주요 성질**
+**Key Properties**
 
-- 대각 요소 $\sigma_{ii}$ 는 $i$ 번째 변수의 분산입니다.
-- **대칭 행렬**입니다 ($\sigma_{ij} = \sigma_{ji}$).
-- **양의 준정부호(positive semi-definite)** 입니다.
-  즉 모든 벡터 $x$ 에 대해 $x^\top A x \ge 0$ 이며, 따라서 **모든 고윳값이 0 이상**입니다.
+- The diagonal element $\sigma_{ii}$ is the variance of the $i$-th variable.
+- **Symmetric matrix** ($\sigma_{ij} = \sigma_{ji}$).
+- **Positive semi-definite**.
+, that is, for every vector $x$, it is $x^\top A x \ge 0$, and therefore **all eigenvalues are greater than or equal to 0**.
 
-### 고윳값 분해
+### eigenvalue decomposition
 
-정방행렬 $A$ 에 대해 $Ax = \lambda x$ ($x \ne \mathbf{0}$) 를 만족하는 $x$ 를 고유벡터,
-$\lambda$ 를 고윳값이라 합니다. 이항하면
+For a square matrix $A$, $x$ satisfying $Ax = \lambda x$ ($x \ne \mathbf{0}$) is called an eigenvector and 
+$\lambda$ is called an eigenvalue. Rearranging the terms
 
 $$
 (A - \lambda I)x = \mathbf{0}
 $$
 
-이고, $x \ne \mathbf{0}$ 인 해가 존재하려면 $A - \lambda I$ 가 역행렬을 갖지 않아야 하므로
+Since and for a solution $x \ne \mathbf{0}$ to exist, $A - \lambda I$ must not have an inverse,
 
 $$
 \det(A - \lambda I) = 0
 $$
 
-이는 $\lambda$ 에 대한 $p$ 차 다항식이므로 고윳값은 최대 $p$ 개입니다.
+This is a $p$ degree polynomial for $\lambda$, so the eigenvalues are at most $p$.
 
-고유행렬 $Q = [\,q_1\ q_2\ \cdots\ q_p\,]$, 대각 행렬 $\Lambda = \operatorname{diag}(\lambda_1, \dots, \lambda_p)$ 로 두면
-$AQ = Q\Lambda$ 이고, 따라서
+If we let eigenmatrix $Q = [\,q_1\ q_2\ \cdots\ q_p\,]$ and diagonal matrix $\Lambda = \operatorname{diag}(\lambda_1, \dots, \lambda_p)$, then it is 
+$AQ = Q\Lambda$, and therefore
 
 $$
 A = Q \Lambda Q^{-1}
 $$
 
 ::: {.callout-tip collapse="true"}
-## 대칭행렬이면 $Q$ 가 직교행렬이 되는 이유
+## The reason why ZZZPH0004105ZZZ  is a symmetric matrix and $Q$ is an orthogonal matrix
 
-$A = A^\top$ 이므로
+$A = A^\top$ so
 
 $$
 A^\top = (Q \Lambda Q^{-1})^\top = (Q^{-1})^\top \Lambda Q^\top
 $$
 
-$A = A^\top$ 에서 $Q \Lambda Q^{-1} = (Q^{-1})^\top \Lambda Q^\top$ 이 성립하려면
-$Q^\top = Q^{-1}$ 여야 합니다.
+For ZZZPH0004107ZZZ ||| $Q \Lambda Q^{-1} = (Q^{-1})^\top \Lambda Q^\top$ to hold true in $A = A^\top$, 
+it must be $Q^\top = Q^{-1}$.
 
-$Q^\top Q = I$ 인 행렬을 **정규직교행렬(orthonormal matrix)** 이라 하며, 이때
+A matrix such that $Q^\top Q = I$ is called an **orthonormal matrix**, and at this
 
 $$
 A = Q \Lambda Q^\top
 $$
 
-가 됩니다. 직교행렬은 **회전(과 반사)** 이므로 벡터의 길이를 바꾸지 않습니다.
-이 사실이 뒤에서 "PCA 가 총 변동성을 보존한다"는 결론의 근거가 됩니다.
+It becomes . Since orthogonal matrices are **rotations (and reflections)**, they do not change the length of the vectors. 
+This fact serves as the basis for the conclusion later that "PCA preserves total variability."
 :::
 
-### PCA 의 유도
+### Induction of PCA
 
-$X_c = X - \bar{X}$ 로 평균 중심화하면 공분산 행렬을 그람 행렬로 쓸 수 있습니다.
+If you mean-center as $X_c = X - \bar{X}$, the covariance matrix can be written as a Gram matrix.
 
 $$
 A = \operatorname{cov}(X) = \frac{1}{n-1} X_c^\top X_c = Q \Lambda Q^\top
 $$
 
-양변에 $Q^\top, Q$ 를 곱하면
+If you multiply both sides by $Q^\top, Q$
 
 $$
 \Lambda = \frac{1}{n-1}\, Q^\top X_c^\top X_c\, Q = \frac{1}{n-1}\,(X_c Q)^\top (X_c Q)
 $$
 
-$X_c$ 의 평균이 0 이므로 $X_c Q$ 의 평균도 0 입니다. 따라서 **성분 행렬**
+Since the mean of $X_c$ is 0, the mean of $X_c Q$ is also 0. Therefore, **component matrix**
 
 $$
 C = X_c Q
 $$
 
-는 다음 성질을 가집니다.
+has the following properties.
 
-- $\Lambda$ 가 $C$ 의 공분산 행렬입니다.
-- $\Lambda$ 가 대각행렬이므로 **성분들 사이의 공분산은 모두 0** — 서로 독립(무상관)입니다.
-- 대각 요소 $\lambda_i$ 는 $i$ 번째 성분의 **분산 = 설명된 변동성**입니다.
-- $Q$ 가 직교행렬이므로 **데이터가 지닌 총 변동성이 보존**됩니다.
+- $\Lambda$ is the covariance matrix of $C$.
+- Since $\Lambda$ is a diagonal matrix, **the covariance between the components is all 0** — they are independent (uncorrelated).
+- The diagonal element $\lambda_i$ is the **variance = explained volatility** of the $i$-th component.
+- Since $Q$ is an orthogonal matrix, **the total variability of the data is preserved**.
 
 ::: {.callout-important}
-## 평균 중심화가 필요한 이유
+## Reasons why mean centering is necessary
 
-공분산 행렬을 $X_c^\top X_c$ 형태의 그람 행렬로 쓸 수 있으려면 평균이 0 이어야 합니다.
-중심화하지 않으면 첫 번째 주성분이 "데이터의 분산 방향"이 아니라
-**"원점에서 데이터 중심으로 향하는 방향"** 을 잡아버립니다.
+For the covariance matrix to be written as a Gram matrix of the form $X_c^\top X_c$, the mean must be 0. 
+If not centered, the first principal component 
+captures the **"direction from the origin to the center of the data"** instead of the "direction of data variance".
 
-표준화(z-score)를 하면 평균이 0 이 되므로 별도의 중심화는 필요 없습니다.
+Standardization (z-score) results in a mean of 0, so no separate centering is necessary.
 :::
 
-### 정리: PCA 의 절차
+### Summary: PCA Procedure
 
 1. $A = \operatorname{cov}(X)$
-2. $A = Q\Lambda Q^\top$ 로 고윳값 분해 → 고윳값 $\lambda_1, \dots, \lambda_p$ 와 고유행렬 $Q$
-3. $X_c = X - \bar{X}$ 로 평균 중심화
-4. $C = X_c Q$ 로 성분 도출 (고윳값 내림차순 정렬 전제)
+2. Eigenvalue decomposition into $A = Q\Lambda Q^\top$ → Eigenvalue $\lambda_1, \dots, \lambda_p$ and eigenmatrix $Q$
+3. Mean centering with $X_c = X - \bar{X}$
+4. Components derived as $C = X_c Q$ (assuming eigenvalues are sorted in descending order)
 
-**분산 설명력과 설명율**
+**Variance Explanatory Power and Explanation Rate**
 
 $$
 \text{설명력}_i = \lambda_i,
@@ -679,24 +678,24 @@ $$
 \text{설명율}_i = \frac{\lambda_i}{\sum_{k=1}^{p}\lambda_k}
 $$
 
-$\sum_i \lambda_i$ 는 데이터가 지닌 **전체 변동성**입니다.
-$c_1$ 부터 $c_r$ 까지 $r$ 개를 취하는 것은,
-$r$ 개의 변수로 선형 변환했을 때 **설명 가능한 변동량이 최대**인 선택입니다.
+$\sum_i \lambda_i$ is the **total variability** of the data. 
+Taking $r$ variables from $c_1$ to $c_r$ 
+is the choice that maximizes the **explainable variability** when linearly transformed into $r$ variables.
 
-### 역변환과 정보 손실
+### Inverse transformation and information loss
 
-선택한 성분만으로 원래 차원으로 되돌립니다.
+Returns to the original dimension with only the selected components.
 
 $$
 X' = C' Q'^{\top}
 $$
 
-- $C'$: 선택한 성분들로 이루어진 행렬
-- $Q'$: 선택한 성분에 대응하는 고유벡터로 구성된 행렬
+- $C'$: Matrix consisting of selected components
+- $Q'$: A matrix composed of eigenvectors corresponding to the selected components
 
-**모든 성분을 선택했다면** 이론상 원래 데이터와 동일합니다
-(실제로는 부동소수점 연산 오차로 미세한 차이가 있습니다).
-일부만 취했다면 **버린 고윳값의 합만큼** 변동성이 손실됩니다.
+**If all components are selected**, it is theoretically identical to the original data 
+(in reality, there are slight differences due to floating-point calculation errors). 
+If only a portion is taken, **volatility is lost by the sum of the discarded eigenvalues**.
 
 $$
 \frac{1}{n-1}\lVert X_c - X' \rVert_F^2 = \sum_{k=r+1}^{p} \lambda_k
@@ -742,40 +741,40 @@ C = pca.transform(X_std)       # 성분
 X_inv = pca.inverse_transform(C)  # 역변환
 ```
 
-| `n_components` 값 | 동작 |
+| `n_components` Value | Action |
 |---|---|
-| 정수 | 고윳값이 큰 순으로 그 개수만큼 성분 선택 |
-| 0~1 사이 실수 | 전체 변동성에서 그 비율 이상을 설명하는 **최소** 성분 수 선택 |
-| `None` | 전체 성분 선택 |
+| Integer | Select components in descending order of eigenvalue |
+| Real number between 0 and 1 | Select the **minimum** number of components explaining more than that proportion of total volatility |
+| `None` | Select All Ingredients |
 
 ::: {.callout-important}
-`pca.components_` 는 $Q$ 가 아니라 **$Q^\top$** 입니다.
-따라서 수동 역변환은 `C @ pca.components_` 이지 `C @ pca.components_.T` 가 아닙니다.
+`pca.components_` is not $Q$ but **$Q^\top$**. 
+Therefore, the manual inverse conversion is `C @ pca.components_`, not `C @ pca.components_.T`.
 :::
 
 ::: {.callout-warning}
-## 표준화 여부의 의미
+## Meaning of standardization status
 
-- **공분산 행렬 기반 PCA** (중심화만): 변수의 원래 스케일이 그대로 반영됩니다.
-  단위가 큰 변수가 주성분을 지배합니다.
-- **상관 행렬 기반 PCA** (표준화): 모든 변수를 동등하게 취급합니다.
+- **Covariance Matrix-based PCA** (Centering Only): The original scale of the variables is reflected as is.
+The variable with the larger unit dominates the principal component.
+- **Correlation Matrix-based PCA** (Standardized): Treats all variables equally.
 
-변수들의 단위가 다르면 **표준화가 사실상 필수**입니다.
+If the units of the variables are different, **standardization is practically essential**.
 :::
 
-## 특이값 분해 (SVD)
+## Singular Value Decomposition (SVD)
 
-$m \times n$ 행렬 $M$ 을 세 행렬의 곱으로 분해합니다.
+$m \times n$ decomposes the matrix $M$ into the product of three matrices.
 
 $$
 M = U \Sigma V^\top
 $$
 
-- $U$: $m \times m$ 정규직교행렬 ($U^\top U = I$) — **좌특이행렬**
-- $\Sigma$: $m \times n$ 대각행렬, 대각 요소를 **특이값**이라 합니다
-- $V$: $n \times n$ 정규직교행렬 ($V^\top V = I$) — **우특이행렬**
+- $U$: $m \times m$ Orthogonal matrix ($U^\top U = I$) — **Left singular matrix**
+- $\Sigma$: $m \times n$ Diagonal matrix, diagonal elements are called **singular values**.
+- $V$: $n \times n$ Orthogonal matrix ($V^\top V = I$) — **Right singular matrix**
 
-### 주요 성질
+### Main properties
 
 $$
 M M^\top = U \Sigma V^\top V \Sigma^\top U^\top = U \Sigma \Sigma^\top U^\top
@@ -787,15 +786,15 @@ M^\top M = V \Sigma^\top U^\top U \Sigma V^\top = V \Sigma^\top \Sigma V^\top
 \quad\Rightarrow\quad V \text{ 는 } M^\top M \text{ 의 고유벡터}
 $$
 
-### PCA 와의 관계
+### Relationship with PCA
 
-$X = M - E(M)$ 로 평균 중심화하면
+If we mean-center $X = M - E(M)$
 
 $$
 \operatorname{cov}(X) = \frac{1}{n-1} X^\top X = \frac{1}{n-1} V \Sigma^\top \Sigma V^\top
 $$
 
-따라서 PCA 의 구성 요소와 다음과 같이 대응됩니다.
+Therefore, it corresponds to the components of PCA as follows.
 
 $$
 Q = V,
@@ -806,18 +805,18 @@ C = XV = U\Sigma
 $$
 
 ::: {.callout-tip collapse="true"}
-## 왜 실무 구현은 SVD 를 쓰는가
+## Why SVD is used in practical implementations
 
-수식상으로는 공분산 행렬을 만들어 고윳값 분해해도 되지만, 실제 구현은 대부분 SVD 를 씁니다.
+Although mathematically it is possible to create a covariance matrix and perform eigenvalue decomposition, SVD is mostly used in actual implementations.
 
-1. **수치적 안정성** — $X^\top X$ 를 명시적으로 계산하면 조건수가 **제곱**됩니다.
-   특이값이 $\sigma$ 인 방향은 고윳값에서 $\sigma^2$ 이 되므로 작은 특이값이 반올림 오차에 묻힙니다.
-   SVD 는 $X$ 에 직접 작용하므로 이 문제를 피합니다.
-2. **메모리** — $p \gg n$ 인 경우 $p \times p$ 공분산 행렬을 만들지 않아도 됩니다.
-3. `sklearn.decomposition.PCA` 도 내부적으로 SVD 기반입니다.
+1. If you explicitly calculate **Numerical Stability** — $X^\top X$, the condition number becomes **squared**.
+In the direction where the singular value is $\sigma$, the eigenvalue becomes $\sigma^2$, so the small singular value is buried in the rounding error. 
+SVD avoids this problem because it acts directly on $X$.
+2. **Memory** — In the case of $p \gg n$, you do not need to create the $p \times p$ covariance matrix.
+3. `sklearn.decomposition.PCA` is also internally SVD-based.
 
-부호 주의: 고유벡터의 부호는 유일하지 않으므로, 고윳값 분해와 SVD 의 결과는
-**성분의 부호가 반대로 나올 수 있습니다.** 분산 설명율 등 크기 기반 해석에는 영향이 없습니다.
+Sign Note: Since the signs of eigenvectors are not unique, the results of eigenvalue decomposition and SVD 
+may have **component signs that are reversed.** This does not affect magnitude-based interpretations such as variance explanation.
 :::
 
 ```{python}
@@ -834,28 +833,28 @@ print("\nλ      =", np.round(lam, 4))
 print("S²/(n-1) =", np.round(S ** 2 / (n - 1), 4))
 ```
 
-### 축소된 특이값 분해 (Reduced SVD)
+### Reduced Singular Value Decomposition (Reduced SVD)
 
-| 종류 | 정의 | 특징 |
+| Type | Definition | Characteristics |
 |---|---|---|
-| **full SVD** | $M = U\Sigma V^{*}$ | 특이값과 무관하게 모든 특이벡터 포함 |
-| **thin SVD** | $M = U_k \Sigma_k V_k^{*}$, $k = \min(n,m)$ | $\Sigma$ 가 정방이 되는 만큼만 축소. $k \ll \max(n,m)$ 일 때 효율적 |
-| **compact SVD** | $M = U_r \Sigma_r V_r^{*}$ | 특이값이 0 이 아닌 것만 유지. $r \ll \min(n,m)$ 일 때 효율적 |
-| **truncated SVD** | $\bar{M} = U_t \Sigma_t V_t^{*}$ | 특이값이 임계값 이상인 것만 유지. **$M$ 과 같지 않은 근사 행렬** |
+| **full SVD** | $M = U\Sigma V^{*}$ | Includes all singular vectors regardless of singular values |
+| **thin SVD** | $M = U_k \Sigma_k V_k^{*}$, $k = \min(n,m)$ | $\Sigma$ Reduces only as much as becomes square. Efficient when $k \ll \max(n,m)$ |
+| **compact SVD** | $M = U_r \Sigma_r V_r^{*}$ | Keeps only non-zero singular values. Efficient when $r \ll \min(n,m)$ |
+| **truncated SVD** | $\bar{M} = U_t \Sigma_t V_t^{*}$ | Keep only those singular values above the threshold. **Approximation matrix not equal to $M$** |
 
 ::: {.callout-tip collapse="true"}
-## Truncated SVD 가 "최적" 근사인 이유 — Eckart–Young 정리
+## Why Truncated SVD is the "Optimal" Approximation — Eckart–Young Theorem
 
-랭크 $r$ 이하의 모든 행렬 $B$ 중에서, 큰 특이값 $r$ 개만 남긴 $\bar{M}_r$ 이
-Frobenius 노름과 스펙트럴 노름 **양쪽 모두**에서 $M$ 에 가장 가까운 근사입니다.
+Among all matrices $r$ and below, $B$, $\bar{M}_r$, which has only large singular values $r$, 
+is the closest approximation to $M$ in both the Frobenius norm and the spectral norm.
 
 $$
 \lVert M - \bar{M}_r \rVert_F = \min_{\operatorname{rank}(B) \le r} \lVert M - B \rVert_F
 = \sqrt{\sum_{i > r} \sigma_i^2}
 $$
 
-즉 "큰 특이값부터 취한다"는 탐욕적 선택이 실제로 전역 최적입니다.
-PCA 에서 "큰 고윳값부터 취한다"가 최적인 것과 같은 이야기입니다.
+In other words, the greedy choice of "taking the largest singular value first" is actually the global optimal. 
+This is the same story as "taking the largest eigenvalue first" being optimal in PCA.
 :::
 
 ```{python}
@@ -870,14 +869,14 @@ X_reduced = tsvd.fit_transform(X_sparse)     # 희소 행렬에 효율적
 ```
 
 ::: {.callout-important}
-## `PCA` 와 `TruncatedSVD` 의 결정적 차이
+## The decisive difference between `PCA` and `TruncatedSVD`
 
-`TruncatedSVD` 는 **평균 중심화를 하지 않습니다.**
+`TruncatedSVD` does not mean center.
 
-- 이는 의도된 설계입니다. 텍스트 카운트 행렬 같은 **희소 행렬을 중심화하면
-  0 이 대부분이던 행렬이 밀집(dense) 행렬이 되어 메모리가 폭발**하기 때문입니다.
-- 그래서 희소 행렬 기반 차원 축소(LSA 등)에는 `TruncatedSVD` 를 씁니다.
-- 반대로 밀집 데이터에 `TruncatedSVD` 를 쓰면 PCA 와 다른 결과가 나옵니다.
+- This is the intended design. If you center a **sparse matrix like a text count matrix
+This is because the matrix, which was mostly 0, becomes a dense matrix, causing memory to explode**.
+- So, for sparse matrix-based dimensionality reduction (LSA, etc.), `TruncatedSVD` is used.
+- Conversely, if you use `TruncatedSVD` on dense data, you get a different result from PCA.
 :::
 
 ```{python}
@@ -897,24 +896,24 @@ print("PCA 결과의 평균          :", np.round(p_out.mean(axis=0), 6))
 print("TruncatedSVD 결과의 평균 :", np.round(t_out.mean(axis=0), 4))
 ```
 
-## 다차원 척도법 (MDS)
+## Multidimensional Scaling (MDS)
 
-$k$ 차원 데이터를 $m \le k$ 차원으로, **원래 데이터 사이의 거리 정보를 최대한 유지하면서** 변환합니다.
+Converts $k$ dimension data to $m \le k$ dimension, **while preserving distance information between the original data as much as possible**.
 
-### 고전적 MDS (Classical MDS)
+### Classical MDS (Classical MDS)
 
-**메트릭 거리**(비음성, 대칭성, 삼각 부등식을 만족하는 거리, 예: 유클리드 거리)만 지원하며,
-**strain** 손실 함수를 최소화합니다.
+Supports only **metric distances** (distances satisfying non-negative, symmetric, and triangle inequalities, e.g., Euclidean distance) and 
+minimizes the **strain** loss function.
 
 $$
 \text{Strain}_D(x_1, \dots, x_n)
 = \sqrt{ \frac{\sum_{i,j}\left(b_{ij} - x_i^\top x_j\right)^2}{\sum_{i,j} b_{ij}^2} }
 $$
 
-**학습 알고리즘**
+**Learning Algorithm**
 
-1. 제곱 거리 행렬 $D^{(2)} = [\,d_{ij}^2\,]$ 를 준비
-2. **이중 중심화(double centering)** 로 $B$ 를 계산
+1. Prepare the squared distance matrix $D^{(2)} = [\,d_{ij}^2\,]$
+2. Calculate $B$ using **double centering**
 
    $$
    C = I - \tfrac{1}{n}J \ \ (J \text{ 는 모든 요소가 1인 } n \times n \text{ 행렬}),
@@ -922,30 +921,30 @@ $$
    B = -\tfrac{1}{2}\, C D^{(2)} C
    $$
 
-3. $B$ 를 고윳값 분해하고 고윳값이 큰 $m$ 개를 선택하여
-   고유벡터 행렬 $Q_m$ 과 $\Lambda_m^{1/2}$ 을 구성
+3. We perform eigenvalue decomposition of $B$ and select $m$ with large eigenvalues
+Construct the eigenvector matrices $Q_m$ and $\Lambda_m^{1/2}$
 4. $X_{\text{mds}} = Q_m \Lambda_m^{1/2}$
 
 ::: {.callout-tip collapse="true"}
-## 유클리드 거리에서 고전적 MDS = PCA
+## Classical MDS = PCA in Euclidean distance
 
-이중 중심화 행렬 $B$ 는 사실 **중심화된 데이터의 그람 행렬**입니다.
+The double centering matrix $B$ is actually the **Gram matrix of the centered data**.
 
 $$
 B = -\tfrac{1}{2} C D^{(2)} C = X_c X_c^\top
 $$
 
-한편 PCA 는 $X_c^\top X_c$ 를 분해합니다.
-$X_c X_c^\top$ 와 $X_c^\top X_c$ 는 **0 이 아닌 고윳값이 완전히 동일**하고
-(SVD 로 보면 둘 다 $\Sigma^2$),
-$B$ 의 고유벡터는 $U$, PCA 의 고유벡터는 $V$ 입니다.
+Meanwhile, PCA decomposes $X_c^\top X_c$. 
+$X_c X_c^\top$ and $X_c^\top X_c$ have completely identical non-zero eigenvalues 
+(both are $\Sigma^2$ when viewed via SVD), 
+the eigenvector of $B$ is $U$, and the eigenvector of PCA is $V$.
 
 $$
 X_{\text{mds}} = U_m \Sigma_m = X_c V_m = C_{\text{PCA}}
 $$
 
-따라서 **유클리드 거리를 쓰는 고전적 MDS 는 PCA 와 같은 결과**를 줍니다.
-거리 행렬만 주어지고 원 데이터가 없을 때 PCA 를 대신할 수 있다는 것이 실용적 의미입니다.
+Therefore, **classical MDS using Euclidean distance yields the same result as PCA**. 
+This has practical significance as it can substitute for PCA when only the distance matrix is given and the original data is unavailable.
 :::
 
 ```{python}
@@ -967,18 +966,18 @@ print("classical MDS == PCA (부호 제외):",
       np.allclose(np.abs(X_mds), np.abs(X_pca)))
 ```
 
-### Metric MDS 와 Non-metric MDS
+### Metric MDS and Non-metric MDS
 
-**Metric MDS** — 고전적 MDS 를 다양한 거리로 일반화하고, **stress** 손실을 최소화합니다.
+**Metric MDS** — Generalizes classical MDS to various distances and minimizes **stress** loss.
 
 $$
 \text{stress}_D(x_1, \dots, x_n)
 = \sqrt{\sum_{i \ne j} \left(d_{ij} - \lVert x_i - x_j \rVert\right)^2}
 $$
 
-최적화는 stress majorization 알고리즘을 사용합니다.
+Optimization uses the stress majorization algorithm.
 
-**Non-metric MDS** — 거리 자체가 아니라 **거리의 순위(rank)** 를 유지합니다.
+**Non-metric MDS** — Maintains the **rank** of the distance, not the distance itself.
 
 $$
 \text{stress}_D
@@ -986,7 +985,7 @@ $$
               {\sum_{i<j}\left(\lVert x_i - x_j \rVert\right)^2}}
 $$
 
-여기서 $f$ 는 **단조 증가 함수**입니다. 거리가 서열 척도일 때 적합합니다.
+where $f$ is a **monotonically increasing function**. It is suitable when distance is an ordinal scale.
 
 ```{python}
 #| label: mds-api
@@ -997,17 +996,17 @@ X_mds = mds.fit_transform(X)
 mds.stress_
 ```
 
-| 하이퍼파라미터 | 설명 |
+| Hyperparameter | Description |
 |---|---|
-| `n_components` | 출력 차원 수 |
+| `n_components` | Number of output dimensions |
 | `metric` | `True` → metric MDS / `False` → non-metric MDS |
-| `dissimilarity` | `euclidean` 또는 `precomputed` (거리행렬 직접 입력) |
+| `dissimilarity` | `euclidean` or `precomputed` (direct input of distance matrix) |
 
 ## t-SNE
 
-고차원 데이터를 **시각화**하기 위해 2~3 차원으로 축소하는 확률적 방법입니다.
+This is a probabilistic method for reducing high-dimensional data to 2-3 dimensions for **visualization**.
 
-**원 공간** — 가우시안 기반 조건부 확률을 정의하고 대칭화합니다.
+**Circular Space** — Defines and symmetries Gaussian-based conditional probabilities.
 
 $$
 p_{j|i} = \frac{\exp\left(-\lVert x_i - x_j \rVert^2 / 2\sigma_i^2\right)}
@@ -1016,14 +1015,14 @@ p_{j|i} = \frac{\exp\left(-\lVert x_i - x_j \rVert^2 / 2\sigma_i^2\right)}
 p_{ij} = \frac{p_{j|i} + p_{i|j}}{2n}
 $$
 
-**축소 공간** — 자유도 1 인 $t$ 분포를 사용합니다.
+**Reduced space** — Uses the $t$ distribution with 1 degree of freedom.
 
 $$
 q_{ij} = \frac{\left(1 + \lVert y_i - y_j \rVert^2\right)^{-1}}
               {\sum_{k}\sum_{l \ne k}\left(1 + \lVert y_k - y_l \rVert^2\right)^{-1}}
 $$
 
-**손실 함수** — 두 분포의 KL divergence 를 경사하강법으로 최소화합니다.
+**Loss function** — Minimize the KL divergence of the two distributions using gradient descent.
 
 $$
 L = \mathrm{KL}(P \Vert Q) = \sum_{i \ne j} p_{ij} \log \frac{p_{ij}}{q_{ij}}
@@ -1035,13 +1034,13 @@ $$
 $$
 
 ::: {.callout-tip collapse="true"}
-## 왜 축소 공간만 $t$ 분포인가 — crowding problem
+## Why is only the reduced space $t$ distribution — crowding problem
 
-고차원에서 "서로 적당히 떨어진" 점들의 개수는 차원이 커질수록 기하급수적으로 늘어납니다.
-이들을 2차원에 배치하려 하면 **공간이 부족**해서 중간 거리의 점들이 모두 중앙으로 뭉개집니다.
-이것이 crowding problem 입니다.
+In high dimensions, the number of "reasonably separated" points increases exponentially as the dimension increases. 
+If you try to arrange them in 2D, **space is insufficient**, so points of intermediate distance are all compressed towards the center. 
+This is the crowding problem.
 
-자유도 1 인 $t$ 분포는 가우시안보다 **꼬리가 두껍습니다**.
+The $t$ distribution with 1 degree of freedom has **thicker tails** than the Gaussian.
 
 $$
 q \propto \left(1 + \lVert y_i - y_j\rVert^2\right)^{-1}
@@ -1049,18 +1048,18 @@ q \propto \left(1 + \lVert y_i - y_j\rVert^2\right)^{-1}
 p \propto \exp\left(-\lVert x_i - x_j \rVert^2 / 2\sigma^2\right)
 $$
 
-같은 확률값 $q$ 를 얻으려면 $t$ 분포 쪽에서 **훨씬 더 먼 거리**가 필요합니다.
-결과적으로 중간 거리의 점 쌍이 저차원에서 더 넉넉하게 벌어질 여유가 생기고,
-군집 구조가 뭉개지지 않게 됩니다.
+To obtain the same probability value $q$, a **much greater distance** is required from the $t$ distribution. 
+As a result, there is room for intermediate distance pairs to spread out more generously in lower dimensions, and 
+the cluster structure does not get crushed.
 :::
 
 ::: {.callout-warning}
-## t-SNE 결과 해석 시 주의
+## t-SNE Caution When Interpreting Results
 
-- **군집 사이의 거리는 의미가 없습니다.** 두 군집이 멀리 떨어져 보여도 실제로 먼 것은 아닙니다.
-- **군집의 크기(면적)도 의미가 없습니다.** 밀도가 높은 군집이 확대되어 보입니다.
-- 초기값과 `perplexity` 에 따라 결과가 크게 달라지는 **비결정적** 방법입니다.
-- `transform` 메서드가 없습니다 → **새 데이터에 적용할 수 없고, 시각화 전용**입니다.
+- **The distance between clusters is meaningless.** Even if two clusters appear far apart, they are not actually far apart.
+- **The size (area) of the cluster is also meaningless.** High-density clusters appear magnified.
+- This is a **non-deterministic** method where the result varies significantly depending on the initial value and `perplexity`.
+- `transform` No method found → **Cannot be applied to new data, visualization only**.
 :::
 
 ```{python}
@@ -1071,45 +1070,45 @@ tsne = TSNE(n_components=2, perplexity=30, random_state=0)
 X_tsne = tsne.fit_transform(X)   # fit_transform 만 존재 (transform 없음)
 ```
 
-| 하이퍼파라미터 | 설명 |
+| Hyperparameter | Description |
 |---|---|
-| `n_components` | 출력 차원 수 (보통 2 또는 3) |
-| `perplexity` | 5~50 사이, 유효 이웃 수에 해당. 데이터가 클수록 큰 값 |
+| `n_components` | Number of output dimensions (usually 2 or 3) |
+| `perplexity` | Between 5 and 50, corresponds to the number of significant neighbors. Larger data corresponds to larger values.
 
-## 선형판별분석 (LDA)
+## Linear Discriminant Analysis (LDA)
 
-PCA 가 "데이터를 가장 잘 설명하는" 선형 변환을 찾는다면,
-LDA 는 **"클래스를 가장 잘 구분하는"** 선형 변환을 찾습니다. → **지도 학습 기반 차원 축소**
+If PCA finds the linear transformation that "best explains the data," 
+LDA finds the linear transformation that **"best distinguishes classes"**. → **Supervised learning-based dimensionality reduction**
 
-### 아이디어
+### Idea
 
-- **클래스 간 변동성은 최대화**, **클래스 내 변동성은 최소화**
+- **Maximize between-class volatility**, **Minimize within-class volatility**
 
-**클래스 간 공분산**
+**Covariance between classes**
 
 $$
 \Sigma_b = \frac{1}{C}\sum_{i=1}^{C}(\mu_i - \mu)(\mu_i - \mu)^\top
 $$
 
-$\mu_i$ 는 클래스 $i$ 의 평균점, $\mu$ 는 전체 평균점입니다.
+$\mu_i$ is the average score of class $i$, and $\mu$ is the overall average score.
 
-**클래스 내 공분산은 모든 클래스에서 동일하다고 가정합니다.**
+**It is assumed that within-class covariance is the same across all classes.**
 
 $$
 \Sigma = \Sigma_1 = \cdots = \Sigma_C
 $$
 
-### 학습 알고리즘
+### Learning algorithm
 
-$\Sigma_b$ 의 변동성을 최대로 설명하는 변환은 고윳값 분해로 얻습니다.
+The transformation that explains the maximum volatility of $\Sigma_b$ is obtained through eigenvalue decomposition.
 
 $$
 \Sigma_b = Q_b \Lambda_b Q_b^\top
 $$
 
-이때 0 이 아닌 고윳값은 **최대 $C-1$ 개**입니다.
+At this time, the number of non-zero eigenvalues is **maximum $C-1$**.
 
-클래스 내 공분산을 최소화하는 변환은 역행렬을 취하면 됩니다.
+The transformation that minimizes the within-class covariance is the inverse matrix.
 
 $$
 \Sigma = Q \Lambda Q^\top
@@ -1117,42 +1116,42 @@ $$
 \Sigma^{-1} = Q \Lambda^{-1} Q^\top
 $$
 
-$\Lambda$ 가 역수가 되므로 최소화 방향이 됩니다.
-두 과정을 하나의 고윳값 분해로 통합합니다.
+Since $\Lambda$ becomes the reciprocal, it becomes the direction of minimization. 
+The two processes are combined into a single eigenvalue decomposition.
 
 $$
 S = \Sigma^{-1}\Sigma_b
 $$
 
-$S$ 를 고윳값 분해하면 클래스 간 변동성을 최대한 설명하는 선형 변환과
-각 성분의 설명력을 동시에 얻습니다.
+By performing eigenvalue decomposition on $S$, 
+we simultaneously obtain a linear transformation that explains the variability between classes to the maximum extent and the explanatory power of each component.
 
 ::: {.callout-important}
-## $S$ 는 대칭행렬이 아닙니다
+## $S$ is not a symmetric matrix
 
-$\Sigma^{-1}$ 과 $\Sigma_b$ 는 각각 대칭이지만, **두 대칭행렬의 곱은 일반적으로 대칭이 아닙니다.**
+$\Sigma^{-1}$ and $\Sigma_b$ are each symmetric, but **the product of two symmetric matrices is generally not symmetric.**
 
-따라서 `numpy.linalg.eigh` 가 아니라 **`numpy.linalg.eig` 를 사용해야 합니다.**
-`eigh` 는 대칭(에르미트) 행렬 전용이며, 비대칭 행렬에 쓰면 잘못된 결과를 냅니다.
+Therefore, you must use **`numpy.linalg.eig`** instead of `numpy.linalg.eigh`. 
+`eigh` is for symmetric (Hermitian) matrices only and produces incorrect results when used for asymmetric matrices.
 
-`eig` 는 복소수 고윳값을 반환할 수 있으므로 `.real` 로 실수부를 취해야 합니다.
+Since `eig` can return complex eigenvalues, you must take the real part as `.real`.
 :::
 
 ::: {.callout-tip collapse="true"}
-## 성분 수의 상한이 $\min(C-1, p)$ 인 이유
+## The reason the upper limit of the number of ingredients is $\min(C-1, p)$
 
-$\Sigma_b$ 는 $C$ 개의 평균 편차 벡터 $(\mu_i - \mu)$ 의 외적 합입니다.
-그런데 이 $C$ 개 벡터에는 제약이 하나 있습니다.
+$\Sigma_b$ is the sum of the cross products of $C$ average deviation vectors $(\mu_i - \mu)$. 
+However, there is one constraint on these $C$ vectors.
 
 $$
 \sum_{i=1}^{C} n_i (\mu_i - \mu) = \mathbf{0}
 $$
 
-전체 평균의 정의상 편차의 가중합이 0 이므로, $C$ 개 벡터 중 하나는 나머지의 선형 결합입니다.
-따라서 $\operatorname{rank}(\Sigma_b) \le C - 1$ 이고,
-$S = \Sigma^{-1}\Sigma_b$ 의 랭크도 이를 넘지 못합니다.
+Since the weighted sum of deviations of the overall mean is 0 by definition, one of the $C$ vectors is a linear combination of the remainders. 
+Therefore, $\operatorname{rank}(\Sigma_b) \le C - 1$, and 
+the rank of $S = \Sigma^{-1}\Sigma_b$ does not exceed this.
 
-물론 변수 개수 $p$ 도 넘을 수 없으므로 최종 상한은 $\min(C-1,\ p)$ 입니다.
+Of course, since the number of variables $p$ cannot be exceeded, the final upper limit is $\min(C-1,\ p)$.
 :::
 
 ```{python}
@@ -1180,68 +1179,68 @@ X_lda = lda.fit_transform(X, y)        # y 필요 (지도 학습)
 lda.explained_variance_ratio_
 ```
 
-| 하이퍼파라미터 | 설명 |
+| Hyperparameter | Description |
 |---|---|
-| `n_components` | 출력 성분 수, 최대 $\min(C-1,\ p)$ |
-| `solver` | `svd`(기본), `lsqr`, `eigen` |
+| `n_components` | Number of output components, max $\min(C-1,\ p)$ |
+| `solver` | `svd` (default), `lsqr`, `eigen` |
 
 **PCA vs LDA**
 
-| 항목 | PCA | LDA |
+| Item | PCA | LDA |
 |---|---|---|
-| 목표 | 총 변동성 최대 설명 | 클래스 판별력 최대화 |
-| 레이블 | 불필요 (비지도) | 필요 (지도) |
-| 성분 수 상한 | $p$ | $\min(C-1,\ p)$ |
-| 용도 | 압축, 잡음 제거, 시각화 | 분류 전처리, 판별 시각화 |
+| Goal | Maximize total volatility explanation | Maximize class discrimination |
+| Label | Unnecessary (Unmapped) | Required (Mapped) |
+| Ingredient Count Limit | $p$ | $\min(C-1,\ p)$ |
+| Applications | Compression, noise reduction, visualization | Classification preprocessing, discrimination visualization |
 
-## 부분 최소 제곱 회귀 (PLS)
+## Partial Least Squares Regression (PLS)
 
-입력 $X$ 와 **수치형 대상 변수 $y$ 의 공분산이 최대**가 되는 선형 변환을 찾습니다.
+Find the linear transformation that maximizes the covariance between the input $X$ and the numeric target variable $y$.
 
-### 최적 방향의 유도
+### Induction of optimal direction
 
-선형 변환을 $t = Xw$ 로 두고, $X$ 와 $y$ 가 평균 중심화되었다고 가정하면
+Let be the linear transformation $t = Xw$, and assuming that $X$ and $y$ are mean-centered,
 
 $$
 \operatorname{cov}(t, y) = \frac{1}{n-1} w^\top X^\top y
 = \frac{1}{n-1}\lVert w \rVert \cdot \lVert X^\top y \rVert \cos\theta
 $$
 
-$-1 \le \cos\theta \le 1$ 이므로 $\cos\theta = 1$ 일 때, 즉 $w$ 와 $X^\top y$ 가 **같은 방향**일 때 최대입니다.
-$\lVert w \rVert = 1$ 로 정규화하면
+Since $-1 \le \cos\theta \le 1$, it is maximum when $\cos\theta = 1$, that is, when $w$ and $X^\top y$ are in the **same direction**. 
+If normalized to $\lVert w \rVert = 1$
 
 $$
 w = \frac{X^\top y}{\lVert X^\top y \rVert}
 $$
 
-### NIPALS 알고리즘
+### NIPALS algorithm
 
-1. $X$, $y$ 를 평균 중심화
+1. Mean centering $X$, $y$
 2. $w = \dfrac{X^\top y}{\lVert X^\top y \rVert}$
-3. $t = Xw$ 와 $y$ 로 정규방정식을 풀어 회귀 계수를 구함
+3. Calculated regression coefficients by solving the normal equation using $t = Xw$ and $y$
    $$\beta = (t^\top t)^{-1}(t^\top y)$$
-4. **Deflation** — $y$ 에서 이미 설명된 부분을 제거
+4. Remove the part already explained in **Deflation** — $y$
    $$y \leftarrow y - \beta t$$
-5. $w$, $\beta$, $t$ 를 저장
-6. 종료 조건을 만족할 때까지 2 로 이동
+5. Save $w$, $\beta$, $t$
+6. Move to 2 until the exit condition is satisfied
 
 ::: {.callout-tip collapse="true"}
-## PCR 과의 차이 — y 를 보느냐 마느냐
+## Difference from PCR — Whether or not to look at y
 
-**PCR** (Principal Component Regression, PCA + 회귀)은
-$X$ 의 분산이 큰 방향부터 성분을 뽑습니다. 이 과정에서 **$y$ 를 전혀 보지 않습니다.**
+**PCR** (Principal Component Regression, PCA + Regression) 
+extracts components starting from the direction of greater variance of $X$. In this process, **$y$ is not considered at all.**
 
-문제는 "$X$ 에서 분산이 큰 방향"과 "$y$ 를 잘 예측하는 방향"이 일치한다는 보장이 없다는 점입니다.
-$y$ 와 강하게 연관된 신호가 $X$ 에서는 작은 분산 방향에 있다면,
-PCR 은 그 성분을 버려버립니다.
+The problem is that there is no guarantee that the "direction of large variance in $X$" matches the "direction that predicts $y$ well." If 
+a signal strongly associated with $y$ lies in the direction of small variance in $X$, 
+PCR discards that component.
 
-PLS 는 $\operatorname{cov}(t, y)$ 를 직접 최대화하므로 이 문제가 없습니다.
-분산과 상관을 동시에 고려한다고 볼 수 있습니다 —
+PLS directly maximizes $\operatorname{cov}(t, y)$, so this problem does not exist. 
+It can be seen as considering variance and correlation simultaneously — 
 $\operatorname{cov}(t,y) = \operatorname{corr}(t,y)\sqrt{\operatorname{var}(t)}\sqrt{\operatorname{var}(y)}$
 
-**Deflation 이 필요한 이유**: $y$ 에서 이미 설명된 부분을 빼지 않으면
-다음 반복에서 계속 같은 방향이 나옵니다. 잔차에서 다시 최대 공분산 방향을 찾아야
-서로 다른 정보를 담은 성분들이 순차적으로 추출됩니다.
+**Reason why deflation is necessary**: If the part already explained in $y$ is not removed, 
+the same direction will continue to appear in subsequent iterations. The direction of maximum covariance must be identified again from the residuals so that 
+components containing different information are extracted sequentially.
 :::
 
 ```{python}
@@ -1256,57 +1255,57 @@ pls.predict(X_test)            # 회귀 예측까지 한 번에
 ```
 
 ::: {.callout-note}
-`PLSRegression` 은 차원 축소와 회귀를 동시에 수행합니다.
-성분만 필요하면 `transform`, 예측이 필요하면 `predict` 를 씁니다.
+`PLSRegression` performs dimensionality reduction and regression simultaneously. 
+Use `transform` if you only need components, and `predict` if you need prediction.
 :::
 
 ---
 
-# 이상치 탐색 (Outlier Detection)
+# Outlier Detection
 
-## 이상치 탐색 vs 신규성 탐색
+## Outlier Detection vs. Novelty Detection
 
-| 구분 | 정의 | 학습 데이터 |
+| Classification | Definition | Training Data |
 |---|---|---|
-| **이상치 탐색** (outlier detection) | 주어진 데이터 **내에서** 주요 특성과 상이한 극단적 데이터를 탐지 | 이상치가 **섞여 있음** |
-| **신규성 탐색** (novelty detection) | **새로 주어진** 데이터가 기존 데이터의 특성과 상이한지 탐지 | 이상치가 **없다고 가정** |
+| **Outlier Detection** | Detects extreme data that differs from key features **within** the given data | Outliers **are mixed in** |
+| **Novelty Detection** | Detects whether **newly given** data differs in characteristics from existing data | Assumes **no outliers** |
 
 ::: {.callout-important}
-scikit-learn 의 `LocalOutlierFactor` 는 `novelty` 파라미터로 두 모드를 전환합니다.
+scikit-learn's `LocalOutlierFactor` switches between two modes with the `novelty` parameter.
 
-| `novelty` | 사용 가능한 메서드 | 용도 |
+| `novelty` | Available Methods | Usage |
 |---|---|---|
-| `False` (기본) | `fit_predict` **만** | 이상치 탐색 |
-| `True` | `fit` 후 `predict`, `decision_function` | 신규성 탐색 |
+| `False` (Default) | `fit_predict` **only** | Outlier Detection |
+| `True` | `fit` after `predict`, `decision_function` | Novelty Search |
 
-`novelty=True` 로 두고 `fit_predict` 를 호출하면 오류가 납니다. 반대도 마찬가지입니다.
+If you set it to `novelty=True` and call `fit_predict`, an error occurs. The same applies in the opposite case.
 :::
 
 ## Local Outlier Factor (LOF)
 
-밀도 기반 이상치 탐색 방법입니다.
-**주변 이웃과의 밀도 비율**로 이상치 점수를 산정합니다.
+This is a density-based outlier detection method. 
+It calculates an outlier score based on the **density ratio with neighbors**.
 
-### 개념 정의
+### Concept Definition
 
-1. **$k\text{-distance}(A)$** — $A$ 에서 $k$ 번째로 가까운 포인트까지의 거리
+1. **$k\text{-distance}(A)$** — Distance from $A$ to the $k$ closest point
 
-2. **$N_k(A)$** — $k\text{-distance}(A)$ 안에 들어온 데이터 개수
-   (동점(tie)이 있으면 $k$ 보다 커질 수 있습니다)
+2. **$N_k(A)$** — Number of data items entered within $k\text{-distance}(A)$
+(If there is a tie, it can become larger than $k$)
 
-3. **도달 거리 (Reachability Distance)**
+3. **Reachability Distance**
 
    $$
    \text{RD}(A, B) = \max\{\,k\text{-distance}(B),\ d(A, B)\,\}
    $$
 
-4. **지역 도달 밀도 (Local Reachability Density)**
+4. **Local Reachability Density**
 
    $$
    \text{LRD}(A) = \frac{1}{\dfrac{\sum_{B \in N_k(A)} \text{RD}(A, B)}{|N_k(A)|}}
    $$
 
-   $A$ 가 주변 데이터에서 멀리 떨어져 있을수록 LRD 는 작아집니다.
+The further $A$ is from surrounding data, the smaller the LRD becomes.
 
 5. **Local Outlier Factor**
 
@@ -1314,28 +1313,28 @@ scikit-learn 의 `LocalOutlierFactor` 는 `novelty` 파라미터로 두 모드�
    \text{LOF}_k(A) = \frac{1}{|N_k(A)|}\sum_{B \in N_k(A)} \frac{\text{LRD}(B)}{\text{LRD}(A)}
    $$
 
-### 해석
+### Interpretation
 
-| LOF 값 | 의미 |
+| LOF Value | Meaning |
 |---|---|
-| $\approx 1$ | 이웃과 밀도가 유사 |
-| $< 1$ | 이웃보다 밀도가 높음 (inlier) |
-| $> 1$ | 이웃보다 밀도가 낮음 → **이상치** |
+| $\approx 1$ | Similar density with neighbors |
+| $< 1$ | Higher density than neighbor (inlier) |
+| $> 1$ | Lower density than neighbors → **Outlier** |
 
 ::: {.callout-tip collapse="true"}
-## 왜 거리 대신 도달 거리(RD)를 쓰는가
+## Why use Reach (RD) instead of Distance
 
-$\text{RD}(A,B)$ 는 $A$ 가 $B$ 에 아주 가까이 붙어 있어도
-**$k\text{-distance}(B)$ 이하로는 내려가지 않도록 하한을 겁니다.**
+$\text{RD}(A,B)$ 
+sets a lower limit so that it does not go below **$k\text{-distance}(B)$** even if $A$ is very close to $B$.
 
-만약 실제 거리를 그대로 쓰면, 우연히 두 점이 매우 가까운 경우
-분모가 0 에 가까워져 LRD 가 폭발하고 LOF 가 불안정해집니다.
-RD 는 이 **통계적 변동을 완화하는 평활화(smoothing) 장치**입니다.
+If the actual distance is used as is, in cases where two points happen to be very close, 
+the denominator approaches 0, causing the LRD to explode and the LOF to become unstable. 
+RD is a **smoothing device that mitigates this statistical variation**.
 
-또 하나의 핵심은 **LOF 가 비율이라는 점**입니다.
-절대 밀도가 아니라 *이웃 대비 상대 밀도*를 보기 때문에,
-밀도가 서로 다른 군집이 한 데이터셋에 섞여 있어도 각 군집의 기준으로 이상치를 판정합니다.
-이것이 DBSCAN(단일 $\epsilon$ 사용)과의 결정적 차이입니다.
+Another key point is that **LOF is a ratio**. 
+Because it looks at *relative density relative to neighbors* rather than absolute density, 
+it identifies outliers based on the criteria of each cluster, even if clusters with different densities are mixed within a single dataset. 
+This is the decisive difference from DBSCAN (using a single $\epsilon$).
 :::
 
 ```{python}
@@ -1378,75 +1377,75 @@ lof_nov.fit(X_train)
 lof_nov.predict(X_new)
 ```
 
-| 하이퍼파라미터 | 설명 |
+| Hyperparameter | Description |
 |---|---|
-| `n_neighbors` | 최근접 이웃 수 $k$ |
-| `novelty` | `False` → 이상치 탐색 / `True` → 신규성 탐색 |
-| `contamination` | 이상치 비율. `auto` 또는 0~0.5 실수 |
+| `n_neighbors` | Number of nearest neighbors $k$ |
+| `novelty` | `False` → Outlier Detection / `True` → Novelty Detection |
+| `contamination` | Outlier ratio. `auto` or 0 to 0.5 real number |
 
 ::: {.callout-warning}
-`negative_outlier_factor_` 는 이름 그대로 **LOF 의 음수** 입니다.
-LOF 점수를 얻으려면 부호를 뒤집어야 합니다 (`-lof.negative_outlier_factor_`).
+`negative_outlier_factor_` is, as the name suggests, the **negative LOF**. 
+To obtain the LOF score, the sign must be reversed (`-lof.negative_outlier_factor_`).
 :::
 
-**특징**
+**Features**
 
-- 전체 데이터가 아니라 **해당 포인트의 주변 데이터만**을 이용합니다.
-- 데이터의 분포나 밀도를 가정하지 않으므로 다양한 유형에 적용 가능합니다.
-- 이상치 판정은 점수의 **임계값**에 의존하며, 임계값은 데이터·목적에 따라 조정이 필요합니다.
-- **이웃 수 $k$ 가 성능에 큰 영향**을 미칩니다.
+- Uses **only surrounding data of the corresponding point**, not all data.
+- Since it does not assume data distribution or density, it is applicable to various types.
+- Outlier detection depends on the score's **threshold**, and the threshold needs to be adjusted depending on the data and purpose.
+- **The number of neighbors $k$ has a significant impact on performance**.
 
 ## Isolation Forest
 
-의사결정나무와 앙상블을 결합한 이상치 탐지 모델입니다.
+This is an outlier detection model combining decision trees and ensembles.
 
-### 기본 아이디어
+### Basic Idea
 
-- 임의의 변수를 고르고, 그 변수의 최소값과 최대값 사이 임의 지점에서 분할하여 나무를 성장시킵니다.
-  이 나무를 **iTree** 라 합니다.
-- **이상치는 비교적 짧은 경로로 고립(isolate)된다**는 점을 이용합니다.
-- 여러 iTree 의 결과를 종합해 이상치 점수를 산정합니다.
+- Select an arbitrary variable and grow a tree by splitting at an arbitrary point between the minimum and maximum values of that variable.
+This tree is called **iTree**.
+- It utilizes the fact that **outliers are isolated along relatively short paths**.
+- Calculates outlier scores by combining the results of multiple iTrees.
 
-### iTree 학습
+### iTree learning
 
-1. **Sub-sampling** — 전체 데이터셋의 일부를 샘플링
-2. **노드 분기**
-   - 임의의 변수 $A$ 를 선택
-   - $A$ 의 최대값과 최소값 사이의 임의 지점을 **균등하게** 선택하여 분기
-3. 종료 조건까지 반복
-   - 사전에 설정한 최대 깊이 도달
-   - 데이터 포인트가 하나만 남거나 모든 값이 동일
+1. **Sub-sampling** — Sampling a portion of the entire dataset
+2. **Node Branch**
+   - Select random variable $A$
+   - Branch by **evenly** selecting a random point between the maximum and minimum values of $A$
+3. Repeat until termination condition
+   - Reach pre-set maximum depth
+   - Only one data point remains or all values are identical
 
-### 이상치 점수 (Anomaly Score)
+### Anomaly Score
 
 $$
 s(x, n) = 2^{-\dfrac{E[h(x)]}{c(n)}}
 $$
 
-- $h(x)$: 포인트 $x$ 의 iTree 경로 길이. **짧을수록 이상치일 가능성이 높습니다.**
-- $E[h(x)]$: 모든 iTree 에서의 평균 경로 길이
-- $c(n)$: 정규화 상수 — 표본 $n$ 개일 때 이진 탐색 트리의 평균 경로 길이
+- $h(x)$: iTree path length of point $x$. **Shorter values indicate a higher likelihood of being an outlier.**
+- $E[h(x)]$: Average path length in all iTrees
+- $c(n)$: Normalization constant — Average path length of a binary search tree when the sample size is $n$
 
 $$
 c(n) = 2H(n-1) - \frac{2(n-1)}{n},
 \qquad H(i) \approx \ln i + \gamma \ \ (\gamma \approx 0.5772,\ \text{오일러 상수})
 $$
 
-$E[h(x)]$ 가 작을수록 $s(x)$ 는 커지고, 이상치일 가능성이 높습니다.
+As $E[h(x)]$ becomes smaller, $s(x)$ becomes larger and is more likely to be an outlier.
 
 ::: {.callout-tip collapse="true"}
-## 왜 짧은 경로가 이상치인가
+## Why is the short path an outlier?
 
-랜덤 분할은 데이터가 **조밀한 영역**을 자를 확률이 높습니다.
-정상 포인트는 조밀한 영역에 있으므로 주변 포인트들과 함께 계속 남아 있고,
-혼자 남기까지 많은 분할이 필요합니다.
+Random partitioning has a high probability of cutting out **dense regions** of the data. Since 
+normal points are in dense regions, they remain along with surrounding points, and 
+many partitions are required until they are left alone.
 
-반면 이상치는 값이 극단적이라 첫 몇 번의 분할만으로 혼자 떨어져 나갑니다.
+On the other hand, outliers have extreme values and break off on their own after only the first few splits.
 
-$c(n)$ 으로 나누는 이유는 **경로 길이가 표본 수 $n$ 에 의존**하기 때문입니다.
-$n$ 이 크면 평균 경로도 길어지므로, 표본 크기가 다른 설정끼리 비교하려면
-"평균적인 포인트의 경로 길이"로 정규화해야 합니다.
-그 결과 $s$ 는 항상 $(0, 1)$ 범위이고, $E[h(x)] = c(n)$ 일 때 $s = 0.5$ 가 됩니다.
+The reason for dividing by $c(n)$ is that **path length depends on the sample size $n$**. Since 
+the average path becomes longer when $n$ is large, 
+normalization by the "path length of the average point" is required to compare settings with different sample sizes. 
+As a result, $s$ is always in the range $(0, 1)$, and becomes $s = 0.5$ when $E[h(x)] = c(n)$.
 :::
 
 ```{python}
@@ -1478,36 +1477,36 @@ isf.score_samples(X)      # 이상치 점수의 음수
 isf.decision_function(X)  # score_samples - offset_ (음수면 이상치)
 ```
 
-| 하이퍼파라미터 | 설명 |
+| Hyperparameter | Description |
 |---|---|
-| `n_estimators` | iTree 의 수 |
-| `max_samples` | iTree 학습에 쓸 데이터 수. 정수면 개수, 0~1 실수면 비율 |
-| `bootstrap` | `True` → 복원 추출 / `False` → 비복원 추출 |
-| `contamination` | 이상치 비율. 임계값(`offset_`) 결정에 사용 |
+| `n_estimators` | Number of iTree |
+| `max_samples` | Number of data points to use for iTree training. Count for integers, proportion for real numbers 0–1 |
+| `bootstrap` | `True` → Extraction with replacement / `False` → Extraction without replacement |
+| `contamination` | Outlier ratio. Used to determine threshold (`offset_`) |
 
-**특징**
+**Features**
 
-- **데이터 분포에 대한 가정이 필요 없습니다.**
-- 고차원에서도 거리 기반 모델보다 성능 저하가 덜합니다
-  (거리 계산 자체를 하지 않으므로 거리 집중 문제에서 자유롭습니다).
-- 데이터 수와 iTree 개수에 따라 결과가 다소 **불안정**합니다.
+- **No assumptions about the data distribution are required.**
+- Performance degradation is less than distance-based models even in high dimensions.
+(It is free from the distance concentration problem as it does not perform distance calculation itself).
+- The results are somewhat **unstable** depending on the number of data points and the number of iTrees.
 
-## 일반 모델의 이상치 탐지 응용
+## Anomaly detection application of a general model
 
-### PCA 재구성 오차
+### PCA reconstruction error
 
-PCA 로 차원 축소한 뒤 다시 역변환하여 **원래 값과의 차이**를 비교합니다.
+Dimensionality reduction using PCA and inverse transformation, then comparison of the **difference from the original value**.
 
-> PCA 는 적은 변수로 최대한의 변동성을 설명하는 성분을 만듭니다.
-> 이 과정에서 **전반적인 데이터 특성을 따르지 않는 포인트는 차원 축소 시 상대적으로 손실이 큽니다.**
-> 이 손실량으로 이상치를 판별합니다.
+> PCA creates components that explain the maximum variability with few variables.
+> In this process, **points that do not follow the overall data characteristics suffer relatively large loss during dimensionality reduction.**
+> Identify outliers based on this loss amount.
 
 $$
 \text{재구성 오차}(x_i) = \lVert x_i - x_i' \rVert_2,
 \qquad x_i' = \text{inverse\_transform}(\text{transform}(x_i))
 $$
 
-임계값은 보통 오차의 상위 분위수(예: 99%)로 정합니다.
+The threshold is usually set to the upper quantile of the error (e.g., 99%).
 
 ```{python}
 #| label: pca-outlier
@@ -1523,15 +1522,15 @@ is_outlier = recon_err >= thres
 ```
 
 ::: {.callout-note}
-표준화 여부가 결과를 크게 좌우합니다.
-스케일이 큰 변수의 재구성 오차가 자동으로 커지므로,
-변수 단위가 다르면 표준화 후 적용해야 합니다.
+Standardization significantly affects the results. 
+Since the reconstruction error of large-scale variables automatically increases, 
+if the variable units differ, they must be standardized before application.
 :::
 
-### DBSCAN 잡음 포인트
+### DBSCAN noise point
 
-DBSCAN 은 어떤 군집에도 속하지 않는 **잡음 포인트**를 명시적으로 라벨 $-1$ 로 반환합니다.
-이를 그대로 이상치로 간주할 수 있습니다.
+DBSCAN explicitly returns **noise points** that do not belong to any cluster as $-1$. 
+These can be treated as outliers.
 
 ```{python}
 #| label: dbscan-outlier
@@ -1541,72 +1540,72 @@ labels = DBSCAN(eps=0.5, min_samples=5).fit_predict(X)
 is_outlier = labels == -1
 ```
 
-### 이상치 탐지 방법 비교
+### Comparison of Outlier Detection Methods
 
-| 방법 | 기준 | 강점 | 약점 |
+| Method | Criteria | Strengths | Weaknesses |
 |---|---|---|---|
-| LOF | 이웃 대비 상대 밀도 | 밀도가 다른 군집이 섞여도 동작 | $k$ 에 민감, $O(n^2)$ 거리 계산 |
-| Isolation Forest | 고립까지의 경로 길이 | 고차원에 강함, 빠름 | 결과가 다소 불안정 |
-| PCA 재구성 오차 | 선형 구조에서의 이탈 | 계산이 단순, 해석 용이 | 비선형 구조는 못 잡음 |
-| DBSCAN 잡음 | 밀도 연결성 | 군집화와 동시 수행 | 단일 $\epsilon$ 의 한계 |
+| LOF | Relative density relative to neighbors | Operates even when clusters of different densities are mixed | Sensitive to $k$, $O(n^2)$ distance calculation |
+| Isolation Forest | Path length to isolation | Strong in high dimensions, fast | Results somewhat unstable |
+| PCA reconstruction error | Deviation from linear structure | Simple calculation, easy interpretation | Cannot capture non-linear structures |
+| DBSCAN Noise | Density Connectivity | Performed concurrently with clustering | Limitations of a single $\epsilon$ |
 
 ---
 
-# 부록: 자주 혼동되는 지점
+# Appendix: Frequently Confused Points
 
-## 함수·API 선택
+## Select Function/API
 
-| 상황 | 올바른 선택 | 흔한 실수 |
+| Situation | The Right Choice | Common Mistakes |
 |---|---|---|
-| 대칭행렬 고윳값 분해 | `np.linalg.eigh` | — |
-| 비대칭행렬 ($S = \Sigma^{-1}\Sigma_b$) | `np.linalg.eig` + `.real` | `eigh` 사용 |
-| 밀집 데이터 차원 축소 | `PCA` | `TruncatedSVD` (중심화 안 함) |
-| 희소 행렬 차원 축소 | `TruncatedSVD` | `PCA` (메모리 폭발) |
-| 이상치 탐색 (LOF) | `novelty=False` + `fit_predict` | `novelty=True` 에서 `fit_predict` |
-| 신규성 탐색 (LOF) | `novelty=True` + `fit` → `predict` | `fit_predict` 호출 |
+| Symmetric Matrix Eigenvalue Decomposition | `np.linalg.eigh` | — |
+| Asymmetric matrix ($S = \Sigma^{-1}\Sigma_b$) | `np.linalg.eig` + `.real` | `eigh` used |
+| Dimensionality reduction for dense data | `PCA` | `TruncatedSVD` (Uncentered) |
+| Sparse Matrix Dimension Reduction | `TruncatedSVD` | `PCA` (Memory Explosion) |
+| Outlier Detection (LOF) | `novelty=False` + `fit_predict` | `novelty=True` to `fit_predict` |
+| Novelty Discovery (LOF) | `novelty=True` + `fit` → `predict` | `fit_predict` Call |
 
-## 정렬·부호 관련
+## Alignment/Sign Related
 
-| 항목 | 주의점 |
+| Item | Precautions |
 |---|---|
-| `np.linalg.eigh` 반환 순서 | **오름차순** → `np.argsort(-lam)` 로 재정렬 필요 |
-| `pca.components_` | $Q$ 가 아니라 **$Q^\top$** |
-| `negative_outlier_factor_` | LOF 의 **음수** → 부호 반전 필요 |
-| `IsolationForest.score_samples` | 이상치 점수의 **음수** |
-| 고유벡터의 부호 | 유일하지 않음 → 고윳값 분해와 SVD 결과의 부호가 다를 수 있음 |
+| `np.linalg.eigh` Return order | **Ascending** → Need to reorder to `np.argsort(-lam)` |
+| `pca.components_` | $Q$ Not **$Q^\top$** |
+| `negative_outlier_factor_` | **Negative** of LOF → Sign inversion needed |
+| `IsolationForest.score_samples` | **Negative** outlier score |
+| Sign of eigenvector | Not unique → The signs of eigenvalue decomposition and SVD results may differ |
 
-## 파라미터 의미
+## Parameter meaning
 
-| 파라미터 | 주의점 |
+| Parameters | Precautions |
 |---|---|
-| `DBSCAN(min_samples=m)` | **자기 자신을 포함**하여 카운트 |
-| `PCA(n_components=0.98)` | 성분 수가 아니라 **설명율 98%** 를 의미 |
-| `LinearDiscriminantAnalysis(n_components)` | 최대 $\min(C-1,\ p)$ |
-| `AgglomerativeClustering(linkage="ward")` | 유클리드 거리에서만 유효 |
-| `AgglomerativeClustering` 거리 인자 | 구버전 `affinity` → 최신 `metric` |
-| `n_clusters` + `distance_threshold` | **동시 지정 불가** |
-| `fcluster(Z, t, criterion)` | `maxclust` → `t`=군집 수 / `distance` → `t`=거리 상한 |
+| `DBSCAN(min_samples=m)` | **Count including itself** |
+| `PCA(n_components=0.98)` | It means **98% explanation rate**, not the number of ingredients |
+| `LinearDiscriminantAnalysis(n_components)` | up to $\min(C-1,\ p)$ |
+| `AgglomerativeClustering(linkage="ward")` | Valid only for Euclidean distance |
+| `AgglomerativeClustering` Distance Factor | Old Version `affinity` → Newest `metric` |
+| `n_clusters` + `distance_threshold` | **Cannot be assigned simultaneously** |
+| `fcluster(Z, t, criterion)` | `maxclust` → `t`=Number of clusters / `distance` → `t`=Distance upper limit |
 
-## 개념 대응 관계
+## Conceptual correspondence
 
-| 관계 | 조건 |
+| Relationship | Condition |
 |---|---|
-| K-Means = GMM | 공분산 $\sigma^2 I$ 고정, $\sigma^2 \to 0$ |
-| K-Means ≈ 워드 연결 | 같은 목적 함수(군집 내 제곱합), 최적화 방식만 다름 |
-| 고전적 MDS = PCA | 유클리드 거리를 쓸 때 |
+| K-Means = GMM | Covariance $\sigma^2 I$ Fixed, $\sigma^2 \to 0$ |
+| K-Means ≈ Word Concatenation | Same objective function (within-cluster sum of squares), only the optimization method differs |
+| Classical MDS = PCA | When using Euclidean distance |
 | PCA = SVD | $Q = V$, $\Lambda = \frac{1}{n-1}\Sigma^\top\Sigma$, $C = U\Sigma$ |
-| K-Means : K-Medoids | 평균 : 중앙값 (제곱 손실 : 절대 손실) |
+| K-Means : K-Medoids | Mean : Median (Square Loss : Absolute Loss) |
 
-## 시간 복잡도 개요
+## Time Complexity Overview
 
-| 모델 | 대략적 복잡도 | 병목 |
+| Model | Approximate Complexity | Bottleneck |
 |---|---|---|
-| K-Means | $O(nkp)$ / 반복 | 반복 횟수 × `n_init` |
-| K-Medoids | $O(n^2)$ 이상 | 거리 행렬 |
-| 계층적 군집화 | $O(n^2)$ 메모리, $O(n^2\log n)$ | 거리 행렬 |
-| DBSCAN | $O(n\log n)$ ~ $O(n^2)$ | 인덱스 구조 유무 |
-| GMM | $O(nCp^2)$ / 반복 | 공분산 추정 |
+| K-Means | $O(nkp)$ / repetitions | number of repetitions × `n_init` |
+| K-Medoids | $O(n^2)$ Anomaly | Distance Matrix |
+| Hierarchical Clustering | $O(n^2)$ Memory, $O(n^2\log n)$ | Distance Matrix |
+| DBSCAN | $O(n\log n)$ ~ $O(n^2)$ | Presence of index structure |
+| GMM | $O(nCp^2)$ / Iteration | Covariance Estimation |
 | PCA | $O(\min(n^2p,\ np^2))$ | SVD |
-| t-SNE | $O(n\log n)$ (Barnes-Hut) | 반복 최적화 |
-| LOF | $O(n^2)$ | 거리 행렬 |
-| Isolation Forest | $O(n_{\text{tree}} \cdot \psi \log \psi)$ | 서브샘플 크기 $\psi$ |
+| t-SNE | $O(n\log n)$ (Barnes-Hut) | Iterative Optimization |
+| LOF | $O(n^2)$ | Distance Matrix |
+| Isolation Forest | $O(n_{\text{tree}} \cdot \psi \log \psi)$ | Subsample Size $\psi$ |
