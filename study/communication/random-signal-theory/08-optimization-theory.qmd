@@ -1,0 +1,1715 @@
+---
+title: "Optimization Theory: From Stationary Points to Duality"
+number: 8
+aliases:
+  - "/study/random-signal-theory/optimization.html"
+subtitle: "Random Signal Theory — Stationary Points and Convexity, Wirtinger Calculus, Gradients and Level Sets, Steepest Descent, Hessian and Definiteness, Matrix Calculus, Least Squares and Polynomial Fitting, Lagrange Multipliers and LICQ, Second-Order Conditions, Quadratic Minimization (MVDR/LCMV), Complex Constraints, KKT Conditions, Lagrangian Duality, Minimum-Variance Estimation and the Capon Spectrum"
+date: "2026-11-23"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+execute:
+  echo: false
+---
+
+Optimization is the language in which most estimators, filters, and beamformers in statistical signal processing are derived. This note builds the theory from the scalar case up to Lagrangian duality, derives every result it uses, and checks each idea on small numerical examples. Common misstatements are flagged in warning boxes, and every section ends in a form that can be applied directly to estimation problems.
+
+# Roadmap and Notation {#sec-roadmap}
+
+## Four ideas that carry the whole theory
+
+1. **Local change is linear.** Near a point, $df = \nabla f^T dx$: the gradient is the coefficient of the first-order change.
+2. **Optimality means "no allowed direction goes downhill."** At an optimum, every direction we are allowed to move in produces zero first-order decrease.
+3. **Constraints restrict the allowed directions.** The condition $\nabla f = 0$ relaxes to "the gradient of $f$ is balanced by the normals of the constraints" (Lagrange, KKT).
+4. **A complex variable is two real variables.** Keep the objective (and the Lagrangian) real-valued and differentiate with respect to $z^*$.
+
+Everything else is bookkeeping: transposes, dimensions, and signs.
+
+```{mermaid}
+flowchart LR
+  A["Unconstrained<br/>gradient = 0, Hessian PD"] --> B["Equality constraints<br/>Lagrange, LICQ"]
+  B --> C["Inequality constraints<br/>KKT"]
+  C --> D["Duality<br/>max over multipliers"]
+  A --> E["Complex variables<br/>Wirtinger d/dz*"]
+  E --> B
+  A --> F["Least squares<br/>normal equations"]
+```
+
+## Notation
+
+| Symbol | Meaning |
+|---|---|
+| $x \in \mathbb{R}^N$ | column vector ($N \times 1$) |
+| $\mathrm{col}[a_1, \dots, a_N]$ | the entries stacked vertically into one column; equals $[a_1, \dots, a_N]^T$ |
+| $x^T$, $x^H$, $x^*$ | transpose, conjugate transpose, elementwise conjugate (no transpose) |
+| $\nabla$ ("nabla" or "del") | the vector of partial-derivative operators $\mathrm{col}[\partial/\partial x_1, \dots, \partial/\partial x_N]$ |
+| $\nabla_x f$ | gradient of $f$ with respect to $x$; the subscript names the variable being differentiated |
+| $\nabla_x^2 f$ | Hessian matrix (in optimization); in physics $\nabla^2$ usually denotes the Laplacian, a scalar |
+| $A \succ 0$, $A \succeq 0$ | $A$ positive definite / positive semidefinite |
+| $\triangleq$, $:=$ | "is defined as" ($:=$ places the colon on the side being defined) |
+| $\equiv$ | context dependent: identity, alias ("also written as"), or congruence |
+| $x^\star$, $x^\diamond$ | an optimal point |
+
+# Unconstrained Optimization: The Scalar Case {#sec-scalar}
+
+## First- and second-order conditions
+
+Let $f:\mathbb{R}\to\mathbb{R}$ be twice differentiable. Taylor's theorem around $x^\star$ gives
+
+$$
+f(x^\star + h) = f(x^\star) + f'(x^\star)\,h + \tfrac12 f''(x^\star)\,h^2 + o(h^2).
+$$
+
+- **Necessary conditions** for a local minimum: $f'(x^\star) = 0$ and $f''(x^\star) \ge 0$.
+- **Sufficient conditions** for a strict local minimum: $f'(x^\star) = 0$ and $f''(x^\star) > 0$. The linear term vanishes and the quadratic term is positive for every small $h \neq 0$.
+
+::: {.callout-warning}
+## Pitfall: $f'' > 0$ is not necessary
+$f(x) = x^4$ has a strict global minimum at $0$, yet $f''(0) = 0$. The pair "$f' = 0$, $f'' > 0$" identifies minima only in one direction: it is sufficient, not necessary.
+:::
+
+## Stationary points and inflection points
+
+::: {#def-stationary}
+## Stationary point
+A point $x^\star$ where $f'(x^\star) = 0$. In several variables: $\nabla f(x^\star) = 0$, equivalently $f(x^\star + h) = f(x^\star) + o(\lVert h \rVert)$ for every direction $h$.
+:::
+
+Stationary points include minima, maxima, and points that are neither.
+
+::: {#def-inflection}
+## Inflection point
+A point where the concavity of $f$ changes sign: $f'' > 0$ on one side and $f'' < 0$ on the other. Geometrically, the tangent line crosses the curve. ("Inflect" comes from Latin *in-* + *flectere*, "to bend": the point where the bending direction changes.)
+:::
+
+The defining property is the **sign change** of $f''$, not $f'' = 0$, and the two are independent:
+
+- $x^{1/3}$ has an inflection at $0$ although $f''(0)$ does not exist.
+- $x^4$ has $f''(0) = 0$ but no inflection (it is convex on both sides).
+- $x^3$ has a **stationary inflection point** at $0$: $f'(0) = 0$ and $f'' = 6x$ changes sign. This is the "neither max nor min" stationary point.
+- $\sin x$ inflects at $0$ with $f'(0) = 1 \neq 0$; such points are not stationary and are irrelevant for optimization.
+
+**Higher-order test.** Suppose $f'(x^\star) = 0$ and let $n \ge 2$ be the order of the first nonvanishing derivative. Then
+
+$$
+f(x^\star + h) - f(x^\star) = \frac{f^{(n)}(x^\star)}{n!}\,h^n + o(h^n).
+$$
+
+- $n$ even: $h^n \ge 0$, so the sign is fixed by $f^{(n)}(x^\star)$; positive means local minimum, negative means local maximum.
+- $n$ odd: $h^n$ changes sign with $h$, so $x^\star$ is not an extremum. Moreover $f''(x^\star + h) \approx f^{(n)}(x^\star) h^{n-2}/(n-2)!$ with $n-2$ odd, so $f''$ changes sign: a stationary inflection point.
+
+::: {.callout-note}
+## The classification is not exhaustive for merely differentiable functions
+$f(x) = x^2 \sin(1/x)$ with $f(0) = 0$ is differentiable everywhere and $f'(0) = \lim_{h\to0} h\sin(1/h) = 0$. Every neighborhood of $0$ contains points with $f > 0$ and $f < 0$, so $0$ is not an extremum; $f''$ oscillates in sign on both sides, so it is not an inflection point either. The trichotomy "max, min, or inflection" needs smoothness such as $f \in C^2$ plus a nondegenerate higher derivative.
+:::
+
+## Maximization is minimization of the negative
+
+For every $x$, $f(x) \le f(x^\star) \iff -f(x) \ge -f(x^\star)$, hence
+
+$$
+\arg\max_x f(x) = \arg\min_x \big(-f(x)\big), \qquad \max_x f(x) = -\min_x \big(-f(x)\big),
+$$
+
+and in general $\sup f = -\inf(-f)$ in the extended reals. The location is unchanged; only the value flips sign.
+
+| Concept for minimizing $-f$ | Corresponding statement for maximizing $f$ |
+|---|---|
+| stationary: $(-f)' = 0$ | $f' = 0$: the set of stationary points is unchanged |
+| second order: $(-f)'' > 0$ | $f'' < 0$ |
+| $-f$ (strictly) convex | $f$ (strictly) concave |
+| descent: $x_k = x_{k-1} - \alpha\nabla(-f)$ | ascent: $x_k = x_{k-1} + \alpha\nabla f$ |
+| complex: $z_k = z_{k-1} - \alpha\,\partial(-f)/\partial z^*$ | $z_k = z_{k-1} + \alpha\,\partial f/\partial z^*$ |
+
+The sign of constrained optimality conditions also flips; see @sec-sign-convention. The safe habit is to convert every maximization to a minimization before applying a standard form. Maximum likelihood, for instance, is almost always written as minimization of the negative log-likelihood.
+
+## Convexity, strict convexity, and uniqueness
+
+::: {#def-convex}
+## Convex and strictly convex functions
+$f$ is **convex** if $f(a x_1 + (1-a)x_2) \le a f(x_1) + (1-a) f(x_2)$ for all $x_1, x_2$ and all $a \in [0,1]$. It is **strictly convex** if
+$$
+f\big(a x_1 + (1-a)x_2\big) < a f(x_1) + (1-a) f(x_2)
+$$
+for all $x_1 \neq x_2$ and all $a \in (0,1)$.
+:::
+
+The quantifiers matter. With $x_1 = x_2$ or $a \in \{0, 1\}$ the two sides are equal, so the strict inequality cannot hold "for any $x_1, x_2, a$". For $a \notin [0,1]$ the point leaves the segment and the inequality reverses for convex functions.
+
+**Geometric meaning.** Put $x_a = a x_1 + (1-a) x_2$, which runs along the segment from $x_2$ to $x_1$. The chord through $(x_1, f(x_1))$ and $(x_2, f(x_2))$ is $\ell(x) = f(x_1) + \frac{f(x_2) - f(x_1)}{x_2 - x_1}(x - x_1)$. Since $x_a - x_1 = (1-a)(x_2 - x_1)$,
+
+$$
+\ell(x_a) = f(x_1) + (1-a)\big(f(x_2) - f(x_1)\big) = a f(x_1) + (1-a) f(x_2).
+$$
+
+So strict convexity says the graph lies **strictly below every chord** between distinct points: the graph contains no straight segments. $f(x) = \lvert x \rvert$ is convex but not strictly convex (equality holds for two positive points).
+
+::: {#prp-second-derivative}
+## $f'' > 0$ implies strict convexity
+If $f''(x) > 0$ for all $x$, then $f$ is strictly convex.
+:::
+
+::: {.proof}
+Fix $x_1 \neq x_2$, $a \in (0,1)$, and expand around $x_a$ with Lagrange remainders ($\xi_i$ between $x_a$ and $x_i$):
+$$
+f(x_i) = f(x_a) + f'(x_a)(x_i - x_a) + \tfrac12 f''(\xi_i)(x_i - x_a)^2, \quad i = 1, 2.
+$$
+Multiply by $a$ and $1-a$ and add. The linear terms cancel because $a(x_1 - x_a) + (1-a)(x_2 - x_a) = a x_1 + (1-a) x_2 - x_a = 0$. Hence
+$$
+\begin{aligned}
+a f(x_1) + (1-a) f(x_2) &= f(x_a) + \tfrac12\,a\, f''(\xi_1)(x_1 - x_a)^2 \\
+&\quad + \tfrac12(1-a) f''(\xi_2)(x_2 - x_a)^2 \;>\; f(x_a),
+\end{aligned}
+$$
+since $f'' > 0$, $a \in (0,1)$, and $x_i \neq x_a$.
+:::
+
+The linear terms cancel because $x_a$ is a weighted average; what remains is curvature. The converse fails: $x^4$ is strictly convex with $f''(0) = 0$. In several variables, $\nabla^2 f \succ 0$ plays the role of $f'' > 0$ with the same proof.
+
+::: {#prp-convex-global}
+## Why convexity matters
+(a) If $f$ is convex and differentiable, every stationary point is a global minimizer. (b) If $f$ is strictly convex, it has at most one minimizer.
+:::
+
+::: {.proof}
+(a) Convexity gives $f(x + t(y - x)) \le f(x) + t\big(f(y) - f(x)\big)$ for $t \in (0,1]$. Subtract $f(x)$, divide by $t$, and let $t \to 0^+$: $f'(x)(y - x) \le f(y) - f(x)$. At a stationary point the left side is $0$, so $f(y) \ge f(x)$ for all $y$.
+
+(b) If $x_1 \neq x_2$ were both minimizers with value $m$, the midpoint would satisfy $f\big(\tfrac12 x_1 + \tfrac12 x_2\big) < m$, a contradiction.
+:::
+
+::: {.callout-warning}
+## Strict convexity gives "at most one," not "exactly one"
+$e^x$ is strictly convex but has no minimizer and no stationary point. Existence needs an extra condition, for example coercivity ($f(x) \to \infty$ as $\lvert x \rvert \to \infty$). Conversely, a convex function that is not strictly convex can have a whole interval of minimizers: $\max(\lvert x \rvert - 1, 0)$ is minimized on $[-1, 1]$.
+:::
+
+# Complex Variables and Wirtinger Calculus {#sec-wirtinger}
+
+## The complex derivative and why it fails for objectives
+
+The complex derivative
+
+$$
+f'(z_0) = \lim_{\Delta z \to 0}\frac{f(z_0 + \Delta z) - f(z_0)}{\Delta z}
+$$
+
+requires the same limit along **every direction** of approach in the plane, a much stronger requirement than the left/right agreement of real calculus.
+
+**The conjugate is nowhere complex-differentiable.** With $\Delta z = r e^{j\theta}$,
+
+$$
+\frac{(z_0 + \Delta z)^* - z_0^*}{\Delta z} = \frac{\Delta z^*}{\Delta z} = e^{-j2\theta},
+$$
+
+which equals $1$ along the real axis and $-1$ along the imaginary axis. The limit does not exist at any $z_0$. Equivalently, with $z^* = x - jy$ ($u = x$, $v = -y$), the Cauchy–Riemann equation $u_x = v_y$ fails everywhere ($1 \neq -1$).
+
+**Geometric reason.** Complex differentiability means that locally $f$ acts as multiplication by a complex number $f'(z_0) = \rho e^{j\phi}$: rotation by $\phi$ and scaling by $\rho$. As real linear maps on $\mathbb{R}^2$:
+
+$$
+\text{multiply by } a + jb:\ \begin{bmatrix} a & -b \\ b & a \end{bmatrix}, \qquad z \mapsto z^*:\ \begin{bmatrix} 1 & 0 \\ 0 & -1 \end{bmatrix}.
+$$
+
+The Cauchy–Riemann equations say precisely that the Jacobian has the first form. Conjugation is a reflection (determinant $-1$, orientation reversing), and no complex multiplier produces it.
+
+**Real-valued objectives are never holomorphic.** If $f = u + jv$ with $v \equiv 0$, the Cauchy–Riemann equations force $u_x = u_y = 0$, so $f$ is constant. Since objectives must be real-valued to be minimized (complex numbers have no order), the ordinary complex derivative is useless for optimization. For $f = \lvert z \rvert^2$:
+
+$$
+\frac{\lvert z_0 + \Delta z \rvert^2 - \lvert z_0 \rvert^2}{\Delta z} = z_0^* + z_0\,\frac{\Delta z^*}{\Delta z} + \Delta z^* \longrightarrow z_0^* + z_0\,e^{-j2\theta},
+$$
+
+which is direction independent only at $z_0 = 0$. So $\lvert z \rvert^2$ is complex-differentiable at a single point and analytic nowhere.
+
+::: {.callout-note}
+## Differentiable, holomorphic, analytic
+- *Differentiable at a point*: a good first-order (linear) approximation exists there.
+- *Holomorphic*: complex-differentiable at every point of an open set.
+- *Analytic*: locally equal to a convergent power series.
+
+For real functions, differentiable $\supsetneq C^\infty \supsetneq$ analytic ($e^{-1/x^2}$ is $C^\infty$, its Taylor series at $0$ is identically zero, yet the function is not). For complex functions of $z$, holomorphic and analytic coincide: direction independence is so rigid that differentiability on an open set forces a power-series expansion. "Not analytic, hence not differentiable" therefore really means "not complex-differentiable." As a map $\mathbb{R}^2 \to \mathbb{R}^2$, $z^*$ is linear and infinitely differentiable, and that real differentiability is all Wirtinger calculus needs.
+:::
+
+## Wirtinger derivatives
+
+**Definition from the differential.** Let $f$ be real-differentiable in $(x, y)$, $z = x + jy$. Substitute $dx = \tfrac{dz + dz^*}{2}$ and $dy = \tfrac{dz - dz^*}{2j}$ into $df = f_x\,dx + f_y\,dy$:
+
+$$
+df = \underbrace{\tfrac12\big(f_x - j f_y\big)}_{\partial f/\partial z}\,dz + \underbrace{\tfrac12\big(f_x + j f_y\big)}_{\partial f/\partial z^*}\,dz^*.
+$$
+
+The Wirtinger derivatives are the coefficients of $dz$ and $dz^*$. The form $\tfrac12(\partial_x \mp j\partial_y)$ is not a choice: it is forced once local change is described in $dz, dz^*$ instead of $dx, dy$. The factor $\tfrac12$ comes from $z + z^* = 2x$.
+
+**Coordinate-change view.**
+
+$$
+\begin{bmatrix} z \\ z^* \end{bmatrix} = \begin{bmatrix} 1 & j \\ 1 & -j \end{bmatrix}\begin{bmatrix} x \\ y \end{bmatrix}, \qquad \begin{bmatrix} x \\ y \end{bmatrix} = \frac12\begin{bmatrix} 1 & 1 \\ -j & j \end{bmatrix}\begin{bmatrix} z \\ z^* \end{bmatrix},
+$$
+
+and the chain rule with the entries of the inverse reproduces the definition. Directly from it:
+
+$$
+\frac{\partial z}{\partial z} = \tfrac12\big(1 - j\cdot j\big) = 1, \qquad \frac{\partial z^*}{\partial z} = \tfrac12\big(1 + (-j)(-j)\big) = 0,
+$$
+
+and similarly $\partial z^*/\partial z^* = 1$, $\partial z/\partial z^* = 0$. These four values are the rule "treat $z$ and $z^*$ as independent, each constant with respect to the other." With them, polynomials and power series in $z, z^*$ can be differentiated with the ordinary product and chain rules.
+
+**Why the formal independence is legitimate.** On the real plane, fixing $z$ fixes $z^*$, so there is no path that moves $z$ with $z^*$ held fixed. (Contrast the real coordinates $(u, v) = (x + y, x - y)$, where one can move along $x + y = \text{const}$.) The rule is justified by **complexification**. Allow $x, y$ to be complex; then $(w_1, w_2) = (x + jy, x - jy)$ are genuinely independent coordinates on $\mathbb{C}^2$, and the real plane is the slice $w_2 = w_1^*$.
+
+"$f$ is analytic with respect to $z$ and $z^*$" means $f(z) = g(z, z^*)$ for some $g(w_1, w_2)$ holomorphic in each argument. By Hartogs' theorem this is the same as jointly holomorphic, and it is equivalent to $f$ being real-analytic in $(x, y)$: substitute $x = \tfrac{w_1 + w_2}{2}$, $y = \tfrac{w_1 - w_2}{2j}$ into a power series in $x, y$. Then, by the chain rule applied to $f(x, y) = g(x + jy, x - jy)$,
+
+$$
+\begin{aligned}
+\partial_x f &= g_1 + g_2, \qquad \partial_y f = j g_1 - j g_2, \\
+\frac{\partial f}{\partial z^*} &= \tfrac12\big(\partial_x f + j\,\partial_y f\big) = \tfrac12\big(g_1 + g_2 - g_1 + g_2\big) = g_2,
+\end{aligned}
+$$
+
+so the Wirtinger derivative equals the ordinary partial of $g$ in its second slot. That is exactly formal differentiation with $z$ held constant.
+
+**Example.** $\lvert z \rvert^2 = x^2 + y^2$ becomes $g(w_1, w_2) = w_1 w_2$, since $\tfrac{(w_1 + w_2)^2}{4} - \tfrac{(w_1 - w_2)^2}{4} = w_1 w_2$. Formally $\partial(zz^*)/\partial z^* = z$; from the definition $\tfrac12(2x + j\,2y) = z$. A non-example is $\lvert z \rvert = \sqrt{x^2 + y^2}$: not differentiable at $0$, where its minimum sits, so the Wirtinger machinery does not apply there.
+
+**Make the dependence on $z^*$ explicit before differentiating.** The rule needs every occurrence of $z^*$ visible:
+
+| Hidden form | Explicit form |
+|---|---|
+| $\lvert z \rvert^2$ | $z z^*$ |
+| $\lVert y - Hz \rVert^2$ | $(y - Hz)^H (y - Hz)$ |
+| $\mathrm{Re}\{c^H z\}$ | $\tfrac12\big(c^H z + c^T z^*\big)$ |
+
+The last row is a classic trap: $\mathrm{Re}\{c^H z\}$ shows no $z^*$, yet $\partial/\partial z^*$ of it is $\tfrac12 c$, not $0$. Check in real coordinates with $c = c_r + jc_i$: $\mathrm{Re}\{c^H z\} = c_r^T x + c_i^T y$, whose real gradient $(c_r, c_i)$ packed as $\tfrac12(c_r + jc_i)$ is $\tfrac12 c$.
+
+**Two pictures of what the derivatives measure.**
+
+1. *Rotation part plus reflection part.* A real-linear map on $\mathbb{R}^2$ has four real degrees of freedom, the same as two complex numbers, and decomposes uniquely as $\Delta f \approx a\,\Delta z + b\,\Delta z^*$ with $a = \partial f/\partial z$ (orientation-preserving rotation and scaling) and $b = \partial f/\partial z^*$ (reflection followed by rotation and scaling). Holomorphic means $b = 0$: no reflection part. This is the Cauchy–Riemann condition $\partial f/\partial z^* = 0$.
+2. *The difference-quotient circle.* Approaching along direction $\theta$,
+$$
+\frac{\Delta f}{\Delta z} \approx a + b\,e^{-j2\theta},
+$$
+   which traces a circle with center $\partial f/\partial z$ and radius $\lvert \partial f/\partial z^* \rvert$. Along the real axis the quotient is $a + b = f_x$; along the imaginary axis it is $a - b = f_y/j$. So $\partial f/\partial z$ is the average of the two directional quotients and $\partial f/\partial z^*$ is half their disagreement. For $z^2$ the circle collapses to a point (holomorphic); for $z^*$ it is the unit circle around $0$.
+
+## The stationarity theorem
+
+::: {#thm-wirtinger-stationary}
+## Stationary points via Wirtinger derivatives
+If $f(z, z^*)$ is real-valued and analytic with respect to $z$ and $z^*$, its stationary points are exactly the solutions of $\partial f/\partial z = 0$, and equally of $\partial f/\partial z^* = 0$.
+:::
+
+::: {.proof}
+Because $f$ is real-valued, $f_x$ and $f_y$ are real (limits of real difference quotients). Hence
+$$
+\frac{\partial f}{\partial z^*} = \tfrac12\big(\underbrace{f_x}_{\text{real part}} + j\,\underbrace{f_y}_{\text{imaginary part}}\big) = 0 \iff f_x = f_y = 0 \iff \text{stationary}.
+$$
+Moreover $\partial f/\partial z = \tfrac12(f_x - jf_y) = \big(\partial f/\partial z^*\big)^*$, so either derivative vanishes iff the other does.
+:::
+
+Equivalently, for real $f$,
+
+$$
+df = \frac{\partial f}{\partial z}dz + \frac{\partial f}{\partial z^*}dz^* = 2\,\mathrm{Re}\Big\{\frac{\partial f}{\partial z}\,dz\Big\},
+$$
+
+because the second term is the conjugate of the first. If $a = \partial f/\partial z \neq 0$, choosing $dz = a^*$ gives $df = 2\lvert a \rvert^2 > 0$; so $df = 0$ for all $dz$ iff $a = 0$.
+
+**What each hypothesis does.**
+
+- *Real-valued* is an assumption, not automatic. Complex-variable functions are generally complex-valued ($z^2$, $z^T A z$). A polynomial $\sum c_{mn} z^m z^{*n}$ is real iff $c_{nm} = c_{mn}^*$ (Hermitian coefficient array); in particular $z^H A z$ is real for all $z$ iff $A$ is Hermitian. In general only the identity $(\partial f/\partial z)^* = \partial f^*/\partial z^*$ holds (conjugation swaps the roles of $z$ and $z^*$); real-valuedness ($f^* = f$) turns it into the conjugate symmetry the proof uses. For complex-valued $f$, the equation $\partial f/\partial z^* = 0$ is the Cauchy–Riemann system, not a stationarity condition.
+- *Analytic in $(z, z^*)$* guarantees the real differentiability used in the proof and licenses formal differentiation. Real differentiability alone already suffices for the stationarity statement.
+
+**Counting equations.** The unknowns are two real numbers $(x, y)$.
+
+| Approach | Equations set to zero | Real equations | Independent |
+|---|---|---|---|
+| Real and imaginary parts | $f_x = 0$, $f_y = 0$ | 2 | 2 |
+| Both Wirtinger derivatives | $\partial f/\partial z = 0$, $\partial f/\partial z^* = 0$ | 4 | 2 |
+| One Wirtinger derivative | $\partial f/\partial z^* = 0$ | 2 | 2 |
+
+Solving both Wirtinger equations "as a pair" is redundant: for real $f$ the second is the conjugate of the first. The real/imaginary route is minimal but algebraically tedious. One complex equation is both minimal and algebraically simple.
+
+## Why $\partial/\partial z^*$ is the practical choice
+
+**(a) The answer comes out in $z$.** Objectives are usually of the form $z^H(\cdots)z$ with the conjugated factor on the left. Differentiating with respect to $z^*$ strips off $z^H$ and leaves the unknown in its natural form.
+
+| Objective | $\partial/\partial z^*$ | $\partial/\partial z$ |
+|---|---|---|
+| $z^H A z$ ($A$ Hermitian) | $Az$ | $A^T z^*$ (needs one more conjugation) |
+| $\lVert y - Hz \rVert^2$ | $-H^H(y - Hz)$, giving $H^H H z = H^H y$ directly | $-(y - Hz)^H H$, a row equation in $z^*$ |
+
+**(b) Only $\partial f/\partial z^*$ is a direction.** Since $\partial f/\partial z^* = \tfrac12(f_x + jf_y)$, it is the real gradient (halved) written as a complex number: the direction of steepest ascent. $\partial f/\partial z$ is its mirror image across the real axis. For stationarity the difference is invisible (a zero arrow mirrors to zero), but for iterative algorithms it is decisive. For $f = \lvert z \rvert^2$:
+
+- correct: $z_k = z_{k-1} - \alpha\,z_{k-1} = (1-\alpha)z_{k-1}$, which converges for $0 < \alpha < 2$;
+- wrong: $z_k = z_{k-1} - \alpha\,z_{k-1}^* = (1-\alpha)x_{k-1} + j(1+\alpha)y_{k-1}$, whose imaginary part grows by $(1+\alpha)$ per step and diverges unless the iterate starts on the real axis.
+
+More generally, at $z_0 = re^{j\theta}$, stepping by $\delta z = \varepsilon z_0^*/r$ (the $\partial f/\partial z$ direction) gives $\delta f = 2\,\mathrm{Re}\{z_0^* \cdot \varepsilon z_0^*/r\} = 2\varepsilon r\cos 2\theta$:
+
+| Position of $z_0$ | $\theta$ | Direction of $z_0^*$ | $\delta f$ |
+|---|---|---|---|
+| real axis | $0$ | outward (coincides with the true gradient) | $+2\varepsilon r$ (maximal increase) |
+| diagonal | $45^\circ$ | tangent to the level circle | $0$ |
+| imaginary axis | $90^\circ$ | inward | $-2\varepsilon r$ (maximal decrease) |
+
+Checking only real-axis points would wrongly suggest that $\partial f/\partial z$ is an acceptable direction.
+
+**(c) Consistency.** Vector stationarity conditions, complex Lagrangians, and the MVDR/Capon derivations below are all written with $\nabla_{z^*}$.
+
+::: {.callout-important}
+## Summary
+For stationary points, $\partial/\partial z^*$ is *convenient*. As a direction for descent algorithms, it is *necessary*.
+:::
+
+## Example: $\lvert z \rvert^2$ and its level sets
+
+::: {#def-level-set}
+## Level set and contour
+The level set of $f$ at value $c$ is $\{z : f(z) = c\}$. In two dimensions it is a curve, called a contour (as on a topographic map, where position plays the role of $z$ and altitude the role of $f$). In three variables it is a level surface.
+:::
+
+Since $\lvert z \rvert^2 = x^2 + y^2$ is the squared distance to the origin, the level set $\lvert z \rvert^2 = c$ ($c > 0$) is the circle of radius $\sqrt{c}$ centered at the origin; at $c = 0$ it is the single point $z = 0$.
+
+| $c$ | radius $\sqrt{c}$ | points on the contour |
+|---|---|---|
+| 1 | 1 | $1,\ j,\ -1,\ -j,\ \tfrac{1+j}{\sqrt2}$ |
+| 4 | 2 | $2,\ 2j,\ -2$ |
+| 9 | 3 | $3,\ 3j,\ -3$ |
+
+- **Radius versus value.** Equally spaced circles correspond to values $1, 4, 9$, not $1, 2, 3$: the bowl $x^2 + y^2$ (a paraboloid) gets steeper away from the center.
+- **Rotation invariance.** $\lvert e^{j\phi}z \rvert^2 = \lvert z \rvert^2$, so every contour must be invariant under rotations about the origin, which forces circles. Any function of $\lvert z \rvert$ alone has concentric circular contours.
+- **Gradient is normal to the contours.** $\partial f/\partial z^* = z$ points radially outward. The tangent to the circle at $z$ is $jz$, and the real inner product of complex directions $a, b$ is $\mathrm{Re}\{a^* b\}$, so $\mathrm{Re}\{z^* \cdot jz\} = \mathrm{Re}\{j\lvert z \rvert^2\} = 0$.
+- **At the origin the gradient is the zero vector.** Every direction from the origin is "outward," so no single arrow can represent them all; by rotation invariance the only rotation-invariant vector is $0$. The function still increases in every direction, but only at second order:
+
+| Start | After an outward step $\varepsilon$ | Increase | Slope (increase $\div\ \varepsilon$) |
+|---|---|---|---|
+| $z = 1$ | $(1+\varepsilon)^2 = 1 + 2\varepsilon + \varepsilon^2$ | $\approx 2\varepsilon$ | $\approx 2$ |
+| $z = 0$ | $\varepsilon^2$ | $\varepsilon^2$ | $\varepsilon \to 0$ |
+
+"Increases in every direction" is second-order information (curvature; the point is a minimum). "Gradient is zero" is first-order information (flat bottom; the point is stationary). At a minimum both hold.
+
+**Non-circular contours need $z^2$ terms.** For $u = x^2 + 4y^2$ (elliptical contours),
+
+$$
+x^2 + 4y^2 = \tfrac52\lvert z \rvert^2 - \tfrac32\,\mathrm{Re}\{z^2\}
+$$
+
+(check: $z = 1$ gives $1$, $z = j$ gives $4$). Contours fail to be circles exactly when terms in $z^2$, $z^{*2}$ appear. This is the same structure that separates circularly symmetric (proper) complex Gaussians, whose statistics are fixed by $\mathrm{E}[zz^*]$, from improper ones with nonzero pseudo-covariance $\mathrm{E}[z^2]$.
+
+# Gradients, Level Sets, and Steepest Descent {#sec-gradient}
+
+## Gradient of a scalar function of a vector
+
+$$
+\nabla_x f(x) = \mathrm{col}\left[\frac{\partial f}{\partial x_1}, \dots, \frac{\partial f}{\partial x_N}\right] = \begin{bmatrix} \partial f/\partial x_1 \\ \vdots \\ \partial f/\partial x_N \end{bmatrix}, \qquad [\nabla_x f]_i = \frac{\partial f}{\partial x_i}.
+$$
+
+"Column vector" means the entries are stacked in **one** vertical column ($N \times 1$), first entry on top. The $\mathrm{col}[\cdot]$ notation lists them horizontally only to save space. Example: $f = x_1^2 + 3x_2 \Rightarrow \nabla f = \mathrm{col}[2x_1, 3]$.
+
+Why a column? The variable $x$ is a column, so the update $x_k = x_{k-1} - \alpha\nabla f$ is a valid subtraction of two $N \times 1$ vectors, and $df = \nabla f^T dx$ is a $(1 \times N)(N \times 1)$ product, a scalar, as a change in $f$ must be.
+
+**A gradient field.** For $f = \tfrac12(x_1^2 + x_2^2)$, $\nabla f = [x_1\ \ x_2]^T$. Drawing at each point the arrow of the gradient evaluated there produces a vector field:
+
+| Point $(x_1, x_2)$ | Gradient | Arrow |
+|---|---|---|
+| $(1, 0)$ | $[1, 0]^T$ | right |
+| $(0, 1)$ | $[0, 1]^T$ | up |
+| $(1, 1)$ | $[1, 1]^T$ | up-right |
+| $(-1, 1)$ | $[-1, 1]^T$ | up-left |
+| $(2, 0)$ | $[2, 0]^T$ | right, twice as long |
+
+The direction is the steepest-ascent direction and the length is the steepness. Here arrows point radially outward and lengthen away from the origin.
+
+## Level sets, tangent vectors, and orthogonality
+
+Parametrize a contour $f(x, y) = c$ by a curve $r(t) = (x(t), y(t))$, with $t$ thought of as time for a walker who stays on the contour. Its velocity $r'(t) = (dx/dt, dy/dt)$ is tangent to the contour.
+
+Because $f(x(t), y(t)) = c$ for **all** $t$, the composite is a constant function of $t$, so its derivative is zero. This holds by construction of the path, not by any special theorem. The chain rule then gives
+
+$$
+\frac{d}{dt}f\big(x(t), y(t)\big) = \underbrace{\frac{\partial f}{\partial x}}_{x\text{-slope}}\underbrace{\frac{dx}{dt}}_{x\text{-speed}} + \underbrace{\frac{\partial f}{\partial y}}_{y\text{-slope}}\underbrace{\frac{dy}{dt}}_{y\text{-speed}} = \nabla f \cdot r'(t) = \frac{dc}{dt} = 0.
+$$
+
+Walking along a contour, the change caused by moving in $x$ is exactly canceled by the change caused by moving in $y$. For $f = x^2 + y^2$ on $x = \cos t$, $y = \sin t$ at $t = 45^\circ$:
+
+| | slope | speed | contribution |
+|---|---|---|---|
+| $x$ | $2x = 1.414$ | $-\sin t = -0.707$ | $-1$ |
+| $y$ | $2y = 1.414$ | $\cos t = 0.707$ | $+1$ |
+| total | | | $0$ |
+
+A non-contour path such as $x = t$, $y = 0$ gives $f = t^2$ and $df/dt = 2t \neq 0$.
+
+::: {#prp-orthogonal}
+## The gradient is orthogonal to level sets
+$\nabla f(r(t)) \cdot r'(t) = 0$: the gradient is perpendicular to the tangent of the contour through the point.
+:::
+
+## Direction of maximum increase
+
+For a step $d$, $\Delta f \approx \nabla f \cdot d = \lVert \nabla f \rVert\,\lVert d \rVert\cos\theta$, where $\theta$ is the angle between $d$ and $\nabla f$. For a fixed step length, the increase is maximal at $\theta = 0$ (Cauchy–Schwarz). Hence:
+
+::: {#prp-steepest}
+## Steepest ascent
+Among steps of fixed Euclidean length, $\nabla f$ gives the largest first-order increase and $-\nabla f$ the largest decrease. Directions tangent to the contour give zero first-order change.
+:::
+
+**Numerical check** at $(1, 0.5)$ for $f = \tfrac12(x_1^2 + x_2^2)$ (value $0.625$, gradient $[1, 0.5]^T$), with steps of length $0.1$:
+
+| Step direction | Endpoint | Change in $f$ |
+|---|---|---|
+| along $x_1$ | $(1.1,\ 0.5)$ | $+0.105$ |
+| along $x_2$ | $(1,\ 0.6)$ | $+0.055$ |
+| $45^\circ$ diagonal | $(1.071,\ 0.571)$ | $+0.111$ |
+| gradient direction | $(1.089,\ 0.545)$ | $+0.117$ (largest) |
+| along the contour | $(0.955,\ 0.589)$ | $+0.005$ (second order only) |
+| opposite the gradient | $(0.911,\ 0.455)$ | $-0.107$ (largest decrease) |
+
+Intuition: the slopes are $1$ in $x_1$ and $0.5$ in $x_2$. With a fixed step budget it pays to invest in the steeper axis in proportion to the slopes, which is exactly the gradient direction. The $0.117$ is the first-order term $\lVert \nabla f \rVert \times 0.1 = 0.112$ plus a second-order $0.005$.
+
+::: {.callout-warning}
+## Reading contour plots
+A contour plot without value labels does not say which contours are higher: the same nested curves describe a bowl or a peak. If the gradient arrow points from inner to outer contours, the outer contours carry *larger* values and the inner ones *smaller* values (a bowl with its minimum at the center). Steepest descent then moves inward along $-\nabla f$.
+:::
+
+## Steepest descent
+
+$$
+x_k = x_{k-1} - \alpha\,\nabla_x f(x_{k-1}), \qquad \alpha > 0.
+$$
+
+Each step moves opposite to the local gradient. For the quadratic $f = \tfrac12 x^T A x$ with $A \succ 0$, the update is $x_k = (I - \alpha A)x_{k-1}$, which converges iff $\lvert 1 - \alpha\lambda_i \rvert < 1$ for all eigenvalues, i.e. $0 < \alpha < 2/\lambda_{\max}$. For a strictly convex smooth objective with a suitable step size, the iterates converge to the unique minimizer.
+
+## Steepest descent versus gradient descent
+
+With the update above the two names are interchangeable. Three finer distinctions appear in the literature.
+
+1. **Step size.** Some texts reserve "steepest descent" for the version with exact line search, $\alpha_k = \arg\min_{\alpha > 0} f(x_k - \alpha\nabla f(x_k))$, and "gradient descent" for a fixed or scheduled $\alpha$. This usage is not universal.
+2. **Norm (the precise distinction).** "Steepest" is only defined once step length is measured. The normalized steepest-descent direction is
+$$
+v^\star = \arg\min_{\lVert v \rVert \le 1}\nabla f^T v,
+$$
+   and it depends on the norm:
+
+| Norm | Steepest-descent direction | Name |
+|---|---|---|
+| $\ell_2$ | $-\nabla f$ | gradient descent |
+| $\lVert v \rVert_P = \sqrt{v^T P v}$, $P \succ 0$ | $-P^{-1}\nabla f$ | preconditioned gradient descent |
+| $\lVert \cdot \rVert_{\nabla^2 f}$ | $-(\nabla^2 f)^{-1}\nabla f$ | Newton's method |
+| $\ell_1$ | $-\dfrac{\partial f}{\partial x_i}e_i$ with $i = \arg\max_i \lvert \partial_i f \rvert$ | coordinate descent |
+
+   For the $P$-norm, substitute $w = P^{1/2}v$: minimize $(P^{-1/2}\nabla f)^T w$ over $\lVert w \rVert_2 \le 1$, so $w \propto -P^{-1/2}\nabla f$ and $v \propto -P^{-1}\nabla f$. For $\ell_1$, Hölder's inequality $\nabla f^T v \ge -\lVert \nabla f \rVert_\infty \lVert v \rVert_1$ selects the single steepest coordinate.
+
+   *Why it matters.* For $f = \tfrac12(x_1^2 + 100x_2^2)$ (condition number $\kappa = 100$), the gradient at $(10, 1)$ is $(10, 100)$, nearly vertical and not toward the minimizer, so plain gradient descent zigzags. Even with exact line search, $f$ shrinks only by the factor $\big(\tfrac{\kappa - 1}{\kappa + 1}\big)^2 \approx 0.96$ per step. In the $A$-norm, $-A^{-1}\nabla f = -x$ reaches the minimum in one step.
+
+   Consequently, "the gradient is the direction of maximum increase" tacitly assumes the Euclidean inner product. The differential $df$ is norm-free (a linear functional); the gradient is its representing vector under a chosen inner product.
+3. **Deterministic versus stochastic.** In adaptive filtering, "steepest descent" uses the true gradient of the mean-squared error, $\nabla_h\mathrm{E}[\varepsilon^2] = 2(Rh - p)$, which requires the covariance $R$ and cross-correlation $p$. LMS replaces the expectation by an instantaneous estimate: a stochastic gradient method. Machine-learning usage of "gradient descent" often means the stochastic variants.
+
+(The "method of steepest descent" in asymptotic analysis, which deforms integration contours through saddle points, is an unrelated technique.)
+
+## Gradients with respect to complex vectors {#sec-complex-gradient}
+
+For real-valued $f$ of $z \in \mathbb{C}^N$, define
+
+$$
+\nabla_z f = \mathrm{col}\Big[\frac{\partial f}{\partial z_1}, \dots, \frac{\partial f}{\partial z_N}\Big], \qquad \nabla_{z^*} f = \mathrm{col}\Big[\frac{\partial f}{\partial z_1^*}, \dots, \frac{\partial f}{\partial z_N^*}\Big].
+$$
+
+Componentwise, $\partial f/\partial z_i = \tfrac12(\partial f/\partial x_i - j\,\partial f/\partial y_i)$; since $f$ is real these partials are real, so $\partial f/\partial z_i = (\partial f/\partial z_i^*)^*$ and therefore
+
+$$
+\nabla_z f = (\nabla_{z^*} f)^*.
+$$
+
+**The variation.** With $g = \nabla_{z^*} f$,
+
+$$
+\delta f = \sum_i\Big(\frac{\partial f}{\partial z_i}\delta z_i + \frac{\partial f}{\partial z_i^*}\delta z_i^*\Big) = (\nabla_z f)^T\delta z + (\nabla_{z^*} f)^T\delta z^* .
+$$
+
+The first term is $(g^*)^T\delta z = g^H\delta z \equiv w$; the second is $g^T\delta z^* = (g^H\delta z)^* = w^*$. Hence
+
+$$
+\boxed{\delta f = 2\,\mathrm{Re}\big\{(\nabla_{z^*} f)^H\,\delta z\big\}}
+$$
+
+which is automatically real, as it must be. Since $\mathrm{Re}\{a^H b\} = a_r^T b_r + a_i^T b_i$ is the ordinary inner product on $\mathbb{C}^N \cong \mathbb{R}^{2N}$, this is the complex version of $\delta f = \nabla f^T\delta x$.
+
+::: {#thm-complex-steepest}
+## Direction of maximum increase for complex vectors
+Among steps with $\lVert \delta z \rVert = \varepsilon$, the first-order increase of a real-valued $f$ is maximized by $\delta z = \varepsilon\,g/\lVert g \rVert$, $g = \nabla_{z^*} f$. The maximal slope is $2\lVert \nabla_{z^*} f \rVert$.
+:::
+
+::: {.proof}
+$\delta f = 2\,\mathrm{Re}\{g^H\delta z\} \overset{(a)}{\le} 2\lvert g^H\delta z \rvert \overset{(b)}{\le} 2\lVert g \rVert\varepsilon$. Equality in (b) (Cauchy–Schwarz) requires $\delta z = cg$ for some complex $c$; equality in (a) requires $g^H\delta z = c\lVert g \rVert^2$ to be positive real, so $c > 0$.
+:::
+
+"Same direction" therefore means a **positive real** multiple; complex collinearity is not enough. Writing $\delta z = \varepsilon e^{j\phi}g/\lVert g \rVert$ gives $\delta f = 2\varepsilon\lVert g \rVert\cos\phi$:
+
+| $\phi$ | Direction | Result |
+|---|---|---|
+| $0$ | $g$ | maximal increase |
+| $\pi$ | $-g$ | maximal decrease (the steepest-descent direction) |
+| $\pm\pi/2$ | $\pm jg$ | no first-order change (tangent to the level set) |
+
+In real coordinates, $\nabla_{z^*} f = \tfrac12(\nabla_x f + j\nabla_y f) \leftrightarrow \tfrac12[\nabla_x f;\ \nabla_y f]$, the true gradient in $\mathbb{R}^{2N}$, whereas $\nabla_z f \leftrightarrow \tfrac12[\nabla_x f;\ -\nabla_y f]$ has its $y$-components sign-flipped and is not a gradient at all.
+
+**A wrong step can go uphill.** For a descent step $\delta z = -\alpha g$, $\delta f = -2\alpha\lVert g \rVert^2 < 0$. For the step $\delta z = -\alpha\nabla_z f = -\alpha g^*$,
+
+$$
+\delta f = -2\alpha\,\mathrm{Re}\{g^H g^*\} = -2\alpha\sum_k\mathrm{Re}\{(g_k^*)^2\} = -2\alpha\big(\lVert \mathrm{Re}\,g \rVert^2 - \lVert \mathrm{Im}\,g \rVert^2\big),
+$$
+
+which is positive whenever the imaginary part of $g$ dominates.
+
+**Stationarity versus direction.** It is sometimes said that the choice between $\nabla_z$ and $\nabla_{z^*}$ is free for scalars but unique for vectors. The real distinction is between two different questions, and it is the same in both cases:
+
+| Question | Scalar ($N = 1$) | Vector |
+|---|---|---|
+| find stationary points (set to zero) | either works | either works |
+| use as a direction (steepest descent) | only $\partial f/\partial z^*$ | only $\nabla_{z^*} f$ |
+
+**Writing $\delta f$ with $\nabla_z f$ is legitimate, but it does not change the direction.** All four forms
+
+$$
+\begin{aligned}
+\delta f &= 2\,\mathrm{Re}\{(\nabla_z f)^T\delta z\} = 2\,\mathrm{Re}\{(\nabla_{z^*} f)^H\delta z\} \\
+&= 2\,\mathrm{Re}\{(\nabla_{z^*} f)^T\delta z^*\} = 2\,\mathrm{Re}\{(\nabla_z f)^H\delta z^*\}
+\end{aligned}
+$$
+
+are equal. To read off a direction, the expression must be put in inner-product form $\mathrm{Re}\{(\cdot)^H\delta z\}$, and the vector in the conjugated slot is always $\nabla_{z^*} f$. Indeed $\max_{\lVert \delta z \rVert = \varepsilon}\mathrm{Re}\{a^T\delta z\}$ is attained at $\delta z \propto a^*$, not at $a$. Structurally, $\nabla_z f$ holds the coefficients of the linear functional $\delta z \mapsto (\nabla_z f)^T\delta z$, while $\nabla_{z^*} f$ is its representing vector (Riesz representer) under $\langle u, v\rangle = u^H v$. In real spaces transpose and conjugate transpose coincide and the two collapse into one vector.
+
+Example: $f = \lvert z \rvert^2$ at $z_0 = j$ gives $\partial f/\partial z = -j$ and $\partial f/\partial z^* = j$. The outward (uphill) direction is $+j$. Here $-j$ is a *displacement* from $z_0 = j$ toward the origin, not the position $-j$: $\lvert j - \varepsilon j \rvert^2 = (1 - \varepsilon)^2$ decreases, while $\lvert j + \varepsilon j \rvert^2 = (1 + \varepsilon)^2$ increases.
+
+# The Hessian and Second-Order Conditions {#sec-hessian}
+
+## Definition
+
+The Hessian is the gradient of the gradient: its $j$-th column is the gradient of the $j$-th component of $\nabla f$, so
+
+$$
+\nabla_x^2 f(x) = \Big[\frac{\partial^2 f}{\partial x_i\,\partial x_j}\Big]_{i,j=1}^{N} \equiv \mathbf{H}_f(x),
+$$
+
+where $\equiv$ introduces an alternative name. For $f \in C^2$ the mixed partials commute, so the Hessian is symmetric. Along a direction $d$, the second derivative of $t \mapsto f(x + td)$ at $t = 0$ is $d^T\mathbf{H}_f d$.
+
+## Positive definiteness and the symbol $\succ$
+
+$$
+\begin{aligned}
+A \succ 0 &\iff x^T A x > 0 \ \text{ for all } x \neq 0 \\
+&\iff \text{all eigenvalues of the symmetric matrix } A \text{ are positive}.
+\end{aligned}
+$$
+
+For a Hessian this says that $f$ curves upward along every direction, the multivariable form of $f'' > 0$. The curly symbol is used because "$A > 0$" could be read as "every entry is positive," an unrelated property:
+
+| Matrix | All entries positive? | Positive definite? |
+|---|---|---|
+| $\begin{bmatrix} 1 & 2 \\ 2 & 1 \end{bmatrix}$ | yes | no: eigenvalues $3, -1$; $x = (1, -1)$ gives $x^TAx = -2$ |
+| $\begin{bmatrix} 2 & -1 \\ -1 & 2 \end{bmatrix}$ | no | yes: eigenvalues $1, 3$ |
+
+The relation $A \succ B \iff A - B \succ 0$ (the Loewner order) is only a *partial* order: $\mathrm{diag}(1, -1)$ is neither $\succ 0$ nor $\prec 0$ (indefinite). For vectors, $\mu \succeq 0$ (or $\mu \ge 0$) conventionally means componentwise nonnegativity. Always check whether the objects being compared are scalars, vectors, or matrices.
+
+## Minimum conditions
+
+::: {#thm-unconstrained-second}
+## Second-order conditions (unconstrained)
+- Necessary: if $x^\star$ is a local minimizer of a $C^2$ function, then $\nabla f(x^\star) = 0$ and $\nabla^2 f(x^\star) \succeq 0$.
+- Sufficient: if $\nabla f(x^\star) = 0$ and $\nabla^2 f(x^\star) \succ 0$, then $x^\star$ is a strict local minimizer.
+:::
+
+The proof is the scalar Taylor argument applied along every direction: $f(x^\star + h) = f(x^\star) + \tfrac12 h^T\nabla^2 f(x^\star)h + o(\lVert h \rVert^2)$. If the Hessian is indefinite, the point is a **saddle**: $f = x_1^2 - x_2^2$ has $\nabla f(0) = 0$ and Hessian $\mathrm{diag}(2, -2)$, a minimum along $x_1$ and a maximum along $x_2$. The saddle is the multivariable counterpart of the stationary inflection point.
+
+## A caveat for complex variables
+
+A frequently quoted test declares a stationary point of a real $f(z, z^*)$ a minimum when the mixed Hessian $\nabla_z(\nabla_{z^*} f)$ is positive definite. That is sufficient only for *circular* objectives (built from $z^H(\cdot)z$). In general the terms $\partial^2 f/\partial z^{*2}$ matter and the full (augmented) Hessian must be examined. Counterexample: $f = zz^* + \tfrac{\beta}{2}(z^2 + z^{*2})$ has $\partial^2 f/\partial z\,\partial z^* = 1 > 0$, but $f = (1+\beta)x^2 + (1-\beta)y^2$ is a saddle for $\beta > 1$.
+
+# Matrix Calculus Toolkit {#sec-matrix-calculus}
+
+## Transpose rules and dimension bookkeeping
+
+| Rule | Meaning |
+|---|---|
+| $(u + v)^T = u^T + v^T$ | transpose distributes over sums |
+| $(AB)^T = B^T A^T$ | transposing a product reverses the order |
+| $s^T = s$ for a scalar ($1 \times 1$) | e.g. $c^T x = x^T c$ and $x^T A h = h^T A^T x$ |
+| $(A^{-1})^T = (A^T)^{-1}$ | transpose $AA^{-1} = I$; a symmetric matrix has a symmetric inverse |
+| scalars commute with matrices | a scalar factor can be moved anywhere in a product; a matrix cannot |
+
+Write the dimension under every symbol ($N\times1$, $M\times N$, ...) while deriving. Checking that summands have equal shapes and inner dimensions agree catches most algebra errors and shows at once whether a term is a scalar, a vector, or a matrix.
+
+## The perturbation method is the definition of the derivative
+
+::: {#def-frechet}
+## Gradient (Fréchet derivative)
+$f:\mathbb{R}^N \to \mathbb{R}$ is differentiable at $x$ if there is a vector $g$ with
+$$
+f(x + h) = f(x) + g^T h + r(h), \qquad \lim_{h \to 0}\frac{r(h)}{\lVert h \rVert} = 0.
+$$
+Then $\nabla f(x) \triangleq g$.
+:::
+
+The method "replace $x$ by $x + h$, expand, and read off the term linear in $h$" is therefore not an approximation: the approximation enters only when $r(h)$ is dropped to *predict* $f(x + h)$. The gradient itself is determined exactly.
+
+**Uniqueness.** If $g_1, g_2$ both qualify, then $(g_1 - g_2)^T h = o(\lVert h \rVert)$. Taking $h = t(g_1 - g_2)$, $t \to 0^+$, gives $\lVert g_1 - g_2 \rVert \to 0$ for a quantity independent of $t$, so $g_1 = g_2$. Any method that produces "linear part plus $o(\lVert h \rVert)$" yields *the* gradient.
+
+**Consistency with partial derivatives.** Setting $h = te_k$ gives $g_k = \partial f/\partial x_k$.
+
+**For quadratic forms the remainder is controlled exactly.** $(x + h)^T A(x + h) = x^TAx + h^T(A + A^T)x + h^TAh$ and $\lvert h^TAh \rvert \le \lVert h \rVert\,\lVert Ah \rVert \le \lVert A \rVert\,\lVert h \rVert^2$, so $r(h)/\lVert h \rVert \le \lVert A \rVert\,\lVert h \rVert \to 0$.
+
+::: {.callout-warning}
+## The definition needs differentiability
+- $f(x) = \lVert x \rVert_2$ at $0$: $f(h) = \lVert h \rVert$ has no linear part, so $f$ is not differentiable there.
+- Partials can exist without differentiability: $f(x, y) = \tfrac{x^2 y}{x^2 + y^2}$, $f(0, 0) = 0$, has both partials $0$ at the origin (it vanishes on the axes), yet $f(t, t) = t/2$, so the "gradient" $0$ is not a valid linear approximation.
+
+The perturbation definition is the stricter test: verifying the remainder checks differentiability at the same time.
+:::
+
+## Core identities with proofs
+
+**(I1) $\nabla_x(x^T y) = y$.** Componentwise $x^T y = \sum_i x_i y_i$ and only $x_k y_k$ contains $x_k$. By perturbation, $(x + h)^T y = x^T y + h^T y$. (Scalar analogue: $(xy)' = y$.)
+
+**(I2) $\nabla_x(x^T A x) = (A + A^T)x$, which is $2Ax$ for symmetric $A$.** Write $x^TAx = \sum_i\sum_j A_{ij}x_i x_j$. The variable $x_k$ occurs in two slots, so
+
+$$
+\frac{\partial}{\partial x_k}\sum_{i,j}A_{ij}x_i x_j = \underbrace{\sum_j A_{kj}x_j}_{i = k} + \underbrace{\sum_i A_{ik}x_i}_{j = k} = (Ax)_k + (A^T x)_k .
+$$
+
+The diagonal term $A_{kk}x_k^2$, whose derivative is $2A_{kk}x_k$, is counted once in each sum, as it should be. The perturbation proof is above; its quadratic remainder shows the Hessian is $A + A^T$. Check in $2\times2$: $A = \begin{bmatrix} a & b \\ b & d \end{bmatrix}$ gives $x^TAx = ax_1^2 + 2bx_1x_2 + dx_2^2$ with gradient $(2ax_1 + 2bx_2,\ 2bx_1 + 2dx_2) = 2Ax$.
+
+*Why symmetric $A$ is no loss of generality.* Split $A = A_s + K$ with $A_s = \tfrac12(A + A^T)$ and $K = \tfrac12(A - A^T)$. Then $x^TKx = (x^TKx)^T = x^TK^Tx = -x^TKx$, so $x^TKx = 0$ and $x^TAx = x^TA_sx$. Only $A_s$ matters, and $(A + A^T)x = 2A_s x$. Covariance matrices, Gram matrices $\Phi^T\Phi$, and Hessians are symmetric anyway.
+
+**(I3) $\nabla_X\,\mathrm{tr}(X^T Y) = Y$.** The gradient with respect to a matrix has the shape of the matrix, $[\nabla_X f]_{ij} = \partial f/\partial X_{ij}$. Expanding the trace,
+
+$$
+\mathrm{tr}(X^T Y) = \sum_j (X^T Y)_{jj} = \sum_j\sum_i (X^T)_{ji}Y_{ij} = \sum_{i,j}X_{ij}Y_{ij},
+$$
+
+the Frobenius inner product: multiply entries in matching positions and add. Only $X_{ab}Y_{ab}$ contains $X_{ab}$, so the partial is $Y_{ab}$. By perturbation, $\mathrm{tr}((X + H)^T Y) = \mathrm{tr}(X^T Y) + \mathrm{tr}(H^T Y)$, and the linear term is $\langle H, Y\rangle_F$. (I3) is (I1) for matrices. A consequence: $\mathrm{tr}(AX) = \mathrm{tr}((AX)^T) = \mathrm{tr}(X^TA^T)$, so $\nabla_X\,\mathrm{tr}(AX) = A^T$.
+
+| Identity | Key idea | Scalar analogue |
+|---|---|---|
+| $\nabla_x(x^T y) = y$ | gradient of an inner product | $(xy)' = y$ |
+| $\nabla_x(x^TAx) = (A + A^T)x$ | $x$ sits in two slots | $(ax^2)' = 2ax$ |
+| $\nabla_X\,\mathrm{tr}(X^T Y) = Y$ | gradient of the matrix inner product | $(xy)' = y$ |
+
+## Complex counterparts
+
+With the Wirtinger rule (hold $z$ fixed, differentiate in $z^*$):
+
+| $f(z)$ | $\nabla_{z^*} f$ |
+|---|---|
+| $z^H A z$ ($A$ Hermitian) | $Az$ |
+| $z^H c$ | $c$ |
+| $c^H z$ | $0$ |
+| $\mathrm{Re}\{c^H z\} = \tfrac12(c^H z + c^T z^*)$ | $\tfrac12 c$ |
+| $\lVert y - Hz \rVert^2$ | $-H^H(y - Hz)$ |
+| $\lvert z \rvert^2$ (scalar) | $z$ |
+
+**Why there is no factor $2$.** In $x^TAx$ the same $x$ fills both slots, so differentiation produces two terms. In $z^HAz$ the left slot holds $z^*$ and the right slot holds $z$, which are different variables; $\partial/\partial z^*$ touches only one slot. The two conventions agree: $\partial/\partial z^* = \tfrac12(\partial_x + j\partial_y)$ is half the real gradient, and $2Az$ is recovered in real coordinates.
+
+# Least Squares {#sec-ls}
+
+## Model and stacking
+
+Given data $(x_n, y_n)$, $n = 1, \dots, N$, fit a model that is linear in its coefficients:
+
+$$
+y \approx \sum_{k=1}^{K}a_k\,\phi_k(x),
+$$
+
+with fixed basis functions $\phi_k$ and unknown coefficients $a_k$. "Stack" means pile the scattered numbers into vectors and a matrix:
+
+| Symbol | What is stacked | Size | Line example ($y = b + mx$, data $(0,1), (1,3), (2,4)$) |
+|---|---|---|---|
+| $a$ | unknown coefficients (parameters) | $K \times 1$ | $\begin{bmatrix} b \\ m \end{bmatrix}$ |
+| $Y$ | observed outputs (data) | $N \times 1$ | $\begin{bmatrix} 1 \\ 3 \\ 4 \end{bmatrix}$ |
+| $\Phi$ | basis values, $\Phi_{n,k} = \phi_k(x_n)$ (design matrix) | $N \times K$ | $\begin{bmatrix} 1 & 0 \\ 1 & 1 \\ 1 & 2 \end{bmatrix}$ |
+
+Then $\Phi a = \mathrm{col}[b,\ b + m,\ b + 2m]$ collects the model's predictions at every data point, and the $N$ approximate equations read $Y \approx \Phi a$.
+
+## Residual and objective
+
+The **residual** is data minus prediction, $\varepsilon = Y - \Phi a$, one error per data point (the vertical gaps between points and the fitted curve). To compare fits we need a single number, so we use the squared Euclidean norm, the residual norm:
+
+$$
+J(a) = \lVert Y - \Phi a \rVert_2^2 = (Y - \Phi a)^T(Y - \Phi a) = \sum_n \varepsilon_n^2 .
+$$
+
+Squaring prevents positive and negative errors from canceling and makes $J$ a smooth quadratic with a closed-form minimizer. Under Gaussian noise, minimizing $J$ is also maximum-likelihood estimation.
+
+## Normal equations
+
+$Y$ and $\Phi$ are fixed by the data; the only thing we choose is $a$. So $J$ is a function of $a$ alone ("how bad is the fit for this choice of coefficients"), and we set $\nabla_a J = 0$. Expanding,
+
+$$
+J(a) = Y^TY - Y^T\Phi a - a^T\Phi^TY + a^T\Phi^T\Phi a = Y^TY - 2Y^T\Phi a + a^T\Phi^T\Phi a ,
+$$
+
+since the two middle terms are scalars and transposes of each other. Term by term:
+
+| Term | Rule | Gradient |
+|---|---|---|
+| $Y^TY$ | constant | $0$ |
+| $-2Y^T\Phi a = -2(\Phi^TY)^T a$ | (I1) | $-2\Phi^TY$ |
+| $a^T(\Phi^T\Phi)a$ | (I2), symmetric | $2\Phi^T\Phi a$ |
+
+$$
+\begin{aligned}
+\nabla_a J = -2\Phi^TY + 2\Phi^T\Phi a = 0 \quad&\Longrightarrow\quad \Phi^T\Phi\,a = \Phi^TY \quad (\text{normal equations}) \\
+&\Longrightarrow\quad a^\diamond = (\Phi^T\Phi)^{-1}\Phi^TY .
+\end{aligned}
+$$
+
+$\Phi$ is $N \times K$ and not square, so it has no inverse; $\Phi^T\Phi$ is $K \times K$ and is invertible exactly when the columns of $\Phi$ are linearly independent (for a line, at least two distinct $x_n$). The Hessian $2\Phi^T\Phi$ is then positive definite, so the stationary point is the unique global minimizer.
+
+## Worked example
+
+For the three points above, $\Phi^T\Phi = \begin{bmatrix} 3 & 3 \\ 3 & 5 \end{bmatrix}$ and $\Phi^TY = \begin{bmatrix} 8 \\ 11 \end{bmatrix}$. Solving $3b + 3m = 8$, $3b + 5m = 11$ gives $m = 1.5$, $b = 7/6 \approx 1.167$. The residuals are $(-\tfrac16,\ \tfrac13,\ -\tfrac16)$ and $J_{\min} = \tfrac16$.
+
+## The orthogonality principle
+
+The normal equations read $\Phi^T(Y - \Phi a^\diamond) = 0$: the residual is orthogonal ("normal") to every column of $\Phi$, which is the origin of the name. In the example the residuals sum to zero (orthogonal to the column of ones) and $0\cdot(-\tfrac16) + 1\cdot\tfrac13 + 2\cdot(-\tfrac16) = 0$ (orthogonal to the column of $x$-values). Geometrically, $\Phi a^\diamond = \hat Y$ is the orthogonal projection of $Y$ onto the column space of $\Phi$.
+
+## When $\Phi^T\Phi$ is singular
+
+Singularity means the columns of $\Phi$ are linearly dependent:
+
+| Situation | Example |
+|---|---|
+| fewer data than coefficients ($N < K$) | a quadratic (3 coefficients) through 2 points |
+| redundant basis functions | $\phi_1 = 1$, $\phi_2 = x$, $\phi_3 = 2x + 3$ |
+| degenerate data | fitting a line when all $x_n$ are equal |
+
+**The LS problem still has solutions; they are not unique.** With data $(1, 2), (1, 4)$ and a line, $\Phi = \begin{bmatrix} 1 & 1 \\ 1 & 1 \end{bmatrix}$ and $\Phi^T\Phi$ is singular. The data only reveal the value at $x = 1$, so every line with $b + m = 3$ (the mean of the $y$'s) is optimal:
+
+| $(b, m)$ | prediction at $x = 1$ | $J$ |
+|---|---|---|
+| $(3, 0)$ | 3 | 2 |
+| $(0, 3)$ | 3 | 2 |
+| $(1.5, 1.5)$ | 3 | 2 |
+| $(10, -7)$ | 3 | 2 |
+
+*Why a solution always exists.* The projection $\hat Y$ of $Y$ onto the column space is always unique. If the columns are dependent, every direction $v$ with $\Phi v = 0$ can be added to $a$ without changing $\Phi a$: the fitted values are unique, the coefficients are not (they are *not identifiable*). Algebraically, $\Phi^T\Phi v = 0 \Rightarrow v^T\Phi^T\Phi v = \lVert \Phi v \rVert^2 = 0 \Rightarrow \Phi v = 0$, so $\Phi^T\Phi$ and $\Phi$ share a null space, $\mathcal{R}(\Phi^T\Phi) = \mathcal{R}(\Phi^T)$, and the right side $\Phi^TY \in \mathcal{R}(\Phi^T)$ makes the normal equations always consistent. The Hessian is only semidefinite: the bowl has a flat valley instead of a single lowest point.
+
+**Remedies.**
+
+1. *Minimum-norm solution:* $a^\diamond = \Phi^+ Y$ with the Moore–Penrose pseudoinverse (computed by SVD). In the example it is $(1.5, 1.5)$, the point of $b + m = 3$ closest to the origin. When $\Phi$ has full column rank, $\Phi^+ = (\Phi^T\Phi)^{-1}\Phi^T$, so this generalizes the usual formula.
+2. *Ridge regularization:* $a = (\Phi^T\Phi + \delta I)^{-1}\Phi^TY$, always invertible for $\delta > 0$, equivalent to adding $\delta\lVert a \rVert^2$ to $J$.
+3. *Fix the model or data:* remove redundant basis functions, collect more varied data, lower the model order.
+
+**Nearly singular is the common practical problem.** If the $x_n$ crowd into a narrow interval, the formula still returns an answer, but small noise moves the coefficients a lot. Under noise variance $\sigma^2$, the estimator covariance is $\sigma^2(\Phi^T\Phi)^{-1}$, which blows up as $\Phi^T\Phi$ approaches singularity.
+
+## Polynomial approximation and numerical practice
+
+For polynomial expansions take $\phi_k(x) = x^k$, $k = 0, 1, \dots$. The straight line $y = b + mx$ is $[\phi_0(x),\ \phi_1(x)]\cdot a$ with $a = \mathrm{col}[b, m]$, and
+
+$$
+\Phi = \begin{bmatrix} 1 & x_1 \\ 1 & x_2 \\ \vdots & \vdots \\ 1 & x_N \end{bmatrix}, \qquad Y = \mathrm{col}[y_1, \dots, y_N],
+$$
+
+$$
+\varepsilon = Y - \Phi a, \qquad a^\diamond = (\Phi^T\Phi)^{-1}\Phi^TY .
+$$
+
+Higher degrees add the columns $x_n^2, x_n^3, \dots$ (a Vandermonde matrix).
+
+**Solve the system; do not form the inverse.** The formula with $(\Phi^T\Phi)^{-1}$ *expresses* the answer; it is not a recipe. Three ways to compute the same $a^\diamond$:
+
+| Method | What it does |
+|---|---|
+| (1) form the inverse | compute $(\Phi^T\Phi)^{-1}$ entry by entry, then multiply by $\Phi^TY$ |
+| (2) solve the linear system | solve $(\Phi^T\Phi)a = \Phi^TY$ by elimination or Cholesky, never forming an inverse |
+| (3) solve from $\Phi$ directly | QR or SVD of $\Phi$; $\Phi^T\Phi$ is never formed |
+
+Scalar analogy with three significant digits: solving $3a = 6$ via $1/3 = 0.333$ and $0.333 \times 6 = 1.998$ is worse than $6/3 = 2$. Inversion is a detour that costs about three times the work of one solve and adds rounding error. Worse, $\kappa(\Phi^T\Phi) = \kappa(\Phi)^2$: forming the normal equations squares the condition number, and roughly $\log_{10}\kappa$ of the $\approx 16$ significant digits of double precision are lost.
+
+Polynomial bases are a severe case. On $[0, 1]$, the columns $x^8, x^9, x^{10}$ all hug zero and shoot up near $1$; they are nearly parallel. Fitting noiseless data with all true coefficients equal to $1$ on $50$ equispaced points:
+
+| Degree | $\kappa(\Phi)$ | $\kappa(\Phi^T\Phi)$ | max error (1) inverse | (2) solve | (3) lstsq/SVD |
+|---|---|---|---|---|---|
+| 3 | $1.2\times10^{2}$ | $1.4\times10^{4}$ | $2\times10^{-12}$ | $1\times10^{-12}$ | $2\times10^{-15}$ |
+| 8 | $6.3\times10^{5}$ | $3.9\times10^{11}$ | $8\times10^{-5}$ | $7\times10^{-6}$ | $1\times10^{-11}$ |
+| 12 | $6.8\times10^{8}$ | $8.5\times10^{17}$ | $1.6\times10^{3}$ | $2.4\times10^{1}$ | $3\times10^{-8}$ |
+
+At degree 12, $\kappa(\Phi^T\Phi)$ exceeds the reciprocal of machine precision and both normal-equation methods return garbage, while the SVD route stays accurate.
+
+```python
+import numpy as np
+x = np.linspace(0, 1, 50)
+Phi = np.vander(x, 13, increasing=True)   # degree 12
+Y = Phi @ np.ones(13)                     # true coefficients are all 1
+
+a_inv = np.linalg.inv(Phi.T @ Phi) @ Phi.T @ Y       # (1) avoid
+a_sol = np.linalg.solve(Phi.T @ Phi, Phi.T @ Y)      # (2) better
+a_lst = np.linalg.lstsq(Phi, Y, rcond=None)[0]       # (3) recommended
+```
+
+Further remedies for high-degree fits: rescale $x$ to $[-1, 1]$, or use orthogonal polynomials (Legendre, Chebyshev) as the basis. Both make the columns less parallel and reduce $\kappa(\Phi)$ itself.
+
+## Complex least squares
+
+For $z \in \mathbb{C}^K$, $J(z) = \lVert y - Hz \rVert^2 = y^Hy - y^HHz - z^HH^Hy + z^HH^HHz$. With $z$ held fixed, $\nabla_{z^*} J = -H^Hy + H^HHz$, so the normal equations are $H^HHz = H^Hy$ and $z^\diamond = (H^HH)^{-1}H^Hy$ for full column rank.
+
+# Equality-Constrained Optimization {#sec-equality}
+
+$$
+\min_{x \in \mathbb{R}^n} f(x) \quad \text{subject to} \quad g(x) = 0, \qquad g:\mathbb{R}^n \to \mathbb{R}^m .
+$$
+
+## Why "find the stationary points of $f$, then keep the feasible ones" fails
+
+*Ad hoc* (Latin: "for this purpose only") describes an improvised method with no general justification. The tempting ad hoc recipe is: solve $\nabla f = 0$, discard infeasible solutions, compare the rest. It fails because constrained optima are typically **not** stationary points of $f$.
+
+Example: $\min x_1^2 + x_2^2$ s.t. $x_1 + x_2 = 1$. The only stationary point $(0, 0)$ is infeasible, so the recipe returns nothing, yet the solution is $(\tfrac12, \tfrac12)$, where $\nabla f = (1, 1) \neq 0$.
+
+Reason: $\nabla f = 0$ demands zero first-order change in all $n$ directions. At a constrained optimum only the $n - m$ directions *along* the constraint must give zero change; across the constraint we cannot move, so the slope there may be nonzero. The recipe imposes a condition far too strong.
+
+The correct idea is stationarity of $f$ *restricted* to the constraint. When the constraint can be solved explicitly this is just substitution: $x_2 = 1 - x_1$, $\varphi(x_1) = x_1^2 + (1 - x_1)^2$, $\varphi' = 4x_1 - 2 = 0 \Rightarrow x_1 = \tfrac12$. Lagrange multipliers generalize this to implicit constraints.
+
+## The Lagrangian
+
+$$
+L(x; \lambda) = f(x) + \lambda^T g(x), \qquad \lambda \in \mathbb{R}^m .
+$$
+
+**On the feasible set, $L = f$ for every $\lambda$.** That is deliberate: adding $\lambda^Tg$ cannot change the problem. Its effect comes from the fact that $g$ is zero *in value* on the constraint but not zero *in slope*: $g(x) = x$ vanishes at $0$ with slope $1$. The added term leaves values on the constraint untouched and tilts the landscape off it. Choosing $\lambda$ tilts it just enough that the constrained optimum becomes a stationary point of $L$.
+
+**Feasibility is enforced by the second condition, not by minimizing $L$.** The Lagrange conditions are
+
+$$
+\nabla_x L = 0 \qquad\text{and}\qquad \nabla_\lambda L = g(x) = 0 .
+$$
+
+For a wrong $\lambda$, the minimizer of $L$ is infeasible and is discarded; $\lambda$ is tuned until the minimizer lands on the constraint. In the example, minimizing $L = x_1^2 + x_2^2 + \lambda(x_1 + x_2 - 1)$ over $x$ for fixed $\lambda$ gives $x_1 = x_2 = -\lambda/2$:
+
+| $\lambda$ | minimizer of $L$ | $g(x)$ | verdict |
+|---|---|---|---|
+| $0$ | $(0, 0)$ | $-1$ | infeasible |
+| $-2$ | $(1, 1)$ | $+1$ | infeasible |
+| $-1$ | $(0.5, 0.5)$ | $0$ | feasible: the solution |
+
+**Price, not penalty.** For equality constraints $\lambda^Tg$ is not a penalty that always grows with violation ($g$ may have either sign). It is a *price*: with $\lambda = -1$, $L = f - (x_1 + x_2 - 1)$, and leaving the constraint toward the origin to reduce $f$ makes $g < 0$ and the added term positive, exactly canceling the first-order gain. A genuine penalty is a term like $\tfrac{\rho}{2}\lVert g(x) \rVert^2$, which defines the separate penalty method.
+
+## First-order condition
+
+Let $J = \partial g/\partial x$ be the $m \times n$ Jacobian whose rows are $\nabla g_i^T$. Directions that keep the constraints to first order form the **tangent space**
+
+$$
+T = \{d : Jd = 0\} .
+$$
+
+1. At a constrained minimizer, no $d \in T$ decreases $f$. Since $d \in T \Rightarrow -d \in T$, both $\nabla f^Td \ge 0$ and $-\nabla f^Td \ge 0$, so $\nabla f^Td = 0$ for all $d \in T$.
+2. Hence $\nabla f \in T^\perp = \mathcal{N}(J)^\perp = \mathcal{R}(J^T) = \mathrm{span}\{\nabla g_1, \dots, \nabla g_m\}$.
+3. So there are multipliers with
+$$
+\nabla f(x^\star) + \sum_{i=1}^{m}\lambda_i^\star\nabla g_i(x^\star) = \nabla f(x^\star) + \nabla g(x^\star)\,\lambda^\star = 0, \qquad g(x^\star) = 0,
+$$
+   where $\nabla g(x^\star)$ denotes the $n \times m$ matrix whose columns are the $\nabla g_i$.
+
+These are $n + m$ equations in $n + m$ unknowns. With equality constraints only, they are the KKT conditions (named after Karush, and Kuhn and Tucker) and coincide with the classical Lagrange conditions.
+
+## LICQ
+
+::: {#def-licq}
+## Linear independence constraint qualification
+LICQ holds at $x^\star$ if $\nabla g_1(x^\star), \dots, \nabla g_m(x^\star)$ are linearly independent.
+:::
+
+| Case | What LICQ says |
+|---|---|
+| one constraint | $\nabla g(x^\star) \neq 0$ |
+| linear constraints $Cx = c$ | the rows of $C$ are linearly independent |
+| general | each constraint blocks a genuinely different direction; none is redundant or degenerate at $x^\star$ |
+
+::: {#thm-lagrange}
+## Lagrange multiplier theorem
+If $x^\star$ is a local minimizer and LICQ holds at $x^\star$, there exists a unique $\lambda^\star$ with $\nabla_x L(x^\star; \lambda^\star) = 0$ and $g(x^\star) = 0$.
+:::
+
+**Why LICQ is needed.** The derivation computed the movable directions from the gradients, which is valid only when the constraint set looks like a smooth surface near $x^\star$. Counterexample: $g_1 = x_2 - x_1^2 = 0$, $g_2 = x_2 + x_1^2 = 0$, $f = x_1$.
+
+- The two parabolas meet only at the origin, so $(0, 0)$ is the only feasible point and hence optimal.
+- At the origin $\nabla g_1 = \nabla g_2 = (0, 1)$: dependent, so LICQ fails.
+- $\nabla f + \lambda_1\nabla g_1 + \lambda_2\nabla g_2 = (1, 0) + (\lambda_1 + \lambda_2)(0, 1)$ never vanishes: **no multiplier exists** at the true optimum. The gradients suggest horizontal motion ($d_2 = 0$) is allowed, but the feasible set is a single point; the linearization misrepresents the constraint.
+
+When LICQ holds, the coefficients in the combination of independent gradients are also unique.
+
+## Geometry: normals in balance
+
+- $\nabla f(x^\star)$ is **normal to the constraint manifold** (the curve or surface $g = 0$): a tangential component would allow further decrease along the constraint.
+- $\lambda^\star$ **scales the constraint normals** so that they balance $\nabla f$: $\nabla f = -\sum\lambda_i\nabla g_i$.
+- At the optimum, the contour of $f$ just touches the constraint. While the contour still crosses the constraint, moving along the constraint reaches a lower contour. At tangency the two normals are parallel.
+- *Bead on a wire.* A bead constrained to a wire, in a potential $f$, feels the force $-\nabla f$. The wire can push only perpendicular to itself (along $\nabla g$). Equilibrium is $-\nabla f - \lambda\nabla g = 0$. In mechanics, constraint forces are literally Lagrange multipliers.
+
+## One multiplier per constraint, not per variable
+
+In $\min x^TAx$ s.t. $c^Tx = 1$ there is one constraint, so $\lambda$ is a scalar. The constraint set is a hyperplane with the single normal $c$; at the optimum $\nabla f$ must be *parallel* to $c$, which is described by one scale factor. With a separate $\lambda_i$ for each component, $\nabla f = -(\lambda_1c_1, \dots, \lambda_nc_n)$ could be almost any vector and the condition would select nothing. With $A = \mathrm{diag}(1, 4)$, $c = (1, 1)$:
+
+| Point | $\nabla f = 2Ax$ | scalar $\lambda$ with $\nabla f = -\lambda c$? | componentwise $\lambda_i$? |
+|---|---|---|---|
+| $(0.8, 0.2)$ (optimal) | $(1.6, 1.6)$ | yes, $\lambda = -1.6$ | yes |
+| $(0.5, 0.5)$ (not optimal) | $(1, 4)$ | no ($1 \neq 4$) | "yes" ($\lambda_1 = -1$, $\lambda_2 = -4$) |
+
+Counting: a scalar multiplier gives $n + 1$ unknowns and $n + 1$ equations; componentwise multipliers give $2n$ unknowns and $n + 1$ equations. Several multipliers appear only with several constraints ($m$ constraints, $\lambda \in \mathbb{R}^m$). Also, $\lambda$ is not a function of $x$: the notation $x(\lambda)$ treats $\lambda$ temporarily as a parameter, and the constraint then fixes a single value $\lambda^\star$.
+
+## Sensitivity: what the multiplier measures
+
+Perturb the constraint to $g(x) = \varepsilon$ and let $p^\star(\varepsilon)$ be the optimal value. Then
+
+$$
+\frac{dp^\star}{d\varepsilon} = \nabla f^T\frac{dx^\star}{d\varepsilon} = -\lambda^T\nabla g^T\frac{dx^\star}{d\varepsilon} = -\lambda^T\frac{d}{d\varepsilon}g(x^\star(\varepsilon)) = -\lambda .
+$$
+
+Check: $\min x_1^2 + x_2^2$ s.t. $x_1 + x_2 = 1 + \varepsilon$ gives $p^\star = (1 + \varepsilon)^2/2$, so $dp^\star/d\varepsilon|_0 = 1 = -\lambda$ with $\lambda = -1$. In economics $\lambda$ is the *shadow price* of the constraint.
+
+## Second-order conditions
+
+First-order conditions say the objective is flat along the constraint; a flat point can be a constrained minimum, maximum, or saddle. The second-order test examines the curvature of the **Lagrangian** along the **tangent space**.
+
+::: {#thm-constrained-second}
+## Second-order conditions (equality constraints)
+Let $x^\star$ satisfy the first-order conditions with $\lambda^\star$, LICQ holding, and $T = \{y : \nabla g(x^\star)^T y = 0\}$.
+
+- Necessary: if $x^\star$ is a local minimizer, then $y^T\nabla_x^2L(x^\star; \lambda^\star)\,y \ge 0$ for all $y \in T$.
+- Sufficient: if $y^T\nabla_x^2L(x^\star; \lambda^\star)\,y > 0$ for all nonzero $y \in T$, then $x^\star$ is a strict local minimizer.
+:::
+
+::: {.callout-warning}
+## "$\ge 0$ on the tangent space implies a local minimum" is false
+$\min f = -x_2^4$ s.t. $x_1 = 0$: at the origin $\lambda^\star = 0$ and $\nabla^2L = 0$, so $y^T\nabla^2Ly = 0 \ge 0$ for every tangent $y$, yet $f = -x_2^4 \le 0$ on the constraint and the origin is a local *maximum*. Exactly as in the scalar case, $\ge 0$ is necessary and $> 0$ is sufficient.
+:::
+
+**Why the Hessian of $L$ and not of $f$.** $\min f = -x_2$ s.t. $g = x_1^2 + x_2^2 - 1 = 0$ (maximize $x_2$ on the unit circle). The KKT points are the top and bottom of the circle:
+
+| | $(0, 1)$ | $(0, -1)$ |
+|---|---|---|
+| $\lambda^\star$ | $0.5$ | $-0.5$ |
+| $\nabla^2 f$ | $0$ (linear) | $0$ |
+| $\nabla^2L = \nabla^2 f + \lambda\nabla^2 g = 2\lambda I$ | $I$ | $-I$ |
+| tangent $y = (t, 0)$: $y^T\nabla^2Ly$ | $t^2 > 0$ | $-t^2 < 0$ |
+| verdict | local minimum | local maximum |
+
+$f$ is linear, so its own Hessian decides nothing; the curvature comes from the bending of the constraint and enters through $\lambda\nabla^2 g$. Directly: along the circle from the top, $x_2 = \cos\theta \approx 1 - \theta^2/2$, so $f \approx -1 + \theta^2/2$ increases.
+
+**Why only tangent directions.** $\min x_1^2 - x_2^2$ s.t. $x_2 = 0$. Without the constraint, $\nabla^2 f = \mathrm{diag}(2, -2)$ is indefinite (a saddle). On the constraint $f = x_1^2$ has a minimum at $0$, and the test on $y = (t, 0)$ gives $2t^2 > 0$. Curvature across the constraint is irrelevant because we cannot move there: the unconstrained requirement $\nabla^2 f \succ 0$ weakens to positivity on the tangent space.
+
+## When is the constrained solution unique?
+
+The standard sufficient condition: **$f$ strictly convex, feasible set convex, and a solution exists.** The midpoint argument then applies, because the midpoint of two feasible points is feasible.
+
+- For *equality* constraints the feasible set is convex when $g$ is **affine** ($Cx = c$). If $g$ is strictly convex, then $g(\bar x) < \tfrac12 g(x_1) + \tfrac12 g(x_2) = 0$ at the midpoint, which is therefore infeasible: level sets of strictly convex functions are curved and nonconvex. Counterexample: $\min x_1^2 + 2x_2^2$ s.t. $x_1^2 + x_2^2 - 1 = 0$, with both functions strictly convex, has the two minimizers $(\pm1, 0)$ (on the circle $f = 2 - x_1^2$).
+- For *inequality* constraints $h_i(x) \le 0$, convex $h_i$ give convex sublevel sets, hence a convex feasible set.
+- Strict convexity of an *inequality* constraint set can substitute for strict convexity of $f$: $\min c^Tx$ s.t. $\lVert x \rVert^2 \le 1$ has the unique solution $-c/\lVert c \rVert$, because the ball's boundary has no flat pieces; over a box, a linear objective can be minimized by an entire edge.
+
+# Worked Example: Quadratic Minimization with One Linear Constraint {#sec-mvdr}
+
+$$
+\min_{x \in \mathbb{R}^n} x^TAx \quad\text{s.t.}\quad c^Tx = 1, \qquad A \succ 0 \text{ symmetric (e.g. a correlation matrix)}.
+$$
+
+The unconstrained minimizer $x = 0$ is infeasible. The constraint is a single scalar equation with $\nabla g = c \neq 0$, so LICQ holds automatically.
+
+## Stationarity, multiplier, and solution
+
+$$
+L(x; \lambda) = x^TAx + \lambda(c^Tx - 1), \qquad \nabla_xL = 2Ax + \lambda c = 0 \;\Rightarrow\; x(\lambda) = -\frac{\lambda}{2}A^{-1}c
+$$
+
+(left-multiply by $A^{-1}$; with matrices, multiply both sides from the *same* side). Impose the constraint:
+
+$$
+c^Tx(\lambda) = -\frac{\lambda}{2}c^TA^{-1}c = 1 \;\Rightarrow\; \lambda^\star = -\frac{2}{c^TA^{-1}c}, \qquad x^\star = \frac{A^{-1}c}{c^TA^{-1}c} .
+$$
+
+The objective is strictly convex and the constraint affine, so this is the unique global minimizer.
+
+## Optimal value: two derivations
+
+Let $s = c^TA^{-1}c > 0$, so $x^\star = \tfrac1s A^{-1}c$.
+
+**By substitution.** $x^{\star T} = \tfrac1s c^T(A^{-1})^T = \tfrac1s c^TA^{-1}$ (scalar factor, reversed transpose, symmetric inverse). Then
+
+$$
+x^{\star T}Ax^\star = \frac{1}{s^2}c^T\underbrace{A^{-1}A}_{I}A^{-1}c = \frac{1}{s^2}\,s = \frac1s = \big(c^TA^{-1}c\big)^{-1}.
+$$
+
+**By the optimality conditions.** Left-multiply $2Ax^\star = -\lambda^\star c$ by $x^{\star T}$ and use $x^{\star T}c = c^Tx^\star = 1$:
+
+$$
+x^{\star T}Ax^\star = -\frac{\lambda^\star}{2} = \frac1s .
+$$
+
+The optimal value equals $-\lambda^\star/2$, tying it to the multiplier.
+
+## Numerical check
+
+$A = \mathrm{diag}(1, 4)$, $c = (1, 1)$ is the problem $\min x_1^2 + 4x_2^2$ s.t. $x_1 + x_2 = 1$. Here $s = 1 + \tfrac14 = 1.25$, $x^\star = (0.8, 0.2)$, $\lambda^\star = -1.6$, and the minimum is $0.64 + 0.16 = 0.8 = 1/s$. In the scalar case $n = 1$: $x^\star = 1/c$ and the minimum $a/c^2 = 1/(c\,a^{-1}c)$.
+
+## Why $A^{-1}$ cannot be canceled
+
+$$
+\frac{A^{-1}c}{c^TA^{-1}c} \;\neq\; \frac{c}{c^Tc} \quad\text{in general.}
+$$
+
+The numerator is an $n \times 1$ vector and the denominator a scalar; the "fraction" means $(c^TA^{-1}c)^{-1}\cdot A^{-1}c$. The two copies of $A^{-1}$ play different roles: one transforms $c$, the other weights a quadratic form. Matrix products do not commute, so the denominator's $A^{-1}$ cannot be pulled out.
+
+| | formula | result | $c^Tx$ | $x^TAx$ |
+|---|---|---|---|---|
+| correct | $\dfrac{(1,\ \tfrac14)}{1 + \tfrac14}$ | $(0.8,\ 0.2)$ | 1 | 0.8 |
+| "canceled" | $\dfrac{(1,\ 1)}{2}$ | $(0.5,\ 0.5)$ | 1 | 1.25 |
+
+The canceled answer is feasible but not optimal. It is correct exactly when $c$ is an eigenvector of $A$ ($Ac = \mu c \Rightarrow A^{-1}c = c/\mu$), in particular when $A = \sigma^2 I$.
+
+**Interpretation.** This is the minimum-variance distortionless-response (MVDR) beamformer: $A$ is the noise covariance and $c$ the steering vector. For white noise the solution is the normalized matched filter $c/(c^Tc)$. For colored noise $A^{-1}$ whitens the noise first. The minimal output power $1/(c^TA^{-1}c)$ is the Capon spectrum value (@sec-mv-problem).
+
+# Complex Variables with Constraints {#sec-complex-constraints}
+
+## The Lagrangian must be real
+
+The Wirtinger theorem requires a **real-valued** function. Multipliers may be complex; the Lagrangian may not.
+
+A complex constraint $g(z) = 0$ is two real constraints, $\mathrm{Re}\,g = 0$ and $\mathrm{Im}\,g = 0$, which need two real multipliers $\mu, \nu$. Packing them as $\lambda = \mu + j\nu$,
+
+$$
+\mu\,\mathrm{Re}\,g + \nu\,\mathrm{Im}\,g = \mathrm{Re}\{\lambda^* g\},
+$$
+
+so the correct constraint term is the *real part* of $\lambda^* g$, or for vector constraints
+
+$$
+\lambda^H g + \lambda^T g^* = 2\,\mathrm{Re}\{\lambda^H g\},
+$$
+
+since $(\lambda^Hg)^* = \lambda^Tg^*$. The factor $2$ is absorbed into $\lambda$. A constraint such as $c^Hz = 1$ looks "real" (real right side), but $c^Hz - 1$ is complex-valued and still counts as two real constraints.
+
+**What goes wrong otherwise.** For $\min z^HAz$ s.t. $Cz = c$, the naive $L = z^HAz + \lambda^H(Cz - c)$ is complex-valued:
+
+- $\nabla_{z^*}L_{\text{naive}} = Az = 0 \Rightarrow z = 0$, which contains no multiplier and violates the constraint;
+- $\nabla_zL_{\text{naive}} = A^Tz^* + C^T\lambda^* = 0$, whose conjugate $Az + C^H\lambda = 0$ is the correct condition.
+
+With a complex $L$ the two Wirtinger gradients give inequivalent equations, so "either one" breaks down.
+
+## Example: multiple complex linear constraints (LCMV)
+
+$$
+\min_z z^HAz \quad\text{s.t.}\quad Cz = c,
+$$
+
+| Object | Size | Role |
+|---|---|---|
+| $z$ | $N \times 1$ | complex variable |
+| $A$ | $N \times N$ | Hermitian, positive definite |
+| $C$ | $M \times N$ | constraint matrix; row $i$ is constraint $i$ ($M \le N$) |
+| $c$ | $M \times 1$ | right-hand sides (different from the rows of $C$) |
+| $\lambda$ | $M \times 1$ | one complex multiplier per constraint |
+
+For example, $z_1 + z_2 + z_3 = 1$ and $z_1 - z_2 = 0$ give $C = \begin{bmatrix} 1 & 1 & 1 \\ 1 & -1 & 0 \end{bmatrix}$ and $c = \mathrm{col}[1, 0]$. The single-constraint problem of @sec-mvdr is the case $M = 1$, $C = c_{\text{old}}^H$, right side $1$.
+
+**Real Lagrangian.**
+
+$$
+L = z^HAz + \lambda^H(Cz - c) + \lambda^T(C^*z^* - c^*) .
+$$
+
+$z^HAz$ is real because $(z^HAz)^* = (z^HAz)^H = z^HA^Hz = z^HAz$, and the constraint terms are a number plus its conjugate. So $L$ is real for every $z$ and every complex $\lambda$, and $\nabla_{z^*}$ alone suffices.
+
+**Step A (gradients, $z$ held fixed).**
+
+| Term | $\nabla_{z^*}$ |
+|---|---|
+| $z^HAz = \sum_{i,j}z_i^*A_{ij}z_j$ | $Az$ |
+| $\lambda^H(Cz - c)$ | $0$ |
+| $\lambda^TC^*z^* = \sum_i\lambda_i\sum_kC_{ik}^*z_k^*$ | $\sum_iC_{ik}^*\lambda_i = (C^H\lambda)_k$, i.e. $C^H\lambda$ |
+
+$$
+\nabla_{z^*}L = Az + C^H\lambda = 0 \qquad (N \times 1 \text{ on both terms}).
+$$
+
+**Step B.** $z^\diamond = -A^{-1}C^H\lambda^\diamond$.
+
+**Step C (impose the constraint).** $CA^{-1}C^H\lambda^\diamond = -c$, where $CA^{-1}C^H$ is $M \times M$.
+
+**Step D.** $\lambda^\diamond = -(CA^{-1}C^H)^{-1}c$.
+
+**Step E.**
+
+$$
+z^\diamond = A^{-1}C^H\big(CA^{-1}C^H\big)^{-1}c .
+$$
+
+The $M \times M$ inverse must stay in the middle; only for $M = 1$ is it a scalar that can be written as a denominator. Check: $Cz^\diamond = (CA^{-1}C^H)(CA^{-1}C^H)^{-1}c = c$.
+
+**Invertibility.** For $u \neq 0$, $u^H(CA^{-1}C^H)u = w^HA^{-1}w$ with $w = C^Hu$, positive whenever $w \neq 0$. $C^Hu \neq 0$ for all $u \neq 0$ exactly when the **rows** of $C$ (columns of $C^H$) are linearly independent, i.e. $\mathrm{rank}\,C = M$. That is the LICQ condition here; the constraint gradients are the rows of $C$. (Requiring the $N$ columns of an $M \times N$ matrix to be independent would be impossible for $M < N$.)
+
+**Special case $A = I$.** $z^\diamond = C^H(CC^H)^{-1}c$, the minimum-norm solution of $Cz = c$ (the pseudoinverse formula). For the example, $CC^H = \mathrm{diag}(3, 2)$ and $z^\diamond = C^H\,\mathrm{col}[1/3, 0] = \tfrac13(1, 1, 1)$. A general $A$ measures size by $z^HAz$ instead of $\lVert z \rVert^2$, which is why $A^{-1}$ appears.
+
+In array processing this is the linearly constrained minimum-variance (LCMV) beamformer: the rows of $C$ are steering vectors (conjugated) for several directions and $c$ holds the desired responses, e.g. $1$ toward the target and $0$ (a null) toward interferers.
+
+# Inequality Constraints and the KKT Conditions {#sec-kkt}
+
+From here on,
+
+| Symbol | Meaning | Count | Multiplier |
+|---|---|---|---|
+| $h_j(x) = 0$ | equality constraint | $\ell$ | $\lambda_j$ (free) |
+| $g_i(x) \le 0$ | inequality constraint | $m$ | $\mu_i \ge 0$ |
+
+and $L(x, \lambda, \mu) = f(x) + \sum_j\lambda_jh_j(x) + \sum_i\mu_ig_i(x)$.
+
+## Why the standard form is "minimize, with $g(x) \le 0$" {#sec-sign-convention}
+
+Any inequality can be rewritten in this form ($a(x) \ge b \iff b - a(x) \le 0$); fixing one form lets a single rule, $\mu \ge 0$, apply to every inequality multiplier. The sign pairing is not arbitrary:
+
+1. **Geometry.** On an active boundary, the feasible side is $g \le 0$, so $\nabla g$ points outward. At a minimizer the descent direction $-\nabla f$ must also point outward, otherwise we could descend into the interior. Hence $-\nabla f = \mu\nabla g$ with $\mu \ge 0$, i.e. $\nabla_x(f + \mu g) = 0$, $\mu \ge 0$. Writing the constraint as $g \ge 0$ would flip $\nabla g$ inward and produce $\mu \le 0$ in the same Lagrangian.
+2. **Weak duality.** For feasible $x$, $g(x) \le 0$ and $\mu \ge 0$ give $\mu^Tg(x) \le 0$, so $L \le f$ on the feasible set: the Lagrangian bounds the objective from below (@sec-duality). Violations ($g > 0$) increase $L$, as a penalty should for minimization.
+3. **Sensitivity.** Relaxing to $g(x) \le \varepsilon$ with $\varepsilon > 0$ enlarges the feasible set, so $p^\star$ cannot increase: $dp^\star/d\varepsilon = -\mu \le 0$. The multiplier is the value of relaxing the constraint and cannot be negative.
+4. **Convexity.** For convex $g$ the sublevel set $\{g \le 0\}$ is convex; the superlevel set $\{g \ge 0\}$ generally is not (e.g. $\lVert x \rVert^2 - 1 \ge 0$ is the outside of a ball). The convex standard form is: minimize convex $f$ subject to convex $g_i \le 0$ and affine $h_j = 0$.
+
+**Mixing forms breaks the conditions.** $\min x^2$ s.t. $x \ge 1$ has solution $x^\star = 1$.
+
+- Correct form $g = 1 - x \le 0$: $L = x^2 + \mu(1 - x)$, $2x - \mu = 0$; at the active point $x = 1$, $\mu = 2 \ge 0$. Accepted. Sensitivity check: $x \ge 1 - \varepsilon$ gives $p^\star = (1 - \varepsilon)^2$ and $dp^\star/d\varepsilon = -2 = -\mu$.
+- Wrong form (plugging $x - 1 \ge 0$ directly into $L$ with the rule $\mu \ge 0$): $L = x^2 + \mu(x - 1)$, $2x + \mu = 0$; at $x = 1$, $\mu = -2 < 0$ (rejected), and with $\mu = 0$, $x = 0$ is infeasible. No KKT point survives, and the true optimum is lost.
+
+Equality multipliers carry no sign restriction because an equality blocks both directions. A maximization must first be turned into a minimization of $-f$.
+
+## Active and inactive constraints
+
+| Term | Condition at $x$ | Meaning | Synonyms |
+|---|---|---|---|
+| active | $g_i(x) = 0$ | on the boundary; the constraint actually blocks some directions | binding, tight |
+| inactive | $g_i(x) < 0$ | strictly inside; there is room, so locally the constraint is irrelevant | non-binding, slack |
+
+Standing in the middle of a fenced yard, the fence does not affect where you can step (inactive); standing against the fence, you cannot step outward (active). Equality constraints are active at every feasible point, so the distinction concerns inequalities only.
+
+**Interior (inactive) case.** If $g_i(x^\star) < 0$, small steps in every direction remain feasible, so the constraint is locally irrelevant and the first-order condition reduces to the unconstrained one, $\nabla f(x^\star) = 0$ (in KKT terms $\mu_i^\star = 0$). In a picture: the nested contours of $f$ (smaller values toward the center) have their center inside the feasible region.
+
+**Boundary (active) case.** If the unconstrained minimizer is infeasible, the solution is pushed to the boundary, where $\nabla f \neq 0$ but is balanced as in the equality case with the extra sign condition: $\nabla f(x^\star) = -\mu^\star\nabla g(x^\star)$, $\mu^\star \ge 0$.
+
+| | $\min\,(x - 1)^2$ s.t. $x \le 2$ | $\min\,(x - 3)^2$ s.t. $x \le 2$ |
+|---|---|---|
+| unconstrained minimizer | $1$ (feasible) | $3$ (infeasible) |
+| solution $x^\star$ | $1$ | $2$ (boundary) |
+| $g(x^\star) = x^\star - 2$ | $-1$: inactive | $0$: active |
+| $\nabla f(x^\star)$ | $0$ | $2(2 - 3) = -2$ |
+| $\mu^\star$ | $0$ | $-2 + \mu = 0 \Rightarrow \mu = 2$ |
+
+## Geometry of the boundary case
+
+- **$\nabla g$ is the outward normal.** $g < 0$ inside, $= 0$ on the boundary, $> 0$ outside, so $g$ increases outward.
+- **Tangent cone.** From a boundary point the admissible directions satisfy $\nabla g^Td \le 0$: along the boundary ($= 0$) or inward ($< 0$). Outward ($> 0$) is forbidden. If $d$ is admissible so is $td$ for $t > 0$, which makes the set a cone with apex at $x^\star$. For a smooth boundary in 2-D it is a half-plane, a $180^\circ$ fan of directions.
+- **Optimality.** No admissible direction may decrease $f$:
+
+| Direction of $-\nabla f$ at a boundary point | Consequence | Optimal? |
+|---|---|---|
+| points inward (into the feasible side) | move inward and decrease $f$ | no (the multiplier would come out negative) |
+| has a component along the boundary | slide along the boundary and decrease $f$ | no |
+| exactly along the outward normal | every admissible direction is uphill or flat | yes |
+
+  The last row is $-\nabla f = \mu\nabla g$, $\mu \ge 0$. The steepest *feasible* descent direction is the projection of $-\nabla f$ onto the tangent cone, and it collapses to zero exactly when $-\nabla f$ is a nonnegative multiple of the outward normal. Then sliding along $g = 0$ produces no first-order change. In words: at the optimum there is **no** feasible descent direction; the direction we would like to go is exactly the blocked one.
+- **Directions, not lengths.** Replacing $g$ by $kg$ ($k > 0$) leaves the feasible set unchanged and rescales $\mu$ to $\mu/k$. What the condition really asserts is the collinearity and orientation of $\nabla f$ and $\nabla g$; the size of $\mu$ only balances their lengths.
+
+1-D check: $\min\,(x - 3)^2$ s.t. $x - 2 \le 0$ at $x^\star = 2$. $\nabla g = +1$ (outward is to the right), $-\nabla f = +2$ (exactly outward), $\mu = 2$. The only admissible direction is $d < 0$, along which $\nabla f\cdot d = -2d > 0$ is uphill.
+
+## The KKT conditions
+
+::: {#thm-kkt}
+## Karush–Kuhn–Tucker conditions
+Let $x^\star$ be a local minimizer and suppose the gradients of all equality constraints and of the *active* inequality constraints are linearly independent. Then there exist $\lambda^\star$ and $\mu^\star$ such that
+
+- **Stationarity:** $\nabla f(x^\star) + \sum_{j=1}^{\ell}\lambda_j^\star\nabla h_j(x^\star) + \sum_{i=1}^{m}\mu_i^\star\nabla g_i(x^\star) = 0$
+- **Primal feasibility:** $h_j(x^\star) = 0$ and $g_i(x^\star) \le 0$ for all $i, j$
+- **Dual feasibility:** $\mu_i^\star \ge 0$ for all $i$
+- **Complementary slackness:** $\mu_i^\star g_i(x^\star) = 0$ for all $i$
+:::
+
+**Block form.** Stacking the multipliers and constraints,
+
+$$
+L(x, \alpha) = f(x) + \alpha^T\begin{bmatrix} g(x) \\ h(x) \end{bmatrix}, \qquad \alpha = \begin{bmatrix} \mu \\ \lambda \end{bmatrix},
+$$
+
+with $g(x) \in \mathbb{R}^m$, $h(x) \in \mathbb{R}^\ell$, $\mu \in \mathbb{R}^m$ with $\mu \ge 0$, and $\lambda \in \mathbb{R}^\ell$. This equals $f + \mu^Tg + \lambda^Th$.
+
+**What the names mean.**
+
+| Condition | Word meaning | Why the name |
+|---|---|---|
+| stationarity | *stationary*: not moving | it is the zero-derivative condition $\nabla_xL = 0$: the gradient of $f$ balanced by constraint normals |
+| primal feasibility | *primal*: original; *feasible*: achievable | $x^\star$ satisfies the constraints of the original (primal) problem |
+| dual feasibility | *dual*: the paired problem | the multipliers satisfy the constraint $\mu \ge 0$ of the dual problem, whose variables are the multipliers (@sec-duality) |
+| complementary slackness | *slack*: room to spare; *complementary*: mutually completing | of the two slacks attached to each inequality, at least one must be zero |
+
+- *Stationarity* is the gradient balance. The "(minimization)" qualifier matters: this sign pattern assumes minimization with $g \le 0$.
+- *Dual feasibility.* Equality multipliers are free because an equality wall can push from either side. An inequality wall only pushes the point inward, so its force has one sign: $\mu \ge 0$.
+
+## Complementary slackness
+
+Each inequality carries two nonnegative "slacks":
+
+- the **constraint slack** $s_i = -g_i(x) \ge 0$ (distance to the boundary);
+- the **multiplier slack** $\mu_i \ge 0$ (distance of the multiplier from its bound $0$).
+
+Their product must vanish, so at least one is zero: if one has room, the other is tight.
+
+| Case | State | Conclusion |
+|---|---|---|
+| $g_i(x^\star) < 0$ (constraint has room) | inactive | $\mu_i^\star = 0$ (the constraint exerts no force) |
+| $\mu_i^\star > 0$ (the constraint exerts force) | active | $g_i(x^\star) = 0$ (the point is on the boundary) |
+
+The degenerate case $g_i = 0$ and $\mu_i = 0$ (weakly active) occurs when the unconstrained minimizer happens to lie exactly on the boundary.
+
+**Sum form versus componentwise form.**
+
+$$
+\sum_{i=1}^{m}\mu_i^\star g_i(x^\star) = 0 \iff \mu_i^\star g_i(x^\star) = 0 \ \ \forall i .
+$$
+
+The reverse direction is trivial. Forward: by primal and dual feasibility every term $\mu_ig_i$ is $\le 0$, and a sum of nonpositive numbers vanishes only if each term does.
+
+**A derivation through slack variables.** Convert each inequality into an equality, $g_i(x) + s_i^2 = 0$, and apply the equality theory to the variables $(x, s)$ with $L = f + \lambda^Th + \sum_i\mu_i(g_i + s_i^2)$:
+
+- $\partial L/\partial s_i = 2\mu_is_i = 0$: either $s_i = 0$ (active, $g_i = 0$) or $\mu_i = 0$. This is complementary slackness.
+- If $s_i = 0$, the direction $e_{s_i}$ (move $s_i$ only) is tangent, since the constraint gradient component $2s_i$ vanishes and no other constraint involves $s_i$. The second-order necessary condition along it gives $\partial^2L/\partial s_i^2 = 2\mu_i \ge 0$. This is dual feasibility.
+
+## Solving KKT by enumerating active sets
+
+Since we do not know in advance which constraints are active, split cases using complementary slackness, solve, and keep the cases that satisfy all conditions.
+
+*1-D:* $\min\,(x - 3)^2$ s.t. $x \le 2$.
+
+1. Assume inactive ($\mu = 0$): stationarity gives $x = 3$, but $g = 1 > 0$ violates primal feasibility. Reject.
+2. Assume active ($g = 0$): $x = 2$, stationarity gives $\mu = 2 \ge 0$. Accept.
+
+*2-D:* $\min\,(x_1 - 2)^2 + (x_2 - 2)^2$ s.t. $x_1 + x_2 - 2 \le 0$.
+
+1. Inactive: $x = (2, 2)$, $g = 2 > 0$. Reject.
+2. Active: $2(x_1 - 2) + \mu = 0$ and $2(x_2 - 2) + \mu = 0$ give $x_1 = x_2 = 2 - \mu/2$; then $x_1 + x_2 = 2 \Rightarrow \mu = 2 \ge 0$, $x^\star = (1, 1)$, $f^\star = 2$. Accept.
+
+Each condition has a job: primal feasibility rejected the first case; a negative $\mu$ would have been rejected by dual feasibility. With $m$ inequalities there are up to $2^m$ cases, so hand enumeration suits small problems.
+
+## Necessity and sufficiency
+
+- **Necessary:** at a local minimizer satisfying a constraint qualification (e.g. LICQ on the equalities and active inequalities), the KKT conditions hold.
+- **Sufficient for convex problems:** if $f$ and all $g_i$ are convex and all $h_j$ affine, any KKT point is a global minimizer.
+
+The conditions are named after Karush (1939) and, independently, Kuhn and Tucker (1951). With equality constraints only, dual feasibility and complementary slackness disappear and the classical Lagrange conditions remain.
+
+# Lagrangian Duality {#sec-duality}
+
+## Dual function and dual problem
+
+$$
+\begin{aligned}
+d^\star &= \max_{\mu \ge 0,\ \lambda\ \text{free}}\ \min_{x \in \mathbb{R}^n}\Big[f(x) + \sum_j\lambda_jh_j(x) + \sum_i\mu_ig_i(x)\Big] \\
+&\le\; p^\star = \min_{x}\ f(x)\ \ \text{s.t.}\ \ h_j(x) = 0,\ g_i(x) \le 0 .
+\end{aligned}
+$$
+
+Read carefully: the constraints belong only to the primal minimization in the second line. The inner minimization in the first line (the dual) is over **all** $x$, with no constraints.
+
+- **Primal:** the original problem, optimal value $p^\star$.
+- **Dual function:** for fixed multipliers, $q(\lambda, \mu) = \min_{x \in \mathbb{R}^n}L(x, \lambda, \mu)$.
+- **Dual problem:** $\max_{\lambda,\ \mu \ge 0}q(\lambda, \mu)$, optimal value $d^\star$.
+
+When $L(\cdot, \lambda, \mu)$ is convex and differentiable in $x$, the inner minimizer $x^\diamond(\lambda, \mu)$ solves $\nabla_xL = 0$ and $q(\lambda, \mu) = L(x^\diamond(\lambda, \mu), \lambda, \mu)$. Without convexity in $x$, a stationary point need not be a minimizer and the infimum can be $-\infty$.
+
+## Weak duality
+
+::: {#thm-weak-duality}
+## Weak duality
+$d^\star \le p^\star$.
+:::
+
+::: {.proof}
+Take any feasible $\tilde x$ and any $(\lambda, \mu)$ with $\mu \ge 0$.
+
+1. $L(\tilde x, \lambda, \mu) = f(\tilde x) + 0 + \sum_i\mu_ig_i(\tilde x) \le f(\tilde x)$, since $h_j(\tilde x) = 0$, $\mu_i \ge 0$, $g_i(\tilde x) \le 0$.
+2. A minimum over all $x$ is at most the value at a particular point: $q(\lambda, \mu) \le L(\tilde x, \lambda, \mu) \le f(\tilde x)$.
+3. This holds for every feasible $\tilde x$, so $q(\lambda, \mu) \le p^\star$; and for every admissible $(\lambda, \mu)$, so $d^\star \le p^\star$.
+:::
+
+Each choice of multipliers produces a lower bound on $p^\star$; the dual problem looks for the highest, most informative one.
+
+## Example
+
+$\min x^2$ s.t. $x \ge 1$, i.e. $g = 1 - x \le 0$, with $p^\star = 1$ at $x^\star = 1$. Minimizing $L = x^2 + \mu(1 - x)$ over $x$ gives $x = \mu/2$ and
+
+$$
+q(\mu) = \frac{\mu^2}{4} + \mu\Big(1 - \frac{\mu}{2}\Big) = \mu - \frac{\mu^2}{4}, \qquad \mu \ge 0 .
+$$
+
+| $\mu$ | inner minimizer $x = \mu/2$ | $q(\mu)$ | compared with $p^\star = 1$ |
+|---|---|---|---|
+| 0 | 0 (infeasible) | 0 | lower bound |
+| 1 | 0.5 (infeasible) | 0.75 | lower bound |
+| 2 | 1 (feasible) | 1 | maximum, equal to $p^\star$ |
+| 3 | 1.5 | 0.75 | lower bound |
+| 4 | 2 | 0 | lower bound |
+
+All values respect weak duality, and the maximum equals $p^\star$ (strong duality). The maximizer $\mu^\star = 2$ is the KKT multiplier, and at $\mu^\star$ the inner minimizer lands exactly on the constraint.
+
+## Properties
+
+- **The dual function is always concave.** For each fixed $x$, $L(x, \lambda, \mu)$ is affine in $(\lambda, \mu)$, and a pointwise infimum of affine functions is concave. Hence the dual problem (maximize a concave function over $\mu \ge 0$) is always a convex problem, even when the primal is not.
+- **Strong duality** ($d^\star = p^\star$) holds for convex problems under mild conditions, e.g. Slater's condition (a strictly feasible point exists). Then the dual can be solved instead of the primal, and the duality gap $f(\tilde x) - q(\lambda, \mu)$ certifies how close a feasible $\tilde x$ is to optimal.
+- **Strong duality implies KKT.** If $d^\star = p^\star$ with optimal $x^\star$ and $(\lambda^\star, \mu^\star)$, then
+$$
+f(x^\star) = q(\lambda^\star, \mu^\star) \le L(x^\star, \lambda^\star, \mu^\star) = f(x^\star) + \sum_i\mu_i^\star g_i(x^\star) \le f(x^\star),
+$$
+  so every inequality is an equality. Hence $x^\star$ minimizes $L(\cdot, \lambda^\star, \mu^\star)$, giving stationarity $\nabla_xL(x^\star, \lambda^\star, \mu^\star) = 0$, and $\sum_i\mu_i^\star g_i(x^\star) = 0$, giving complementary slackness. The objective gradient is canceled by a combination of constraint normals, and $\mu^\star \ge 0$ ensures that only active inequality boundaries push back.
+- **What the dual problem's constraints are.** Dual feasibility means $\mu \ge 0$; $\lambda$ is unrestricted (often the easy part). Complementary slackness is *not* a constraint to impose when maximizing $q$; it holds automatically at an optimal primal–dual pair under strong duality.
+
+# Dual Example: Quadratic Objective with a Perturbed Constraint Vector {#sec-dual-example}
+
+$$
+\min_{x,\ \delta}\ x^TAx \quad\text{s.t.}\quad (c_0 + \delta)^Tx = 1, \quad \lVert \delta \rVert^2 \le \varepsilon, \qquad A \succ 0 .
+$$
+
+The constraint vector $c_0$ is only approximately known and may be perturbed by $\delta$ of size at most $\sqrt\varepsilon$. Both $x$ and $\delta$ are decision variables. There is one equality (multiplier $\lambda$) and one inequality (multiplier $\mu \ge 0$):
+
+$$
+L = x^TAx + \lambda\big[(c_0 + \delta)^Tx - 1\big] + \mu\big(\lVert \delta \rVert^2 - \varepsilon\big).
+$$
+
+(Writing the norm constraint as $\lVert \delta \rVert^2 \le \varepsilon$ keeps the constraint and the Lagrangian term consistent; with $\lVert \delta \rVert_2 \le \varepsilon$ the term would be $\mu(\lVert \delta \rVert^2 - \varepsilon^2)$.)
+
+## Stationarity
+
+| Term | $\nabla_x$ | $\nabla_\delta$ |
+|---|---|---|
+| $x^TAx$ | $2Ax$ | $0$ |
+| $\lambda(c_0 + \delta)^Tx = \lambda(c_0^Tx + \delta^Tx)$ | $\lambda(c_0 + \delta)$ | $\lambda x$ |
+| $\mu(\delta^T\delta - \varepsilon)$ | $0$ | $2\mu\delta$ |
+
+$$
+(1)\ \ 2Ax + \lambda(c_0 + \delta) = 0, \qquad (2)\ \ \lambda x + 2\mu\delta = 0 .
+$$
+
+## The norm constraint is active
+
+By complementary slackness, $\mu = 0$ or $\lVert \delta \rVert^2 = \varepsilon$. Suppose $\mu = 0$. Then (2) reads $\lambda x = 0$, so $\lambda = 0$ or $x = 0$.
+
+- $x = 0$ violates $(c_0 + \delta)^T0 = 1$.
+- $\lambda = 0$ turns (1) into $2Ax = 0$, so $x = 0$ ($A$ is invertible): the same contradiction.
+
+Hence $\mu^\diamond > 0$ and the constraint is active: $\lVert \delta^\diamond \rVert^2 = \varepsilon$. The perturbation budget is used completely.
+
+::: {.callout-warning}
+## A tempting shortcut that does not hold
+"If $\mu = 0$ then $\delta = 0$" does not follow from (2): with $\mu = 0$, $\delta$ simply drops out of that equation. The contradiction must be reached through the cases $\lambda = 0$ and $x = 0$ as above.
+:::
+
+## The optimal perturbation is aligned with $x$
+
+With $\mu > 0$, (2) gives $\delta^\diamond = -\dfrac{\lambda}{2\mu}x^\diamond$, so $\delta \parallel x$. The orientation follows from (1): left-multiply by $x^T$ and use $(c_0 + \delta)^Tx = 1$, so $2x^TAx + \lambda = 0$, i.e.
+
+$$
+\lambda^\diamond = -2x^{\diamond T}Ax^\diamond < 0 .
+$$
+
+With $\mu > 0$, $-\lambda/(2\mu) > 0$: $\delta$ points in the **same** direction as $x$, and $\delta^\diamond = \sqrt\varepsilon\,x^\diamond/\lVert x^\diamond \rVert$.
+
+*Why.* The equality reads $c_0^Tx + \delta^Tx = 1$. For fixed $\lVert \delta \rVert = \sqrt\varepsilon$, Cauchy–Schwarz shows $\delta^Tx$ is largest when $\delta$ is along $x$. A larger $\delta^Tx$ lets a smaller $x$ satisfy the constraint, which lowers $x^TAx$. More precisely, for a given $x$, $\delta^Tx$ can take any value in $[-\sqrt\varepsilon\lVert x \rVert,\ \sqrt\varepsilon\lVert x \rVert]$, so $x$ is feasible for some admissible $\delta$ iff $\lvert 1 - c_0^Tx \rvert \le \sqrt\varepsilon\,\lVert x \rVert$.
+
+## Closed forms in $(\lambda, \mu)$
+
+Substitute $\delta = -\tfrac{\lambda}{2\mu}x$ into (1): $2Ax + \lambda c_0 - \tfrac{\lambda^2}{2\mu}x = 0$. A scalar cannot be subtracted from a matrix, so write $x = Ix$ to collect terms: $\big(2A - \tfrac{\lambda^2}{2\mu}I\big)x = -\lambda c_0$. Dividing by $2$,
+
+$$
+x^\diamond(\lambda, \mu) = -\frac{\lambda}{2}\Big(A - \frac{\lambda^2}{4\mu}I\Big)^{-1}c_0, \qquad \delta^\diamond(\lambda, \mu) = -\frac{\lambda}{2\mu}\,x^\diamond(\lambda, \mu).
+$$
+
+Compared with $x(\lambda) = -\tfrac{\lambda}{2}A^{-1}c$ in @sec-mvdr, $A$ is replaced by $A - \tfrac{\lambda^2}{4\mu}I$: the freedom to choose $\delta$ effectively shaves a multiple of the identity off $A$.
+
+## Dual function
+
+With $M = A - \tfrac{\lambda^2}{4\mu}I$, the dual function is $\tilde L(\lambda, \mu) = L(x^\diamond(\lambda, \mu), \delta^\diamond(\lambda, \mu); \lambda, \mu)$, to be maximized over $\lambda \in \mathbb{R}$, $\mu \ge 0$. It simplifies:
+
+- from (1) times $x^T$: $\lambda(c_0 + \delta)^Tx = -2x^TAx$, so $L = -x^TAx - \lambda + \mu\lVert \delta \rVert^2 - \mu\varepsilon$;
+- from $\delta = -\tfrac{\lambda}{2\mu}x$: $\mu\lVert \delta \rVert^2 = \tfrac{\lambda^2}{4\mu}\lVert x \rVert^2$, so $-x^TAx + \mu\lVert \delta \rVert^2 = -x^TMx = -\tfrac{\lambda^2}{4}c_0^TM^{-1}c_0$.
+
+$$
+\tilde L(\lambda, \mu) = -\frac{\lambda^2}{4}\,c_0^T\Big(A - \frac{\lambda^2}{4\mu}I\Big)^{-1}c_0 - \lambda - \mu\varepsilon .
+$$
+
+Check: without $\delta$ the same steps give $q(\lambda) = -\tfrac{\lambda^2}{4}c^TA^{-1}c - \lambda$, maximized at $\lambda = -2/(c^TA^{-1}c)$ with value $1/(c^TA^{-1}c)$, the result of @sec-mvdr.
+
+::: {.callout-important}
+## Domain of the dual function: $M \succ 0$
+$L$ contains the bilinear term $\lambda\delta^Tx$, so it is not jointly convex in $(x, \delta)$. The stationary point is the minimizer only if the joint Hessian
+$$
+\begin{aligned}
+\begin{bmatrix} 2A & \lambda I \\ \lambda I & 2\mu I \end{bmatrix} \succ 0
+&\iff \mu > 0 \ \text{ and } \ 2A - \frac{\lambda^2}{2\mu}I \succ 0 \\
+&\iff A - \frac{\lambda^2}{4\mu}I \succ 0 \iff \mu > \frac{\lambda^2}{4\lambda_{\min}(A)}
+\end{aligned}
+$$
+(Schur complement). Outside this region, scaling $x$ and $\delta$ together drives $L$ to $-\infty$, so $\tilde L = -\infty$. A numerical search must stay inside $M \succ 0$.
+:::
+
+## Equations for the multipliers
+
+Imposing the two constraints on the closed forms gives a pair of equations. With $\delta = \tfrac{\lambda^2}{4\mu}M^{-1}c_0$,
+
+$$
+\Big(\frac{\lambda^2}{4\mu}\Big)^2c_0^TM^{-2}c_0 = \varepsilon, \qquad c_0^TM^{-1}c_0 = -\frac{2}{\lambda} - \frac{4\varepsilon\mu}{\lambda^2},
+$$
+
+the second following from $c_0^Tx + \delta^Tx = 1$ with $\delta^Tx = -\tfrac{\lambda}{2\mu}\lVert x \rVert^2$ and $\lVert x \rVert^2 = 4\varepsilon\mu^2/\lambda^2$. These are nonlinear in $(\lambda, \mu)$ and may have several solutions, each of which must be checked (feasibility, $\mu > 0$, $M \succ 0$, objective value).
+
+## Numerical solution
+
+Differentiating $\tilde L$ requires the derivative of $M^{-1}$ with respect to $(\lambda, \mu)$, which is messy. But there are only two scalar unknowns, so a grid search or a generic optimizer over the region $\mu \ge 0$, $M \succ 0$ is practical. For $A = \mathrm{diag}(1, 4)$, $c_0 = (1, 1)$, $\varepsilon = 0.04$ ($\lVert \delta \rVert \le 0.2$):
+
+| Quantity | Value |
+|---|---|
+| dual maximum (grid search) | $0.58797$ at $\lambda \approx -1.175$, $\mu \approx 2.11$ |
+| primal minimum (direct optimization) | $0.58797$ |
+| $\lVert \delta^\diamond \rVert$ | $0.200$ (active, as predicted) |
+| check $\lambda = -2x^TAx$ | $-2 \times 0.588 \approx -1.176$ |
+| same problem with $\varepsilon = 0$ | $0.8$ |
+
+The closed-form $\tilde L$ and the direct evaluation of $L$ at the stationary point agree, and both multiplier equations hold to grid accuracy. Only $\mu \ge 0$ and $M \succ 0$ were imposed during the search; complementary slackness ($\lVert \delta \rVert^2 = \varepsilon$) emerged by itself at the optimum. Here the dual and primal values coincide, but the equality constraint is bilinear in $(x, \delta)$, so the primal is nonconvex and a zero duality gap is not guaranteed in general.
+
+::: {.callout-note}
+## Optimistic, not robust
+Because $\delta$ is minimized jointly with $x$, it is chosen in the *most favorable* way: allowing $\delta$ lowered the optimum from $0.8$ to $0.588$. This is a best-case (optimistic) design. A robust design against coefficient uncertainty requires performance for *every* admissible $\delta$, a min–max problem $\min_x\max_\delta$, which is a different problem.
+:::
+
+# Worked Problem: The Minimum-Variance Estimator and the Capon Spectrum {#sec-mv-problem}
+
+**Problem.** Observations $X = s + N$ consist of a known deterministic signal $s$ plus noise. Find the FIR filter $h$ that passes the signal with unit gain while minimizing the power of the filtered observations:
+
+$$
+\min_h\ \mathrm{E}\big[\lvert h^HX \rvert^2\big] \quad\text{s.t.}\quad h^Hs = 1 .
+$$
+
+(a) Find the optimal filter. (b) Find the variance (power) of the resulting estimator. (c) For spectral estimation at frequency $f$, take $s = e(f) = \mathrm{col}\{1, e^{j2\pi f}, e^{j2\pi 2f}, \dots, e^{j2\pi(N-1)f}\}$. What is the minimum-variance spectral estimator?
+
+Since the signal may be complex, the objective must be $\lvert h^HX \rvert^2$; $(h^HX)^2$ would be complex and cannot be minimized.
+
+**Assumptions.** $\mathrm{E}[N] = 0$ and $K_N = \mathrm{E}[NN^H]$ is Hermitian positive definite.
+
+## Rewriting the objective; why the name fits
+
+Since $\lvert y \rvert^2 = yy^*$ and $(h^HX)^* = X^Hh$,
+
+$$
+\mathrm{E}\big[\lvert h^HX \rvert^2\big] = h^H\,\underbrace{\mathrm{E}[XX^H]}_{R}\,h, \qquad R = ss^H + K_N
+$$
+
+(cross terms vanish because the noise has zero mean). Hence
+
+$$
+h^HRh = \lvert h^Hs \rvert^2 + h^HK_Nh,
+$$
+
+and on the feasible set the first term is always $1$. Minimizing total output power and minimizing output *noise* power are therefore the same problem. Since $h^HX = 1 + h^HN$ has mean $1$ and variance $h^HK_Nh$, minimizing the power is minimizing the variance, which explains the name "minimum variance."
+
+## (a) The optimal filter
+
+*Uniqueness.* $K_N \succ 0$ makes the objective strictly convex, and $h^Hs = 1$ is affine in real coordinates, so the minimizer is unique and global.
+
+*Lagrange.* With $K = K_N$ and a real Lagrangian (the constraint is complex):
+
+$$
+L = h^HKh + \lambda(h^Hs - 1) + \lambda^*(s^Hh - 1).
+$$
+
+$h^Hs$ depends on $h^*$; $s^Hh$ does not. Hence $\nabla_{h^*}L = Kh + \lambda s = 0$, so $h = -\lambda K^{-1}s$. Imposing the constraint with $h^H = -\lambda^*s^HK^{-1}$: $-\lambda^*s^HK^{-1}s = 1$, so $\lambda^* = -1/(s^HK^{-1}s)$, real since $s^HK^{-1}s > 0$. Therefore
+
+$$
+\boxed{h_\diamond = \frac{K_N^{-1}s}{s^HK_N^{-1}s}} .
+$$
+
+*Proof by Cauchy–Schwarz (global optimality in one line).*
+
+$$
+1 = \lvert h^Hs \rvert^2 = \big\lvert (K^{1/2}h)^H(K^{-1/2}s) \big\rvert^2 \le (h^HKh)(s^HK^{-1}s),
+$$
+
+so $h^HKh \ge 1/(s^HK^{-1}s)$ for every feasible $h$, with equality iff $K^{1/2}h \propto K^{-1/2}s$, i.e. $h \propto K^{-1}s$. Interpretation: $K^{-1/2}$ whitens the noise; in the whitened domain the matched filter is optimal; mapping back gives $h_\diamond$.
+
+*Using $R$ instead of $K_N$ gives the same filter.* By the Sherman–Morrison formula, $R^{-1}s = (K + ss^H)^{-1}s = \dfrac{K^{-1}s}{1 + s^HK^{-1}s}$, which is proportional to $K^{-1}s$. After normalization,
+
+$$
+h_\diamond = \frac{R^{-1}s}{s^HR^{-1}s} .
+$$
+
+This matters in (c), where signal and noise cannot be separated and only $R$ can be estimated.
+
+## (b) Variance and power
+
+Let $a = s^HK_N^{-1}s$.
+
+$$
+\begin{aligned}
+\mathrm{Var}\big(h_\diamond^HX\big) &= h_\diamond^HK_Nh_\diamond = \frac{1}{s^HK_N^{-1}s} = \frac1a, \\
+\mathrm{E}\big[\lvert h_\diamond^HX \rvert^2\big] &= 1 + \frac1a = \frac{1}{s^HR^{-1}s},
+\end{aligned}
+$$
+
+using $s^HR^{-1}s = a - \tfrac{a^2}{1 + a} = \tfrac{a}{1 + a}$. With a nonzero mean, mean-square value and variance differ, here by exactly $\lvert h^Hs \rvert^2 = 1$.
+
+*Interpretation.* If the amplitude $A$ is unknown, $X = As + N$, then $h_\diamond^HX = A + h_\diamond^HN$ is an unbiased estimator of $A$ with variance $1/a$: the best linear unbiased estimator (BLUE), and for Gaussian noise the minimum-variance unbiased estimator. For white noise $K_N = \sigma^2I$ with $\lvert s_n \rvert = 1$, the variance is $\sigma^2/N$, the familiar averaging gain.
+
+## (c) The minimum-variance (Capon) spectrum
+
+Now $X$ is the stochastic sequence itself and the "signal" is the complex exponential $e(f)$. The constraint $h^He(f) = \sum_nh_n^*e^{j2\pi fn} = 1$ says the filter's frequency response at $f$ equals $1$: the component at $f$ passes unchanged while the output power is minimized. The filter therefore suppresses leakage from all other frequencies, and the remaining output power measures the power near $f$:
+
+$$
+h_f = \frac{K_X^{-1}e(f)}{e^H(f)K_X^{-1}e(f)},
+$$
+
+$$
+\boxed{S_X^{MV}(f) = \mathrm{E}\big[\lvert h_f^HX \rvert^2\big] = \frac{1}{e^H(f)\,K_X^{-1}\,e(f)}} .
+$$
+
+In practice $K_X$ is replaced by an estimate, for example $\hat K_X = \tfrac1L\sum_{l=1}^{L}x_lx_l^H$ from length-$N$ snapshots $x_l$ of the data. The filter length should be well below the data length so that $\hat K_X^{-1}$ is stable.
+
+**Single tone in white noise.** $K_X = \sigma^2I + Pe_0e_0^H$. Sherman–Morrison gives
+
+$$
+e^HK_X^{-1}e = \frac{1}{\sigma^2}\Big[N - \frac{P\lvert e^He_0 \rvert^2}{\sigma^2 + PN}\Big],
+$$
+
+so that
+
+$$
+S^{MV}(f_0) = P + \frac{\sigma^2}{N}, \qquad S^{MV}(f) \approx \frac{\sigma^2}{N} \ \text{ away from } f_0 .
+$$
+
+The tone power $P$ is captured exactly and the noise is admitted only through a bandwidth of about $1/N$. With white noise alone, $S^{MV} = \sigma^2/N$; some authors multiply by $N$ to express the result as a density, $N/(e^HK^{-1}e)$.
+
+**Comparison with the data-independent filter.** Fixing $h = e(f)/N$ (the case where $A^{-1}$ "cancels," @sec-mvdr) gives the conventional Fourier-type estimate $e^HK_Xe/N^2$. For two equal tones at $f = 0.20$ and $0.23$ (spacing $0.03 < 1/N = 0.0625$), $N = 16$, $20$ dB SNR per tone, evaluated with the true covariance:
+
+| | Conventional ($h = e/N$) | Minimum variance (Capon) |
+|---|---|---|
+| at $f = 0.20$ and $0.23$ | $+1.6$ dB (the two tones merge) | $0.0$ dB (two separate peaks) |
+| at $f = 0.215$ (between the tones) | $+2.2$ dB (single merged peak) | $-11.2$ dB (a deep dip) |
+| floor away from the tones | $-13$ to $-21$ dB (sidelobe leakage) | about $-32$ dB $= 10\log_{10}(\sigma^2/N)$ |
+
+The conventional estimate cannot resolve the tones; the minimum-variance filter places a null on the neighboring tone and resolves them.
+
+```python
+import numpy as np
+N, f1, f2, P, s2 = 16, 0.20, 0.23, 1.0, 0.01
+n = np.arange(N)
+e = lambda f: np.exp(1j * 2 * np.pi * f * n)
+R = s2 * np.eye(N) + P * np.outer(e(f1), e(f1).conj()) + P * np.outer(e(f2), e(f2).conj())
+Ri = np.linalg.inv(R)
+for f in [0.20, 0.215, 0.23]:
+    v = e(f)
+    conv = np.real(v.conj() @ R @ v) / N**2
+    mv = 1 / np.real(v.conj() @ Ri @ v)
+    print(f, 10 * np.log10(conv), 10 * np.log10(mv))
+```
+
+# Practice Problems {#sec-practice}
+
+**Problem 1 (classifying stationary points).** Find and classify the stationary points of $f(x) = x^4 - 2x^2$, and classify the stationary point of $x^3$ and of $x^6$ at $0$ by the higher-order test.
+
+::: {.callout-tip collapse="true"}
+## Solution
+$f' = 4x^3 - 4x = 4x(x^2 - 1) = 0 \Rightarrow x \in \{0, \pm1\}$. $f'' = 12x^2 - 4$: $f''(0) = -4$ (local maximum, $f = 0$), $f''(\pm1) = 8$ (local, in fact global, minima, $f = -1$). For $x^3$ the first nonzero derivative at $0$ has order $3$ (odd): a stationary inflection point. For $x^6$ it has order $6$ (even) with $f^{(6)} = 720 > 0$: a strict minimum.
+:::
+
+**Problem 2 (Wirtinger derivatives).** For real $\beta \neq \pm1$, find the stationary points of (a) $\lvert z - a \rvert^2$; (b) $f = \lvert z \rvert^2 + \tfrac{\beta}{2}(z^2 + z^{*2})$ and decide when the point is a minimum; (c) $f = z^HAz - 2\,\mathrm{Re}\{b^Hz\}$ with $A$ Hermitian positive definite, including the minimum value.
+
+::: {.callout-tip collapse="true"}
+## Solution
+(a) $f = (z - a)(z^* - a^*)$, $\partial f/\partial z^* = z - a = 0 \Rightarrow z = a$.
+
+(b) $\partial f/\partial z^* = z + \beta z^* = (1 + \beta)x + j(1 - \beta)y = 0 \Rightarrow z = 0$. In real form $f = (1+\beta)x^2 + (1-\beta)y^2$: a minimum iff $\lvert \beta \rvert < 1$, a saddle if $\lvert \beta \rvert > 1$, although $\partial^2 f/\partial z\,\partial z^* = 1$ always (@sec-hessian).
+
+(c) $-2\,\mathrm{Re}\{b^Hz\} = -(b^Hz + z^Hb)$, so $\nabla_{z^*}f = Az - b = 0 \Rightarrow z^\diamond = A^{-1}b$, and $f(z^\diamond) = b^HA^{-1}b - 2b^HA^{-1}b = -b^HA^{-1}b$.
+:::
+
+**Problem 3 (gradient and level sets).** For $f = x_1^2 + 4x_2^2$, verify that the gradient at $(1, \tfrac12)$ is orthogonal to the level set through that point.
+
+::: {.callout-tip collapse="true"}
+## Solution
+The level is $c = 1 + 1 = 2$. Parametrize the ellipse by $x_1 = \sqrt2\cos t$, $x_2 = \tfrac{\sqrt2}{2}\sin t$; the point corresponds to $t = 45^\circ$, where $r'(t) = (-\sqrt2\sin t,\ \tfrac{\sqrt2}{2}\cos t) = (-1,\ \tfrac12)$. $\nabla f = (2x_1, 8x_2) = (2, 4)$ and $\nabla f\cdot r' = -2 + 2 = 0$.
+:::
+
+**Problem 4 (least squares through the origin).** Fit $y = ax$ to $(1, 2), (2, 3), (3, 7)$.
+
+::: {.callout-tip collapse="true"}
+## Solution
+$\Phi = \mathrm{col}[1, 2, 3]$, $Y = \mathrm{col}[2, 3, 7]$. The normal equation $\Phi^T\Phi\,a = \Phi^TY$ is $14a = 29$, so $a = 29/14 \approx 2.071$. The residual $(2 - 2.071,\ 3 - 4.143,\ 7 - 6.214)$ is orthogonal to $\Phi$: $-0.071 - 2.286 + 2.357 = 0$.
+:::
+
+**Problem 5 (equality constraint, sensitivity, second order).** Solve $\min x_1^2 + 4x_2^2$ s.t. $x_1 + x_2 = 1$; verify $dp^\star/d\varepsilon = -\lambda$ and the second-order condition.
+
+::: {.callout-tip collapse="true"}
+## Solution
+$2x_1 + \lambda = 0$, $8x_2 + \lambda = 0 \Rightarrow x_1 = 4x_2$; with the constraint, $x^\star = (0.8, 0.2)$, $\lambda^\star = -1.6$, $p^\star = 0.8$. For $x_1 + x_2 = 1 + \varepsilon$, homogeneity gives $x^\star = (1 + \varepsilon)(0.8, 0.2)$ and $p^\star = 0.8(1 + \varepsilon)^2$, so $dp^\star/d\varepsilon|_0 = 1.6 = -\lambda^\star$. Second order: $\nabla^2L = \mathrm{diag}(2, 8)$, tangent directions $y = (t, -t)$, $y^T\nabla^2Ly = 10t^2 > 0$: a strict minimum.
+:::
+
+**Problem 6 (KKT by cases).** Solve $\min\,(x_1 - 2)^2 + (x_2 - 2)^2$ s.t. $x_1 + x_2 \le 2$, and check all four KKT conditions.
+
+::: {.callout-tip collapse="true"}
+## Solution
+Inactive case: $x = (2, 2)$ violates $g = x_1 + x_2 - 2 \le 0$. Active case: $x^\star = (1, 1)$, $\mu^\star = 2$. Stationarity: $(2(1-2), 2(1-2)) + 2(1, 1) = 0$. Primal: $g = 0$. Dual: $\mu = 2 \ge 0$. Complementary slackness: $2 \cdot 0 = 0$. The optimal value is $2$; geometrically $x^\star$ is the projection of $(2, 2)$ onto the half-plane.
+:::
+
+**Problem 7 (a dual problem).** Derive and maximize the dual of $\min x_1^2 + x_2^2$ s.t. $x_1 + x_2 \ge 2$.
+
+::: {.callout-tip collapse="true"}
+## Solution
+Standard form $g = 2 - x_1 - x_2 \le 0$. $L = x_1^2 + x_2^2 + \mu(2 - x_1 - x_2)$ is minimized at $x_i = \mu/2$, so $q(\mu) = \tfrac{\mu^2}{2} + 2\mu - \mu^2 = 2\mu - \tfrac{\mu^2}{2}$, maximized at $\mu^\star = 2$ with $d^\star = 2$. The primal gives $x^\star = (1, 1)$, $p^\star = 2$: strong duality, and $\mu^\star = 2$ satisfies KKT stationarity $(2x_i - \mu) = 0$ at $x_i = 1$.
+:::
+
+**Problem 8 (complex least squares).** Derive the normal equations for $\min_z\lVert y - Hz \rVert^2$ using $\nabla_{z^*}$, and show that using $\nabla_z$ yields the same equations only after conjugate transposition.
+
+::: {.callout-tip collapse="true"}
+## Solution
+$J = y^Hy - y^HHz - z^HH^Hy + z^HH^HHz$. $\nabla_{z^*}J = -H^Hy + H^HHz = 0 \Rightarrow H^HHz = H^Hy$. With $z^*$ held fixed instead, $\partial J/\partial z = -y^HH + z^HH^HH = -(y - Hz)^HH$ (a row), whose conjugate transpose is $-H^H(y - Hz)$: the same equations with one extra step.
+:::
+
+**Problem 9 (LCMV with $A = I$).** Find the minimum-norm $z$ with $z_1 + z_2 + z_3 = 1$ and $z_1 - z_2 = 0$.
+
+::: {.callout-tip collapse="true"}
+## Solution
+$C = \begin{bmatrix} 1 & 1 & 1 \\ 1 & -1 & 0 \end{bmatrix}$, $c = \mathrm{col}[1, 0]$, $CC^H = \mathrm{diag}(3, 2)$, so $(CC^H)^{-1}c = \mathrm{col}[1/3, 0]$ and $z = C^H\,\mathrm{col}[1/3, 0] = \tfrac13(1, 1, 1)$. Both constraints hold and $\lVert z \rVert^2 = \tfrac13$.
+:::
+
+**Problem 10 (minimum variance in white noise).** In the minimum-variance problem, let $K_N = \sigma^2I$ and $s = e(f)$. Find $h_\diamond$, its output variance, and $S^{MV}(f)$, and compare with the conventional filter.
+
+::: {.callout-tip collapse="true"}
+## Solution
+$e^He = N$, so $h_\diamond = e/N$, the normalized matched filter, which coincides with the conventional choice. The variance is $\sigma^2/N$ and $S^{MV}(f) = 1/(e^H(\sigma^{-2}I)e) = \sigma^2/N$ for every $f$. The two estimators differ only when the covariance is not a multiple of the identity, which is exactly when the data-adaptive $K_X^{-1}$ helps.
+:::
+
+# Summary {#sec-summary}
+
+## Optimality conditions at a glance
+
+| Setting | First order | Second order (sufficient) |
+|---|---|---|
+| unconstrained | $\nabla f = 0$ | $\nabla^2 f \succ 0$ |
+| equality constraints | $\nabla f + \nabla g\,\lambda = 0$, $g = 0$ (LICQ) | $y^T\nabla_x^2Ly > 0$ for nonzero $y$ with $\nabla g^Ty = 0$ |
+| inequality constraints | KKT: stationarity, primal and dual feasibility, complementary slackness | as above on the active constraints (with $\mu > 0$) |
+| convex problems | KKT is necessary and sufficient (with a constraint qualification) | not needed |
+
+## Rules used throughout
+
+1. $(AB)^T = B^TA^T$; a scalar equals its transpose.
+2. $\nabla(c^Tx) = c$; $\nabla(x^TAx) = (A + A^T)x$; $\nabla_X\,\mathrm{tr}(X^TY) = Y$.
+3. The gradient is the coefficient of $h$ in $f(x + h) = f(x) + g^Th + o(\lVert h \rVert)$.
+4. For real $f(z, z^*)$: differentiate in $z^*$ with $z$ fixed; $\nabla_z f = (\nabla_{z^*} f)^*$; descend along $-\nabla_{z^*} f$.
+5. Complex constraints enter the Lagrangian through their real part, $2\,\mathrm{Re}\{\lambda^Hg\}$.
+6. One multiplier per constraint; equality multipliers free, inequality multipliers $\ge 0$ for "minimize with $g \le 0$."
+7. Convert maximization to minimization before applying a standard form.
+8. Solve linear systems (QR/SVD) instead of forming inverses.
+
+## Pitfalls to remember
+
+- $f'' > 0$ (or $\succ 0$, or $> 0$ on the tangent space) is sufficient; the corresponding "$\ge$" is necessary.
+- Strict convexity gives at most one minimizer, not existence.
+- $\partial f/\partial z$ is not a descent direction; $\partial f/\partial z^*$ is.
+- $A^{-1}$ in $A^{-1}c/(c^TA^{-1}c)$ cannot be canceled.
+- Strictly convex *equality* constraints destroy convexity of the feasible set.
+- LICQ failure can make multipliers nonexistent at the true optimum.
+- The dual function obtained from $\nabla_xL = 0$ is valid only where $L$ is convex in $x$; otherwise it is $-\infty$.
+- Jointly minimizing over an uncertainty $\delta$ is optimistic, not robust.
